@@ -12,6 +12,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CORE_SOURCES
     src/core/audio.cpp
     src/core/emulator.cpp
+    src/core/sna_loader.cpp
+    src/core/ula_contention.cpp
     src/core/z80/z80.cpp
     src/core/z80/z80_opcodes_main.cpp
     src/core/z80/z80_opcodes_cb.cpp
@@ -88,6 +90,7 @@ if(EMSCRIPTEN)
                 \"_getAudioBuffer\", \
                 \"_getAudioSampleCount\", \
                 \"_resetAudioBuffer\", \
+                \"_loadSNA\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \

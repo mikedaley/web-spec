@@ -6,6 +6,7 @@
  */
 
 #include "emulator.hpp"
+#include "sna_loader.hpp"
 #include <cstring>
 
 #include "roms.cpp"
@@ -37,6 +38,10 @@ void Emulator::init()
     }
 
     audio_.setup(AUDIO_SAMPLE_RATE, FRAMES_PER_SECOND, TSTATES_PER_FRAME);
+    contention_.init();
+
+    displayBuildLineAddressTable();
+    displayBuildTsTable();
 
     reset();
     z80_->signalInterrupt();
@@ -47,7 +52,13 @@ void Emulator::reset()
     z80_->reset(true);
     audio_.reset();
     keyboardMatrix_.fill(0xBF);
+    displayFrameReset();
     paused_ = false;
+}
+
+void Emulator::loadSNA(const uint8_t* data, uint32_t size)
+{
+    SNALoader::load(*this, data, size);
 }
 
 void Emulator::runCycles(int cycles)
@@ -72,66 +83,186 @@ void Emulator::runFrame()
 
     z80_->resetTStates(TSTATES_PER_FRAME);
     z80_->signalInterrupt();
-    renderFrame();
+    displayUpdateWithTs(TSTATES_PER_FRAME - emuCurrentDisplayTs_);
+    displayFrameReset();
     frameCounter_++;
 }
 
-void Emulator::renderFrame()
+void Emulator::displayBuildLineAddressTable()
 {
-    uint32_t* pixels = reinterpret_cast<uint32_t*>(framebuffer_.data());
-    const uint32_t borderRGBA = SPECTRUM_COLORS[borderColor_];
-
-    // Fill entire framebuffer with border color
-    for (int i = 0; i < TOTAL_WIDTH * TOTAL_HEIGHT; i++)
+    for (uint32_t i = 0; i < 3; i++)
     {
-        pixels[i] = borderRGBA;
-    }
-
-    bool flashInvert = (frameCounter_ & 0x10) != 0;
-
-    // Render 256x192 screen area
-    for (int y = 0; y < SCREEN_HEIGHT; y++)
-    {
-        for (int x = 0; x < SCREEN_WIDTH; x += 8)
+        for (uint32_t j = 0; j < 8; j++)
         {
-            // ZX Spectrum bitmap address calculation
-            uint16_t bitmapAddr = 0x4000
-                | ((y & 0xC0) << 5)
-                | ((y & 0x07) << 8)
-                | ((y & 0x38) << 2)
-                | (x >> 3);
-
-            // Attribute address
-            uint16_t attrAddr = 0x5800 + ((y >> 3) * 32) + (x >> 3);
-
-            uint8_t bitmap = memory_[bitmapAddr];
-            uint8_t attr = memory_[attrAddr];
-
-            bool flash = (attr & 0x80) != 0;
-            bool bright = (attr & 0x40) != 0;
-            uint8_t paper = (attr >> 3) & 0x07;
-            uint8_t ink = attr & 0x07;
-
-            if (flash && flashInvert)
+            for (uint32_t k = 0; k < 8; k++)
             {
-                uint8_t tmp = ink;
-                ink = paper;
-                paper = tmp;
-            }
-
-            uint32_t inkRGBA = SPECTRUM_COLORS[ink + (bright ? 8 : 0)];
-            uint32_t paperRGBA = SPECTRUM_COLORS[paper + (bright ? 8 : 0)];
-
-            int screenY = BORDER_TOP + y;
-            int screenX = BORDER_LEFT + x;
-
-            for (int bit = 7; bit >= 0; bit--)
-            {
-                int px = screenX + (7 - bit);
-                pixels[screenY * TOTAL_WIDTH + px] = (bitmap & (1 << bit)) ? inkRGBA : paperRGBA;
+                displayLineAddrTable_[(i << 6) + (j << 3) + k] =
+                    static_cast<uint16_t>((i << 11) + (j << 5) + (k << 8));
             }
         }
     }
+}
+
+void Emulator::displayBuildTsTable()
+{
+    // Horizontal timing in T-states (each T-state = 2 pixels)
+    constexpr uint32_t tsLeftBorderEnd = PX_EMU_BORDER_H / 2;       // 24
+    constexpr uint32_t tsRightBorderStart = tsLeftBorderEnd + TS_HORIZONTAL_DISPLAY; // 152
+    constexpr uint32_t tsRightBorderEnd = tsRightBorderStart + (PX_EMU_BORDER_H / 2); // 176
+
+    // Vertical line ranges
+    constexpr uint32_t pxLineTopBorderStart = PX_VERTICAL_BLANK;    // 8
+    constexpr uint32_t pxLinePaperStart = PX_VERTICAL_BLANK + PX_VERT_BORDER; // 64
+    constexpr uint32_t pxLinePaperEnd = pxLinePaperStart + PX_VERTICAL_DISPLAY; // 256
+    // Bottom border: show PX_EMU_BORDER_BOTTOM lines after paper
+    constexpr uint32_t pxLineBottomBorderEnd = pxLinePaperEnd + PX_EMU_BORDER_BOTTOM; // 312
+
+    // Top border: show PX_EMU_BORDER_TOP lines before paper
+    constexpr uint32_t pxLineTopBorderVisible = pxLinePaperStart - PX_EMU_BORDER_TOP; // 16
+
+    for (uint32_t line = 0; line < PX_VERTICAL_TOTAL; line++)
+    {
+        for (uint32_t ts = 0; ts < TSTATES_PER_SCANLINE; ts++)
+        {
+            // Default to retrace
+            displayTstateTable_[line][ts] = DISPLAY_RETRACE;
+
+            // Vertical blank - always retrace
+            if (line < PX_VERTICAL_BLANK)
+            {
+                continue;
+            }
+
+            // Top border region
+            if (line >= pxLineTopBorderStart && line < pxLinePaperStart)
+            {
+                if (ts >= tsRightBorderEnd || line < pxLineTopBorderVisible)
+                {
+                    // H-retrace or above visible top border
+                    continue;
+                }
+                displayTstateTable_[line][ts] = DISPLAY_BORDER;
+            }
+            // Paper region (with left/right borders)
+            else if (line >= pxLinePaperStart && line < pxLinePaperEnd)
+            {
+                if (ts < tsLeftBorderEnd || (ts >= tsRightBorderStart && ts < tsRightBorderEnd))
+                {
+                    displayTstateTable_[line][ts] = DISPLAY_BORDER;
+                }
+                else if (ts >= tsRightBorderEnd)
+                {
+                    // H-retrace
+                    continue;
+                }
+                else
+                {
+                    displayTstateTable_[line][ts] = DISPLAY_PAPER;
+                }
+            }
+            // Bottom border region
+            else if (line >= pxLinePaperEnd && line < pxLineBottomBorderEnd)
+            {
+                if (ts >= tsRightBorderEnd)
+                {
+                    continue;
+                }
+                displayTstateTable_[line][ts] = DISPLAY_BORDER;
+            }
+        }
+    }
+}
+
+void Emulator::displayUpdateWithTs(int32_t tStates)
+{
+    uint32_t* pixels = reinterpret_cast<uint32_t*>(framebuffer_.data());
+    const uint8_t flashMask = (frameCounter_ & 0x10) ? 0xff : 0x00;
+
+    // yAdjust: number of lines before paper starts
+    constexpr uint32_t yAdjust = PX_VERTICAL_BLANK + PX_VERT_BORDER;
+    // Horizontal T-state offset where paper begins
+    constexpr uint32_t tsLeftBorderEnd = PX_EMU_BORDER_H / 2;
+
+    while (tStates > 0)
+    {
+        uint32_t line = emuCurrentDisplayTs_ / TSTATES_PER_SCANLINE;
+        uint32_t ts = emuCurrentDisplayTs_ % TSTATES_PER_SCANLINE;
+
+        // Bounds check
+        if (line >= PX_VERTICAL_TOTAL)
+        {
+            break;
+        }
+
+        uint32_t action = displayTstateTable_[line][ts];
+
+        switch (action)
+        {
+            case DISPLAY_BORDER:
+            {
+                uint32_t color = SPECTRUM_COLORS[borderColor_];
+                uint32_t idx = displayBufferIndex_;
+                pixels[idx]     = color;
+                pixels[idx + 1] = color;
+                pixels[idx + 2] = color;
+                pixels[idx + 3] = color;
+                pixels[idx + 4] = color;
+                pixels[idx + 5] = color;
+                pixels[idx + 6] = color;
+                pixels[idx + 7] = color;
+                displayBufferIndex_ += 8;
+                break;
+            }
+
+            case DISPLAY_PAPER:
+            {
+                uint32_t y = line - yAdjust;
+                uint32_t x = (ts / TSTATES_PER_CHAR) - (tsLeftBorderEnd / TSTATES_PER_CHAR);
+
+                uint16_t pixelAddr = displayLineAddrTable_[y] + x;
+                uint16_t attrAddr = 6144 + ((y >> 3) << 5) + x;
+
+                uint8_t pixelByte = memory_[0x4000 + pixelAddr];
+                uint8_t attrByte = memory_[0x4000 + attrAddr];
+
+                bool flash = (attrByte & 0x80) != 0;
+                bool bright = (attrByte & 0x40) != 0;
+                uint8_t ink = attrByte & 0x07;
+                uint8_t paper = (attrByte >> 3) & 0x07;
+
+                if (flash && flashMask)
+                {
+                    uint8_t tmp = ink;
+                    ink = paper;
+                    paper = tmp;
+                }
+
+                uint32_t inkRGBA = SPECTRUM_COLORS[ink + (bright ? 8 : 0)];
+                uint32_t paperRGBA = SPECTRUM_COLORS[paper + (bright ? 8 : 0)];
+
+                uint32_t idx = displayBufferIndex_;
+                for (int bit = 7; bit >= 0; bit--)
+                {
+                    pixels[idx++] = (pixelByte & (1 << bit)) ? inkRGBA : paperRGBA;
+                }
+                displayBufferIndex_ += 8;
+                break;
+            }
+
+            default:
+                // Retrace - no pixel output
+                break;
+        }
+
+        emuCurrentDisplayTs_ += TSTATES_PER_CHAR;
+        tStates -= TSTATES_PER_CHAR;
+    }
+}
+
+void Emulator::displayFrameReset()
+{
+    emuCurrentDisplayTs_ = 0;
+    displayBufferIndex_ = 0;
 }
 
 const uint8_t* Emulator::getFramebuffer() const
@@ -208,12 +339,18 @@ void Emulator::memWrite(uint16_t address, uint8_t data, void* /*param*/)
 {
     if (address >= ROM_48K_SIZE)
     {
+        if (address < 0x5B00)
+        {
+            displayUpdateWithTs(static_cast<int32_t>((z80_->getTStates() - emuCurrentDisplayTs_) + PAPER_DRAWING_OFFSET));
+        }
         memory_[address] = data;
     }
 }
 
 uint8_t Emulator::ioRead(uint16_t address, void* /*param*/)
 {
+    contention_.applyIOContention(*z80_, address);
+
     if ((address & 0x01) == 0)
     {
         uint8_t result = 0xBF;
@@ -231,15 +368,23 @@ uint8_t Emulator::ioRead(uint16_t address, void* /*param*/)
 
 void Emulator::ioWrite(uint16_t address, uint8_t data, void* /*param*/)
 {
+    contention_.applyIOContention(*z80_, address);
+
     if ((address & 0x01) == 0)
     {
+        displayUpdateWithTs(static_cast<int32_t>((z80_->getTStates() - emuCurrentDisplayTs_) + BORDER_DRAWING_OFFSET));
         borderColor_ = data & 0x07;
         audio_.setEarBit((data >> 4) & 1);
     }
 }
 
-void Emulator::memContention(uint16_t /*address*/, uint32_t /*tstates*/, void* /*param*/)
+void Emulator::memContention(uint16_t address, uint32_t /*tstates*/, void* /*param*/)
 {
+    // 48K contended memory range: 0x4000-0x7FFF
+    if (address >= 0x4000 && address <= 0x7FFF)
+    {
+        z80_->addContentionTStates(contention_.memoryContention(z80_->getTStates()));
+    }
 }
 
 } // namespace zxspec

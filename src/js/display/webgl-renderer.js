@@ -33,9 +33,10 @@ export class WebGLRenderer {
   }
 
   initGL() {
-    this.gl = this.canvas.getContext("webgl2") ||
-              this.canvas.getContext("webgl") ||
-              this.canvas.getContext("experimental-webgl");
+    this.gl =
+      this.canvas.getContext("webgl2") ||
+      this.canvas.getContext("webgl") ||
+      this.canvas.getContext("experimental-webgl");
 
     if (!this.gl) {
       console.error("WebGL not available, falling back to 2D context");
@@ -72,7 +73,7 @@ export class WebGLRenderer {
       }
 
       vec3 noSignalStatic(vec2 uv, float time) {
-        vec2 blockSize = vec2(2.0, 2.0);
+        vec2 blockSize = vec2(1.0, 1.0);
         vec2 pixelCoord = floor(uv * u_textureSize / blockSize);
         float frameTime = floor(time * 50.0);
         vec2 noiseCoord = pixelCoord + vec2(frameTime * 17.0, frameTime * 31.0);
@@ -120,14 +121,10 @@ export class WebGLRenderer {
 
     // Set up fullscreen quad geometry
     const positions = new Float32Array([
-      -1, -1,  1, -1,  -1, 1,
-       1, -1,  1,  1,  -1, 1,
+      -1, -1, 1, -1, -1, 1, 1, -1, 1, 1, -1, 1,
     ]);
 
-    const texCoords = new Float32Array([
-      0, 1,  1, 1,  0, 0,
-      1, 1,  1, 0,  0, 0,
-    ]);
+    const texCoords = new Float32Array([0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0]);
 
     const posBuf = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, posBuf);
@@ -169,7 +166,10 @@ export class WebGLRenderer {
     // Get uniform locations
     this.uniforms.noSignal = gl.getUniformLocation(this.program, "u_noSignal");
     this.uniforms.time = gl.getUniformLocation(this.program, "u_time");
-    this.uniforms.textureSize = gl.getUniformLocation(this.program, "u_textureSize");
+    this.uniforms.textureSize = gl.getUniformLocation(
+      this.program,
+      "u_textureSize",
+    );
 
     // Set static texture size
     gl.uniform2f(this.uniforms.textureSize, this.width, this.height);
@@ -232,7 +232,10 @@ export class WebGLRenderer {
       const gl = this.gl;
       gl.viewport(0, 0, this.canvas.width, this.canvas.height);
       gl.uniform1f(this.uniforms.noSignal, this.noSignal);
-      gl.uniform1f(this.uniforms.time, performance.now() / 1000.0 - this.startTime);
+      gl.uniform1f(
+        this.uniforms.time,
+        performance.now() / 1000.0 - this.startTime,
+      );
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }

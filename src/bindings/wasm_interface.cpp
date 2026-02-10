@@ -229,4 +229,14 @@ uint8_t getKeyboardRow(int row) {
   return g_emulator->getKeyboardRow(row);
 }
 
+// ============================================================================
+// Snapshot Loading
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+void loadSNA(const uint8_t* data, int size) {
+  REQUIRE_EMULATOR();
+  g_emulator->loadSNA(data, static_cast<uint32_t>(size));
+}
+
 } // extern "C"

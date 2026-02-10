@@ -12,6 +12,7 @@ import { ScreenWindow } from "./display/screen-window.js";
 import { WindowManager } from "./windows/window-manager.js";
 import { AudioDriver } from "./audio/audio-driver.js";
 import { InputHandler } from "./input/input-handler.js";
+import { SNALoader } from "./snapshot/sna-loader.js";
 
 // ZX Spectrum timing constants (from types.hpp)
 const CPU_CLOCK_HZ = 3500000;
@@ -26,6 +27,8 @@ class ZXSpectrumEmulator {
     this.inputHandler = null;
     this.windowManager = null;
     this.screenWindow = null;
+
+    this.snaLoader = null;
 
     this.running = false;
     this.animFrameId = null;
@@ -121,6 +124,29 @@ class ZXSpectrumEmulator {
         }
       });
     }
+
+    // SNA snapshot loader
+    this.snaLoader = new SNALoader(this.wasmModule);
+    this.snaLoader.init();
+    this.snaLoader.onLoaded = () => {
+      if (!this.running) {
+        this.running = true;
+        this.renderer.setNoSignal(false);
+        this.audioDriver.start();
+        const powerBtn = document.getElementById("btn-power");
+        if (powerBtn) {
+          powerBtn.classList.remove("off");
+          powerBtn.title = "Power Off";
+        }
+      }
+    };
+
+    const loadBtn = document.getElementById("btn-load");
+    if (loadBtn) {
+      loadBtn.addEventListener("click", () => {
+        this.snaLoader.open();
+      });
+    }
   }
 
   isRunning() {
@@ -193,6 +219,11 @@ class ZXSpectrumEmulator {
     if (this.screenWindow) {
       this.screenWindow.destroy();
       this.screenWindow = null;
+    }
+
+    if (this.snaLoader) {
+      this.snaLoader.destroy();
+      this.snaLoader = null;
     }
 
     this.renderer = null;

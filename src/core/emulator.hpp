@@ -9,6 +9,7 @@
 
 #include "audio.hpp"
 #include "types.hpp"
+#include "ula_contention.hpp"
 #include "z80/z80.hpp"
 #include <array>
 #include <cstdint>
@@ -16,13 +17,17 @@
 
 namespace zxspec {
 
+class SNALoader;
+
 class Emulator {
+    friend class SNALoader;
 public:
     Emulator();
     ~Emulator();
 
     void init();
     void reset();
+    void loadSNA(const uint8_t* data, uint32_t size);
 
     void runCycles(int cycles);
     void runFrame();
@@ -72,10 +77,15 @@ private:
     void ioWrite(uint16_t address, uint8_t data, void* param);
     void memContention(uint16_t address, uint32_t tstates, void* param);
 
-    void renderFrame();
+    // Incremental display rendering
+    void displayUpdateWithTs(int32_t tStates);
+    void displayFrameReset();
+    void displayBuildTsTable();
+    void displayBuildLineAddressTable();
 
     std::unique_ptr<Z80> z80_;
     Audio audio_;
+    ULAContention contention_;
 
     // 64KB flat memory (48K RAM + 16K ROM at bottom)
     std::array<uint8_t, 65536> memory_{};
@@ -83,6 +93,14 @@ private:
     std::array<uint8_t, FRAMEBUFFER_SIZE> framebuffer_{};
     uint8_t borderColor_ = 7;
     uint32_t frameCounter_ = 0;
+
+    // Incremental display state
+    uint32_t emuCurrentDisplayTs_ = 0;
+    uint32_t displayBufferIndex_ = 0;  // Current pixel position in framebuffer
+
+    // Display lookup tables
+    uint32_t displayTstateTable_[PX_VERTICAL_TOTAL][TSTATES_PER_SCANLINE]{};
+    uint16_t displayLineAddrTable_[PX_VERTICAL_DISPLAY]{};
 
     // Keyboard matrix: 8 half-rows, bits 0-4 active LOW (0 = pressed)
     std::array<uint8_t, 8> keyboardMatrix_{};

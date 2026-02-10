@@ -42,6 +42,24 @@ constexpr int AUDIO_SAMPLE_RATE = 48000;
 constexpr double CYCLES_PER_SAMPLE =
     CPU_CLOCK_HZ / AUDIO_SAMPLE_RATE;           // ~72.9
 
+// Display timing constants (48K)
+constexpr int TSTATES_PER_CHAR = 4;             // T-states per character cell (8 pixels)
+constexpr int TS_HORIZONTAL_DISPLAY = 128;      // T-states for 256-pixel display area
+constexpr int PX_VERTICAL_BLANK = 8;            // Vertical blank lines
+constexpr int PX_VERT_BORDER = 56;              // Total vertical border lines (ULA)
+constexpr int PX_VERTICAL_DISPLAY = 192;        // Active display lines
+constexpr int PX_VERTICAL_TOTAL = 312;          // Total scanlines
+constexpr int PX_EMU_BORDER_H = 48;             // Emulation horizontal border in pixels
+constexpr int PX_EMU_BORDER_TOP = 48;           // Emulation top border in lines
+constexpr int PX_EMU_BORDER_BOTTOM = 56;        // Emulation bottom border in lines
+constexpr int BORDER_DRAWING_OFFSET = 10;       // T-state offset for border draw trigger
+constexpr int PAPER_DRAWING_OFFSET = 16;        // T-state offset for paper draw trigger
+
+// Display action types for T-state table
+constexpr uint32_t DISPLAY_RETRACE = 0;
+constexpr uint32_t DISPLAY_BORDER = 1;
+constexpr uint32_t DISPLAY_PAPER = 2;
+
 // Interrupt timing (48K)
 constexpr int INT_LENGTH_TSTATES = 32;          // Interrupt signal duration
 
