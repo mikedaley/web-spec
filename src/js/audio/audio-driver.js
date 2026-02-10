@@ -95,7 +95,15 @@ export class AudioDriver {
   }
 
   generateAndSendSamples() {
-    this.wasmModule._runFrame();
+    // Run 2 frames per request to keep the worklet buffer well-stocked.
+    // Samples accumulate in the WASM buffer across both frames.
+    // 25 requests/sec × 2 frames = 50fps — correct emulation speed.
+    for (let i = 0; i < 2; i++) {
+      this.wasmModule._runFrame();
+      if (this.onFrameReady) {
+        this.onFrameReady();
+      }
+    }
 
     const sampleCount = this.wasmModule._getAudioSampleCount();
     if (sampleCount > 0) {
@@ -115,10 +123,6 @@ export class AudioDriver {
       );
     } else {
       this.wasmModule._resetAudioBuffer();
-    }
-
-    if (this.onFrameReady) {
-      this.onFrameReady();
     }
   }
 

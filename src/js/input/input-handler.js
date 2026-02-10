@@ -85,6 +85,15 @@ const KEY_MAP = {
 
   // Backspace = CAPS SHIFT + 0 (DELETE)
   Backspace: [[0, 0], [4, 0]],
+
+  // Punctuation: SYMBOL SHIFT(7,1) + key
+  Comma: [[7, 1], [7, 3]],        // , = SS + N
+  Period: [[7, 1], [7, 2]],       // . = SS + M
+  Quote: [[7, 1], [5, 0]],        // " = SS + P
+  Semicolon: [[7, 1], [5, 1]],    // ; = SS + O
+  Slash: [[7, 1], [0, 4]],        // / = SS + V
+  Minus: [[7, 1], [6, 3]],        // - = SS + J
+  Equal: [[7, 1], [6, 1]],        // = = SS + L
 };
 
 export class InputHandler {

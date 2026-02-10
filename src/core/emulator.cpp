@@ -70,7 +70,7 @@ void Emulator::runFrame()
     }
     audio_.frameEnd();
 
-    z80_->resetTStates();
+    z80_->resetTStates(TSTATES_PER_FRAME);
     z80_->signalInterrupt();
     renderFrame();
     frameCounter_++;

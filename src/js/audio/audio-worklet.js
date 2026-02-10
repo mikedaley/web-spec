@@ -51,7 +51,7 @@ class ZXSpecAudioProcessor extends AudioWorkletProcessor {
     const remaining = this.sampleBuffer.length - this.bufferReadPos;
 
     // Request more samples if buffer is getting low
-    if (remaining < 1600 && !this.pendingRequest) {
+    if (remaining < 2400 && !this.pendingRequest) {
       this.pendingRequest = true;
       this.port.postMessage({
         type: "requestSamples",

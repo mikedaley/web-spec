@@ -24,7 +24,6 @@ void Audio::reset()
     sampleIndex_ = 0;
     tsCounter_ = 0.0;
     outputLevel_ = 0.0;
-    tsInStep_ = 0;
 }
 
 void Audio::update(int32_t tStates)
@@ -33,34 +32,26 @@ void Audio::update(int32_t tStates)
 
     for (int32_t i = 0; i < tStates; i++)
     {
-        outputLevel_ += static_cast<double>(level);
-        tsInStep_++;
         tsCounter_ += 1.0;
+        outputLevel_ += static_cast<double>(level);
 
         if (tsCounter_ >= beeperTsStep_)
         {
             if (sampleIndex_ < MAX_SAMPLES_PER_FRAME)
             {
                 sampleBuffer_[sampleIndex_++] =
-                    static_cast<float>(outputLevel_ / tsInStep_);
+                    static_cast<float>(outputLevel_ / tsCounter_);
             }
             tsCounter_ -= beeperTsStep_;
-            outputLevel_ = 0.0;
-            tsInStep_ = 0;
+            // Carry fractional T-state contribution into next sample
+            outputLevel_ = static_cast<double>(level) * tsCounter_;
         }
     }
 }
 
 void Audio::frameEnd()
 {
-    // Flush any remaining accumulated samples
-    if (tsInStep_ > 0 && sampleIndex_ < MAX_SAMPLES_PER_FRAME)
-    {
-        sampleBuffer_[sampleIndex_++] =
-            static_cast<float>(outputLevel_ / tsInStep_);
-        outputLevel_ = 0.0;
-        tsInStep_ = 0;
-    }
+    // Accumulator carries over naturally — no flush needed
 }
 
 } // namespace zxspec

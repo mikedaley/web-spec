@@ -28,7 +28,7 @@ public:
     void resetBuffer() { sampleIndex_ = 0; }
 
 private:
-    static constexpr int MAX_SAMPLES_PER_FRAME = 1024;
+    static constexpr int MAX_SAMPLES_PER_FRAME = 2048;
     static constexpr float BEEPER_VOLUME = 0.3f;
 
     uint8_t earBit_ = 0;
@@ -39,7 +39,6 @@ private:
     double tsCounter_ = 0.0;
     double outputLevel_ = 0.0;
     double beeperTsStep_ = 0.0;
-    int tsInStep_ = 0;
 };
 
 } // namespace zxspec
