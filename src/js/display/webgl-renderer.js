@@ -15,10 +15,15 @@ export class WebGLRenderer {
     this.gl = null;
     this.program = null;
     this.texture = null;
+    this.uniforms = {};
 
     // Texture dimensions match the full ZX Spectrum display including borders
     this.width = TOTAL_WIDTH;
     this.height = TOTAL_HEIGHT;
+
+    // No-signal static state
+    this.noSignal = 1.0;
+    this.startTime = performance.now() / 1000.0;
 
     // Set canvas size
     this.canvas.width = this.width;
@@ -51,12 +56,49 @@ export class WebGLRenderer {
       }
     `;
 
-    // Fragment shader - basic texture sampling
+    // Fragment shader - texture sampling with TV static when off
     const fsSource = `
       precision mediump float;
       varying vec2 vTexCoord;
       uniform sampler2D uTexture;
+      uniform float u_noSignal;
+      uniform float u_time;
+      uniform vec2 u_textureSize;
+
+      float hash12(vec2 p) {
+        vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+        p3 += dot(p3, p3.yzx + 33.33);
+        return fract((p3.x + p3.y) * p3.z);
+      }
+
+      vec3 noSignalStatic(vec2 uv, float time) {
+        vec2 blockSize = vec2(2.0, 2.0);
+        vec2 pixelCoord = floor(uv * u_textureSize / blockSize);
+        float frameTime = floor(time * 50.0);
+        vec2 noiseCoord = pixelCoord + vec2(frameTime * 17.0, frameTime * 31.0);
+        float noise = hash12(noiseCoord);
+        float bandNoise = hash12(vec2(pixelCoord.y * 0.1, frameTime * 0.5));
+        float band = smoothstep(0.4, 0.7, bandNoise);
+        noise = mix(noise * 0.7, noise * 1.2, band);
+        float lineNoise = hash12(vec2(frameTime, 0.0));
+        if (lineNoise > 0.95) {
+          float lineY = hash12(vec2(frameTime, 1.0));
+          float lineDist = abs(uv.y - lineY);
+          if (lineDist < 0.02) {
+            noise = mix(noise, 1.0, (0.02 - lineDist) / 0.02 * 0.5);
+          }
+        }
+        float brightnessFlicker = 0.85 + hash12(vec2(frameTime * 0.1, 0.0)) * 0.3;
+        noise *= brightnessFlicker;
+        noise = clamp(noise, 0.0, 1.0) * 0.25;
+        return vec3(noise);
+      }
+
       void main() {
+        if (u_noSignal > 0.5) {
+          gl_FragColor = vec4(noSignalStatic(vTexCoord, u_time), 1.0);
+          return;
+        }
         gl_FragColor = texture2D(uTexture, vTexCoord);
       }
     `;
@@ -123,6 +165,14 @@ export class WebGLRenderer {
     );
 
     gl.useProgram(this.program);
+
+    // Get uniform locations
+    this.uniforms.noSignal = gl.getUniformLocation(this.program, "u_noSignal");
+    this.uniforms.time = gl.getUniformLocation(this.program, "u_time");
+    this.uniforms.textureSize = gl.getUniformLocation(this.program, "u_textureSize");
+
+    // Set static texture size
+    gl.uniform2f(this.uniforms.textureSize, this.width, this.height);
   }
 
   compileShader(type, source) {
@@ -181,8 +231,14 @@ export class WebGLRenderer {
     if (this.gl) {
       const gl = this.gl;
       gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+      gl.uniform1f(this.uniforms.noSignal, this.noSignal);
+      gl.uniform1f(this.uniforms.time, performance.now() / 1000.0 - this.startTime);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.drawArrays(gl.TRIANGLES, 0, 6);
     }
+  }
+
+  setNoSignal(enabled) {
+    this.noSignal = enabled ? 1.0 : 0.0;
   }
 }

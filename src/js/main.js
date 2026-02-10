@@ -132,6 +132,7 @@ class ZXSpectrumEmulator {
 
     this.wasmModule._reset();
     this.running = true;
+    this.renderer.setNoSignal(false);
     this.audioDriver.start();
     console.log("Emulator powered on");
   }
@@ -141,6 +142,7 @@ class ZXSpectrumEmulator {
 
     this.running = false;
     this.audioDriver.stop();
+    this.renderer.setNoSignal(true);
     console.log("Emulator powered off");
   }
 
