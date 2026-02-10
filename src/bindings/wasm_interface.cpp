@@ -186,6 +186,28 @@ int getFramebufferSize() {
 }
 
 // ============================================================================
+// Audio
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+const float* getAudioBuffer() {
+  REQUIRE_EMULATOR_OR(nullptr);
+  return g_emulator->getAudioBuffer();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int getAudioSampleCount() {
+  REQUIRE_EMULATOR_OR(0);
+  return g_emulator->getAudioSampleCount();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void resetAudioBuffer() {
+  REQUIRE_EMULATOR();
+  g_emulator->resetAudioBuffer();
+}
+
+// ============================================================================
 // Keyboard Input
 // ============================================================================
 

@@ -64,7 +64,7 @@ class ZXSpectrumEmulator {
       // Load saved window state (overrides defaults if present)
       this.windowManager.loadState();
 
-      // Set up audio driver (stub - drives timing via fallback for now)
+      // Set up audio driver
       this.audioDriver = new AudioDriver(this.wasmModule);
 
       // Connect audio-driven frame sync to rendering

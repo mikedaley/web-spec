@@ -61,12 +61,65 @@ export class AudioDriver {
     this.gainNode.connect(this.audioContext.destination);
     this.gainNode.gain.value = this.muted ? 0 : this.volume;
 
-    // TODO: Set up AudioWorklet when audio generation is implemented
-    // For now, use fallback timing
-    this.startFallbackTiming();
+    try {
+      await this.audioContext.audioWorklet.addModule(
+        "/src/js/audio/audio-worklet.js",
+      );
 
-    this.running = true;
-    console.log("Audio driver started");
+      this.workletNode = new AudioWorkletNode(
+        this.audioContext,
+        "zxspec-audio-processor",
+      );
+
+      this.workletNode.port.onmessage = (event) => {
+        if (event.data.type === "requestSamples") {
+          this.generateAndSendSamples();
+        }
+      };
+
+      this.workletNode.connect(this.gainNode);
+
+      // Stop fallback if it was running
+      if (this.fallbackInterval) {
+        clearInterval(this.fallbackInterval);
+        this.fallbackInterval = null;
+      }
+
+      this.workletNode.port.postMessage({ type: "start" });
+      this.running = true;
+      console.log("Audio driver started with AudioWorklet");
+    } catch (error) {
+      console.error("AudioWorklet failed, using fallback:", error);
+      this.startFallbackTiming();
+    }
+  }
+
+  generateAndSendSamples() {
+    this.wasmModule._runFrame();
+
+    const sampleCount = this.wasmModule._getAudioSampleCount();
+    if (sampleCount > 0) {
+      const bufferPtr = this.wasmModule._getAudioBuffer();
+      const samples = new Float32Array(
+        this.wasmModule.HEAPF32.buffer,
+        bufferPtr,
+        sampleCount,
+      );
+      // Copy before resetting since it points into WASM memory
+      const samplesCopy = new Float32Array(samples);
+      this.wasmModule._resetAudioBuffer();
+
+      this.workletNode.port.postMessage(
+        { type: "samples", data: samplesCopy },
+        [samplesCopy.buffer],
+      );
+    } else {
+      this.wasmModule._resetAudioBuffer();
+    }
+
+    if (this.onFrameReady) {
+      this.onFrameReady();
+    }
   }
 
   setupAutoResumeAudio() {
@@ -106,6 +159,7 @@ export class AudioDriver {
 
     this.fallbackInterval = setInterval(() => {
       this.wasmModule._runFrame();
+      this.wasmModule._resetAudioBuffer();
 
       if (this.onFrameReady) {
         this.onFrameReady();

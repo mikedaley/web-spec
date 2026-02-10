@@ -10,6 +10,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Source files
 set(CORE_SOURCES
+    src/core/audio.cpp
     src/core/emulator.cpp
     src/core/z80/z80.cpp
     src/core/z80/z80_opcodes_main.cpp
@@ -84,6 +85,9 @@ if(EMSCRIPTEN)
                 \"_keyDown\", \
                 \"_keyUp\", \
                 \"_getKeyboardRow\", \
+                \"_getAudioBuffer\", \
+                \"_getAudioSampleCount\", \
+                \"_resetAudioBuffer\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \

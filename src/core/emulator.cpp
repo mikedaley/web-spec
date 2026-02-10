@@ -36,6 +36,8 @@ void Emulator::init()
         std::memcpy(memory_.data(), roms::ROM_48K, roms::ROM_48K_SIZE);
     }
 
+    audio_.setup(AUDIO_SAMPLE_RATE, FRAMES_PER_SECOND, TSTATES_PER_FRAME);
+
     reset();
     z80_->signalInterrupt();
 }
@@ -43,6 +45,7 @@ void Emulator::init()
 void Emulator::reset()
 {
     z80_->reset(true);
+    audio_.reset();
     keyboardMatrix_.fill(0xBF);
     paused_ = false;
 }
@@ -59,7 +62,14 @@ void Emulator::runFrame()
 {
     if (paused_) return;
 
-    z80_->execute(TSTATES_PER_FRAME, INT_LENGTH_TSTATES);
+    while (z80_->getTStates() < TSTATES_PER_FRAME)
+    {
+        uint32_t before = z80_->getTStates();
+        z80_->execute(1, INT_LENGTH_TSTATES);
+        audio_.update(static_cast<int32_t>(z80_->getTStates() - before));
+    }
+    audio_.frameEnd();
+
     z80_->resetTStates();
     z80_->signalInterrupt();
     renderFrame();
@@ -132,6 +142,21 @@ const uint8_t* Emulator::getFramebuffer() const
 int Emulator::getFramebufferSize() const
 {
     return FRAMEBUFFER_SIZE;
+}
+
+const float* Emulator::getAudioBuffer() const
+{
+    return audio_.getBuffer();
+}
+
+int Emulator::getAudioSampleCount() const
+{
+    return audio_.getSampleCount();
+}
+
+void Emulator::resetAudioBuffer()
+{
+    audio_.resetBuffer();
 }
 
 void Emulator::keyDown(int row, int bit)
@@ -209,6 +234,7 @@ void Emulator::ioWrite(uint16_t address, uint8_t data, void* /*param*/)
     if ((address & 0x01) == 0)
     {
         borderColor_ = data & 0x07;
+        audio_.setEarBit((data >> 4) & 1);
     }
 }
 

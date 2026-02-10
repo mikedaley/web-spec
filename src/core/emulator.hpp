@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include "audio.hpp"
 #include "types.hpp"
 #include "z80/z80.hpp"
 #include <array>
@@ -28,6 +29,10 @@ public:
 
     const uint8_t* getFramebuffer() const;
     int getFramebufferSize() const;
+
+    const float* getAudioBuffer() const;
+    int getAudioSampleCount() const;
+    void resetAudioBuffer();
 
     // Keyboard input (row 0-7, bit 0-4)
     void keyDown(int row, int bit);
@@ -70,6 +75,7 @@ private:
     void renderFrame();
 
     std::unique_ptr<Z80> z80_;
+    Audio audio_;
 
     // 64KB flat memory (48K RAM + 16K ROM at bottom)
     std::array<uint8_t, 65536> memory_{};
