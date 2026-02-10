@@ -1,0 +1,29 @@
+# Build outputs
+build/
+build-native/
+dist/
+public/zxspec.js
+public/zxspec.wasm
+
+# Node modules
+node_modules/
+
+# Emscripten SDK
+emsdk/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Claude Code
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

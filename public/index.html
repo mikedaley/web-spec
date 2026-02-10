@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta
+            name="description"
+            content="ZX Spectrum emulator for the browser"
+        />
+        <meta name="theme-color" content="#0a0a0b" />
+        <title>ZX Spectrum Emulator</title>
+    </head>
+    <body>
+        <div id="app">
+            <header>
+                <div class="header-left">
+                    <span class="logo-text">ZX Spectrum</span>
+                </div>
+                <nav class="header-controls">
+                    <button
+                        id="btn-power"
+                        class="control-btn power-btn off"
+                        title="Power On"
+                    >
+                        Power
+                    </button>
+                    <button
+                        id="btn-reset"
+                        class="control-btn"
+                        title="Reset"
+                    >
+                        Reset
+                    </button>
+                </nav>
+            </header>
+
+            <main>
+                <div class="emulator-section">
+                    <div id="monitor-frame">
+                        <canvas id="screen"></canvas>
+                    </div>
+                </div>
+            </main>
+
+            <div id="loading">
+                <p>Initializing ZX Spectrum...</p>
+            </div>
+        </div>
+
+        <script src="/zxspec.js"></script>
+        <script type="module" src="/src/js/main.js"></script>
+    </body>
+</html>

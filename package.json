@@ -1,0 +1,17 @@
+{
+  "name": "web-spec",
+  "version": "1.0.0",
+  "description": "ZX Spectrum emulator for the browser",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run build:wasm && vite build",
+    "build:wasm": "mkdir -p build && cd build && emcmake cmake .. && emmake make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)",
+    "preview": "vite preview",
+    "clean": "rm -rf build dist public/zxspec.js public/zxspec.wasm",
+    "deploy": "rsync -avz --delete dist/ vps-mike:web-spec/data/"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}
