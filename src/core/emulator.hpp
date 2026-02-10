@@ -24,6 +24,15 @@ public:
     void reset();
 
     void runCycles(int cycles);
+    void runFrame();
+
+    const uint8_t* getFramebuffer() const;
+    int getFramebufferSize() const;
+
+    // Keyboard input (row 0-7, bit 0-4)
+    void keyDown(int row, int bit);
+    void keyUp(int row, int bit);
+    uint8_t getKeyboardRow(int row) const;
 
     bool isPaused() const { return paused_; }
     void setPaused(bool paused) { paused_ = paused; }
@@ -58,10 +67,19 @@ private:
     void ioWrite(uint16_t address, uint8_t data, void* param);
     void memContention(uint16_t address, uint32_t tstates, void* param);
 
+    void renderFrame();
+
     std::unique_ptr<Z80> z80_;
 
     // 64KB flat memory (48K RAM + 16K ROM at bottom)
     std::array<uint8_t, 65536> memory_{};
+
+    std::array<uint8_t, FRAMEBUFFER_SIZE> framebuffer_{};
+    uint8_t borderColor_ = 7;
+    uint32_t frameCounter_ = 0;
+
+    // Keyboard matrix: 8 half-rows, bits 0-4 active LOW (0 = pressed)
+    std::array<uint8_t, 8> keyboardMatrix_{};
 
     bool paused_ = false;
 };

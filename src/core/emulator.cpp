@@ -37,11 +37,13 @@ void Emulator::init()
     }
 
     reset();
+    z80_->signalInterrupt();
 }
 
 void Emulator::reset()
 {
     z80_->reset(true);
+    keyboardMatrix_.fill(0xBF);
     paused_ = false;
 }
 
@@ -51,6 +53,107 @@ void Emulator::runCycles(int cycles)
         return;
 
     z80_->execute(static_cast<uint32_t>(cycles), INT_LENGTH_TSTATES);
+}
+
+void Emulator::runFrame()
+{
+    if (paused_) return;
+
+    z80_->execute(TSTATES_PER_FRAME, INT_LENGTH_TSTATES);
+    z80_->resetTStates();
+    z80_->signalInterrupt();
+    renderFrame();
+    frameCounter_++;
+}
+
+void Emulator::renderFrame()
+{
+    uint32_t* pixels = reinterpret_cast<uint32_t*>(framebuffer_.data());
+    const uint32_t borderRGBA = SPECTRUM_COLORS[borderColor_];
+
+    // Fill entire framebuffer with border color
+    for (int i = 0; i < TOTAL_WIDTH * TOTAL_HEIGHT; i++)
+    {
+        pixels[i] = borderRGBA;
+    }
+
+    bool flashInvert = (frameCounter_ & 0x10) != 0;
+
+    // Render 256x192 screen area
+    for (int y = 0; y < SCREEN_HEIGHT; y++)
+    {
+        for (int x = 0; x < SCREEN_WIDTH; x += 8)
+        {
+            // ZX Spectrum bitmap address calculation
+            uint16_t bitmapAddr = 0x4000
+                | ((y & 0xC0) << 5)
+                | ((y & 0x07) << 8)
+                | ((y & 0x38) << 2)
+                | (x >> 3);
+
+            // Attribute address
+            uint16_t attrAddr = 0x5800 + ((y >> 3) * 32) + (x >> 3);
+
+            uint8_t bitmap = memory_[bitmapAddr];
+            uint8_t attr = memory_[attrAddr];
+
+            bool flash = (attr & 0x80) != 0;
+            bool bright = (attr & 0x40) != 0;
+            uint8_t paper = (attr >> 3) & 0x07;
+            uint8_t ink = attr & 0x07;
+
+            if (flash && flashInvert)
+            {
+                uint8_t tmp = ink;
+                ink = paper;
+                paper = tmp;
+            }
+
+            uint32_t inkRGBA = SPECTRUM_COLORS[ink + (bright ? 8 : 0)];
+            uint32_t paperRGBA = SPECTRUM_COLORS[paper + (bright ? 8 : 0)];
+
+            int screenY = BORDER_TOP + y;
+            int screenX = BORDER_LEFT + x;
+
+            for (int bit = 7; bit >= 0; bit--)
+            {
+                int px = screenX + (7 - bit);
+                pixels[screenY * TOTAL_WIDTH + px] = (bitmap & (1 << bit)) ? inkRGBA : paperRGBA;
+            }
+        }
+    }
+}
+
+const uint8_t* Emulator::getFramebuffer() const
+{
+    return framebuffer_.data();
+}
+
+int Emulator::getFramebufferSize() const
+{
+    return FRAMEBUFFER_SIZE;
+}
+
+void Emulator::keyDown(int row, int bit)
+{
+    if (row >= 0 && row < 8 && bit >= 0 && bit < 5)
+    {
+        keyboardMatrix_[row] &= ~(1 << bit);
+    }
+}
+
+void Emulator::keyUp(int row, int bit)
+{
+    if (row >= 0 && row < 8 && bit >= 0 && bit < 5)
+    {
+        keyboardMatrix_[row] |= (1 << bit);
+    }
+}
+
+uint8_t Emulator::getKeyboardRow(int row) const
+{
+    if (row >= 0 && row < 8) return keyboardMatrix_[row];
+    return 0xBF;
 }
 
 void Emulator::stepInstruction()
@@ -84,13 +187,29 @@ void Emulator::memWrite(uint16_t address, uint8_t data, void* /*param*/)
     }
 }
 
-uint8_t Emulator::ioRead(uint16_t /*address*/, void* /*param*/)
+uint8_t Emulator::ioRead(uint16_t address, void* /*param*/)
 {
-    return 0xff;
+    if ((address & 0x01) == 0)
+    {
+        uint8_t result = 0xBF;
+        for (int i = 0; i < 8; i++)
+        {
+            if (!(address & (0x100 << i)))
+            {
+                result &= keyboardMatrix_[i];
+            }
+        }
+        return result;
+    }
+    return 0xFF;
 }
 
-void Emulator::ioWrite(uint16_t /*address*/, uint8_t /*data*/, void* /*param*/)
+void Emulator::ioWrite(uint16_t address, uint8_t data, void* /*param*/)
 {
+    if ((address & 0x01) == 0)
+    {
+        borderColor_ = data & 0x07;
+    }
 }
 
 void Emulator::memContention(uint16_t /*address*/, uint32_t /*tstates*/, void* /*param*/)

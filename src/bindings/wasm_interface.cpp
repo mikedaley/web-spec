@@ -163,4 +163,48 @@ void stepInstruction() {
   g_emulator->stepInstruction();
 }
 
+// ============================================================================
+// Frame Execution & Display
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+void runFrame() {
+  REQUIRE_EMULATOR();
+  g_emulator->runFrame();
+}
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* getFramebuffer() {
+  REQUIRE_EMULATOR_OR(nullptr);
+  return g_emulator->getFramebuffer();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int getFramebufferSize() {
+  REQUIRE_EMULATOR_OR(0);
+  return g_emulator->getFramebufferSize();
+}
+
+// ============================================================================
+// Keyboard Input
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+void keyDown(int row, int bit) {
+  REQUIRE_EMULATOR();
+  g_emulator->keyDown(row, bit);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void keyUp(int row, int bit) {
+  REQUIRE_EMULATOR();
+  g_emulator->keyUp(row, bit);
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t getKeyboardRow(int row) {
+  REQUIRE_EMULATOR_OR(0xBF);
+  return g_emulator->getKeyboardRow(row);
+}
+
 } // extern "C"

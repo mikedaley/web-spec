@@ -105,7 +105,7 @@ export class AudioDriver {
     if (this.fallbackInterval) return;
 
     this.fallbackInterval = setInterval(() => {
-      this.wasmModule._runCycles(TSTATES_PER_FRAME);
+      this.wasmModule._runFrame();
 
       if (this.onFrameReady) {
         this.onFrameReady();

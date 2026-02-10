@@ -117,9 +117,10 @@ class ZXSpectrumEmulator {
   }
 
   renderFrame() {
-    // TODO: Once framebuffer export is implemented in the emulator core,
-    // copy the framebuffer data to the renderer texture here.
-    // For now this is a placeholder for the render pipeline.
+    const ptr = this.wasmModule._getFramebuffer();
+    const size = this.wasmModule._getFramebufferSize();
+    const framebuffer = new Uint8Array(this.wasmModule.HEAPU8.buffer, ptr, size);
+    this.renderer.updateTexture(framebuffer);
     this.renderer.draw();
   }
 
@@ -173,4 +174,5 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Make emulator accessible globally for debugging
   window.zxspec = emulator;
+
 });

@@ -78,6 +78,12 @@ if(EMSCRIPTEN)
                 \"_isPaused\", \
                 \"_setPaused\", \
                 \"_stepInstruction\", \
+                \"_runFrame\", \
+                \"_getFramebuffer\", \
+                \"_getFramebufferSize\", \
+                \"_keyDown\", \
+                \"_keyUp\", \
+                \"_getKeyboardRow\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \
