@@ -11,7 +11,8 @@ node_modules/
 # Emscripten SDK
 emsdk/
 
-# IDE
+# IDE / tooling cache
+.cache/
 .vscode/
 .idea/
 *.swp
