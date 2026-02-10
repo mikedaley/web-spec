@@ -163,6 +163,18 @@ export class WebGLRenderer {
   }
 
   /**
+   * Resize the canvas display size (CSS pixels) without changing
+   * the internal texture resolution.
+   */
+  resize(width, height) {
+    if (this.gl) {
+      this.canvas.width = this.width;
+      this.canvas.height = this.height;
+      this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+    }
+  }
+
+  /**
    * Draw the current texture to the canvas.
    */
   draw() {

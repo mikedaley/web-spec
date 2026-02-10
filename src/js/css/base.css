@@ -10,8 +10,44 @@
   --bg-secondary: #1a1a1d;
   --text-primary: #e0e0e0;
   --text-secondary: #999;
+  --text-muted: #666;
   --border-color: #333;
   --accent-color: #cc0000;
+
+  /* Glassmorphism tokens */
+  --glass-bg: rgba(13, 17, 23, 0.85);
+  --glass-bg-header: rgba(33, 38, 45, 0.6);
+  --glass-border: rgba(48, 54, 61, 0.6);
+
+  /* Overlays */
+  --overlay-hover: rgba(255, 255, 255, 0.08);
+  --overlay-active: rgba(255, 255, 255, 0.15);
+  --overlay-white-10: rgba(255, 255, 255, 0.1);
+
+  /* Accents */
+  --accent-blue: #18ABEA;
+  --accent-blue-border-light: rgba(24, 171, 234, 0.3);
+  --accent-green: #4ade80;
+  --accent-green-bg: rgba(74, 222, 128, 0.15);
+  --accent-green-bg-strong: rgba(74, 222, 128, 0.2);
+  --accent-green-border: rgba(74, 222, 128, 0.4);
+  --accent-green-border-light: rgba(74, 222, 128, 0.3);
+  --accent-red: #f87171;
+
+  /* Control tokens */
+  --control-border: rgba(48, 54, 61, 0.8);
+
+  /* Shadows */
+  --shadow-window: 0 2px 12px rgba(0, 0, 0, 0.2);
+  --shadow-window-focused: 0 8px 40px rgba(0, 0, 0, 0.85), 0 2px 16px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(24, 171, 234, 0.5);
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+
+  /* Fonts */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "SF Mono", "Menlo", monospace;
 }
 
 *,
@@ -29,8 +65,7 @@ body {
   overflow: hidden;
   background: var(--bg-primary);
   color: var(--text-primary);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
-    sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
 }
@@ -51,6 +86,8 @@ header {
   border-bottom: 1px solid var(--border-color);
   height: 44px;
   flex-shrink: 0;
+  z-index: 2000;
+  position: relative;
 }
 
 .header-left {
@@ -106,18 +143,19 @@ main {
 }
 
 #monitor-frame {
-  background: #000;
-  border: 2px solid var(--border-color);
-  border-radius: 4px;
-  padding: 8px;
-  display: inline-block;
+  display: none;
 }
 
 #screen {
   display: block;
-  width: 704px;
-  height: 592px;
   image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #000;
+  outline: none;
+}
+
+#screen:focus {
+  outline: none;
 }
 
 #loading {
@@ -132,9 +170,253 @@ main {
   background: var(--bg-primary);
   color: var(--text-secondary);
   font-size: 16px;
-  z-index: 1000;
+  z-index: 3000;
 }
 
 #loading.hidden {
   display: none;
+}
+
+/* ============================================
+   WINDOW SYSTEM
+   ============================================ */
+
+/* Base Window */
+.debug-window {
+  position: fixed;
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-window);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 1000;
+}
+
+.debug-window.hidden {
+  display: none;
+}
+
+.debug-window.dragging,
+.debug-window.resizing {
+  user-select: none;
+}
+
+.debug-window.focused {
+  border-color: var(--accent-blue-border-light);
+  box-shadow: var(--shadow-window-focused);
+}
+
+/* Window Header */
+.debug-window-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 10px;
+  background: var(--glass-bg-header);
+  border-bottom: 1px solid var(--control-border);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  cursor: move;
+}
+
+.debug-window-title {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.debug-window-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+  border-radius: var(--radius-sm);
+  opacity: 0.6;
+  transition: all 0.15s;
+}
+
+.debug-window-close:hover {
+  opacity: 1;
+  color: var(--accent-red);
+}
+
+/* Window Content */
+.debug-window-content {
+  flex: 1;
+  min-height: 0;
+  padding: 8px;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+/* Resize Handles */
+.debug-resize-handle {
+  position: absolute;
+  background: transparent;
+}
+
+.debug-resize-handle.n {
+  top: -3px;
+  left: 10px;
+  right: 10px;
+  height: 6px;
+  cursor: n-resize;
+}
+.debug-resize-handle.s {
+  bottom: -3px;
+  left: 10px;
+  right: 10px;
+  height: 6px;
+  cursor: s-resize;
+}
+.debug-resize-handle.e {
+  top: 10px;
+  right: -3px;
+  bottom: 10px;
+  width: 6px;
+  cursor: e-resize;
+}
+.debug-resize-handle.w {
+  top: 10px;
+  left: -3px;
+  bottom: 10px;
+  width: 6px;
+  cursor: w-resize;
+}
+.debug-resize-handle.ne {
+  top: -3px;
+  right: -3px;
+  width: 12px;
+  height: 12px;
+  cursor: ne-resize;
+}
+.debug-resize-handle.nw {
+  top: -3px;
+  left: -3px;
+  width: 12px;
+  height: 12px;
+  cursor: nw-resize;
+}
+.debug-resize-handle.se {
+  bottom: -3px;
+  right: -3px;
+  width: 12px;
+  height: 12px;
+  cursor: se-resize;
+}
+.debug-resize-handle.sw {
+  bottom: -3px;
+  left: -3px;
+  width: 12px;
+  height: 12px;
+  cursor: sw-resize;
+}
+
+/* Debug Window Scrollbar */
+.debug-window-content::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.debug-window-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+.debug-window-content::-webkit-scrollbar-thumb {
+  background: var(--overlay-active);
+  border-radius: 3px;
+}
+.debug-window-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* ============================================
+   SCREEN WINDOW (Monitor)
+   ============================================ */
+
+/* Screen window canvas fills content area */
+#screen-window .debug-window-content {
+  padding: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.screen-window-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.screen-window-content #screen {
+  display: block;
+}
+
+/* Viewport lock button in screen window header */
+.screen-window-lock {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-left: auto;
+  margin-right: 6px;
+  border-radius: var(--radius-sm);
+  opacity: 0.5;
+  transition: opacity 0.15s, color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.screen-window-lock:hover {
+  opacity: 1;
+  color: var(--text-primary);
+  background: var(--overlay-hover);
+  border-color: var(--overlay-white-10);
+}
+
+.screen-window-lock.active {
+  opacity: 1;
+  color: var(--accent-green);
+  background: var(--accent-green-bg);
+  border-color: var(--accent-green-border-light);
+}
+
+.screen-window-lock.active:hover {
+  background: var(--accent-green-bg-strong);
+  border-color: var(--accent-green-border);
+}
+
+/* Stack both icons in the same grid cell so they overlap */
+.screen-window-lock svg {
+  grid-area: 1 / 1;
+  transition: opacity 0.15s;
+}
+
+.screen-window-lock .lock-icon-locked {
+  opacity: 0;
+}
+
+.screen-window-lock .lock-icon-unlocked {
+  opacity: 1;
+}
+
+.screen-window-lock.active .lock-icon-unlocked {
+  opacity: 0;
+}
+
+.screen-window-lock.active .lock-icon-locked {
+  opacity: 1;
 }

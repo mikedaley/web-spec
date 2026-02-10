@@ -8,6 +8,8 @@
 import "../js/css/base.css";
 
 import { WebGLRenderer } from "./display/webgl-renderer.js";
+import { ScreenWindow } from "./display/screen-window.js";
+import { WindowManager } from "./windows/window-manager.js";
 import { AudioDriver } from "./audio/audio-driver.js";
 import { InputHandler } from "./input/input-handler.js";
 
@@ -22,6 +24,8 @@ class ZXSpectrumEmulator {
     this.renderer = null;
     this.audioDriver = null;
     this.inputHandler = null;
+    this.windowManager = null;
+    this.screenWindow = null;
 
     this.running = false;
     this.animFrameId = null;
@@ -41,6 +45,25 @@ class ZXSpectrumEmulator {
       const canvas = document.getElementById("screen");
       this.renderer = new WebGLRenderer(canvas);
 
+      // Set up window manager
+      this.windowManager = new WindowManager();
+
+      // Create screen window
+      this.screenWindow = new ScreenWindow(this.renderer);
+      this.screenWindow.create();
+      this.windowManager.register(this.screenWindow);
+
+      // Attach canvas to screen window
+      this.screenWindow.attachCanvas();
+
+      // Apply default layout (viewport-fill for first-time users)
+      this.windowManager.applyDefaultLayout([
+        { id: "screen-window", position: "viewport-fill", visible: true, viewportLocked: true },
+      ]);
+
+      // Load saved window state (overrides defaults if present)
+      this.windowManager.loadState();
+
       // Set up audio driver (stub - drives timing via fallback for now)
       this.audioDriver = new AudioDriver(this.wasmModule);
 
@@ -58,6 +81,11 @@ class ZXSpectrumEmulator {
 
       // Start render loop
       this.startRenderLoop();
+
+      // Save window state on page unload
+      window.addEventListener("beforeunload", () => {
+        this.windowManager.saveState();
+      });
 
       this.showLoading(false);
 
@@ -158,6 +186,11 @@ class ZXSpectrumEmulator {
     if (this.audioDriver) {
       this.audioDriver.stop();
       this.audioDriver = null;
+    }
+
+    if (this.screenWindow) {
+      this.screenWindow.destroy();
+      this.screenWindow = null;
     }
 
     this.renderer = null;
