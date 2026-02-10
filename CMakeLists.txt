@@ -23,17 +23,13 @@ set(CORE_SOURCES
     src/bindings/wasm_interface.cpp
 )
 
-# ROM embedding - generate C arrays from ROM files
-set(ROM_FILES
-    roms/48.rom
-)
-
-# Custom command to generate ROM header
+# Custom command to generate ROM data arrays
+# The script handles missing ROM files gracefully (generates empty arrays)
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/generated/roms.cpp
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/generated
     COMMAND ${CMAKE_SOURCE_DIR}/scripts/generate_roms.sh ${CMAKE_SOURCE_DIR}/roms ${CMAKE_BINARY_DIR}/generated/roms.cpp
-    DEPENDS ${ROM_FILES} ${CMAKE_SOURCE_DIR}/scripts/generate_roms.sh
+    DEPENDS ${CMAKE_SOURCE_DIR}/scripts/generate_roms.sh
     COMMENT "Generating ROM data arrays"
 )
 

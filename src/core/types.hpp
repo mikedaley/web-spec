@@ -19,7 +19,7 @@ constexpr size_t RAM_48K_SIZE = 48 * 1024;      // 48KB RAM
 constexpr size_t RAM_128K_SIZE = 128 * 1024;    // 128KB RAM (8 x 16KB pages)
 constexpr size_t ROM_48K_SIZE = 16 * 1024;      // 16KB ROM
 constexpr size_t ROM_128K_SIZE = 32 * 1024;     // 32KB ROM (2 x 16KB)
-constexpr size_t PAGE_SIZE = 16 * 1024;         // 16KB memory page
+constexpr size_t MEM_PAGE_SIZE = 16 * 1024;      // 16KB memory page
 
 // Display constants
 constexpr int SCREEN_WIDTH = 256;               // Display area width
