@@ -77,6 +77,10 @@ Single global `Emulator` instance in C++ (`wasm_interface.cpp`). JS allocates WA
 src/
 ├── core/               # C++ emulator (namespace zxspec::)
 │   ├── z80/            # Z80 CPU
+│   ├── audio/          # Beeper audio generation
+│   ├── display/        # ULA display / framebuffer generation
+│   ├── loaders/        # Snapshot loaders (SNA, Z80)
+│   ├── ula/            # ULA contention timing
 │   ├── emulator.cpp    # Core coordinator
 │   └── types.hpp       # Shared constants and types
 ├── bindings/           # wasm_interface.cpp - WASM export glue

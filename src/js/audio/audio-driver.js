@@ -29,6 +29,12 @@ export class AudioDriver {
 
     // Frame synchronization callback
     this.onFrameReady = null;
+
+    // Speed multiplier: 1 = normal (50fps), 2 = 2x, 4 = 4x, etc.
+    this.speedMultiplier = 1;
+
+    // Turbo mode: runs frames from rAF instead of audio callback
+    this.turboAnimId = null;
   }
 
   async start() {
@@ -95,8 +101,19 @@ export class AudioDriver {
   }
 
   generateAndSendSamples() {
+    // In turbo mode, frames are driven by rAF loop instead
+    if (this.speedMultiplier > 1) {
+      // Send silence to keep the worklet alive
+      this.wasmModule._resetAudioBuffer();
+      const silence = new Float32Array(960);
+      this.workletNode.port.postMessage(
+        { type: "samples", data: silence },
+        [silence.buffer],
+      );
+      return;
+    }
+
     // Run 2 frames per request to keep the worklet buffer well-stocked.
-    // Samples accumulate in the WASM buffer across both frames.
     // 25 requests/sec × 2 frames = 50fps — correct emulation speed.
     for (let i = 0; i < 2; i++) {
       this.wasmModule._runFrame();
@@ -113,7 +130,6 @@ export class AudioDriver {
         bufferPtr,
         sampleCount,
       );
-      // Copy before resetting since it points into WASM memory
       const samplesCopy = new Float32Array(samples);
       this.wasmModule._resetAudioBuffer();
 
@@ -123,6 +139,40 @@ export class AudioDriver {
       );
     } else {
       this.wasmModule._resetAudioBuffer();
+    }
+  }
+
+  startTurboLoop() {
+    if (this.turboAnimId) return;
+
+    const turboTick = () => {
+      if (this.speedMultiplier <= 1) {
+        this.turboAnimId = null;
+        return;
+      }
+
+      // Run multiple frames per rAF tick with a time budget of 12ms
+      // to keep the UI responsive (leaves ~4ms for rendering)
+      const deadline = performance.now() + 12;
+      while (performance.now() < deadline) {
+        this.wasmModule._runFrame();
+        this.wasmModule._resetAudioBuffer();
+      }
+
+      if (this.onFrameReady) {
+        this.onFrameReady();
+      }
+
+      this.turboAnimId = requestAnimationFrame(turboTick);
+    };
+
+    this.turboAnimId = requestAnimationFrame(turboTick);
+  }
+
+  stopTurboLoop() {
+    if (this.turboAnimId) {
+      cancelAnimationFrame(this.turboAnimId);
+      this.turboAnimId = null;
     }
   }
 
@@ -178,6 +228,7 @@ export class AudioDriver {
     if (!this.running) return;
 
     this.running = false;
+    this.stopTurboLoop();
 
     if (this.workletNode) {
       try {

@@ -10,10 +10,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Source files
 set(CORE_SOURCES
-    src/core/audio.cpp
+    src/core/audio/audio.cpp
+    src/core/display/display.cpp
     src/core/emulator.cpp
-    src/core/sna_loader.cpp
-    src/core/ula_contention.cpp
+    src/core/loaders/sna_loader.cpp
+    src/core/loaders/z80_loader.cpp
+    src/core/ula/ula_contention.cpp
     src/core/z80/z80.cpp
     src/core/z80/z80_opcodes_main.cpp
     src/core/z80/z80_opcodes_cb.cpp
@@ -23,6 +25,8 @@ set(CORE_SOURCES
     src/core/z80/z80_opcodes_ddcb.cpp
     src/core/z80/z80_opcodes_fdcb.cpp
     src/core/z80/z80_opcode_tables.cpp
+    src/core/peripherals/ay8912.cpp
+    src/core/peripherals/ay_sound_board.cpp
     src/bindings/wasm_interface.cpp
 )
 
@@ -48,6 +52,11 @@ if(EMSCRIPTEN)
     target_include_directories(zxspec PRIVATE
         ${CMAKE_SOURCE_DIR}/src/core
         ${CMAKE_SOURCE_DIR}/src/core/z80
+        ${CMAKE_SOURCE_DIR}/src/core/audio
+        ${CMAKE_SOURCE_DIR}/src/core/display
+        ${CMAKE_SOURCE_DIR}/src/core/ula
+        ${CMAKE_SOURCE_DIR}/src/core/loaders
+        ${CMAKE_SOURCE_DIR}/src/core/peripherals
         ${CMAKE_BINARY_DIR}/generated
     )
 
@@ -80,6 +89,8 @@ if(EMSCRIPTEN)
                 \"_writeMemory\", \
                 \"_isPaused\", \
                 \"_setPaused\", \
+                \"_isTurbo\", \
+                \"_setTurbo\", \
                 \"_stepInstruction\", \
                 \"_runFrame\", \
                 \"_getFramebuffer\", \
@@ -91,6 +102,13 @@ if(EMSCRIPTEN)
                 \"_getAudioSampleCount\", \
                 \"_resetAudioBuffer\", \
                 \"_loadSNA\", \
+                \"_loadZ80\", \
+                \"_enableAY\", \
+                \"_isAYEnabled\", \
+                \"_getAYRegister\", \
+                \"_getAYChannelMute\", \
+                \"_setAYChannelMute\", \
+                \"_getAYWaveform\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \
@@ -133,6 +151,10 @@ else()
     target_include_directories(z80_test PRIVATE
         ${CMAKE_SOURCE_DIR}/src/core
         ${CMAKE_SOURCE_DIR}/src/core/z80
+        ${CMAKE_SOURCE_DIR}/src/core/audio
+        ${CMAKE_SOURCE_DIR}/src/core/display
+        ${CMAKE_SOURCE_DIR}/src/core/ula
+        ${CMAKE_SOURCE_DIR}/src/core/loaders
     )
     target_compile_options(z80_test PRIVATE -O3 -Wall -Wextra)
     add_test(NAME z80_cpu_test

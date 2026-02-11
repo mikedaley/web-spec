@@ -6,7 +6,7 @@
  */
 
 #include "ula_contention.hpp"
-#include "z80/z80.hpp"
+#include "../z80/z80.hpp"
 
 namespace zxspec {
 

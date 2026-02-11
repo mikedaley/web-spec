@@ -163,6 +163,18 @@ void stepInstruction() {
   g_emulator->stepInstruction();
 }
 
+EMSCRIPTEN_KEEPALIVE
+bool isTurbo() {
+  REQUIRE_EMULATOR_OR(false);
+  return g_emulator->isTurbo();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void setTurbo(bool turbo) {
+  REQUIRE_EMULATOR();
+  g_emulator->setTurbo(turbo);
+}
+
 // ============================================================================
 // Frame Execution & Display
 // ============================================================================
@@ -237,6 +249,52 @@ EMSCRIPTEN_KEEPALIVE
 void loadSNA(const uint8_t* data, int size) {
   REQUIRE_EMULATOR();
   g_emulator->loadSNA(data, static_cast<uint32_t>(size));
+}
+
+EMSCRIPTEN_KEEPALIVE
+void loadZ80(const uint8_t* data, int size) {
+  REQUIRE_EMULATOR();
+  g_emulator->loadZ80(data, static_cast<uint32_t>(size));
+}
+
+// ============================================================================
+// Peripherals
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+void enableAY(bool enable) {
+  REQUIRE_EMULATOR();
+  g_emulator->enableAY(enable);
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool isAYEnabled() {
+  REQUIRE_EMULATOR_OR(false);
+  return g_emulator->isAYEnabled();
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t getAYRegister(int reg) {
+  REQUIRE_EMULATOR_OR(0);
+  return g_emulator->getAYRegister(reg);
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool getAYChannelMute(int channel) {
+  REQUIRE_EMULATOR_OR(false);
+  return g_emulator->getAYChannelMute(channel);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void setAYChannelMute(int channel, bool muted) {
+  REQUIRE_EMULATOR();
+  g_emulator->setAYChannelMute(channel, muted);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void getAYWaveform(int channel, float* buffer, int sampleCount) {
+  REQUIRE_EMULATOR();
+  g_emulator->getAYWaveform(channel, buffer, sampleCount);
 }
 
 } // extern "C"

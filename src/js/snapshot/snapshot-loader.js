@@ -1,5 +1,5 @@
 /*
- * sna-loader.js - SNA snapshot file loading for the browser
+ * snapshot-loader.js - SNA and Z80 snapshot file loading for the browser
  *
  * Written by
  *  Mike Daley <michael_daley@icloud.com>
@@ -7,7 +7,7 @@
 
 const SNA_48K_SIZE = 49179;
 
-export class SNALoader {
+export class SnapshotLoader {
   constructor(wasmModule) {
     this.wasmModule = wasmModule;
     this.fileInput = null;
@@ -17,7 +17,7 @@ export class SNALoader {
   init() {
     this.fileInput = document.createElement("input");
     this.fileInput.type = "file";
-    this.fileInput.accept = ".sna";
+    this.fileInput.accept = ".sna,.z80";
     this.fileInput.style.display = "none";
     document.body.appendChild(this.fileInput);
 
@@ -37,24 +37,39 @@ export class SNALoader {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const data = new Uint8Array(ev.target.result);
+      const ext = file.name.split(".").pop().toLowerCase();
 
-      if (data.length !== SNA_48K_SIZE) {
-        console.error(`Invalid SNA file: expected ${SNA_48K_SIZE} bytes, got ${data.length}`);
+      if (ext === "sna") {
+        if (data.length !== SNA_48K_SIZE) {
+          console.error(`Invalid SNA file: expected ${SNA_48K_SIZE} bytes, got ${data.length}`);
+          return;
+        }
+        this.loadIntoWasm(data, "_loadSNA");
+      } else if (ext === "z80") {
+        if (data.length < 30) {
+          console.error(`Invalid Z80 file: too small (${data.length} bytes)`);
+          return;
+        }
+        this.loadIntoWasm(data, "_loadZ80");
+      } else {
+        console.error(`Unsupported snapshot format: .${ext}`);
         return;
       }
 
-      const ptr = this.wasmModule._malloc(data.length);
-      this.wasmModule.HEAPU8.set(data, ptr);
-      this.wasmModule._loadSNA(ptr, data.length);
-      this.wasmModule._free(ptr);
-
-      console.log(`Loaded SNA: ${file.name} (${data.length} bytes)`);
+      console.log(`Loaded snapshot: ${file.name} (${data.length} bytes)`);
 
       if (this.onLoaded) {
         this.onLoaded(file.name);
       }
     };
     reader.readAsArrayBuffer(file);
+  }
+
+  loadIntoWasm(data, funcName) {
+    const ptr = this.wasmModule._malloc(data.length);
+    this.wasmModule.HEAPU8.set(data, ptr);
+    this.wasmModule[funcName](ptr, data.length);
+    this.wasmModule._free(ptr);
   }
 
   destroy() {

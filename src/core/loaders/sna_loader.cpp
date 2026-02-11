@@ -6,7 +6,7 @@
  */
 
 #include "sna_loader.hpp"
-#include "emulator.hpp"
+#include "../emulator.hpp"
 #include <cstring>
 
 namespace zxspec {
@@ -65,10 +65,6 @@ bool SNALoader::load(Emulator& emulator, const uint8_t* data, uint32_t size)
     z80->setRegister(Z80::WordReg::PC, pc);
     sp += 2;
     z80->setRegister(Z80::WordReg::SP, sp);
-
-    // Reset audio and keyboard state
-    emulator.audio_.reset();
-    emulator.keyboardMatrix_.fill(0xBF);
 
     return true;
 }

@@ -17,27 +17,170 @@
                     <span class="logo-text">ZX Spectrum</span>
                 </div>
                 <nav class="header-controls">
+                    <!-- Power button with SVG icon -->
                     <button
                         id="btn-power"
                         class="control-btn power-btn off"
                         title="Power On"
                     >
-                        Power
+                        <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                        >
+                            <path d="M12 2v10M18.4 6.6a9 9 0 1 1-12.8 0" />
+                        </svg>
                     </button>
+
+                    <!-- Reset text button -->
                     <button
                         id="btn-reset"
-                        class="control-btn"
+                        class="header-text-btn"
                         title="Reset"
                     >
                         Reset
                     </button>
-                    <button
-                        id="btn-load"
-                        class="control-btn"
-                        title="Load SNA snapshot"
-                    >
-                        Load
-                    </button>
+
+                    <!-- File menu -->
+                    <div class="header-menu-container" id="file-menu-container">
+                        <button class="header-menu-trigger" id="btn-file-menu">
+                            <span>File</span>
+                            <svg
+                                class="menu-chevron"
+                                viewBox="0 0 12 12"
+                                width="10"
+                                height="10"
+                            >
+                                <path
+                                    d="M3 5l3 3 3-3"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                />
+                            </svg>
+                        </button>
+                        <div class="header-menu" id="file-menu">
+                            <button
+                                class="header-menu-item"
+                                id="btn-load-snapshot"
+                            >
+                                <span>Load Snapshot...</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- View menu -->
+                    <div class="header-menu-container" id="view-menu-container">
+                        <button class="header-menu-trigger" id="btn-view-menu">
+                            <span>View</span>
+                            <svg
+                                class="menu-chevron"
+                                viewBox="0 0 12 12"
+                                width="10"
+                                height="10"
+                            >
+                                <path
+                                    d="M3 5l3 3 3-3"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                />
+                            </svg>
+                        </button>
+                        <div class="header-menu" id="view-menu">
+                            <button
+                                class="header-menu-item"
+                                id="btn-display"
+                            >
+                                <span>Display</span>
+                            </button>
+                            <button
+                                class="header-menu-item"
+                                id="btn-ay-sound"
+                            >
+                                <span>AY Sound</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Control group: fullscreen + sound -->
+                    <div class="control-group">
+                        <button
+                            id="btn-fullscreen"
+                            class="control-btn"
+                            title="Fullscreen"
+                            aria-label="Fullscreen"
+                        >
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path
+                                    d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"
+                                />
+                            </svg>
+                        </button>
+                        <div class="sound-control-wrapper">
+                            <button
+                                id="btn-sound"
+                                class="control-btn"
+                                title="Sound Settings"
+                                aria-label="Sound Settings"
+                            >
+                                <svg
+                                    class="icon-unmuted"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                                    <path
+                                        d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"
+                                    />
+                                </svg>
+                                <svg
+                                    class="icon-muted hidden"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                >
+                                    <path d="M11 5L6 9H2v6h4l5 4V5z" />
+                                    <line x1="23" y1="9" x2="17" y2="15" />
+                                    <line x1="17" y1="9" x2="23" y2="15" />
+                                </svg>
+                            </button>
+                            <div id="sound-popup" class="sound-popup hidden">
+                                <div class="sound-popup-row">
+                                    <label for="volume-slider">Volume</label>
+                                    <input
+                                        type="range"
+                                        id="volume-slider"
+                                        min="0"
+                                        max="100"
+                                        value="50"
+                                    />
+                                    <span id="volume-value" aria-live="polite"
+                                        >50%</span
+                                    >
+                                </div>
+                                <div class="sound-popup-row">
+                                    <label>Mute</label>
+                                    <label class="toggle-switch">
+                                        <input
+                                            type="checkbox"
+                                            id="mute-toggle"
+                                        />
+                                        <span class="toggle-slider"></span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </nav>
             </header>
 

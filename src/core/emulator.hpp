@@ -7,20 +7,25 @@
 
 #pragma once
 
-#include "audio.hpp"
+#include "audio/audio.hpp"
+#include "display/display.hpp"
+#include "peripherals/peripheral.hpp"
 #include "types.hpp"
-#include "ula_contention.hpp"
+#include "ula/ula_contention.hpp"
 #include "z80/z80.hpp"
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <vector>
 
 namespace zxspec {
 
 class SNALoader;
+class Z80Loader;
 
 class Emulator {
     friend class SNALoader;
+    friend class Z80Loader;
 public:
     Emulator();
     ~Emulator();
@@ -28,6 +33,7 @@ public:
     void init();
     void reset();
     void loadSNA(const uint8_t* data, uint32_t size);
+    void loadZ80(const uint8_t* data, uint32_t size);
 
     void runCycles(int cycles);
     void runFrame();
@@ -46,6 +52,20 @@ public:
 
     bool isPaused() const { return paused_; }
     void setPaused(bool paused) { paused_ = paused; }
+
+    bool isTurbo() const { return turbo_; }
+    void setTurbo(bool turbo) { turbo_ = turbo; }
+
+    // Peripheral management
+    void addPeripheral(std::unique_ptr<Peripheral> peripheral);
+    void enableAY(bool enable);
+    bool isAYEnabled() const;
+
+    // AY debug accessors
+    uint8_t getAYRegister(int reg) const;
+    bool getAYChannelMute(int channel) const;
+    void setAYChannelMute(int channel, bool muted);
+    void getAYWaveform(int channel, float* buffer, int sampleCount) const;
 
     void stepInstruction();
 
@@ -77,35 +97,26 @@ private:
     void ioWrite(uint16_t address, uint8_t data, void* param);
     void memContention(uint16_t address, uint32_t tstates, void* param);
 
-    // Incremental display rendering
-    void displayUpdateWithTs(int32_t tStates);
-    void displayFrameReset();
-    void displayBuildTsTable();
-    void displayBuildLineAddressTable();
+    void mixPeripheralAudio();
 
     std::unique_ptr<Z80> z80_;
     Audio audio_;
+    Display display_;
     ULAContention contention_;
+    std::vector<std::unique_ptr<Peripheral>> peripherals_;
 
     // 64KB flat memory (48K RAM + 16K ROM at bottom)
     std::array<uint8_t, 65536> memory_{};
 
-    std::array<uint8_t, FRAMEBUFFER_SIZE> framebuffer_{};
     uint8_t borderColor_ = 7;
     uint32_t frameCounter_ = 0;
-
-    // Incremental display state
-    uint32_t emuCurrentDisplayTs_ = 0;
-    uint32_t displayBufferIndex_ = 0;  // Current pixel position in framebuffer
-
-    // Display lookup tables
-    uint32_t displayTstateTable_[PX_VERTICAL_TOTAL][TSTATES_PER_SCANLINE]{};
-    uint16_t displayLineAddrTable_[PX_VERTICAL_DISPLAY]{};
 
     // Keyboard matrix: 8 half-rows, bits 0-4 active LOW (0 = pressed)
     std::array<uint8_t, 8> keyboardMatrix_{};
 
     bool paused_ = false;
+    bool turbo_ = false;
+    int mixOffset_ = 0;
 };
 
 } // namespace zxspec

@@ -24,6 +24,7 @@ public:
     void setEarBit(uint8_t bit) { earBit_ = bit; }
 
     const float* getBuffer() const { return sampleBuffer_; }
+    float* getMutableBuffer() { return sampleBuffer_; }
     int getSampleCount() const { return sampleIndex_; }
     void resetBuffer() { sampleIndex_ = 0; }
 
