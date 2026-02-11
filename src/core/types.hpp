@@ -52,8 +52,8 @@ constexpr int PX_VERTICAL_TOTAL = 312;          // Total scanlines
 constexpr int PX_EMU_BORDER_H = 48;             // Emulation horizontal border in pixels
 constexpr int PX_EMU_BORDER_TOP = 48;           // Emulation top border in lines
 constexpr int PX_EMU_BORDER_BOTTOM = 56;        // Emulation bottom border in lines
-constexpr int BORDER_DRAWING_OFFSET = 10;       // T-state offset for border draw trigger
-constexpr int PAPER_DRAWING_OFFSET = 16;        // T-state offset for paper draw trigger
+constexpr int BORDER_DRAWING_OFFSET = 18;       // T-state offset for border draw trigger (left_border_ts - 6)
+constexpr int PAPER_DRAWING_OFFSET = 24;        // T-state offset for paper draw trigger (= left_border_ts)
 
 // Display action types for T-state table
 constexpr uint32_t DISPLAY_RETRACE = 0;
