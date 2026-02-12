@@ -42,7 +42,7 @@ export class DisplaySettingsWindow extends BaseWindow {
       glowingLine: 0,
       ambientLight: 0,
       burnIn: 0,
-      overscan: 0,
+      overscan: 100,
       sharpPixels: false,
     };
 
