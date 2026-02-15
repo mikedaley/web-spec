@@ -10,7 +10,7 @@ import { BreakpointManager } from "./breakpoint-manager.js";
 import "../css/cpu-debugger.css";
 import { z80Disassemble } from "./z80-disassembler.js";
 
-const DISASM_LINES = 32;
+const DISASM_LINES = 48;
 
 export class CPUDebuggerWindow extends BaseWindow {
   constructor() {
@@ -295,9 +295,9 @@ export class CPUDebuggerWindow extends BaseWindow {
     const pc = wasm._getPC();
     let addr = this.followPC ? pc : this.disasmBaseAddr;
 
-    // Start a few instructions before PC so it's visible
+    // Start well before PC so scrollIntoView can centre it
     if (this.followPC) {
-      addr = (addr - 8) & 0xFFFF;
+      addr = (addr - 40) & 0xFFFF;
     }
 
     let html = "";
