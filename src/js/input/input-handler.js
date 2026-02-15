@@ -124,6 +124,10 @@ export class InputHandler {
   }
 
   handleKeyDown(event) {
+    // Don't intercept typing in input fields
+    const tag = event.target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || event.target.isContentEditable) return;
+
     const mapping = KEY_MAP[event.code];
     if (!mapping) return;
 
@@ -138,6 +142,9 @@ export class InputHandler {
   }
 
   handleKeyUp(event) {
+    const tag = event.target.tagName;
+    if (tag === "INPUT" || tag === "TEXTAREA" || event.target.isContentEditable) return;
+
     const mapping = KEY_MAP[event.code];
     if (!mapping) return;
 

@@ -295,6 +295,43 @@ export class CPUDebuggerWindow extends BaseWindow {
     }
   }
 
+  colorizeMnemonic(mnemonic) {
+    // Split into instruction and operands
+    const match = mnemonic.match(/^(\S+)\s*(.*)?$/);
+    if (!match) return mnemonic;
+
+    const instr = match[1];
+    const operands = match[2] || "";
+
+    // Classify instruction
+    let instrClass = "disasm-op";
+    const upper = instr.toUpperCase();
+
+    if (["JP", "JR", "CALL", "RET", "RETI", "RETN", "RST", "DJNZ"].includes(upper)) {
+      instrClass = "disasm-flow";
+    } else if (["LD", "LDI", "LDIR", "LDD", "LDDR", "PUSH", "POP", "EX", "EXX"].includes(upper)) {
+      instrClass = "disasm-load";
+    } else if (["ADD", "ADC", "SUB", "SBC", "AND", "OR", "XOR", "CP", "CPI", "CPIR", "CPD", "CPDR",
+                 "INC", "DEC", "NEG", "DAA", "CPL", "SCF", "CCF",
+                 "RLA", "RRA", "RLCA", "RRCA", "RL", "RR", "RLC", "RRC",
+                 "SLA", "SRA", "SRL", "SLL", "BIT", "SET", "RES", "RLD", "RRD"].includes(upper)) {
+      instrClass = "disasm-alu";
+    } else if (["NOP", "HALT", "DI", "EI", "IM"].includes(upper)) {
+      instrClass = "disasm-ctrl";
+    } else if (["IN", "INI", "INIR", "IND", "INDR", "OUT", "OUTI", "OTIR", "OUTD", "OTDR"].includes(upper)) {
+      instrClass = "disasm-io";
+    }
+
+    let result = `<span class="${instrClass}">${instr}</span>`;
+    if (operands) {
+      // Highlight numeric values in operands (e.g. 00h, 1234h)
+      const coloredOps = operands.replace(/\b([0-9A-Fa-f]{2,4}h)\b/g,
+        '<span class="disasm-num">$1</span>');
+      result += ` <span class="disasm-operands">${coloredOps}</span>`;
+    }
+    return result;
+  }
+
   renderDisassembly(wasm) {
     if (!wasm) return;
 
@@ -329,7 +366,7 @@ export class CPUDebuggerWindow extends BaseWindow {
       html += `</div>`;
       html += `<div class="cpu-disasm-addr">${addrStr}</div>`;
       html += `<div class="cpu-disasm-bytes">${bytesStr}</div>`;
-      html += `<div class="cpu-disasm-mnemonic">${result.mnemonic}</div>`;
+      html += `<div class="cpu-disasm-mnemonic">${this.colorizeMnemonic(result.mnemonic)}</div>`;
       html += `</div>`;
 
       addr = (addr + result.length) & 0xFFFF;

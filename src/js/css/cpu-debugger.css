@@ -445,9 +445,25 @@
   text-overflow: ellipsis;
 }
 
-.cpu-disasm-line.current .cpu-disasm-mnemonic {
-  color: var(--accent-green);
-  font-weight: 600;
+/* Mnemonic syntax colouring */
+.disasm-flow { color: var(--accent-red); font-weight: 600; }
+.disasm-load { color: var(--accent-blue); }
+.disasm-alu { color: var(--accent-green); }
+.disasm-ctrl { color: var(--accent-orange); font-weight: 600; }
+.disasm-io { color: var(--accent-purple); }
+.disasm-op { color: var(--text-primary); }
+.disasm-operands { color: var(--text-secondary); }
+.disasm-num { color: var(--accent-orange); }
+
+.cpu-disasm-line.current .disasm-flow,
+.cpu-disasm-line.current .disasm-load,
+.cpu-disasm-line.current .disasm-alu,
+.cpu-disasm-line.current .disasm-ctrl,
+.cpu-disasm-line.current .disasm-io,
+.cpu-disasm-line.current .disasm-op,
+.cpu-disasm-line.current .disasm-operands,
+.cpu-disasm-line.current .disasm-num {
+  filter: brightness(1.3);
 }
 
 /* ---- Tabbed Bottom Panel ---- */
