@@ -1,0 +1,143 @@
+/* ============================================
+   STACK VIEWER WINDOW
+   ============================================ */
+
+/* ---- Info Bar ---- */
+.stack-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--separator-bg);
+}
+
+.stack-sp-label,
+.stack-depth-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.stack-sp-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-green);
+}
+
+.stack-depth-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* ---- Header ---- */
+.stack-header {
+  display: flex;
+  gap: 12px;
+  padding: 3px 8px;
+  background: var(--input-bg);
+  border-bottom: 1px solid var(--glass-border-subtle);
+  font-family: var(--font-mono);
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.stack-col-addr {
+  min-width: 42px;
+}
+
+.stack-col-value {
+  min-width: 28px;
+}
+
+.stack-col-info {
+  flex: 1;
+}
+
+/* ---- Content ---- */
+.stack-content {
+  flex: 1;
+  overflow-y: auto;
+  font-family: var(--font-mono);
+}
+
+/* ---- Entries ---- */
+.stack-entry {
+  display: flex;
+  gap: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  border-left: 2px solid transparent;
+  transition: background 0.08s;
+}
+
+.stack-entry:hover {
+  background: var(--accent-blue-bg);
+}
+
+.stack-entry.stack-top {
+  background: var(--accent-green-bg);
+  border-left-color: var(--accent-green);
+}
+
+.stack-entry.stack-top:hover {
+  background: var(--accent-green-bg-stronger);
+}
+
+.stack-entry.return-addr-low,
+.stack-entry.return-addr-high {
+  background: var(--accent-purple-bg);
+}
+
+.stack-entry.return-addr-low:hover,
+.stack-entry.return-addr-high:hover {
+  background: var(--accent-purple-bg-strong);
+}
+
+.stack-entry.stack-top.return-addr-low {
+  background: linear-gradient(90deg, var(--accent-green-bg) 0%, var(--accent-purple-bg) 100%);
+  border-left-color: var(--accent-green);
+}
+
+/* ---- Entry Columns ---- */
+.stack-addr {
+  min-width: 42px;
+  color: var(--accent-purple);
+  font-size: 10px;
+}
+
+.stack-value {
+  min-width: 28px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.stack-info-text {
+  flex: 1;
+  color: var(--text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stack-entry.return-addr-low .stack-info-text {
+  color: var(--accent-blue);
+}
+
+/* ---- Empty State ---- */
+.stack-empty {
+  padding: 20px 8px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-style: italic;
+  opacity: 0.7;
+}

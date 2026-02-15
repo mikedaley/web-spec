@@ -16,6 +16,7 @@ import { InputHandler } from "./input/input-handler.js";
 import { SnapshotLoader } from "./snapshot/snapshot-loader.js";
 import { AYWindow } from "./debug/ay-window.js";
 import { CPUDebuggerWindow } from "./debug/cpu-debugger-window.js";
+import { StackViewerWindow } from "./debug/stack-viewer-window.js";
 
 // ZX Spectrum timing constants (from types.hpp)
 const CPU_CLOCK_HZ = 3500000;
@@ -78,6 +79,11 @@ class ZXSpectrumEmulator {
       this.cpuDebuggerWindow.create();
       this.windowManager.register(this.cpuDebuggerWindow);
 
+      // Create stack viewer window
+      this.stackViewerWindow = new StackViewerWindow();
+      this.stackViewerWindow.create();
+      this.windowManager.register(this.stackViewerWindow);
+
       // Attach canvas to screen window
       this.screenWindow.attachCanvas();
 
@@ -87,6 +93,7 @@ class ZXSpectrumEmulator {
         { id: "display-settings", visible: false },
         { id: "ay-debug", visible: false },
         { id: "cpu-debugger", visible: false },
+        { id: "stack-viewer", visible: false },
       ]);
 
       // Load saved window state (overrides defaults if present)
@@ -200,6 +207,16 @@ class ZXSpectrumEmulator {
     if (z80DebugBtn) {
       z80DebugBtn.addEventListener("click", () => {
         this.windowManager.toggleWindow("cpu-debugger");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
+    // View menu > Stack Viewer
+    const stackViewerBtn = document.getElementById("btn-stack-viewer");
+    if (stackViewerBtn) {
+      stackViewerBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("stack-viewer");
         this.closeAllMenus();
         this.refocusCanvas();
       });
