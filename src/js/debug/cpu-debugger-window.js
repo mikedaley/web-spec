@@ -31,6 +31,8 @@ export class CPUDebuggerWindow extends BaseWindow {
     this.activeTab = "breakpoints";
     this.followPC = true;
     this.disasmBaseAddr = 0;
+    this.lastUpdateTime = 0;
+    this.updateInterval = 1000 / 5; // 5 updates per second
   }
 
   renderContent() {
@@ -526,6 +528,15 @@ export class CPUDebuggerWindow extends BaseWindow {
 
     const emulator = window.zxspec;
     const running = emulator?.isRunning() ?? false;
+    const paused = wasmModule._isPaused();
+
+    // Always update immediately when paused (stepping needs instant feedback),
+    // otherwise throttle to 5 updates per second while running
+    if (!paused && running) {
+      const now = performance.now();
+      if (now - this.lastUpdateTime < this.updateInterval) return;
+      this.lastUpdateTime = now;
+    }
 
     this.updateStatus(wasmModule, running);
     this.updateRegisters(wasmModule);
