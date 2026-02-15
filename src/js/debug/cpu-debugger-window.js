@@ -195,11 +195,14 @@ export class CPUDebuggerWindow extends BaseWindow {
       this.renderDisassembly(this._wasmModule);
     });
 
-    // Disassembly click for breakpoint toggle
-    this.elements.disasmView.addEventListener("click", (e) => {
+    // Disassembly click for breakpoint toggle (mousedown + stopPropagation
+    // so the window's bring-to-front handler doesn't swallow the event)
+    this.elements.disasmView.addEventListener("mousedown", (e) => {
       const line = e.target.closest(".cpu-disasm-line");
-      if (line) {
+      if (line && line.dataset.addr) {
         const addr = parseInt(line.dataset.addr, 16);
+        e.preventDefault();
+        e.stopPropagation();
         this.breakpointManager.toggle(addr);
         if (this._wasmModule) {
           if (this.breakpointManager.has(addr)) {

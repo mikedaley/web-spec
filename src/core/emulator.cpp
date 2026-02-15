@@ -93,7 +93,7 @@ void Emulator::runFrame()
     }
     else
     {
-        while (z80_->getTStates() < TSTATES_PER_FRAME)
+        while (z80_->getTStates() < TSTATES_PER_FRAME && !paused_)
         {
             uint32_t before = z80_->getTStates();
             z80_->execute(1, INT_LENGTH_TSTATES);
@@ -101,6 +101,10 @@ void Emulator::runFrame()
             audio_.update(delta);
             for (auto& p : peripherals_) p->update(delta);
         }
+
+        // If paused mid-frame (breakpoint hit), don't do frame-end processing
+        if (paused_) return;
+
         audio_.frameEnd();
         for (auto& p : peripherals_) p->frameEnd();
         mixPeripheralAudio();
@@ -342,12 +346,12 @@ void Emulator::addBreakpoint(uint16_t addr)
                 skipBreakpointOnce_ = false;
                 return false;
             }
-            skipBreakpointOnce_ = false;
             if (breakpoints_.count(address) && !disabledBreakpoints_.count(address)) {
                 breakpointHit_ = true;
                 breakpointAddress_ = address;
                 paused_ = true;
-                return false;
+                z80_->setRegister(Z80::WordReg::PC, address);
+                return true; // skip execution of this instruction
             }
             return false;
         });

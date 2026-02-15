@@ -372,6 +372,10 @@
   line-height: 1.5;
 }
 
+.cpu-disasm-line > * {
+  pointer-events: none;
+}
+
 .cpu-disasm-line:hover {
   background: var(--overlay-subtle);
 }
