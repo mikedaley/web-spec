@@ -126,6 +126,108 @@ uint32_t getTStates() {
 }
 
 // ============================================================================
+// Alternate Register Access
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+uint16_t getAltAF() {
+  REQUIRE_EMULATOR_OR(0);
+  return g_emulator->getAltAF();
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint16_t getAltBC() {
+  REQUIRE_EMULATOR_OR(0);
+  return g_emulator->getAltBC();
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint16_t getAltDE() {
+  REQUIRE_EMULATOR_OR(0);
+  return g_emulator->getAltDE();
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint16_t getAltHL() {
+  REQUIRE_EMULATOR_OR(0);
+  return g_emulator->getAltHL();
+}
+
+// ============================================================================
+// Register Setters
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+void setPC(uint16_t v) { REQUIRE_EMULATOR(); g_emulator->setPC(v); }
+
+EMSCRIPTEN_KEEPALIVE
+void setSP(uint16_t v) { REQUIRE_EMULATOR(); g_emulator->setSP(v); }
+
+EMSCRIPTEN_KEEPALIVE
+void setAF(uint16_t v) { REQUIRE_EMULATOR(); g_emulator->setAF(v); }
+
+EMSCRIPTEN_KEEPALIVE
+void setBC(uint16_t v) { REQUIRE_EMULATOR(); g_emulator->setBC(v); }
+
+EMSCRIPTEN_KEEPALIVE
+void setDE(uint16_t v) { REQUIRE_EMULATOR(); g_emulator->setDE(v); }
+
+EMSCRIPTEN_KEEPALIVE
+void setHL(uint16_t v) { REQUIRE_EMULATOR(); g_emulator->setHL(v); }
+
+EMSCRIPTEN_KEEPALIVE
+void setIX(uint16_t v) { REQUIRE_EMULATOR(); g_emulator->setIX(v); }
+
+EMSCRIPTEN_KEEPALIVE
+void setIY(uint16_t v) { REQUIRE_EMULATOR(); g_emulator->setIY(v); }
+
+EMSCRIPTEN_KEEPALIVE
+void setI(uint8_t v) { REQUIRE_EMULATOR(); g_emulator->setI(v); }
+
+EMSCRIPTEN_KEEPALIVE
+void setR(uint8_t v) { REQUIRE_EMULATOR(); g_emulator->setR(v); }
+
+// ============================================================================
+// Breakpoint Management
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+void addBreakpoint(uint16_t addr) {
+  REQUIRE_EMULATOR();
+  g_emulator->addBreakpoint(addr);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void removeBreakpoint(uint16_t addr) {
+  REQUIRE_EMULATOR();
+  g_emulator->removeBreakpoint(addr);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void enableBreakpoint(uint16_t addr, bool enabled) {
+  REQUIRE_EMULATOR();
+  g_emulator->enableBreakpoint(addr, enabled);
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool isBreakpointHit() {
+  REQUIRE_EMULATOR_OR(false);
+  return g_emulator->isBreakpointHit();
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint16_t getBreakpointAddress() {
+  REQUIRE_EMULATOR_OR(0);
+  return g_emulator->getBreakpointAddress();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void clearBreakpointHit() {
+  REQUIRE_EMULATOR();
+  g_emulator->clearBreakpointHit();
+}
+
+// ============================================================================
 // Memory Access
 // ============================================================================
 

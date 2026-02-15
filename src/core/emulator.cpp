@@ -330,6 +330,48 @@ void Emulator::mixPeripheralAudio()
     mixOffset_ = count;
 }
 
+void Emulator::addBreakpoint(uint16_t addr)
+{
+    breakpoints_.insert(addr);
+    disabledBreakpoints_.erase(addr);
+
+    // Register opcode callback if not already registered
+    z80_->registerOpcodeCallback(
+        [this](uint8_t /*opcode*/, uint16_t address, void* /*param*/) -> bool {
+            if (skipBreakpointOnce_ && address == skipBreakpointAddr_) {
+                skipBreakpointOnce_ = false;
+                return false;
+            }
+            skipBreakpointOnce_ = false;
+            if (breakpoints_.count(address) && !disabledBreakpoints_.count(address)) {
+                breakpointHit_ = true;
+                breakpointAddress_ = address;
+                paused_ = true;
+                return false;
+            }
+            return false;
+        });
+}
+
+void Emulator::removeBreakpoint(uint16_t addr)
+{
+    breakpoints_.erase(addr);
+    disabledBreakpoints_.erase(addr);
+
+    if (breakpoints_.empty()) {
+        z80_->registerOpcodeCallback(nullptr);
+    }
+}
+
+void Emulator::enableBreakpoint(uint16_t addr, bool enabled)
+{
+    if (enabled) {
+        disabledBreakpoints_.erase(addr);
+    } else {
+        disabledBreakpoints_.insert(addr);
+    }
+}
+
 void Emulator::memContention(uint16_t address, uint32_t /*tstates*/, void* /*param*/)
 {
     // 48K contended memory range: 0x4000-0x7FFF

@@ -26,18 +26,57 @@
 
   /* Accents */
   --accent-blue: #18ABEA;
+  --accent-blue-bg: rgba(24, 171, 234, 0.12);
+  --accent-blue-bg-strong: rgba(24, 171, 234, 0.2);
+  --accent-blue-bg-stronger: rgba(24, 171, 234, 0.3);
+  --accent-blue-border: rgba(24, 171, 234, 0.4);
   --accent-blue-border-light: rgba(24, 171, 234, 0.3);
   --accent-green: #4ade80;
   --accent-green-bg: rgba(74, 222, 128, 0.15);
   --accent-green-bg-strong: rgba(74, 222, 128, 0.2);
+  --accent-green-bg-stronger: rgba(74, 222, 128, 0.25);
   --accent-green-border: rgba(74, 222, 128, 0.4);
   --accent-green-border-light: rgba(74, 222, 128, 0.3);
   --accent-red: #f87171;
+  --accent-red-bg: rgba(248, 113, 113, 0.12);
+  --accent-red-bg-strong: rgba(248, 113, 113, 0.18);
   --accent-red-bg-stronger: rgba(248, 113, 113, 0.2);
-  --accent-green-bg-stronger: rgba(74, 222, 128, 0.25);
+  --accent-red-border: rgba(248, 113, 113, 0.4);
   --accent-purple: #a78bfa;
+  --accent-purple-bg: rgba(167, 139, 250, 0.12);
+  --accent-purple-bg-strong: rgba(167, 139, 250, 0.2);
   --accent-orange: #fb923c;
+  --accent-orange-bg: rgba(251, 146, 60, 0.12);
   --accent-orange-bg-strong: rgba(251, 146, 60, 0.2);
+  --accent-orange-bg-stronger: rgba(251, 146, 60, 0.25);
+  --accent-orange-border: rgba(251, 146, 60, 0.4);
+  --accent-orange-border-light: rgba(251, 146, 60, 0.3);
+  --accent-orange-border-strong: rgba(251, 146, 60, 0.5);
+
+  /* Overlays */
+  --overlay-subtle: rgba(255, 255, 255, 0.04);
+  --overlay-faint: rgba(255, 255, 255, 0.03);
+
+  /* Glass */
+  --glass-bg-solid: rgba(13, 17, 23, 0.95);
+  --glass-border-subtle: rgba(48, 54, 61, 0.3);
+
+  /* Input */
+  --input-bg: rgba(0, 0, 0, 0.15);
+  --input-bg-deep: rgba(0, 0, 0, 0.25);
+
+  /* Separator */
+  --separator-bg: rgba(48, 54, 61, 0.6);
+
+  /* Control */
+  --control-bg: rgba(33, 38, 45, 0.5);
+
+  /* Register flash */
+  --reg-flash-color: #fbbf24;
+  --reg-flash-bg: rgba(251, 191, 36, 0.15);
+
+  /* Flag glow */
+  --flag-active-glow: rgba(74, 222, 128, 0.2);
 
   /* Input / badge tokens */
   --input-bg-dark: rgba(22, 27, 34, 0.5);

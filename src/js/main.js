@@ -15,6 +15,7 @@ import { AudioDriver } from "./audio/audio-driver.js";
 import { InputHandler } from "./input/input-handler.js";
 import { SnapshotLoader } from "./snapshot/snapshot-loader.js";
 import { AYWindow } from "./debug/ay-window.js";
+import { CPUDebuggerWindow } from "./debug/cpu-debugger-window.js";
 
 // ZX Spectrum timing constants (from types.hpp)
 const CPU_CLOCK_HZ = 3500000;
@@ -31,6 +32,7 @@ class ZXSpectrumEmulator {
     this.screenWindow = null;
     this.displaySettingsWindow = null;
     this.ayWindow = null;
+    this.cpuDebuggerWindow = null;
 
     this.snapshotLoader = null;
 
@@ -71,6 +73,11 @@ class ZXSpectrumEmulator {
       this.ayWindow.create();
       this.windowManager.register(this.ayWindow);
 
+      // Create CPU debugger window
+      this.cpuDebuggerWindow = new CPUDebuggerWindow();
+      this.cpuDebuggerWindow.create();
+      this.windowManager.register(this.cpuDebuggerWindow);
+
       // Attach canvas to screen window
       this.screenWindow.attachCanvas();
 
@@ -79,6 +86,7 @@ class ZXSpectrumEmulator {
         { id: "screen-window", position: "viewport-fill", visible: true, viewportLocked: true },
         { id: "display-settings", visible: false },
         { id: "ay-debug", visible: false },
+        { id: "cpu-debugger", visible: false },
       ]);
 
       // Load saved window state (overrides defaults if present)
@@ -182,6 +190,16 @@ class ZXSpectrumEmulator {
     if (aySoundBtn) {
       aySoundBtn.addEventListener("click", () => {
         this.windowManager.toggleWindow("ay-debug");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
+    // View menu > Z80 Debugger (opens CPU debugger window)
+    const z80DebugBtn = document.getElementById("btn-z80-debug");
+    if (z80DebugBtn) {
+      z80DebugBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("cpu-debugger");
         this.closeAllMenus();
         this.refocusCanvas();
       });
@@ -424,6 +442,8 @@ class ZXSpectrumEmulator {
       if (!this.running) {
         this.renderer.draw();
       }
+      // Always update debug windows (needed for stepping when paused)
+      this.windowManager.updateAll(this.wasmModule);
       this.animFrameId = requestAnimationFrame(render);
     };
 
@@ -468,6 +488,11 @@ class ZXSpectrumEmulator {
     if (this.ayWindow) {
       this.ayWindow.destroy();
       this.ayWindow = null;
+    }
+
+    if (this.cpuDebuggerWindow) {
+      this.cpuDebuggerWindow.destroy();
+      this.cpuDebuggerWindow = null;
     }
 
     if (this.snapshotLoader) {

@@ -16,6 +16,7 @@
 #include <array>
 #include <cstdint>
 #include <memory>
+#include <set>
 #include <vector>
 
 namespace zxspec {
@@ -85,6 +86,32 @@ public:
     uint8_t getIM() const { return z80_->getIMMode(); }
     uint32_t getTStates() const { return z80_->getTStates(); }
 
+    // Alternate register access
+    uint16_t getAltAF() const { return z80_->getRegister(Z80::WordReg::AltAF); }
+    uint16_t getAltBC() const { return z80_->getRegister(Z80::WordReg::AltBC); }
+    uint16_t getAltDE() const { return z80_->getRegister(Z80::WordReg::AltDE); }
+    uint16_t getAltHL() const { return z80_->getRegister(Z80::WordReg::AltHL); }
+
+    // Register setters
+    void setPC(uint16_t v) { z80_->setRegister(Z80::WordReg::PC, v); }
+    void setSP(uint16_t v) { z80_->setRegister(Z80::WordReg::SP, v); }
+    void setAF(uint16_t v) { z80_->setRegister(Z80::WordReg::AF, v); }
+    void setBC(uint16_t v) { z80_->setRegister(Z80::WordReg::BC, v); }
+    void setDE(uint16_t v) { z80_->setRegister(Z80::WordReg::DE, v); }
+    void setHL(uint16_t v) { z80_->setRegister(Z80::WordReg::HL, v); }
+    void setIX(uint16_t v) { z80_->setRegister(Z80::WordReg::IX, v); }
+    void setIY(uint16_t v) { z80_->setRegister(Z80::WordReg::IY, v); }
+    void setI(uint8_t v) { z80_->setRegister(Z80::ByteReg::I, v); }
+    void setR(uint8_t v) { z80_->setRegister(Z80::ByteReg::R, v); }
+
+    // Breakpoint management
+    void addBreakpoint(uint16_t addr);
+    void removeBreakpoint(uint16_t addr);
+    void enableBreakpoint(uint16_t addr, bool enabled);
+    bool isBreakpointHit() const { return breakpointHit_; }
+    uint16_t getBreakpointAddress() const { return breakpointAddress_; }
+    void clearBreakpointHit() { skipBreakpointAddr_ = breakpointAddress_; skipBreakpointOnce_ = true; breakpointHit_ = false; }
+
     // Memory access
     uint8_t readMemory(uint16_t address) const;
     void writeMemory(uint16_t address, uint8_t data);
@@ -117,6 +144,14 @@ private:
     bool paused_ = false;
     bool turbo_ = false;
     int mixOffset_ = 0;
+
+    // Breakpoint support
+    std::set<uint16_t> breakpoints_;
+    std::set<uint16_t> disabledBreakpoints_;
+    bool breakpointHit_ = false;
+    uint16_t breakpointAddress_ = 0;
+    bool skipBreakpointOnce_ = false;
+    uint16_t skipBreakpointAddr_ = 0;
 };
 
 } // namespace zxspec

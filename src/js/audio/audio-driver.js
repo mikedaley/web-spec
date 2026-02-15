@@ -139,6 +139,13 @@ export class AudioDriver {
       );
     } else {
       this.wasmModule._resetAudioBuffer();
+      // Send empty samples so the worklet clears pendingRequest
+      // and will request more samples on the next process() call
+      const silence = new Float32Array(128);
+      this.workletNode.port.postMessage(
+        { type: "samples", data: silence },
+        [silence.buffer],
+      );
     }
   }
 

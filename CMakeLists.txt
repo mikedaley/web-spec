@@ -109,6 +109,26 @@ if(EMSCRIPTEN)
                 \"_getAYChannelMute\", \
                 \"_setAYChannelMute\", \
                 \"_getAYWaveform\", \
+                \"_getAltAF\", \
+                \"_getAltBC\", \
+                \"_getAltDE\", \
+                \"_getAltHL\", \
+                \"_setPC\", \
+                \"_setSP\", \
+                \"_setAF\", \
+                \"_setBC\", \
+                \"_setDE\", \
+                \"_setHL\", \
+                \"_setIX\", \
+                \"_setIY\", \
+                \"_setI\", \
+                \"_setR\", \
+                \"_addBreakpoint\", \
+                \"_removeBreakpoint\", \
+                \"_enableBreakpoint\", \
+                \"_isBreakpointHit\", \
+                \"_getBreakpointAddress\", \
+                \"_clearBreakpointHit\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \
