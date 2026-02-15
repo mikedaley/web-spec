@@ -251,7 +251,11 @@ export class CPUDebuggerWindow extends BaseWindow {
       const hex = value.toString(16).toUpperCase().padStart(digits, "0");
       const changed = this.prevValues[`reg-${name}`] !== undefined && this.prevValues[`reg-${name}`] !== value;
       el.textContent = hex;
-      el.classList.toggle("changed", changed);
+      if (changed) {
+        el.classList.remove("changed");
+        void el.offsetWidth; // force reflow to restart animation
+        el.classList.add("changed");
+      }
       this.prevValues[`reg-${name}`] = value;
     }
 
