@@ -171,7 +171,28 @@ class ZXSpectrumEmulator {
         this.audioDriver.start();
         this.updatePowerButton();
       }
+      // Update machine type display after snapshot load (may have auto-detected 128K)
+      const machineType = this.wasmModule._getMachineType();
+      const name = machineType === 1 ? "128K" : "48K";
+      const logoText = document.querySelector(".logo-text");
+      if (logoText) logoText.textContent = `ZX Spectrum ${name}`;
     };
+
+    // File menu > Machine type selection
+    const machine48kBtn = document.getElementById("btn-machine-48k");
+    if (machine48kBtn) {
+      machine48kBtn.addEventListener("click", () => {
+        this.closeAllMenus();
+        this.setMachineType(0);
+      });
+    }
+    const machine128kBtn = document.getElementById("btn-machine-128k");
+    if (machine128kBtn) {
+      machine128kBtn.addEventListener("click", () => {
+        this.closeAllMenus();
+        this.setMachineType(1);
+      });
+    }
 
     // File menu > Load Snapshot
     const loadSnapshotBtn = document.getElementById("btn-load-snapshot");
@@ -424,6 +445,24 @@ class ZXSpectrumEmulator {
       }
     }
     console.log(`Speed: ${multiplier}x`);
+  }
+
+  setMachineType(type) {
+    if (!this.wasmModule) return;
+    this.wasmModule._setMachineType(type);
+    this.wasmModule._reset();
+    const name = type === 1 ? "128K" : "48K";
+    console.log(`Machine type set to ZX Spectrum ${name}`);
+    // Update logo text
+    const logoText = document.querySelector(".logo-text");
+    if (logoText) logoText.textContent = `ZX Spectrum ${name}`;
+    if (!this.running) {
+      this.running = true;
+      this.renderer.setNoSignal(false);
+      this.audioDriver.start();
+      this.updatePowerButton();
+    }
+    this.refocusCanvas();
   }
 
   start() {

@@ -19,6 +19,7 @@ public:
     virtual bool claimsPort(uint16_t address, bool isWrite) const = 0;
     virtual uint8_t ioRead(uint16_t address) = 0;
     virtual void ioWrite(uint16_t address, uint8_t data) = 0;
+    virtual void setup(int /*sampleRate*/, double /*fps*/, int /*tsPerFrame*/) {}
     virtual void update(int32_t tStates) {}
     virtual void frameEnd() {}
     virtual void reset() = 0;

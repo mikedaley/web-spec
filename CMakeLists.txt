@@ -37,6 +37,9 @@ add_custom_command(
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/generated
     COMMAND ${CMAKE_SOURCE_DIR}/scripts/generate_roms.sh ${CMAKE_SOURCE_DIR}/roms ${CMAKE_BINARY_DIR}/generated/roms.cpp
     DEPENDS ${CMAKE_SOURCE_DIR}/scripts/generate_roms.sh
+            ${CMAKE_SOURCE_DIR}/roms/48.rom
+            ${CMAKE_SOURCE_DIR}/roms/128-0.rom
+            ${CMAKE_SOURCE_DIR}/roms/128-1.rom
     COMMENT "Generating ROM data arrays"
 )
 
@@ -129,6 +132,9 @@ if(EMSCRIPTEN)
                 \"_isBreakpointHit\", \
                 \"_getBreakpointAddress\", \
                 \"_clearBreakpointHit\", \
+                \"_setMachineType\", \
+                \"_getMachineType\", \
+                \"_getPort7FFD\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \

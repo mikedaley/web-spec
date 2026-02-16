@@ -13,20 +13,15 @@ namespace zxspec {
 
 bool SNALoader::load(Emulator& emulator, const uint8_t* data, uint32_t size)
 {
-    if (size != SNA_48K_SIZE) return false;
+    if (size > SNA_48K_SIZE)
+        return load128K(emulator, data, size);
+    if (size == SNA_48K_SIZE)
+        return load48K(emulator, data, size);
+    return false;
+}
 
-    // SNA header layout (27 bytes):
-    //  0: I
-    //  1-2: HL', 3-4: DE', 5-6: BC', 7-8: AF'
-    //  9-10: HL, 11-12: DE, 13-14: BC
-    //  15-16: IY, 17-18: IX
-    //  19: IFF2 (bit 2)
-    //  20: R
-    //  21-22: AF
-    //  23-24: SP
-    //  25: IM
-    //  26: Border color
-
+void SNALoader::loadRegisters(Emulator& emulator, const uint8_t* data)
+{
     Z80* z80 = emulator.z80_.get();
 
     z80->setRegister(Z80::ByteReg::I, data[0]);
@@ -50,21 +45,84 @@ bool SNALoader::load(Emulator& emulator, const uint8_t* data, uint32_t size)
 
     z80->setRegister(Z80::WordReg::AF, data[21] | (data[22] << 8));
 
-    uint16_t sp = data[23] | (data[24] << 8);
-    z80->setRegister(Z80::WordReg::SP, sp);
+    z80->setRegister(Z80::WordReg::SP, data[23] | (data[24] << 8));
 
     z80->setIMMode(data[25]);
 
     emulator.borderColor_ = data[26] & 0x07;
+}
 
-    // Copy 48KB RAM to 0x4000-0xFFFF
-    std::memcpy(emulator.memory_.data() + RAM_START, data + HEADER_SIZE, RAM_SIZE);
+bool SNALoader::load48K(Emulator& emulator, const uint8_t* data, uint32_t size)
+{
+    if (size != SNA_48K_SIZE) return false;
 
-    // Recover PC from stack (PC is not stored in the SNA header)
-    uint16_t pc = emulator.memory_[sp] | (emulator.memory_[sp + 1] << 8);
+    emulator.setMachineType(MachineType::Spectrum48K);
+    loadRegisters(emulator, data);
+
+    // Copy 48KB RAM: first 16KB to page 5, next 16KB to page 2, last 16KB to page 0
+    std::memcpy(&emulator.ram_[5 * MEM_PAGE_SIZE], data + HEADER_SIZE, MEM_PAGE_SIZE);
+    std::memcpy(&emulator.ram_[2 * MEM_PAGE_SIZE], data + HEADER_SIZE + MEM_PAGE_SIZE, MEM_PAGE_SIZE);
+    std::memcpy(&emulator.ram_[0 * MEM_PAGE_SIZE], data + HEADER_SIZE + 2 * MEM_PAGE_SIZE, MEM_PAGE_SIZE);
+
+    emulator.updatePaging();
+
+    // Recover PC from stack
+    Z80* z80 = emulator.z80_.get();
+    uint16_t sp = z80->getRegister(Z80::WordReg::SP);
+    uint16_t pc = emulator.readMemory(sp) | (emulator.readMemory(sp + 1) << 8);
     z80->setRegister(Z80::WordReg::PC, pc);
     sp += 2;
     z80->setRegister(Z80::WordReg::SP, sp);
+
+    return true;
+}
+
+bool SNALoader::load128K(Emulator& emulator, const uint8_t* data, uint32_t size)
+{
+    if (size < SNA_128K_MIN_SIZE) return false;
+
+    loadRegisters(emulator, data);
+
+    // The first 48KB after header goes into RAM pages at slots 1,2,3
+    // Slot 1 = page 5, slot 2 = page 2, slot 3 = determined by port7FFD
+    // We load these after we know port7FFD
+
+    // Read extra 128K fields after the 48KB block
+    uint32_t extraOffset = HEADER_SIZE + RAM_SIZE;
+    if (extraOffset + 4 > size) return false;
+
+    uint16_t pc = data[extraOffset] | (data[extraOffset + 1] << 8);
+    uint8_t port7FFD = data[extraOffset + 2];
+    // byte 3 is TR-DOS flag (ignored)
+
+    // Set machine type to 128K
+    emulator.setMachineType(MachineType::Spectrum128K);
+
+    // Apply port7FFD
+    emulator.port7FFD_ = port7FFD;
+    emulator.pagingDisabled_ = (port7FFD & 0x20) != 0;
+    emulator.updatePaging();
+
+    // Load the 48KB into RAM pages 5, 2, and the page selected by port7FFD bits 0-2
+    int slot3Page = port7FFD & 0x07;
+    std::memcpy(&emulator.ram_[5 * MEM_PAGE_SIZE], data + HEADER_SIZE, MEM_PAGE_SIZE);
+    std::memcpy(&emulator.ram_[2 * MEM_PAGE_SIZE], data + HEADER_SIZE + MEM_PAGE_SIZE, MEM_PAGE_SIZE);
+    std::memcpy(&emulator.ram_[slot3Page * MEM_PAGE_SIZE], data + HEADER_SIZE + 2 * MEM_PAGE_SIZE, MEM_PAGE_SIZE);
+
+    // Load remaining 5 RAM pages (those not already loaded: skip pages 5, 2, and slot3Page)
+    uint32_t fileOffset = extraOffset + 4;
+    for (int page = 0; page < 8; page++)
+    {
+        if (page == 5 || page == 2 || page == slot3Page)
+            continue;
+        if (fileOffset + MEM_PAGE_SIZE > size)
+            break;
+        std::memcpy(&emulator.ram_[page * MEM_PAGE_SIZE], data + fileOffset, MEM_PAGE_SIZE);
+        fileOffset += MEM_PAGE_SIZE;
+    }
+
+    Z80* z80 = emulator.z80_.get();
+    z80->setRegister(Z80::WordReg::PC, pc);
 
     return true;
 }

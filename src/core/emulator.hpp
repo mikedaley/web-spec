@@ -51,6 +51,13 @@ public:
     void keyUp(int row, int bit);
     uint8_t getKeyboardRow(int row) const;
 
+    // Machine type
+    void setMachineType(MachineType type);
+    MachineType getMachineType() const { return machineType_; }
+    uint8_t* getScreenMemory() { return &ram_[currentScreenPage_ * MEM_PAGE_SIZE]; }
+    const uint8_t* getScreenMemory() const { return &ram_[currentScreenPage_ * MEM_PAGE_SIZE]; }
+    uint8_t getPort7FFD() const { return port7FFD_; }
+
     bool isPaused() const { return paused_; }
     void setPaused(bool paused) { paused_ = paused; }
 
@@ -124,6 +131,7 @@ private:
     void ioWrite(uint16_t address, uint8_t data, void* param);
     void memContention(uint16_t address, uint32_t tstates, void* param);
 
+    void updatePaging();
     void mixPeripheralAudio();
 
     std::unique_ptr<Z80> z80_;
@@ -132,8 +140,18 @@ private:
     ULAContention contention_;
     std::vector<std::unique_ptr<Peripheral>> peripherals_;
 
-    // 64KB flat memory (48K RAM + 16K ROM at bottom)
-    std::array<uint8_t, 65536> memory_{};
+    // Paged memory model
+    MachineType machineType_ = MachineType::Spectrum48K;
+    std::array<uint8_t, ROM_128K_SIZE> rom_{};    // 32KB (2x16KB pages)
+    std::array<uint8_t, RAM_128K_SIZE> ram_{};    // 128KB (8x16KB pages)
+    uint8_t* pageRead_[4]{};    // read pointers for 0000/4000/8000/C000
+    uint8_t* pageWrite_[4]{};   // write pointers (nullptr for ROM slots)
+    uint8_t port7FFD_ = 0;
+    bool pagingDisabled_ = false;
+    uint8_t currentScreenPage_ = 5;
+    int tsPerFrame_ = TSTATES_PER_FRAME;
+    int tsPerScanline_ = TSTATES_PER_SCANLINE;
+    int intLength_ = INT_LENGTH_TSTATES;
 
     uint8_t borderColor_ = 7;
     uint32_t frameCounter_ = 0;

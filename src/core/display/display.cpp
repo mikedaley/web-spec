@@ -6,11 +6,16 @@
  */
 
 #include "display.hpp"
+#include <cstring>
 
 namespace zxspec {
 
-void Display::init()
+void Display::init(int scanlines, int tsPerScanline, int pxVerticalBlank)
 {
+    scanlines_ = scanlines;
+    tsPerScanline_ = tsPerScanline;
+    pxVerticalBlank_ = pxVerticalBlank;
+    paperStartLine_ = pxVerticalBlank + PX_VERT_BORDER;
     buildLineAddressTable();
     buildTsTable();
     frameReset();
@@ -39,40 +44,37 @@ void Display::buildLineAddressTable()
 
 void Display::buildTsTable()
 {
+    // Clear table
+    std::memset(tstateTable_, 0, sizeof(tstateTable_));
+
     // Horizontal timing in T-states (each T-state = 2 pixels)
-    constexpr uint32_t tsLeftBorderEnd = PX_EMU_BORDER_H / 2;       // 24
-    constexpr uint32_t tsRightBorderStart = tsLeftBorderEnd + TS_HORIZONTAL_DISPLAY; // 152
-    constexpr uint32_t tsRightBorderEnd = tsRightBorderStart + (PX_EMU_BORDER_H / 2); // 176
+    constexpr int tsLeftBorderEnd = PX_EMU_BORDER_H / 2;       // 24
+    constexpr int tsRightBorderStart = tsLeftBorderEnd + TS_HORIZONTAL_DISPLAY; // 152
+    constexpr int tsRightBorderEnd = tsRightBorderStart + (PX_EMU_BORDER_H / 2); // 176
 
-    // Vertical line ranges
-    constexpr uint32_t pxLineTopBorderStart = PX_VERTICAL_BLANK;    // 8
-    constexpr uint32_t pxLinePaperStart = PX_VERTICAL_BLANK + PX_VERT_BORDER; // 64
-    constexpr uint32_t pxLinePaperEnd = pxLinePaperStart + PX_VERTICAL_DISPLAY; // 256
-    // Bottom border: show PX_EMU_BORDER_BOTTOM lines after paper
-    constexpr uint32_t pxLineBottomBorderEnd = pxLinePaperEnd + PX_EMU_BORDER_BOTTOM; // 312
+    // Vertical line ranges (parameterized by pxVerticalBlank_)
+    int pxLinePaperStart = paperStartLine_;
+    int pxLinePaperEnd = pxLinePaperStart + PX_VERTICAL_DISPLAY;
+    int pxLineBottomBorderEnd = pxLinePaperEnd + PX_EMU_BORDER_BOTTOM;
+    int pxLineTopBorderVisible = pxLinePaperStart - PX_EMU_BORDER_TOP;
 
-    // Top border: show PX_EMU_BORDER_TOP lines before paper
-    constexpr uint32_t pxLineTopBorderVisible = pxLinePaperStart - PX_EMU_BORDER_TOP; // 16
-
-    for (uint32_t line = 0; line < PX_VERTICAL_TOTAL; line++)
+    for (int line = 0; line < scanlines_; line++)
     {
-        for (uint32_t ts = 0; ts < TSTATES_PER_SCANLINE; ts++)
+        for (int ts = 0; ts < tsPerScanline_; ts++)
         {
-            // Default to retrace
             tstateTable_[line][ts] = DISPLAY_RETRACE;
 
-            // Vertical blank - always retrace
-            if (line < PX_VERTICAL_BLANK)
+            // Vertical blank
+            if (line < pxVerticalBlank_)
             {
                 continue;
             }
 
             // Top border region
-            if (line >= pxLineTopBorderStart && line < pxLinePaperStart)
+            if (line >= pxVerticalBlank_ && line < pxLinePaperStart)
             {
                 if (ts >= tsRightBorderEnd || line < pxLineTopBorderVisible)
                 {
-                    // H-retrace or above visible top border
                     continue;
                 }
                 tstateTable_[line][ts] = DISPLAY_BORDER;
@@ -86,7 +88,6 @@ void Display::buildTsTable()
                 }
                 else if (ts >= tsRightBorderEnd)
                 {
-                    // H-retrace
                     continue;
                 }
                 else
@@ -113,18 +114,15 @@ void Display::updateWithTs(int32_t tStates, const uint8_t* memory,
     uint32_t* pixels = reinterpret_cast<uint32_t*>(framebuffer_.data());
     const uint8_t flashMask = (frameCounter & 0x10) ? 0xff : 0x00;
 
-    // yAdjust: number of lines before paper starts
-    constexpr uint32_t yAdjust = PX_VERTICAL_BLANK + PX_VERT_BORDER;
-    // Horizontal T-state offset where paper begins
+    const uint32_t yAdjust = static_cast<uint32_t>(paperStartLine_);
     constexpr uint32_t tsLeftBorderEnd = PX_EMU_BORDER_H / 2;
 
     while (tStates > 0)
     {
-        uint32_t line = currentDisplayTs_ / TSTATES_PER_SCANLINE;
-        uint32_t ts = currentDisplayTs_ % TSTATES_PER_SCANLINE;
+        uint32_t line = currentDisplayTs_ / tsPerScanline_;
+        uint32_t ts = currentDisplayTs_ % tsPerScanline_;
 
-        // Bounds check
-        if (line >= PX_VERTICAL_TOTAL)
+        if (line >= static_cast<uint32_t>(scanlines_))
         {
             break;
         }
@@ -157,8 +155,9 @@ void Display::updateWithTs(int32_t tStates, const uint8_t* memory,
                 uint16_t pixelAddr = lineAddrTable_[y] + x;
                 uint16_t attrAddr = 6144 + ((y >> 3) << 5) + x;
 
-                uint8_t pixelByte = memory[0x4000 + pixelAddr];
-                uint8_t attrByte = memory[0x4000 + attrAddr];
+                // memory points directly to screen page (no 0x4000 offset needed)
+                uint8_t pixelByte = memory[pixelAddr];
+                uint8_t attrByte = memory[attrAddr];
 
                 bool flash = (attrByte & 0x80) != 0;
                 bool bright = (attrByte & 0x40) != 0;
@@ -185,7 +184,6 @@ void Display::updateWithTs(int32_t tStates, const uint8_t* memory,
             }
 
             default:
-                // Retrace - no pixel output
                 break;
         }
 
@@ -206,11 +204,11 @@ int Display::getFramebufferSize() const
 
 uint8_t Display::floatingBus(uint32_t cpuTs, const uint8_t* memory) const
 {
-    constexpr uint32_t displayStartLine = PX_VERTICAL_BLANK + PX_VERT_BORDER; // 8 + 56 = 64
-    constexpr uint32_t bitmapSize = (SCREEN_WIDTH / 8) * SCREEN_HEIGHT;       // 6144
+    const uint32_t displayStartLine = static_cast<uint32_t>(paperStartLine_);
+    constexpr uint32_t bitmapSize = (SCREEN_WIDTH / 8) * SCREEN_HEIGHT;
 
-    uint32_t line = cpuTs / TSTATES_PER_SCANLINE;
-    uint32_t ts = cpuTs % TSTATES_PER_SCANLINE;
+    uint32_t line = cpuTs / tsPerScanline_;
+    uint32_t ts = cpuTs % tsPerScanline_;
 
     if (line >= displayStartLine
         && line < displayStartLine + SCREEN_HEIGHT
@@ -223,13 +221,11 @@ uint8_t Display::floatingBus(uint32_t cpuTs, const uint8_t* memory) const
         {
             case 3:
             case 5:
-                // Attribute read
-                return memory[0x4000 + bitmapSize + ((y >> 3) << 5) + x];
+                return memory[bitmapSize + ((y >> 3) << 5) + x];
 
             case 2:
             case 4:
-                // Bitmap read
-                return memory[0x4000 + lineAddrTable_[y] + x];
+                return memory[lineAddrTable_[y] + x];
 
             default:
                 return 0xFF;

@@ -83,4 +83,15 @@ constexpr std::array<uint32_t, 16> SPECTRUM_COLORS = {{
     0xFFFFFFFF,  // 15: Bright White
 }};
 
+// Machine type
+enum class MachineType { Spectrum48K, Spectrum128K };
+
+// 128K timing constants
+constexpr int TSTATES_PER_FRAME_128K = 70908;
+constexpr int TSTATES_PER_SCANLINE_128K = 228;
+constexpr int SCANLINES_PER_FRAME_128K = 311;
+constexpr int INT_LENGTH_TSTATES_128K = 36;
+constexpr int TS_TO_ORIGIN_128K = 14361;
+constexpr int PX_VERTICAL_BLANK_128K = 7;
+
 } // namespace zxspec

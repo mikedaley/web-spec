@@ -10,22 +10,25 @@
 
 namespace zxspec {
 
-void ULAContention::init()
+void ULAContention::init(int tsPerFrame, int tsPerScanline, int tsToOrigin)
 {
+    tsPerFrame_ = tsPerFrame;
+    tsPerScanline_ = tsPerScanline;
+    tsToOrigin_ = tsToOrigin;
     buildContentionTable();
 }
 
 void ULAContention::buildContentionTable()
 {
-    for (int i = 0; i < TSTATES_PER_FRAME; i++)
+    for (int i = 0; i <= tsPerFrame_; i++)
     {
         memoryContentionTable_[i] = 0;
         ioContentionTable_[i] = 0;
 
-        if (i >= static_cast<int>(TS_TO_ORIGIN))
+        if (i >= tsToOrigin_)
         {
-            uint32_t line = (i - TS_TO_ORIGIN) / TSTATES_PER_SCANLINE;
-            uint32_t ts = (i - TS_TO_ORIGIN) % TSTATES_PER_SCANLINE;
+            uint32_t line = (i - tsToOrigin_) / tsPerScanline_;
+            uint32_t ts = (i - tsToOrigin_) % tsPerScanline_;
 
             // Contention only during active display: 192 lines, first 128 tstates per line
             if (line < static_cast<uint32_t>(SCREEN_HEIGHT) && ts < 128)
@@ -39,30 +42,30 @@ void ULAContention::buildContentionTable()
 
 uint32_t ULAContention::memoryContention(uint32_t tstates) const
 {
-    return memoryContentionTable_[tstates % TSTATES_PER_FRAME];
+    return memoryContentionTable_[tstates % tsPerFrame_];
 }
 
 uint32_t ULAContention::ioContention(uint32_t tstates) const
 {
-    return ioContentionTable_[tstates % TSTATES_PER_FRAME];
+    return ioContentionTable_[tstates % tsPerFrame_];
 }
 
-// IO contention pattern (from ZX Spectrum technical documentation):
-//
-//  High byte in   | Low bit | Pattern
-//  0x40-0x7F?     | (even)  |
-//  ---------------+---------+---------------------------
-//  No             | Reset   | N:1, C:3
-//  No             | Set     | N:4
-//  Yes            | Reset   | C:1, C:3
-//  Yes            | Set     | C:1, C:1, C:1, C:1
-//
-//  N:x = no contention, just add x tstates
-//  C:x = apply contention lookup, then add x tstates
-
-void ULAContention::applyIOContention(Z80& z80, uint16_t address) const
+void ULAContention::applyIOContention(Z80& z80, uint16_t address, MachineType machineType) const
 {
-    bool contended = (address & 0xC000) == 0x4000;
+    bool contended;
+    if (machineType == MachineType::Spectrum48K)
+    {
+        contended = (address & 0xC000) == 0x4000;
+    }
+    else
+    {
+        // 128K: contended if address is in 0x4000-0x7FFF range
+        // (slot 1 = page 5, always contended)
+        // Also contended if slot 3 has an odd page, but IO contention
+        // traditionally only checks the address high byte
+        contended = (address & 0xC000) == 0x4000;
+    }
+
     bool evenPort = (address & 0x01) == 0;
 
     if (contended)

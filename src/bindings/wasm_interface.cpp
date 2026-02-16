@@ -399,4 +399,26 @@ void getAYWaveform(int channel, float* buffer, int sampleCount) {
   g_emulator->getAYWaveform(channel, buffer, sampleCount);
 }
 
+// ============================================================================
+// Machine Type
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+void setMachineType(int type) {
+  REQUIRE_EMULATOR();
+  g_emulator->setMachineType(type == 1 ? zxspec::MachineType::Spectrum128K : zxspec::MachineType::Spectrum48K);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int getMachineType() {
+  REQUIRE_EMULATOR_OR(0);
+  return g_emulator->getMachineType() == zxspec::MachineType::Spectrum128K ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t getPort7FFD() {
+  REQUIRE_EMULATOR_OR(0);
+  return g_emulator->getPort7FFD();
+}
+
 } // extern "C"

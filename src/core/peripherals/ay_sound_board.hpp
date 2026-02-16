@@ -20,7 +20,7 @@ public:
     AYSoundBoard();
     ~AYSoundBoard() override = default;
 
-    void setup(int sampleRate, double fps, int tsPerFrame);
+    void setup(int sampleRate, double fps, int tsPerFrame) override;
 
     // Peripheral interface
     const char* getName() const override { return "AY Sound Board"; }

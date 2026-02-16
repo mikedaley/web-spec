@@ -64,7 +64,6 @@ bool Z80Loader::load(Emulator& emulator, const uint8_t* data, uint32_t size)
 
     // R register: low 7 bits from byte 11, bit 7 from byte 12 bit 0
     uint8_t byte12 = data[12];
-    // For compatibility, if byte 12 is 255 treat as 1
     if (byte12 == 255) byte12 = 1;
 
     z80->setRegister(Z80::ByteReg::R, (data[11] & 0x7F) | ((byte12 & 1) << 7));
@@ -80,7 +79,6 @@ bool Z80Loader::load(Emulator& emulator, const uint8_t* data, uint32_t size)
     z80->setRegister(Z80::WordReg::AltDE, data[17] | (data[18] << 8));
     z80->setRegister(Z80::WordReg::AltHL, data[19] | (data[20] << 8));
 
-    // Alt A and F are stored as individual bytes
     z80->setRegister(Z80::ByteReg::AltA, data[21]);
     z80->setRegister(Z80::ByteReg::AltF, data[22]);
 
@@ -95,8 +93,20 @@ bool Z80Loader::load(Emulator& emulator, const uint8_t* data, uint32_t size)
     switch (version)
     {
     case 1:
-        extractMemoryBlock(emulator, data, size, 0x4000, 30, v1Compressed, RAM_48K);
+    {
+        // V1: always 48K, flat 48KB block at offset 30
+        emulator.setMachineType(MachineType::Spectrum48K);
+        // Load into pages 5, 2, 0 (the 48K RAM mapping)
+        // We need a temp buffer approach or load directly
+        // V1 loads 48KB starting at 0x4000 = pages 5, 2, 0
+        uint8_t tempBuf[0xC000];
+        extractMemoryBlock(emulator, data, size, tempBuf, 30, v1Compressed, RAM_48K);
+        std::memcpy(&emulator.ram_[5 * MEM_PAGE_SIZE], tempBuf, MEM_PAGE_SIZE);
+        std::memcpy(&emulator.ram_[2 * MEM_PAGE_SIZE], tempBuf + MEM_PAGE_SIZE, MEM_PAGE_SIZE);
+        std::memcpy(&emulator.ram_[0 * MEM_PAGE_SIZE], tempBuf + 2 * MEM_PAGE_SIZE, MEM_PAGE_SIZE);
+        emulator.updatePaging();
         break;
+    }
 
     case 2:
     case 3:
@@ -104,16 +114,42 @@ bool Z80Loader::load(Emulator& emulator, const uint8_t* data, uint32_t size)
         if (size < 35) return false;
         uint8_t hardwareType = data[34];
 
-        // Only accept 48K hardware types
+        bool is128K = false;
         if (version == 2)
         {
-            if (hardwareType != V2_HW_48K && hardwareType != V2_HW_48K_IF1)
+            if (hardwareType == V2_HW_48K || hardwareType == V2_HW_48K_IF1)
+                is128K = false;
+            else if (hardwareType == V2_HW_128K || hardwareType == V2_HW_128K_IF1)
+                is128K = true;
+            else
                 return false;
         }
         else // v3
         {
-            if (hardwareType != V3_HW_48K && hardwareType != V3_HW_48K_IF1 && hardwareType != V3_HW_48K_MGT)
+            if (hardwareType == V3_HW_48K || hardwareType == V3_HW_48K_IF1 || hardwareType == V3_HW_48K_MGT)
+                is128K = false;
+            else if (hardwareType == V3_HW_128K || hardwareType == V3_HW_128K_IF1
+                     || hardwareType == V3_HW_128K_MGT || hardwareType == V3_HW_128K_2)
+                is128K = true;
+            else
                 return false;
+        }
+
+        if (is128K)
+        {
+            emulator.setMachineType(MachineType::Spectrum128K);
+
+            // Read port7FFD from extended header byte 35
+            if (size > 35)
+            {
+                emulator.port7FFD_ = data[35];
+                emulator.pagingDisabled_ = (data[35] & 0x20) != 0;
+                emulator.updatePaging();
+            }
+        }
+        else
+        {
+            emulator.setMachineType(MachineType::Spectrum48K);
         }
 
         uint32_t offset = 32 + additionalHeaderLength;
@@ -133,24 +169,46 @@ bool Z80Loader::load(Emulator& emulator, const uint8_t* data, uint32_t size)
 
             uint8_t pageId = data[offset + 2];
 
-            // 48K page mapping: page 4→0x8000, page 5→0xC000, page 8→0x4000
-            switch (pageId)
+            if (is128K)
             {
-            case 4:
-                extractMemoryBlock(emulator, data, size, 0x8000, offset + 3, isCompressed, 0x4000);
-                break;
-            case 5:
-                extractMemoryBlock(emulator, data, size, 0xC000, offset + 3, isCompressed, 0x4000);
-                break;
-            case 8:
-                extractMemoryBlock(emulator, data, size, 0x4000, offset + 3, isCompressed, 0x4000);
-                break;
-            default:
-                break;
+                // 128K: page IDs 3-10 map to RAM pages 0-7
+                if (pageId >= 3 && pageId <= 10)
+                {
+                    int ramPage = pageId - 3;
+                    extractMemoryBlock(emulator, data, size,
+                        &emulator.ram_[ramPage * MEM_PAGE_SIZE],
+                        offset + 3, isCompressed, MEM_PAGE_SIZE);
+                }
+            }
+            else
+            {
+                // 48K page mapping: page 4→page 2, page 5→page 0, page 8→page 5
+                switch (pageId)
+                {
+                case 4:
+                    extractMemoryBlock(emulator, data, size,
+                        &emulator.ram_[2 * MEM_PAGE_SIZE],
+                        offset + 3, isCompressed, MEM_PAGE_SIZE);
+                    break;
+                case 5:
+                    extractMemoryBlock(emulator, data, size,
+                        &emulator.ram_[0 * MEM_PAGE_SIZE],
+                        offset + 3, isCompressed, MEM_PAGE_SIZE);
+                    break;
+                case 8:
+                    extractMemoryBlock(emulator, data, size,
+                        &emulator.ram_[5 * MEM_PAGE_SIZE],
+                        offset + 3, isCompressed, MEM_PAGE_SIZE);
+                    break;
+                default:
+                    break;
+                }
             }
 
             offset += compressedLength + 3;
         }
+
+        emulator.updatePaging();
         break;
     }
     }
@@ -158,24 +216,24 @@ bool Z80Loader::load(Emulator& emulator, const uint8_t* data, uint32_t size)
     return true;
 }
 
-void Z80Loader::extractMemoryBlock(Emulator& emulator, const uint8_t* data, uint32_t dataSize,
-                                   uint32_t memAddr, uint32_t fileOffset,
+void Z80Loader::extractMemoryBlock(Emulator& /*emulator*/, const uint8_t* data, uint32_t dataSize,
+                                   uint8_t* dest, uint32_t fileOffset,
                                    bool isCompressed, uint32_t unpackedLength)
 {
     uint32_t filePtr = fileOffset;
-    uint32_t memoryPtr = memAddr;
-    uint32_t memEnd = memAddr + unpackedLength;
+    uint32_t destPtr = 0;
+    uint32_t destEnd = unpackedLength;
 
     if (!isCompressed)
     {
-        while (memoryPtr < memEnd && filePtr < dataSize)
+        while (destPtr < destEnd && filePtr < dataSize)
         {
-            emulator.memory_[memoryPtr++] = data[filePtr++];
+            dest[destPtr++] = data[filePtr++];
         }
     }
     else
     {
-        while (memoryPtr < memEnd && filePtr < dataSize)
+        while (destPtr < destEnd && filePtr < dataSize)
         {
             uint8_t byte1 = data[filePtr];
 
@@ -189,9 +247,9 @@ void Z80Loader::extractMemoryBlock(Emulator& emulator, const uint8_t* data, uint
                     {
                         uint8_t count = data[filePtr + 2];
                         uint8_t value = data[filePtr + 3];
-                        for (uint8_t i = 0; i < count && memoryPtr < memEnd; i++)
+                        for (uint8_t i = 0; i < count && destPtr < destEnd; i++)
                         {
-                            emulator.memory_[memoryPtr++] = value;
+                            dest[destPtr++] = value;
                         }
                         filePtr += 4;
                         continue;
@@ -203,7 +261,7 @@ void Z80Loader::extractMemoryBlock(Emulator& emulator, const uint8_t* data, uint
                 }
             }
 
-            emulator.memory_[memoryPtr++] = data[filePtr++];
+            dest[destPtr++] = data[filePtr++];
         }
     }
 }
