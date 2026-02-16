@@ -17,7 +17,7 @@ export class SnapshotLoader {
   init() {
     this.fileInput = document.createElement("input");
     this.fileInput.type = "file";
-    this.fileInput.accept = ".sna,.z80";
+    this.fileInput.accept = ".sna,.z80,.tzx";
     this.fileInput.style.display = "none";
     document.body.appendChild(this.fileInput);
 
@@ -51,6 +51,12 @@ export class SnapshotLoader {
           return;
         }
         this.loadIntoWasm(data, "_loadZ80");
+      } else if (ext === "tzx") {
+        if (data.length < 10) {
+          console.error(`Invalid TZX file: too small (${data.length} bytes)`);
+          return;
+        }
+        this.loadIntoWasm(data, "_loadTZX");
       } else {
         console.error(`Unsupported snapshot format: .${ext}`);
         return;

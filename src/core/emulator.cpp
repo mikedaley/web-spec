@@ -8,11 +8,9 @@
 #include "emulator.hpp"
 #include "loaders/sna_loader.hpp"
 #include "loaders/z80_loader.hpp"
-#include "peripherals/ay_sound_board.hpp"
+#include "loaders/tzx_loader.hpp"
 #include <algorithm>
 #include <cstring>
-
-#include "roms.cpp"
 
 namespace zxspec {
 
@@ -23,43 +21,6 @@ Emulator::Emulator()
 
 Emulator::~Emulator() = default;
 
-void Emulator::updatePaging()
-{
-    if (machineType_ == MachineType::Spectrum48K)
-    {
-        // 48K: ROM page 1 (48K ROM), RAM 5/2/0
-        pageRead_[0] = &rom_[MEM_PAGE_SIZE];   // ROM page 1 = 48K ROM
-        pageRead_[1] = &ram_[5 * MEM_PAGE_SIZE];
-        pageRead_[2] = &ram_[2 * MEM_PAGE_SIZE];
-        pageRead_[3] = &ram_[0 * MEM_PAGE_SIZE];
-
-        pageWrite_[0] = nullptr;  // ROM not writable
-        pageWrite_[1] = &ram_[5 * MEM_PAGE_SIZE];
-        pageWrite_[2] = &ram_[2 * MEM_PAGE_SIZE];
-        pageWrite_[3] = &ram_[0 * MEM_PAGE_SIZE];
-
-        currentScreenPage_ = 5;
-    }
-    else
-    {
-        // 128K: ROM selected by bit 4, RAM 5 fixed, RAM 2 fixed, RAM 0-7 by bits 0-2
-        int romPage = (port7FFD_ & 0x10) ? 1 : 0;
-        int ramPage = port7FFD_ & 0x07;
-
-        pageRead_[0] = &rom_[romPage * MEM_PAGE_SIZE];
-        pageRead_[1] = &ram_[5 * MEM_PAGE_SIZE];
-        pageRead_[2] = &ram_[2 * MEM_PAGE_SIZE];
-        pageRead_[3] = &ram_[ramPage * MEM_PAGE_SIZE];
-
-        pageWrite_[0] = nullptr;  // ROM not writable
-        pageWrite_[1] = &ram_[5 * MEM_PAGE_SIZE];
-        pageWrite_[2] = &ram_[2 * MEM_PAGE_SIZE];
-        pageWrite_[3] = &ram_[ramPage * MEM_PAGE_SIZE];
-
-        currentScreenPage_ = (port7FFD_ & 0x08) ? 7 : 5;
-    }
-}
-
 void Emulator::init()
 {
     z80_->initialise(
@@ -68,89 +29,40 @@ void Emulator::init()
         [this](uint16_t addr, void* param) { return ioRead(addr, param); },
         [this](uint16_t addr, uint8_t data, void* param) { ioWrite(addr, data, param); },
         [this](uint16_t addr, uint32_t tstates, void* param) { memContention(addr, tstates, param); },
+        [this](uint16_t addr, uint32_t tstates, void* param) { noMreqContention(addr, tstates, param); },
         this
     );
 
-    // Load 48K ROM into ROM page 1 (second 16KB of rom_ array)
-    if (roms::ROM_48K_SIZE > 0)
-    {
-        std::memcpy(&rom_[MEM_PAGE_SIZE], roms::ROM_48K, roms::ROM_48K_SIZE);
-    }
+    memory_.init();
 
-    // Load 128K ROMs into ROM pages 0 and 1
-    if (roms::ROM_128K_0_SIZE > 0)
-    {
-        std::memcpy(&rom_[0], roms::ROM_128K_0, roms::ROM_128K_0_SIZE);
-    }
-    if (roms::ROM_128K_1_SIZE > 0)
-    {
-        // 128K ROM 1 is the 48K ROM equivalent, load into page 1 area
-        // but we already have the 48K ROM there; for 128K mode, ROM page 0 = 128-0.rom, ROM page 1 = 128-1.rom
-        // So we need separate handling: when in 128K mode, rom_[0] = 128-0.rom, rom_[MEM_PAGE_SIZE] = 128-1.rom
-        // For 48K mode, rom_[MEM_PAGE_SIZE] = 48.rom
-        // Solution: store 128K ROM 1 and 48K ROM separately. But we only have 32KB rom_ array.
-        // The 128-1.rom IS the 48K ROM, so this is fine - just overwrite page 1 with 128-1.rom if available
-        std::memcpy(&rom_[MEM_PAGE_SIZE], roms::ROM_128K_1, roms::ROM_128K_1_SIZE);
-    }
-
-    updatePaging();
-
-    audio_.setup(AUDIO_SAMPLE_RATE, FRAMES_PER_SECOND, tsPerFrame_);
-    contention_.init(tsPerFrame_, TSTATES_PER_SCANLINE, 14335);
+    audio_.setup(AUDIO_SAMPLE_RATE, FRAMES_PER_SECOND, TSTATES_PER_FRAME);
+    contention_.init(TSTATES_PER_FRAME, TSTATES_PER_SCANLINE, 14335);
     display_.init(SCANLINES_PER_FRAME, TSTATES_PER_SCANLINE, PX_VERTICAL_BLANK);
-
-    // Add AY sound board peripheral (enabled by default)
-    auto ay = std::make_unique<AYSoundBoard>();
-    ay->setup(AUDIO_SAMPLE_RATE, FRAMES_PER_SECOND, tsPerFrame_);
-    addPeripheral(std::move(ay));
 
     reset();
     z80_->signalInterrupt();
-}
-
-void Emulator::setMachineType(MachineType type)
-{
-    machineType_ = type;
-
-    if (type == MachineType::Spectrum48K)
-    {
-        tsPerFrame_ = TSTATES_PER_FRAME;
-        tsPerScanline_ = TSTATES_PER_SCANLINE;
-        intLength_ = INT_LENGTH_TSTATES;
-    }
-    else
-    {
-        tsPerFrame_ = TSTATES_PER_FRAME_128K;
-        tsPerScanline_ = TSTATES_PER_SCANLINE_128K;
-        intLength_ = INT_LENGTH_TSTATES_128K;
-    }
-
-    port7FFD_ = 0;
-    pagingDisabled_ = false;
-    updatePaging();
-
-    int scanlines = (type == MachineType::Spectrum48K) ? SCANLINES_PER_FRAME : SCANLINES_PER_FRAME_128K;
-    int tsOrigin = (type == MachineType::Spectrum48K) ? 14335 : TS_TO_ORIGIN_128K;
-    int vblank = (type == MachineType::Spectrum48K) ? PX_VERTICAL_BLANK : PX_VERTICAL_BLANK_128K;
-
-    display_.init(scanlines, tsPerScanline_, vblank);
-    contention_.init(tsPerFrame_, tsPerScanline_, tsOrigin);
-    audio_.setup(AUDIO_SAMPLE_RATE, FRAMES_PER_SECOND, tsPerFrame_);
-    for (auto& p : peripherals_) p->setup(AUDIO_SAMPLE_RATE, FRAMES_PER_SECOND, tsPerFrame_);
 }
 
 void Emulator::reset()
 {
     z80_->reset(true);
     audio_.reset();
-    for (auto& p : peripherals_) p->reset();
     keyboardMatrix_.fill(0xBF);
     display_.frameReset();
     paused_ = false;
 
-    port7FFD_ = 0;
-    pagingDisabled_ = false;
-    updatePaging();
+    memory_.reset();
+
+    tapeBlocks_.clear();
+    tapeBlockIndex_ = 0;
+    tapeActive_ = false;
+    tapePulses_.clear();
+    tapePulseBlockStarts_.clear();
+    tapePulseIndex_ = 0;
+    tapePulseRemaining_ = 0;
+    tapeEarLevel_ = false;
+    tapePulseActive_ = false;
+    lastTapeReadTs_ = 0;
 }
 
 void Emulator::loadSNA(const uint8_t* data, uint32_t size)
@@ -165,12 +77,64 @@ void Emulator::loadZ80(const uint8_t* data, uint32_t size)
     Z80Loader::load(*this, data, size);
 }
 
+void Emulator::loadTZX(const uint8_t* data, uint32_t size)
+{
+    reset();
+
+    // The ROM must initialise system variables before we can load tape data.
+    // Run frames until the ROM has finished init and reached the editor loop.
+    z80_->signalInterrupt();
+    for (int f = 0; f < 300; f++)
+    {
+        z80_->execute(TSTATES_PER_FRAME, INT_LENGTH_TSTATES);
+        z80_->resetTStates(TSTATES_PER_FRAME);
+        z80_->signalInterrupt();
+
+        uint16_t pc = z80_->getRegister(Z80::WordReg::PC);
+        if (pc == 0x12A2) break;
+    }
+    audio_.reset();
+    display_.frameReset();
+
+    TZXLoader::load(*this, data, size);
+
+    // Now simulate LOAD "" to trigger the ROM tape loading routine,
+    // which our opcode callback will intercept at 0x0556.
+    // Write tokenized LOAD "" into the edit line area and execute it.
+
+    // E_LINE (23641/23642) points to the edit line
+    uint16_t eLine = readMemory(23641) | (readMemory(23642) << 8);
+
+    // Write: LOAD (token 0xEF) " " Enter
+    writeMemory(eLine, 0xEF);       // LOAD token
+    writeMemory(eLine + 1, 0x22);   // "
+    writeMemory(eLine + 2, 0x22);   // "
+    writeMemory(eLine + 3, 0x0D);   // ENTER
+
+    // Set NSPPC to 0 (start of statement)
+    writeMemory(23620, 0xFF);
+
+    // Set CH_ADD to point to the start of our command
+    writeMemory(23645, eLine & 0xFF);
+    writeMemory(23646, eLine >> 8);
+
+    // Jump to the ROM's LINE-RUN routine at 0x1B8A which interprets the edit line
+    z80_->setRegister(Z80::WordReg::PC, 0x1B8A);
+
+    // Set up stack so RET lands back in the editor
+    uint16_t sp = z80_->getRegister(Z80::WordReg::SP);
+    sp -= 2;
+    writeMemory(sp, 0xA2);     // low byte of 0x12A2
+    writeMemory(sp + 1, 0x12); // high byte
+    z80_->setRegister(Z80::WordReg::SP, sp);
+}
+
 void Emulator::runCycles(int cycles)
 {
     if (paused_)
         return;
 
-    z80_->execute(static_cast<uint32_t>(cycles), intLength_);
+    z80_->execute(static_cast<uint32_t>(cycles), INT_LENGTH_TSTATES);
 }
 
 void Emulator::runFrame()
@@ -179,30 +143,36 @@ void Emulator::runFrame()
 
     if (turbo_)
     {
-        z80_->execute(tsPerFrame_, intLength_);
+        z80_->execute(TSTATES_PER_FRAME, INT_LENGTH_TSTATES);
     }
     else
     {
-        while (z80_->getTStates() < static_cast<uint32_t>(tsPerFrame_) && !paused_)
+        while (z80_->getTStates() < static_cast<uint32_t>(TSTATES_PER_FRAME) && !paused_)
         {
             uint32_t before = z80_->getTStates();
-            z80_->execute(1, intLength_);
+            z80_->execute(1, INT_LENGTH_TSTATES);
             int32_t delta = static_cast<int32_t>(z80_->getTStates() - before);
             audio_.update(delta);
-            for (auto& p : peripherals_) p->update(delta);
         }
 
         // If paused mid-frame (breakpoint hit), don't do frame-end processing
         if (paused_) return;
 
         audio_.frameEnd();
-        for (auto& p : peripherals_) p->frameEnd();
-        mixPeripheralAudio();
     }
 
-    z80_->resetTStates(tsPerFrame_);
+    // Advance tape playback to end of frame before T-state reset
+    if (tapePulseActive_ && tapePulseIndex_ < tapePulses_.size())
+    {
+        uint32_t curTs = z80_->getTStates();
+        if (curTs >= lastTapeReadTs_)
+            advanceTape(curTs - lastTapeReadTs_);
+        lastTapeReadTs_ = 0;
+    }
+
+    z80_->resetTStates(TSTATES_PER_FRAME);
     z80_->signalInterrupt();
-    display_.updateWithTs(tsPerFrame_ - display_.getCurrentDisplayTs(),
+    display_.updateWithTs(TSTATES_PER_FRAME - display_.getCurrentDisplayTs(),
                           getScreenMemory(), borderColor_, frameCounter_);
     display_.frameReset();
     frameCounter_++;
@@ -231,8 +201,6 @@ int Emulator::getAudioSampleCount() const
 void Emulator::resetAudioBuffer()
 {
     audio_.resetBuffer();
-    for (auto& p : peripherals_) p->resetAudioBuffer();
-    mixOffset_ = 0;
 }
 
 void Emulator::keyDown(int row, int bit)
@@ -259,62 +227,46 @@ uint8_t Emulator::getKeyboardRow(int row) const
 
 void Emulator::stepInstruction()
 {
-    z80_->execute(1, intLength_);
+    z80_->execute(1, INT_LENGTH_TSTATES);
 }
 
 uint8_t Emulator::readMemory(uint16_t address) const
 {
-    int slot = address >> 14;
-    return pageRead_[slot][address & 0x3FFF];
+    return memory_.read(address);
 }
 
 void Emulator::writeMemory(uint16_t address, uint8_t data)
 {
-    int slot = address >> 14;
-    if (pageWrite_[slot])
-    {
-        pageWrite_[slot][address & 0x3FFF] = data;
-    }
+    memory_.write(address, data);
 }
 
 uint8_t Emulator::memRead(uint16_t address, void* /*param*/)
 {
-    int slot = address >> 14;
-    return pageRead_[slot][address & 0x3FFF];
+    return memory_.read(address);
 }
 
 void Emulator::memWrite(uint16_t address, uint8_t data, void* /*param*/)
 {
     int slot = address >> 14;
-    if (pageWrite_[slot])
+    if (memory_.getPageWrite(slot))
     {
         // Check if writing to screen memory area for display update
         uint16_t offset = address & 0x3FFF;
-        if (slot >= 1)
+        if (slot == 1 && offset < 6912)
         {
-            // Determine which RAM page this slot points to
-            uint8_t* slotBase = pageWrite_[slot];
-            uint8_t* screenBase = &ram_[currentScreenPage_ * MEM_PAGE_SIZE];
-            if (slotBase == screenBase && offset < 6912)
-            {
-                display_.updateWithTs(
-                    static_cast<int32_t>((z80_->getTStates() - display_.getCurrentDisplayTs()) + PAPER_DRAWING_OFFSET),
-                    getScreenMemory(), borderColor_, frameCounter_);
-            }
+            display_.updateWithTs(
+                static_cast<int32_t>((z80_->getTStates() - display_.getCurrentDisplayTs()) + PAPER_DRAWING_OFFSET),
+                getScreenMemory(), borderColor_, frameCounter_);
         }
-        pageWrite_[slot][offset] = data;
+        memory_.write(address, data);
     }
 }
 
 uint8_t Emulator::ioRead(uint16_t address, void* /*param*/)
 {
-    contention_.applyIOContention(*z80_, address, machineType_);
+    contention_.applyIOContention(*z80_, address);
 
-    // Check peripherals first
-    for (auto& p : peripherals_) {
-        if (p->claimsPort(address, false)) return p->ioRead(address);
-    }
-
+    // ULA owned (even) ports — keyboard
     if ((address & 0x01) == 0)
     {
         uint8_t result = 0xBF;
@@ -325,146 +277,46 @@ uint8_t Emulator::ioRead(uint16_t address, void* /*param*/)
                 result &= keyboardMatrix_[i];
             }
         }
+        // Bit 6 reflects the EAR input (from tape or audio)
+        if (tapePulseActive_ && tapePulseIndex_ < tapePulses_.size())
+        {
+            uint32_t curTs = z80_->getTStates();
+            if (curTs >= lastTapeReadTs_)
+                advanceTape(curTs - lastTapeReadTs_);
+            lastTapeReadTs_ = curTs;
+            result = (result & 0xBF) | (tapeEarLevel_ ? 0x40 : 0x00);
+        }
+        else
+        {
+            result = (result & 0xBF) | (audio_.getEarBit() << 6);
+        }
         return result;
     }
 
-    // ULA un-owned (odd) ports return the floating bus value
-    return display_.floatingBus(z80_->getTStates(), getScreenMemory());
+    // Return floating bus value
+    return display_.floatingBus(z80_->getTStates(), memory_.getSlot1Memory(), 0);
 }
 
 void Emulator::ioWrite(uint16_t address, uint8_t data, void* /*param*/)
 {
-    contention_.applyIOContention(*z80_, address, machineType_);
+    contention_.applyIOContention(*z80_, address);
 
-    // Dispatch to peripherals (non-exclusive with ULA: AY ports are odd)
-    for (auto& p : peripherals_) {
-        if (p->claimsPort(address, true)) p->ioWrite(address, data);
-    }
-
-    // Port 0x7FFD - 128K memory paging
-    if (machineType_ == MachineType::Spectrum128K && (address & 0x8002) == 0)
-    {
-        if (!pagingDisabled_)
-        {
-            port7FFD_ = data;
-            pagingDisabled_ = (data & 0x20) != 0;
-            updatePaging();
-        }
-    }
-
+    // ULA owned (even) ports — border colour and EAR/MIC
     if ((address & 0x01) == 0)
     {
         display_.updateWithTs(
             static_cast<int32_t>((z80_->getTStates() - display_.getCurrentDisplayTs()) + BORDER_DRAWING_OFFSET),
             getScreenMemory(), borderColor_, frameCounter_);
-        borderColor_ = data & 0x07;
         audio_.setEarBit((data >> 4) & 1);
+        borderColor_ = data & 0x07;
     }
-}
-
-void Emulator::addPeripheral(std::unique_ptr<Peripheral> peripheral)
-{
-    peripherals_.push_back(std::move(peripheral));
-}
-
-void Emulator::enableAY(bool enable)
-{
-    // Find or remove AY sound board
-    if (enable) {
-        // Check if already present
-        for (auto& p : peripherals_) {
-            if (dynamic_cast<AYSoundBoard*>(p.get())) return;
-        }
-        auto ay = std::make_unique<AYSoundBoard>();
-        ay->setup(AUDIO_SAMPLE_RATE, FRAMES_PER_SECOND, tsPerFrame_);
-        addPeripheral(std::move(ay));
-    } else {
-        peripherals_.erase(
-            std::remove_if(peripherals_.begin(), peripherals_.end(),
-                [](const std::unique_ptr<Peripheral>& p) {
-                    return dynamic_cast<AYSoundBoard*>(p.get()) != nullptr;
-                }),
-            peripherals_.end());
-    }
-}
-
-bool Emulator::isAYEnabled() const
-{
-    for (auto& p : peripherals_) {
-        if (dynamic_cast<AYSoundBoard*>(p.get())) return true;
-    }
-    return false;
-}
-
-uint8_t Emulator::getAYRegister(int reg) const
-{
-    for (auto& p : peripherals_) {
-        auto* ay = dynamic_cast<AYSoundBoard*>(p.get());
-        if (ay) return ay->getRegister(reg);
-    }
-    return 0;
-}
-
-bool Emulator::getAYChannelMute(int channel) const
-{
-    for (auto& p : peripherals_) {
-        auto* ay = dynamic_cast<AYSoundBoard*>(p.get());
-        if (ay) return ay->getChannelMute(channel);
-    }
-    return false;
-}
-
-void Emulator::setAYChannelMute(int channel, bool muted)
-{
-    for (auto& p : peripherals_) {
-        auto* ay = dynamic_cast<AYSoundBoard*>(p.get());
-        if (ay) { ay->setChannelMute(channel, muted); return; }
-    }
-}
-
-void Emulator::getAYWaveform(int channel, float* buffer, int sampleCount) const
-{
-    for (auto& p : peripherals_) {
-        auto* ay = dynamic_cast<AYSoundBoard*>(p.get());
-        if (ay) { ay->getWaveform(channel, buffer, sampleCount); return; }
-    }
-}
-
-void Emulator::mixPeripheralAudio()
-{
-    float* buf = audio_.getMutableBuffer();
-    int count = audio_.getSampleCount();
-    for (auto& p : peripherals_) {
-        const float* pBuf = p->getAudioBuffer();
-        int pCount = p->getAudioSampleCount();
-        if (pBuf && pCount > 0) {
-            int mixEnd = std::min(count, pCount);
-            for (int i = mixOffset_; i < mixEnd; i++) buf[i] += pBuf[i];
-        }
-    }
-    mixOffset_ = count;
 }
 
 void Emulator::addBreakpoint(uint16_t addr)
 {
     breakpoints_.insert(addr);
     disabledBreakpoints_.erase(addr);
-
-    z80_->registerOpcodeCallback(
-        [this](uint8_t /*opcode*/, uint16_t address, void* /*param*/) -> bool {
-            if (skipBreakpointOnce_ && address == skipBreakpointAddr_) {
-                skipBreakpointOnce_ = false;
-                return false;
-            }
-            if (breakpoints_.count(address) && !disabledBreakpoints_.count(address)) {
-                breakpointHit_ = true;
-                breakpointAddress_ = address;
-                paused_ = true;
-                z80_->setRegister(Z80::WordReg::PC, address);
-                return true;
-            }
-            return false;
-        });
+    installOpcodeCallback();
 }
 
 void Emulator::removeBreakpoint(uint16_t addr)
@@ -472,8 +324,10 @@ void Emulator::removeBreakpoint(uint16_t addr)
     breakpoints_.erase(addr);
     disabledBreakpoints_.erase(addr);
 
-    if (breakpoints_.empty()) {
+    if (breakpoints_.empty() && !tapeActive_) {
         z80_->registerOpcodeCallback(nullptr);
+    } else {
+        installOpcodeCallback();
     }
 }
 
@@ -486,33 +340,176 @@ void Emulator::enableBreakpoint(uint16_t addr, bool enabled)
     }
 }
 
-void Emulator::memContention(uint16_t address, uint32_t /*tstates*/, void* /*param*/)
+void Emulator::installOpcodeCallback()
 {
-    int slot = address >> 14;
+    z80_->registerOpcodeCallback(
+        [this](uint8_t /*opcode*/, uint16_t address, void* /*param*/) -> bool {
+            // Tape ROM trap — intercept LD-BYTES at 0x0556
+            if (tapeActive_ && address == 0x0556)
+            {
+                return handleTapeTrap(address);
+            }
 
-    if (machineType_ == MachineType::Spectrum48K)
+            // Breakpoint handling
+            if (!breakpoints_.empty())
+            {
+                if (skipBreakpointOnce_ && address == skipBreakpointAddr_) {
+                    skipBreakpointOnce_ = false;
+                    return false;
+                }
+                if (breakpoints_.count(address) && !disabledBreakpoints_.count(address)) {
+                    breakpointHit_ = true;
+                    breakpointAddress_ = address;
+                    paused_ = true;
+                    z80_->setRegister(Z80::WordReg::PC, address);
+                    return true;
+                }
+            }
+            return false;
+        });
+}
+
+bool Emulator::handleTapeTrap(uint16_t /*address*/)
+{
+    // ROM LD-BYTES routine entry at 0x0556
+    // On entry: A = flag byte expected, IX = dest address, DE = length
+    //           Carry flag set = LOAD, clear = VERIFY
+    // On exit:  Carry set = success, zero flag set
+
+    if (tapeBlockIndex_ >= tapeBlocks_.size())
     {
-        // 48K: only slot 1 (0x4000-0x7FFF) is contended
-        if (slot == 1)
+        // No more blocks — signal error by clearing carry and returning via RET
+        uint8_t f = z80_->getRegister(Z80::ByteReg::F);
+        f &= ~Z80::FLAG_C;  // clear carry = error
+        z80_->setRegister(Z80::ByteReg::F, f);
+
+        // Pop return address and set PC (simulate RET)
+        uint16_t sp = z80_->getRegister(Z80::WordReg::SP);
+        uint16_t retAddr = readMemory(sp) | (readMemory(sp + 1) << 8);
+        z80_->setRegister(Z80::WordReg::SP, sp + 2);
+        z80_->setRegister(Z80::WordReg::PC, retAddr);
+        return true;
+    }
+
+    uint8_t expectedFlag = z80_->getRegister(Z80::ByteReg::A);
+    uint16_t destAddr = z80_->getRegister(Z80::WordReg::IX);
+    uint16_t length = z80_->getRegister(Z80::WordReg::DE);
+    uint8_t f = z80_->getRegister(Z80::ByteReg::F);
+    bool isLoad = (f & Z80::FLAG_C) != 0;
+
+    const auto& block = tapeBlocks_[tapeBlockIndex_];
+
+    // Skip pulse position past this block's pulses
+    if (tapeBlockIndex_ + 1 < tapePulseBlockStarts_.size())
+    {
+        tapePulseIndex_ = tapePulseBlockStarts_[tapeBlockIndex_ + 1];
+        tapePulseRemaining_ = 0;
+    }
+
+    tapeBlockIndex_++;
+
+    if (block.data.empty())
+    {
+        // Empty block — error
+        f &= ~Z80::FLAG_C;
+        z80_->setRegister(Z80::ByteReg::F, f);
+        uint16_t sp = z80_->getRegister(Z80::WordReg::SP);
+        uint16_t retAddr = readMemory(sp) | (readMemory(sp + 1) << 8);
+        z80_->setRegister(Z80::WordReg::SP, sp + 2);
+        z80_->setRegister(Z80::WordReg::PC, retAddr);
+        return true;
+    }
+
+    uint8_t blockFlag = block.data[0];
+
+    // Check flag byte matches what the caller expects
+    if (blockFlag != expectedFlag)
+    {
+        // Flag mismatch — the ROM would keep searching, so try next blocks
+        // But for simplicity, signal error
+        f &= ~Z80::FLAG_C;
+        z80_->setRegister(Z80::ByteReg::F, f);
+        uint16_t sp = z80_->getRegister(Z80::WordReg::SP);
+        uint16_t retAddr = readMemory(sp) | (readMemory(sp + 1) << 8);
+        z80_->setRegister(Z80::WordReg::SP, sp + 2);
+        z80_->setRegister(Z80::WordReg::PC, retAddr);
+        return true;
+    }
+
+    if (isLoad)
+    {
+        // Copy data (skip flag byte, up to 'length' bytes)
+        uint32_t available = (block.data.size() > 1) ? static_cast<uint32_t>(block.data.size() - 1) : 0;
+        uint32_t toCopy = (available < length) ? available : length;
+
+        for (uint32_t i = 0; i < toCopy; i++)
         {
-            z80_->addContentionTStates(contention_.memoryContention(z80_->getTStates()));
+            writeMemory(destAddr + i, block.data[1 + i]);
         }
     }
-    else
+
+    // Success — set carry flag, set zero flag
+    f |= Z80::FLAG_C;
+    f |= Z80::FLAG_Z;
+    z80_->setRegister(Z80::ByteReg::F, f);
+
+    // Update IX and DE as the ROM routine would
+    z80_->setRegister(Z80::WordReg::IX, destAddr + length);
+    z80_->setRegister(Z80::WordReg::DE, 0);
+
+    // Pop return address and set PC (simulate RET)
+    uint16_t sp = z80_->getRegister(Z80::WordReg::SP);
+    uint16_t retAddr = readMemory(sp) | (readMemory(sp + 1) << 8);
+    z80_->setRegister(Z80::WordReg::SP, sp + 2);
+    z80_->setRegister(Z80::WordReg::PC, retAddr);
+
+    return true;  // skip the instruction at 0x0556
+}
+
+void Emulator::advanceTape(uint32_t tstates)
+{
+    while (tstates > 0 && tapePulseIndex_ < tapePulses_.size())
     {
-        // 128K: slot 1 always contended (page 5), slot 3 contended if odd RAM page
-        if (slot == 1)
+        if (tapePulseRemaining_ == 0)
         {
-            z80_->addContentionTStates(contention_.memoryContention(z80_->getTStates()));
+            tapePulseRemaining_ = tapePulses_[tapePulseIndex_];
         }
-        else if (slot == 3)
+
+        if (tstates >= tapePulseRemaining_)
         {
-            int ramPage = port7FFD_ & 0x07;
-            if (ramPage & 1)  // odd pages (1,3,5,7) are contended
-            {
-                z80_->addContentionTStates(contention_.memoryContention(z80_->getTStates()));
-            }
+            tstates -= tapePulseRemaining_;
+            tapePulseRemaining_ = 0;
+            tapePulseIndex_++;
+            tapeEarLevel_ = !tapeEarLevel_;
         }
+        else
+        {
+            tapePulseRemaining_ -= tstates;
+            tstates = 0;
+        }
+    }
+
+    // If all pulses consumed, deactivate tape
+    if (tapePulseIndex_ >= tapePulses_.size())
+    {
+        tapePulseActive_ = false;
+        tapeActive_ = false;
+    }
+}
+
+void Emulator::memContention(uint16_t address, uint32_t /*tstates*/, void* /*param*/)
+{
+    if (memory_.isContendedAddress(address))
+    {
+        z80_->addContentionTStates(contention_.memoryContention(z80_->getTStates()));
+    }
+}
+
+void Emulator::noMreqContention(uint16_t address, uint32_t /*tstates*/, void* /*param*/)
+{
+    if (memory_.isContendedAddress(address))
+    {
+        z80_->addContentionTStates(contention_.ioContention(z80_->getTStates()));
     }
 }
 

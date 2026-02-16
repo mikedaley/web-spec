@@ -12,9 +12,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CORE_SOURCES
     src/core/audio/audio.cpp
     src/core/display/display.cpp
+    src/core/memory/memory.cpp
     src/core/emulator.cpp
     src/core/loaders/sna_loader.cpp
     src/core/loaders/z80_loader.cpp
+    src/core/loaders/tzx_loader.cpp
     src/core/ula/ula_contention.cpp
     src/core/z80/z80.cpp
     src/core/z80/z80_opcodes_main.cpp
@@ -25,8 +27,6 @@ set(CORE_SOURCES
     src/core/z80/z80_opcodes_ddcb.cpp
     src/core/z80/z80_opcodes_fdcb.cpp
     src/core/z80/z80_opcode_tables.cpp
-    src/core/peripherals/ay8912.cpp
-    src/core/peripherals/ay_sound_board.cpp
     src/bindings/wasm_interface.cpp
 )
 
@@ -38,8 +38,6 @@ add_custom_command(
     COMMAND ${CMAKE_SOURCE_DIR}/scripts/generate_roms.sh ${CMAKE_SOURCE_DIR}/roms ${CMAKE_BINARY_DIR}/generated/roms.cpp
     DEPENDS ${CMAKE_SOURCE_DIR}/scripts/generate_roms.sh
             ${CMAKE_SOURCE_DIR}/roms/48.rom
-            ${CMAKE_SOURCE_DIR}/roms/128-0.rom
-            ${CMAKE_SOURCE_DIR}/roms/128-1.rom
     COMMENT "Generating ROM data arrays"
 )
 
@@ -57,9 +55,9 @@ if(EMSCRIPTEN)
         ${CMAKE_SOURCE_DIR}/src/core/z80
         ${CMAKE_SOURCE_DIR}/src/core/audio
         ${CMAKE_SOURCE_DIR}/src/core/display
+        ${CMAKE_SOURCE_DIR}/src/core/memory
         ${CMAKE_SOURCE_DIR}/src/core/ula
         ${CMAKE_SOURCE_DIR}/src/core/loaders
-        ${CMAKE_SOURCE_DIR}/src/core/peripherals
         ${CMAKE_BINARY_DIR}/generated
     )
 
@@ -106,12 +104,7 @@ if(EMSCRIPTEN)
                 \"_resetAudioBuffer\", \
                 \"_loadSNA\", \
                 \"_loadZ80\", \
-                \"_enableAY\", \
-                \"_isAYEnabled\", \
-                \"_getAYRegister\", \
-                \"_getAYChannelMute\", \
-                \"_setAYChannelMute\", \
-                \"_getAYWaveform\", \
+                \"_loadTZX\", \
                 \"_getAltAF\", \
                 \"_getAltBC\", \
                 \"_getAltDE\", \
@@ -132,9 +125,6 @@ if(EMSCRIPTEN)
                 \"_isBreakpointHit\", \
                 \"_getBreakpointAddress\", \
                 \"_clearBreakpointHit\", \
-                \"_setMachineType\", \
-                \"_getMachineType\", \
-                \"_getPort7FFD\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \

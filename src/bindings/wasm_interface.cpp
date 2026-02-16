@@ -359,66 +359,10 @@ void loadZ80(const uint8_t* data, int size) {
   g_emulator->loadZ80(data, static_cast<uint32_t>(size));
 }
 
-// ============================================================================
-// Peripherals
-// ============================================================================
-
 EMSCRIPTEN_KEEPALIVE
-void enableAY(bool enable) {
+void loadTZX(const uint8_t* data, int size) {
   REQUIRE_EMULATOR();
-  g_emulator->enableAY(enable);
-}
-
-EMSCRIPTEN_KEEPALIVE
-bool isAYEnabled() {
-  REQUIRE_EMULATOR_OR(false);
-  return g_emulator->isAYEnabled();
-}
-
-EMSCRIPTEN_KEEPALIVE
-uint8_t getAYRegister(int reg) {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getAYRegister(reg);
-}
-
-EMSCRIPTEN_KEEPALIVE
-bool getAYChannelMute(int channel) {
-  REQUIRE_EMULATOR_OR(false);
-  return g_emulator->getAYChannelMute(channel);
-}
-
-EMSCRIPTEN_KEEPALIVE
-void setAYChannelMute(int channel, bool muted) {
-  REQUIRE_EMULATOR();
-  g_emulator->setAYChannelMute(channel, muted);
-}
-
-EMSCRIPTEN_KEEPALIVE
-void getAYWaveform(int channel, float* buffer, int sampleCount) {
-  REQUIRE_EMULATOR();
-  g_emulator->getAYWaveform(channel, buffer, sampleCount);
-}
-
-// ============================================================================
-// Machine Type
-// ============================================================================
-
-EMSCRIPTEN_KEEPALIVE
-void setMachineType(int type) {
-  REQUIRE_EMULATOR();
-  g_emulator->setMachineType(type == 1 ? zxspec::MachineType::Spectrum128K : zxspec::MachineType::Spectrum48K);
-}
-
-EMSCRIPTEN_KEEPALIVE
-int getMachineType() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getMachineType() == zxspec::MachineType::Spectrum128K ? 1 : 0;
-}
-
-EMSCRIPTEN_KEEPALIVE
-uint8_t getPort7FFD() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getPort7FFD();
+  g_emulator->loadTZX(data, static_cast<uint32_t>(size));
 }
 
 } // extern "C"

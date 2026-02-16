@@ -9,7 +9,7 @@
 
 #include "audio/audio.hpp"
 #include "display/display.hpp"
-#include "peripherals/peripheral.hpp"
+#include "memory/memory.hpp"
 #include "types.hpp"
 #include "ula/ula_contention.hpp"
 #include "z80/z80.hpp"
@@ -18,15 +18,18 @@
 #include <memory>
 #include <set>
 #include <vector>
+#include "loaders/tzx_loader.hpp"
 
 namespace zxspec {
 
 class SNALoader;
 class Z80Loader;
+class TZXLoader;
 
 class Emulator {
     friend class SNALoader;
     friend class Z80Loader;
+    friend class TZXLoader;
 public:
     Emulator();
     ~Emulator();
@@ -35,6 +38,7 @@ public:
     void reset();
     void loadSNA(const uint8_t* data, uint32_t size);
     void loadZ80(const uint8_t* data, uint32_t size);
+    void loadTZX(const uint8_t* data, uint32_t size);
 
     void runCycles(int cycles);
     void runFrame();
@@ -51,29 +55,14 @@ public:
     void keyUp(int row, int bit);
     uint8_t getKeyboardRow(int row) const;
 
-    // Machine type
-    void setMachineType(MachineType type);
-    MachineType getMachineType() const { return machineType_; }
-    uint8_t* getScreenMemory() { return &ram_[currentScreenPage_ * MEM_PAGE_SIZE]; }
-    const uint8_t* getScreenMemory() const { return &ram_[currentScreenPage_ * MEM_PAGE_SIZE]; }
-    uint8_t getPort7FFD() const { return port7FFD_; }
+    uint8_t* getScreenMemory() { return memory_.getScreenMemory(); }
+    const uint8_t* getScreenMemory() const { return memory_.getScreenMemory(); }
 
     bool isPaused() const { return paused_; }
     void setPaused(bool paused) { paused_ = paused; }
 
     bool isTurbo() const { return turbo_; }
     void setTurbo(bool turbo) { turbo_ = turbo; }
-
-    // Peripheral management
-    void addPeripheral(std::unique_ptr<Peripheral> peripheral);
-    void enableAY(bool enable);
-    bool isAYEnabled() const;
-
-    // AY debug accessors
-    uint8_t getAYRegister(int reg) const;
-    bool getAYChannelMute(int channel) const;
-    void setAYChannelMute(int channel, bool muted);
-    void getAYWaveform(int channel, float* buffer, int sampleCount) const;
 
     void stepInstruction();
 
@@ -130,28 +119,13 @@ private:
     uint8_t ioRead(uint16_t address, void* param);
     void ioWrite(uint16_t address, uint8_t data, void* param);
     void memContention(uint16_t address, uint32_t tstates, void* param);
-
-    void updatePaging();
-    void mixPeripheralAudio();
+    void noMreqContention(uint16_t address, uint32_t tstates, void* param);
 
     std::unique_ptr<Z80> z80_;
     Audio audio_;
     Display display_;
+    Memory memory_;
     ULAContention contention_;
-    std::vector<std::unique_ptr<Peripheral>> peripherals_;
-
-    // Paged memory model
-    MachineType machineType_ = MachineType::Spectrum48K;
-    std::array<uint8_t, ROM_128K_SIZE> rom_{};    // 32KB (2x16KB pages)
-    std::array<uint8_t, RAM_128K_SIZE> ram_{};    // 128KB (8x16KB pages)
-    uint8_t* pageRead_[4]{};    // read pointers for 0000/4000/8000/C000
-    uint8_t* pageWrite_[4]{};   // write pointers (nullptr for ROM slots)
-    uint8_t port7FFD_ = 0;
-    bool pagingDisabled_ = false;
-    uint8_t currentScreenPage_ = 5;
-    int tsPerFrame_ = TSTATES_PER_FRAME;
-    int tsPerScanline_ = TSTATES_PER_SCANLINE;
-    int intLength_ = INT_LENGTH_TSTATES;
 
     uint8_t borderColor_ = 7;
     uint32_t frameCounter_ = 0;
@@ -161,7 +135,6 @@ private:
 
     bool paused_ = false;
     bool turbo_ = false;
-    int mixOffset_ = 0;
 
     // Breakpoint support
     std::set<uint16_t> breakpoints_;
@@ -170,6 +143,24 @@ private:
     uint16_t breakpointAddress_ = 0;
     bool skipBreakpointOnce_ = false;
     uint16_t skipBreakpointAddr_ = 0;
+
+    // Tape loading support (ROM trap + pulse playback)
+    std::vector<TZXLoader::TapeBlock> tapeBlocks_;
+    size_t tapeBlockIndex_ = 0;
+    bool tapeActive_ = false;
+
+    // Pulse playback for EAR bit
+    std::vector<uint32_t> tapePulses_;
+    std::vector<size_t> tapePulseBlockStarts_;
+    size_t tapePulseIndex_ = 0;
+    uint32_t tapePulseRemaining_ = 0;
+    bool tapeEarLevel_ = false;
+    bool tapePulseActive_ = false;
+    uint32_t lastTapeReadTs_ = 0;
+
+    void installOpcodeCallback();
+    bool handleTapeTrap(uint16_t address);
+    void advanceTape(uint32_t tstates);
 };
 
 } // namespace zxspec
