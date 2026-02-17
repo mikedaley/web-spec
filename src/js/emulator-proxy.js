@@ -12,6 +12,7 @@ export class EmulatorProxy {
     this.onFrame = null;
     this.onReady = null;
     this.onSnapshotLoaded = null;
+    this.onTapLoaded = null;
     this.onStateUpdate = null;
     this._nextId = 1;
     this._pendingRequests = new Map();
@@ -33,6 +34,11 @@ export class EmulatorProxy {
       case "snapshotLoaded":
         this.state = msg.state;
         if (this.onSnapshotLoaded) this.onSnapshotLoaded();
+        break;
+
+      case "tapLoaded":
+        this.state = msg.state;
+        if (this.onTapLoaded) this.onTapLoaded(msg.blocks);
         break;
 
       case "stateUpdate":
@@ -105,6 +111,25 @@ export class EmulatorProxy {
     );
   }
 
+  loadTAP(arrayBuffer) {
+    this.worker.postMessage(
+      { type: "loadTAP", data: arrayBuffer },
+      [arrayBuffer],
+    );
+  }
+
+  tapePlay() {
+    this.worker.postMessage({ type: "tapePlay" });
+  }
+
+  tapeStop() {
+    this.worker.postMessage({ type: "tapeStop" });
+  }
+
+  tapeRewind() {
+    this.worker.postMessage({ type: "tapeRewind" });
+  }
+
   readMemory(addr, length) {
     const id = this._nextId++;
     return new Promise((resolve) => {
@@ -155,6 +180,10 @@ export class EmulatorProxy {
   isBreakpointHit() { return this.state.breakpointHit ?? false; }
   getBreakpointAddress() { return this.state.breakpointAddr ?? 0; }
   getMachineId() { return this.state.machineId ?? 0; }
+  tapeIsPlaying() { return this.state.tapeIsPlaying ?? false; }
+  tapeIsLoaded() { return this.state.tapeIsLoaded ?? false; }
+  tapeGetBlockCount() { return this.state.tapeBlockCount ?? 0; }
+  tapeGetCurrentBlock() { return this.state.tapeCurrentBlock ?? 0; }
 
   destroy() {
     this.worker.terminate();

@@ -17,6 +17,7 @@
 #include "display.hpp"
 #include "contention.hpp"
 #include "tape_block.hpp"
+#include "loaders/tap_loader.hpp"
 #include "../core/z80/z80.hpp"
 #include <array>
 #include <cstdint>
@@ -27,9 +28,11 @@
 namespace zxspec {
 
 class TZXLoader;
+class TAPLoader;
 
 class ZXSpectrum : public Machine {
     friend class TZXLoader;
+    friend class TAPLoader;
 
 public:
     ZXSpectrum();
@@ -103,6 +106,16 @@ public:
 
     void setBorderColor(uint8_t color) { borderColor_ = color & 0x07; }
 
+    // Tape transport controls
+    void tapePlay() override;
+    void tapeStop() override;
+    void tapeRewind() override;
+    bool tapeIsPlaying() const override { return tapePulseActive_; }
+    bool tapeIsLoaded() const override { return tapeActive_; }
+    size_t tapeGetBlockCount() const override { return tapeBlocks_.size(); }
+    size_t tapeGetCurrentBlock() const override { return tapeBlockIndex_; }
+    const std::vector<TapeBlockInfo>& tapeGetBlockInfo() const { return tapeBlockInfo_; }
+
     // Pure virtual - machine-specific memory/IO (the 7 core methods)
     virtual uint8_t coreMemoryRead(uint16_t address) = 0;
     virtual void coreMemoryWrite(uint16_t address, uint8_t data) = 0;
@@ -170,6 +183,9 @@ protected:
     bool tapeEarLevel_ = false;
     bool tapePulseActive_ = false;
     uint32_t lastTapeReadTs_ = 0;
+
+    // Tape block metadata for UI
+    std::vector<TapeBlockInfo> tapeBlockInfo_;
 
     int muteFrames_ = 0;
 

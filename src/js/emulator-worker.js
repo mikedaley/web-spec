@@ -31,6 +31,10 @@ function getState() {
     breakpointHit: wasm._isBreakpointHit(),
     breakpointAddr: wasm._getBreakpointAddress(),
     machineId: wasm._getMachineId(),
+    tapeIsPlaying: wasm._tapeIsPlaying(),
+    tapeIsLoaded: wasm._tapeIsLoaded(),
+    tapeBlockCount: wasm._tapeGetBlockCount(),
+    tapeCurrentBlock: wasm._tapeGetCurrentBlock(),
   };
 }
 
@@ -183,6 +187,50 @@ self.onmessage = async function (e) {
         wasm._initMachine(msg.machineId);
         self.postMessage({ type: "ready" });
       }
+      break;
+
+    case "loadTAP": {
+      if (!wasm) break;
+      const tapData = new Uint8Array(msg.data);
+      const tapPtr = wasm._malloc(tapData.length);
+      wasm.HEAPU8.set(tapData, tapPtr);
+      wasm._loadTAP(tapPtr, tapData.length);
+      wasm._free(tapPtr);
+
+      // Read block info from WASM
+      const blockCount = wasm._tapeGetBlockCount();
+      const blocks = [];
+      if (blockCount > 0) {
+        const infoPtr = wasm._tapeGetBlockInfo();
+        for (let i = 0; i < blockCount; i++) {
+          const base = infoPtr + i * 16;
+          const flagByte = wasm.HEAPU8[base];
+          const headerType = wasm.HEAPU8[base + 1];
+          let filename = "";
+          for (let c = 0; c < 10; c++) {
+            const ch = wasm.HEAPU8[base + 2 + c];
+            if (ch >= 32 && ch < 127) filename += String.fromCharCode(ch);
+          }
+          filename = filename.trimEnd();
+          const dataLength = wasm.HEAPU8[base + 12] | (wasm.HEAPU8[base + 13] << 8);
+          blocks.push({ index: i, flagByte, headerType, filename, dataLength });
+        }
+      }
+
+      self.postMessage({ type: "tapLoaded", blocks, state: getState() });
+      break;
+    }
+
+    case "tapePlay":
+      if (wasm) wasm._tapePlay();
+      break;
+
+    case "tapeStop":
+      if (wasm) wasm._tapeStop();
+      break;
+
+    case "tapeRewind":
+      if (wasm) wasm._tapeRewind();
       break;
 
     case "getState":

@@ -6,7 +6,9 @@
  */
 
 #include "../machines/machine.hpp"
+#include "../machines/zx_spectrum.hpp"
 #include "../machines/zx48k/zx_spectrum_48k.hpp"
+#include <cstring>
 #include <emscripten.h>
 
 // Global machine instance
@@ -379,6 +381,91 @@ EMSCRIPTEN_KEEPALIVE
 void loadTZX(const uint8_t* data, int size) {
   REQUIRE_MACHINE();
   g_machine->loadTZX(data, static_cast<uint32_t>(size));
+}
+
+// ============================================================================
+// TAP Loading & Tape Transport
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+void loadTAP(const uint8_t* data, int size) {
+  REQUIRE_MACHINE();
+  g_machine->loadTAP(data, static_cast<uint32_t>(size));
+}
+
+EMSCRIPTEN_KEEPALIVE
+void tapePlay() {
+  REQUIRE_MACHINE();
+  g_machine->tapePlay();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void tapeStop() {
+  REQUIRE_MACHINE();
+  g_machine->tapeStop();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void tapeRewind() {
+  REQUIRE_MACHINE();
+  g_machine->tapeRewind();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int tapeIsPlaying() {
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->tapeIsPlaying() ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int tapeIsLoaded() {
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->tapeIsLoaded() ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int tapeGetBlockCount() {
+  REQUIRE_MACHINE_OR(0);
+  return static_cast<int>(g_machine->tapeGetBlockCount());
+}
+
+EMSCRIPTEN_KEEPALIVE
+int tapeGetCurrentBlock() {
+  REQUIRE_MACHINE_OR(0);
+  return static_cast<int>(g_machine->tapeGetCurrentBlock());
+}
+
+// Serialized block info buffer: 16 bytes per block
+// [0]     flagByte
+// [1]     headerType
+// [2-11]  filename (10 bytes)
+// [12-13] dataLength (LE)
+// [14-15] reserved
+static uint8_t s_blockInfoBuf[4096]; // max 256 blocks
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* tapeGetBlockInfo() {
+  REQUIRE_MACHINE_OR(nullptr);
+  // We need to downcast to ZXSpectrum to access tapeGetBlockInfo()
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  if (!spec) return nullptr;
+
+  const auto& info = spec->tapeGetBlockInfo();
+  size_t count = info.size();
+  if (count > 256) count = 256;
+
+  for (size_t i = 0; i < count; i++) {
+    uint8_t* dst = s_blockInfoBuf + i * 16;
+    dst[0] = info[i].flagByte;
+    dst[1] = info[i].headerType;
+    memcpy(dst + 2, info[i].filename, 10);
+    dst[12] = info[i].dataLength & 0xFF;
+    dst[13] = (info[i].dataLength >> 8) & 0xFF;
+    dst[14] = 0;
+    dst[15] = 0;
+  }
+
+  return s_blockInfoBuf;
 }
 
 } // extern "C"

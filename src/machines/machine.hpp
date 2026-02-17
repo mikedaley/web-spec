@@ -7,6 +7,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 
 namespace zxspec {
@@ -38,6 +39,16 @@ public:
     virtual void loadSNA(const uint8_t* data, uint32_t size) = 0;
     virtual void loadZ80(const uint8_t* data, uint32_t size) = 0;
     virtual void loadTZX(const uint8_t* data, uint32_t size) = 0;
+    virtual void loadTAP(const uint8_t* data, uint32_t size) = 0;
+
+    // Tape transport
+    virtual void tapePlay() = 0;
+    virtual void tapeStop() = 0;
+    virtual void tapeRewind() = 0;
+    virtual bool tapeIsPlaying() const = 0;
+    virtual bool tapeIsLoaded() const = 0;
+    virtual size_t tapeGetBlockCount() const = 0;
+    virtual size_t tapeGetCurrentBlock() const = 0;
 
     virtual Z80* getCPU() = 0;
     virtual const Z80* getCPU() const = 0;

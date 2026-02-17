@@ -17,7 +17,7 @@ export class SnapshotLoader {
   init() {
     this.fileInput = document.createElement("input");
     this.fileInput.type = "file";
-    this.fileInput.accept = ".sna,.z80,.tzx";
+    this.fileInput.accept = ".sna,.z80,.tzx,.tap";
     this.fileInput.style.display = "none";
     document.body.appendChild(this.fileInput);
 
@@ -71,6 +71,13 @@ export class SnapshotLoader {
         }
         this._pendingFileName = file.name;
         this.proxy.loadSnapshot("tzx", data.buffer);
+      } else if (ext === "tap") {
+        if (data.length < 2) {
+          console.error(`Invalid TAP file: too small (${data.length} bytes)`);
+          return;
+        }
+        this._pendingFileName = file.name;
+        this.proxy.loadTAP(data.buffer);
       } else {
         console.error(`Unsupported snapshot format: .${ext}`);
         return;

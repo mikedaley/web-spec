@@ -1,0 +1,202 @@
+/* ============================================
+   TAPE PLAYER WINDOW
+   ============================================ */
+
+.tape-player {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* ---- Block List ---- */
+.tape-block-list {
+  flex: 1;
+  overflow-y: auto;
+  background: var(--input-bg-dark);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: 4px;
+  padding: 2px 0;
+  margin-bottom: 6px;
+  min-height: 80px;
+}
+
+.tape-block-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  cursor: default;
+  border-left: 2px solid transparent;
+  transition: background 0.08s;
+}
+
+.tape-block-item:hover {
+  background: var(--overlay-subtle);
+}
+
+.tape-block-item.active {
+  background: var(--accent-blue-bg);
+  border-left-color: var(--accent-blue);
+}
+
+.tape-block-index {
+  color: var(--text-muted);
+  min-width: 18px;
+  text-align: right;
+  font-size: 9px;
+}
+
+.tape-block-badge {
+  font-size: 8px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+  min-width: 38px;
+  text-align: center;
+}
+
+.tape-block-badge.header {
+  background: var(--accent-green-bg-strong);
+  border: 1px solid var(--accent-green-border-light);
+  color: var(--accent-green);
+}
+
+.tape-block-badge.data {
+  background: var(--accent-orange-bg-strong);
+  border: 1px solid var(--accent-orange-border-light);
+  color: var(--accent-orange);
+}
+
+.tape-block-name {
+  color: var(--text-primary);
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tape-block-size {
+  color: var(--text-muted);
+  font-size: 9px;
+  flex-shrink: 0;
+}
+
+.tape-empty-state {
+  padding: 20px 8px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-style: italic;
+  opacity: 0.7;
+}
+
+/* ---- Transport Controls ---- */
+.tape-transport {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--separator-bg);
+  margin-bottom: 6px;
+}
+
+.tape-transport-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--control-border);
+  background: var(--glass-bg-header);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  padding: 0;
+}
+
+.tape-transport-btn:hover {
+  background: var(--glass-border);
+  color: var(--text-primary);
+}
+
+.tape-transport-btn:active {
+  transform: scale(0.95);
+}
+
+.tape-transport-btn.play {
+  width: 38px;
+  height: 38px;
+}
+
+.tape-transport-btn.play.playing {
+  background: var(--accent-green-bg-strong);
+  border-color: var(--accent-green-border);
+  color: var(--accent-green);
+}
+
+.tape-transport-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.tape-transport-btn.play svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* ---- Status Bar ---- */
+.tape-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  background: var(--input-bg);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: 4px;
+}
+
+.tape-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.tape-status-bar.playing .tape-status-dot {
+  background: var(--accent-green);
+  animation: tape-dot-pulse 1.5s ease-in-out infinite;
+}
+
+.tape-status-bar.stopped .tape-status-dot {
+  background: var(--accent-orange);
+}
+
+@keyframes tape-dot-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.75); }
+}
+
+.tape-status-text {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.tape-status-bar.playing .tape-status-text {
+  color: var(--accent-green);
+}
+
+.tape-status-bar.stopped .tape-status-text {
+  color: var(--accent-orange);
+}

@@ -16,6 +16,7 @@ import { InputHandler } from "./input/input-handler.js";
 import { SnapshotLoader } from "./snapshot/snapshot-loader.js";
 import { CPUDebuggerWindow } from "./debug/cpu-debugger-window.js";
 import { StackViewerWindow } from "./debug/stack-viewer-window.js";
+import { TapeWindow } from "./tape/tape-window.js";
 import { EmulatorProxy } from "./emulator-proxy.js";
 
 class ZXSpectrumEmulator {
@@ -28,6 +29,7 @@ class ZXSpectrumEmulator {
     this.screenWindow = null;
     this.displaySettingsWindow = null;
     this.cpuDebuggerWindow = null;
+    this.tapeWindow = null;
 
     this.snapshotLoader = null;
 
@@ -71,6 +73,11 @@ class ZXSpectrumEmulator {
       this.stackViewerWindow.create();
       this.windowManager.register(this.stackViewerWindow);
 
+      // Create tape player window
+      this.tapeWindow = new TapeWindow(this.proxy);
+      this.tapeWindow.create();
+      this.windowManager.register(this.tapeWindow);
+
       // Attach canvas to screen window
       this.screenWindow.attachCanvas();
 
@@ -80,6 +87,7 @@ class ZXSpectrumEmulator {
         { id: "display-settings", visible: false },
         { id: "cpu-debugger", visible: false },
         { id: "stack-viewer", visible: false },
+        { id: "tape-window", visible: false },
       ]);
 
       // Load saved window state (overrides defaults if present)
@@ -159,6 +167,19 @@ class ZXSpectrumEmulator {
       }
     };
 
+    // TAP loaded callback - show tape window with block list
+    this.proxy.onTapLoaded = (blocks) => {
+      this.tapeWindow.setBlocks(blocks);
+      this.windowManager.showWindow("tape-window");
+      // Ensure emulator is running so user can type LOAD ""
+      if (!this.running) {
+        this.running = true;
+        this.renderer.setNoSignal(false);
+        this.audioDriver.start();
+        this.updatePowerButton();
+      }
+    };
+
     // File menu > Load Snapshot
     const loadSnapshotBtn = document.getElementById("btn-load-snapshot");
     if (loadSnapshotBtn) {
@@ -183,6 +204,16 @@ class ZXSpectrumEmulator {
     if (z80DebugBtn) {
       z80DebugBtn.addEventListener("click", () => {
         this.windowManager.toggleWindow("cpu-debugger");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
+    // View menu > Tape Player
+    const tapePlayerBtn = document.getElementById("btn-tape-player");
+    if (tapePlayerBtn) {
+      tapePlayerBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("tape-window");
         this.closeAllMenus();
         this.refocusCanvas();
       });
@@ -460,6 +491,11 @@ class ZXSpectrumEmulator {
     if (this.displaySettingsWindow) {
       this.displaySettingsWindow.destroy();
       this.displaySettingsWindow = null;
+    }
+
+    if (this.tapeWindow) {
+      this.tapeWindow.destroy();
+      this.tapeWindow = null;
     }
 
     if (this.cpuDebuggerWindow) {

@@ -9,6 +9,7 @@
 #include "../loaders/sna_loader.hpp"
 #include "../loaders/z80_loader.hpp"
 #include "../loaders/tzx_loader.hpp"
+#include "../loaders/tap_loader.hpp"
 #include <cstring>
 
 #include "roms.cpp"
@@ -247,7 +248,10 @@ void ZXSpectrum48::loadTZX(const uint8_t* data, uint32_t size)
 
     zxspec::TZXLoader::load(*this, data, size);
 
-    // Simulate LOAD "" by writing it into the edit line and jumping to LINE-RUN.
+    // Trigger LOAD "" via the ROM, just as if the user had typed it.
+    // The ROM's LOAD handler calls LD-BYTES at 0x0556 for each block;
+    // our opcode-callback trap (handleTapeTrap) instantly copies the
+    // tape data into memory — the same approach SpectREMCPP uses.
     uint16_t eLine = readMemory(23641) | (readMemory(23642) << 8);
 
     writeMemory(eLine, 0xEF);       // LOAD token
@@ -268,6 +272,11 @@ void ZXSpectrum48::loadTZX(const uint8_t* data, uint32_t size)
     z80_->setRegister(Z80::WordReg::SP, sp);
 
     muteFrames_ = 10;
+}
+
+void ZXSpectrum48::loadTAP(const uint8_t* data, uint32_t size)
+{
+    zxspec::TAPLoader::load(*this, data, size);
 }
 
 } // namespace zxspec::zx48k

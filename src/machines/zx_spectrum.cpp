@@ -100,6 +100,7 @@ void ZXSpectrum::reset()
     paused_ = false;
 
     tapeBlocks_.clear();
+    tapeBlockInfo_.clear();
     tapeBlockIndex_ = 0;
     tapeActive_ = false;
     tapePulses_.clear();
@@ -304,29 +305,51 @@ void ZXSpectrum::installOpcodeCallback()
 }
 
 // ============================================================================
-// Tape (default: 48K ROM trap at 0x0556)
+// Tape transport controls
+// ============================================================================
+
+void ZXSpectrum::tapePlay()
+{
+    if (!tapeActive_ || tapeBlocks_.empty()) return;
+    tapePulseActive_ = true;
+}
+
+void ZXSpectrum::tapeStop()
+{
+    tapePulseActive_ = false;
+}
+
+void ZXSpectrum::tapeRewind()
+{
+    tapeBlockIndex_ = 0;
+    tapePulseIndex_ = 0;
+    tapePulseRemaining_ = 0;
+    tapeEarLevel_ = false;
+    lastTapeReadTs_ = 0;
+}
+
+// ============================================================================
+// Tape (default: 48K ROM trap at 0x056B — RET NZ inside LD-BYTES)
 // ============================================================================
 
 bool ZXSpectrum::handleTapeTrap(uint16_t address)
 {
-    // Default: 48K ROM trap at LD-BYTES (0x0556)
-    if (address != 0x0556) return false;
+    // Trap at 0x056B: by this point the ROM has already executed EX AF,AF'
+    // so the block type and LOAD/VERIFY flag are in the alternate registers.
+    // This matches SpectREMCPP's trap location.
+    if (address != 0x056B) return false;
 
     if (tapeBlockIndex_ >= tapeBlocks_.size())
     {
         tapeBlockIndex_ = 0;
     }
 
-    uint8_t expectedBlockType = z80_->getRegister(Z80::ByteReg::A);
-    uint8_t f = z80_->getRegister(Z80::ByteReg::F);
-    bool isLoad = (f & Z80::FLAG_C) != 0;
+    // Read block type and carry flag from alternate registers
+    // (EX AF,AF' at 0x0557 moved them there)
+    uint8_t expectedBlockType = z80_->getRegister(Z80::ByteReg::AltA);
+    uint8_t altF = z80_->getRegister(Z80::ByteReg::AltF);
+    bool isLoad = (altF & Z80::FLAG_C) != 0;
     uint16_t startAddress = z80_->getRegister(Z80::WordReg::IX);
-
-    // Perform the EX AF,AF' that the ROM would do at 0x0557
-    uint16_t mainAF = z80_->getRegister(Z80::WordReg::AF);
-    uint16_t altAF = z80_->getRegister(Z80::WordReg::AltAF);
-    z80_->setRegister(Z80::WordReg::AltAF, mainAF);
-    z80_->setRegister(Z80::WordReg::AF, altAF);
 
     uint32_t blockLength = z80_->getRegister(Z80::WordReg::DE);
     uint32_t tapBlockLength = tapeBlocks_[tapeBlockIndex_].data.size();

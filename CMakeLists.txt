@@ -30,6 +30,7 @@ set(ZXSPECTRUM_BASE_SOURCES
     src/machines/loaders/sna_loader.cpp
     src/machines/loaders/z80_loader.cpp
     src/machines/loaders/tzx_loader.cpp
+    src/machines/loaders/tap_loader.cpp
 )
 
 # Source files - ZX Spectrum 48K variant
@@ -117,6 +118,15 @@ if(EMSCRIPTEN)
                 \"_loadSNA\", \
                 \"_loadZ80\", \
                 \"_loadTZX\", \
+                \"_loadTAP\", \
+                \"_tapePlay\", \
+                \"_tapeStop\", \
+                \"_tapeRewind\", \
+                \"_tapeIsPlaying\", \
+                \"_tapeIsLoaded\", \
+                \"_tapeGetBlockCount\", \
+                \"_tapeGetCurrentBlock\", \
+                \"_tapeGetBlockInfo\", \
                 \"_getAltAF\", \
                 \"_getAltBC\", \
                 \"_getAltDE\", \
