@@ -8,16 +8,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Generate compile_commands.json for clangd
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Source files
-set(CORE_SOURCES
-    src/core/audio/audio.cpp
-    src/core/display/display.cpp
-    src/core/memory/memory.cpp
-    src/core/emulator.cpp
-    src/core/loaders/sna_loader.cpp
-    src/core/loaders/z80_loader.cpp
-    src/core/loaders/tzx_loader.cpp
-    src/core/ula/ula_contention.cpp
+# Source files - Z80 CPU (shared across all machines)
+set(Z80_SOURCES
     src/core/z80/z80.cpp
     src/core/z80/z80_opcodes_main.cpp
     src/core/z80/z80_opcodes_cb.cpp
@@ -27,11 +19,32 @@ set(CORE_SOURCES
     src/core/z80/z80_opcodes_ddcb.cpp
     src/core/z80/z80_opcodes_fdcb.cpp
     src/core/z80/z80_opcode_tables.cpp
+)
+
+# Source files - ZX Spectrum base class (shared display/audio/contention)
+set(ZXSPECTRUM_BASE_SOURCES
+    src/machines/zx_spectrum.cpp
+    src/machines/display.cpp
+    src/machines/audio.cpp
+    src/machines/contention.cpp
+    src/machines/loaders/sna_loader.cpp
+    src/machines/loaders/z80_loader.cpp
+    src/machines/loaders/tzx_loader.cpp
+)
+
+# Source files - ZX Spectrum 48K variant
+set(ZX48K_SOURCES
+    src/machines/zx48k/zx_spectrum_48k.cpp
+)
+
+set(CORE_SOURCES
+    ${Z80_SOURCES}
+    ${ZXSPECTRUM_BASE_SOURCES}
+    ${ZX48K_SOURCES}
     src/bindings/wasm_interface.cpp
 )
 
 # Custom command to generate ROM data arrays
-# The script handles missing ROM files gracefully (generates empty arrays)
 add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/generated/roms.cpp
     COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/generated
@@ -53,11 +66,9 @@ if(EMSCRIPTEN)
     target_include_directories(zxspec PRIVATE
         ${CMAKE_SOURCE_DIR}/src/core
         ${CMAKE_SOURCE_DIR}/src/core/z80
-        ${CMAKE_SOURCE_DIR}/src/core/audio
-        ${CMAKE_SOURCE_DIR}/src/core/display
-        ${CMAKE_SOURCE_DIR}/src/core/memory
-        ${CMAKE_SOURCE_DIR}/src/core/ula
-        ${CMAKE_SOURCE_DIR}/src/core/loaders
+        ${CMAKE_SOURCE_DIR}/src/machines
+        ${CMAKE_SOURCE_DIR}/src/machines/loaders
+        ${CMAKE_SOURCE_DIR}/src/machines/zx48k
         ${CMAKE_BINARY_DIR}/generated
     )
 
@@ -70,6 +81,9 @@ if(EMSCRIPTEN)
             -s EXPORT_NAME='createZXSpecModule' \
             -s EXPORTED_FUNCTIONS='[ \
                 \"_init\", \
+                \"_initMachine\", \
+                \"_getMachineId\", \
+                \"_getMachineName\", \
                 \"_reset\", \
                 \"_runCycles\", \
                 \"_getPC\", \
@@ -154,23 +168,11 @@ else()
     # Z80 CPU Test
     add_executable(z80_test
         tests/z80/z80_test.cpp
-        src/core/z80/z80.cpp
-        src/core/z80/z80_opcodes_main.cpp
-        src/core/z80/z80_opcodes_cb.cpp
-        src/core/z80/z80_opcodes_dd.cpp
-        src/core/z80/z80_opcodes_ed.cpp
-        src/core/z80/z80_opcodes_fd.cpp
-        src/core/z80/z80_opcodes_ddcb.cpp
-        src/core/z80/z80_opcodes_fdcb.cpp
-        src/core/z80/z80_opcode_tables.cpp
+        ${Z80_SOURCES}
     )
     target_include_directories(z80_test PRIVATE
         ${CMAKE_SOURCE_DIR}/src/core
         ${CMAKE_SOURCE_DIR}/src/core/z80
-        ${CMAKE_SOURCE_DIR}/src/core/audio
-        ${CMAKE_SOURCE_DIR}/src/core/display
-        ${CMAKE_SOURCE_DIR}/src/core/ula
-        ${CMAKE_SOURCE_DIR}/src/core/loaders
     )
     target_compile_options(z80_test PRIVATE -O3 -Wall -Wextra)
     add_test(NAME z80_cpu_test
