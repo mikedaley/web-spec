@@ -7,8 +7,8 @@
 
 import { BaseWindow } from "../windows/base-window.js";
 
-// ZX Spectrum aspect ratio: 352x296 (roughly 1.189:1, close to 7:6)
-const ASPECT = 352 / 296;
+// ZX Spectrum aspect ratio: 320x256 (5:4)
+const ASPECT = 320 / 256;
 
 export class ScreenWindow extends BaseWindow {
   constructor(renderer) {

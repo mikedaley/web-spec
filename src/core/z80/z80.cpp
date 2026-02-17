@@ -20,7 +20,8 @@ Z80::Z80()
 
 void Z80::initialise(MemReadFunc memRead, MemWriteFunc memWrite,
                      IoReadFunc ioRead, IoWriteFunc ioWrite,
-                     ContentionFunc contention, void* param)
+                     ContentionFunc contention, ContentionFunc noMreqContention,
+                     void* param)
 {
     m_Param = param;
     m_MemRead = memRead;
@@ -28,6 +29,7 @@ void Z80::initialise(MemReadFunc memRead, MemWriteFunc memWrite,
     m_IORead = ioRead;
     m_IOWrite = ioWrite;
     m_MemContentionHandling = contention;
+    m_NoMreqContentionHandling = noMreqContention;
 
     for (int i = 0; i < 256; i++)
     {
@@ -97,6 +99,16 @@ void Z80::z80MemContention(uint16_t address, uint32_t tstates)
     if (m_MemContentionHandling)
     {
         m_MemContentionHandling(address, tstates, m_Param);
+    }
+
+    m_CPURegisters.TStates += tstates;
+}
+
+void Z80::z80NoMreqContention(uint16_t address, uint32_t tstates)
+{
+    if (m_NoMreqContentionHandling)
+    {
+        m_NoMreqContentionHandling(address, tstates, m_Param);
     }
 
     m_CPURegisters.TStates += tstates;
@@ -176,10 +188,10 @@ uint32_t Z80::execute(uint32_t numTStates, uint32_t intTStates)
                         break;
                 }
             }
-        }
-        else if (m_CPURegisters.TStates > intTStates)
-        {
-            m_CPURegisters.IntReq = false;
+            else if (m_CPURegisters.TStates >= intTStates)
+            {
+                m_CPURegisters.IntReq = false;
+            }
         }
 
         m_CPURegisters.EIHandled = false;

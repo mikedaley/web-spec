@@ -104,8 +104,6 @@ if(EMSCRIPTEN)
                 \"_writeMemory\", \
                 \"_isPaused\", \
                 \"_setPaused\", \
-                \"_isTurbo\", \
-                \"_setTurbo\", \
                 \"_stepInstruction\", \
                 \"_runFrame\", \
                 \"_getFramebuffer\", \

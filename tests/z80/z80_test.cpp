@@ -111,7 +111,7 @@ static void resetEnv()
     g_cpu.reset(true);
     g_cpu.initialise(memReadCallback, memWriteCallback,
                      ioReadCallback, ioWriteCallback,
-                     contentionCallback, nullptr);
+                     contentionCallback, contentionCallback, nullptr);
     g_cpu.resetTStates();
 }
 

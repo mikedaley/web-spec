@@ -1,21 +1,24 @@
 /*
- * display.cpp - ULA display generation for ZX Spectrum
+ * display.cpp - ULA display generation (shared across all machine variants)
  *
  * Written by
  *  Mike Daley <michael_daley@icloud.com>
  */
 
 #include "display.hpp"
+#include "../core/palette.hpp"
 #include <cstring>
 
 namespace zxspec {
 
-void Display::init(int scanlines, int tsPerScanline, int pxVerticalBlank)
+void Display::init(const MachineInfo& info)
 {
-    scanlines_ = scanlines;
-    tsPerScanline_ = tsPerScanline;
-    pxVerticalBlank_ = pxVerticalBlank;
-    paperStartLine_ = pxVerticalBlank + PX_VERT_BORDER;
+    scanlines_ = info.pxVerticalTotal;
+    tsPerScanline_ = info.tsPerLine;
+    pxVerticalBlank_ = info.pxVerticalBlank;
+    paperStartLine_ = info.pxVerticalBlank + info.pxVertBorder;
+    borderDrawingOffset_ = info.borderDrawingOffset;
+    paperDrawingOffset_ = info.paperDrawingOffset;
     buildLineAddressTable();
     buildTsTable();
     frameReset();
@@ -44,33 +47,28 @@ void Display::buildLineAddressTable()
 
 void Display::buildTsTable()
 {
-    // Clear table
     std::memset(tstateTable_, 0, sizeof(tstateTable_));
 
-    // Horizontal timing in T-states (each T-state = 2 pixels)
-    constexpr int tsLeftBorderEnd = PX_EMU_BORDER_H / 2;       // 24
-    constexpr int tsRightBorderStart = tsLeftBorderEnd + TS_HORIZONTAL_DISPLAY; // 152
-    constexpr int tsRightBorderEnd = tsRightBorderStart + (PX_EMU_BORDER_H / 2); // 176
+    constexpr uint32_t tsLeftBorderEnd = PX_EMU_BORDER_H / 2;
+    constexpr uint32_t tsRightBorderStart = tsLeftBorderEnd + TS_HORIZONTAL_DISPLAY;
+    constexpr uint32_t tsRightBorderEnd = tsRightBorderStart + (PX_EMU_BORDER_H / 2);
 
-    // Vertical line ranges (parameterized by pxVerticalBlank_)
-    int pxLinePaperStart = paperStartLine_;
-    int pxLinePaperEnd = pxLinePaperStart + PX_VERTICAL_DISPLAY;
-    int pxLineBottomBorderEnd = pxLinePaperEnd + PX_EMU_BORDER_BOTTOM;
-    int pxLineTopBorderVisible = pxLinePaperStart - PX_EMU_BORDER_TOP;
+    uint32_t pxLinePaperStart = paperStartLine_;
+    uint32_t pxLinePaperEnd = pxLinePaperStart + SCREEN_HEIGHT;
+    uint32_t pxLineBottomBorderEnd = pxLinePaperEnd + PX_EMU_BORDER_BOTTOM;
+    uint32_t pxLineTopBorderVisible = pxLinePaperStart - PX_EMU_BORDER_TOP;
 
-    for (int line = 0; line < scanlines_; line++)
+    for (uint32_t line = 0; line < scanlines_; line++)
     {
-        for (int ts = 0; ts < tsPerScanline_; ts++)
+        for (uint32_t ts = 0; ts < tsPerScanline_; ts++)
         {
             tstateTable_[line][ts] = DISPLAY_RETRACE;
 
-            // Vertical blank
             if (line < pxVerticalBlank_)
             {
                 continue;
             }
 
-            // Top border region
             if (line >= pxVerticalBlank_ && line < pxLinePaperStart)
             {
                 if (ts >= tsRightBorderEnd || line < pxLineTopBorderVisible)
@@ -79,7 +77,6 @@ void Display::buildTsTable()
                 }
                 tstateTable_[line][ts] = DISPLAY_BORDER;
             }
-            // Paper region (with left/right borders)
             else if (line >= pxLinePaperStart && line < pxLinePaperEnd)
             {
                 if (ts < tsLeftBorderEnd || (ts >= tsRightBorderStart && ts < tsRightBorderEnd))
@@ -95,7 +92,6 @@ void Display::buildTsTable()
                     tstateTable_[line][ts] = DISPLAY_PAPER;
                 }
             }
-            // Bottom border region
             else if (line >= pxLinePaperEnd && line < pxLineBottomBorderEnd)
             {
                 if (ts >= tsRightBorderEnd)
@@ -114,7 +110,7 @@ void Display::updateWithTs(int32_t tStates, const uint8_t* memory,
     uint32_t* pixels = reinterpret_cast<uint32_t*>(framebuffer_.data());
     const uint8_t flashMask = (frameCounter & 0x10) ? 0xff : 0x00;
 
-    const uint32_t yAdjust = static_cast<uint32_t>(paperStartLine_);
+    const uint32_t yAdjust = paperStartLine_;
     constexpr uint32_t tsLeftBorderEnd = PX_EMU_BORDER_H / 2;
 
     while (tStates > 0)
@@ -122,7 +118,7 @@ void Display::updateWithTs(int32_t tStates, const uint8_t* memory,
         uint32_t line = currentDisplayTs_ / tsPerScanline_;
         uint32_t ts = currentDisplayTs_ % tsPerScanline_;
 
-        if (line >= static_cast<uint32_t>(scanlines_))
+        if (line >= scanlines_)
         {
             break;
         }
@@ -155,7 +151,6 @@ void Display::updateWithTs(int32_t tStates, const uint8_t* memory,
                 uint16_t pixelAddr = lineAddrTable_[y] + x;
                 uint16_t attrAddr = 6144 + ((y >> 3) << 5) + x;
 
-                // memory points directly to screen page (no 0x4000 offset needed)
                 uint8_t pixelByte = memory[pixelAddr];
                 uint8_t attrByte = memory[attrAddr];
 
@@ -202,13 +197,14 @@ int Display::getFramebufferSize() const
     return FRAMEBUFFER_SIZE;
 }
 
-uint8_t Display::floatingBus(uint32_t cpuTs, const uint8_t* memory) const
+uint8_t Display::floatingBus(uint32_t cpuTs, const uint8_t* memory, int32_t floatBusAdjust) const
 {
-    const uint32_t displayStartLine = static_cast<uint32_t>(paperStartLine_);
+    const uint32_t displayStartLine = paperStartLine_;
     constexpr uint32_t bitmapSize = (SCREEN_WIDTH / 8) * SCREEN_HEIGHT;
 
-    uint32_t line = cpuTs / tsPerScanline_;
-    uint32_t ts = cpuTs % tsPerScanline_;
+    uint32_t adjustedTs = cpuTs + static_cast<uint32_t>(floatBusAdjust);
+    uint32_t line = adjustedTs / tsPerScanline_;
+    uint32_t ts = adjustedTs % tsPerScanline_;
 
     if (line >= displayStartLine
         && line < displayStartLine + SCREEN_HEIGHT

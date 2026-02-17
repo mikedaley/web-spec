@@ -5,36 +5,64 @@
  *  Mike Daley <michael_daley@icloud.com>
  */
 
-#include "../core/emulator.hpp"
+#include "../machines/machine.hpp"
+#include "../machines/zx48k/zx_spectrum_48k.hpp"
 #include <emscripten.h>
 
-// Global emulator instance
-static zxspec::Emulator *g_emulator = nullptr;
+// Global machine instance
+static zxspec::Machine *g_machine = nullptr;
 
 // Helper macros to reduce repetitive null checks
-#define REQUIRE_EMULATOR() do { if (!g_emulator) return; } while(0)
-#define REQUIRE_EMULATOR_OR(default_val) do { if (!g_emulator) return (default_val); } while(0)
+#define REQUIRE_MACHINE() do { if (!g_machine) return; } while(0)
+#define REQUIRE_MACHINE_OR(default_val) do { if (!g_machine) return (default_val); } while(0)
 
 extern "C" {
 
 EMSCRIPTEN_KEEPALIVE
+void initMachine(int machineId) {
+  delete g_machine;
+  g_machine = nullptr;
+
+  switch (machineId) {
+    case 0:
+    default:
+      g_machine = new zxspec::zx48k::ZXSpectrum48();
+      break;
+  }
+
+  g_machine->init();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int getMachineId() {
+  REQUIRE_MACHINE_OR(-1);
+  return g_machine->getId();
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* getMachineName() {
+  REQUIRE_MACHINE_OR("");
+  return g_machine->getName();
+}
+
+EMSCRIPTEN_KEEPALIVE
 void init() {
-  if (!g_emulator) {
-    g_emulator = new zxspec::Emulator();
-    g_emulator->init();
+  if (!g_machine) {
+    g_machine = new zxspec::zx48k::ZXSpectrum48();
+    g_machine->init();
   }
 }
 
 EMSCRIPTEN_KEEPALIVE
 void reset() {
-  REQUIRE_EMULATOR();
-  g_emulator->reset();
+  REQUIRE_MACHINE();
+  g_machine->reset();
 }
 
 EMSCRIPTEN_KEEPALIVE
 void runCycles(int cycles) {
-  REQUIRE_EMULATOR();
-  g_emulator->runCycles(cycles);
+  REQUIRE_MACHINE();
+  g_machine->runCycles(cycles);
 }
 
 // ============================================================================
@@ -43,86 +71,86 @@ void runCycles(int cycles) {
 
 EMSCRIPTEN_KEEPALIVE
 uint16_t getPC() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getPC();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getPC();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint16_t getSP() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getSP();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getSP();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint16_t getAF() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getAF();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getAF();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint16_t getBC() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getBC();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getBC();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint16_t getDE() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getDE();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getDE();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint16_t getHL() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getHL();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getHL();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint16_t getIX() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getIX();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getIX();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint16_t getIY() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getIY();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getIY();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint8_t getI() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getI();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getI();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint8_t getR() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getR();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getR();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint8_t getIFF1() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getIFF1();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getIFF1();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint8_t getIFF2() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getIFF2();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getIFF2();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint8_t getIM() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getIM();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getIM();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint32_t getTStates() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getTStates();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getTStates();
 }
 
 // ============================================================================
@@ -131,26 +159,26 @@ uint32_t getTStates() {
 
 EMSCRIPTEN_KEEPALIVE
 uint16_t getAltAF() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getAltAF();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getAltAF();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint16_t getAltBC() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getAltBC();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getAltBC();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint16_t getAltDE() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getAltDE();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getAltDE();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint16_t getAltHL() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getAltHL();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getAltHL();
 }
 
 // ============================================================================
@@ -158,34 +186,34 @@ uint16_t getAltHL() {
 // ============================================================================
 
 EMSCRIPTEN_KEEPALIVE
-void setPC(uint16_t v) { REQUIRE_EMULATOR(); g_emulator->setPC(v); }
+void setPC(uint16_t v) { REQUIRE_MACHINE(); g_machine->setPC(v); }
 
 EMSCRIPTEN_KEEPALIVE
-void setSP(uint16_t v) { REQUIRE_EMULATOR(); g_emulator->setSP(v); }
+void setSP(uint16_t v) { REQUIRE_MACHINE(); g_machine->setSP(v); }
 
 EMSCRIPTEN_KEEPALIVE
-void setAF(uint16_t v) { REQUIRE_EMULATOR(); g_emulator->setAF(v); }
+void setAF(uint16_t v) { REQUIRE_MACHINE(); g_machine->setAF(v); }
 
 EMSCRIPTEN_KEEPALIVE
-void setBC(uint16_t v) { REQUIRE_EMULATOR(); g_emulator->setBC(v); }
+void setBC(uint16_t v) { REQUIRE_MACHINE(); g_machine->setBC(v); }
 
 EMSCRIPTEN_KEEPALIVE
-void setDE(uint16_t v) { REQUIRE_EMULATOR(); g_emulator->setDE(v); }
+void setDE(uint16_t v) { REQUIRE_MACHINE(); g_machine->setDE(v); }
 
 EMSCRIPTEN_KEEPALIVE
-void setHL(uint16_t v) { REQUIRE_EMULATOR(); g_emulator->setHL(v); }
+void setHL(uint16_t v) { REQUIRE_MACHINE(); g_machine->setHL(v); }
 
 EMSCRIPTEN_KEEPALIVE
-void setIX(uint16_t v) { REQUIRE_EMULATOR(); g_emulator->setIX(v); }
+void setIX(uint16_t v) { REQUIRE_MACHINE(); g_machine->setIX(v); }
 
 EMSCRIPTEN_KEEPALIVE
-void setIY(uint16_t v) { REQUIRE_EMULATOR(); g_emulator->setIY(v); }
+void setIY(uint16_t v) { REQUIRE_MACHINE(); g_machine->setIY(v); }
 
 EMSCRIPTEN_KEEPALIVE
-void setI(uint8_t v) { REQUIRE_EMULATOR(); g_emulator->setI(v); }
+void setI(uint8_t v) { REQUIRE_MACHINE(); g_machine->setI(v); }
 
 EMSCRIPTEN_KEEPALIVE
-void setR(uint8_t v) { REQUIRE_EMULATOR(); g_emulator->setR(v); }
+void setR(uint8_t v) { REQUIRE_MACHINE(); g_machine->setR(v); }
 
 // ============================================================================
 // Breakpoint Management
@@ -193,38 +221,38 @@ void setR(uint8_t v) { REQUIRE_EMULATOR(); g_emulator->setR(v); }
 
 EMSCRIPTEN_KEEPALIVE
 void addBreakpoint(uint16_t addr) {
-  REQUIRE_EMULATOR();
-  g_emulator->addBreakpoint(addr);
+  REQUIRE_MACHINE();
+  g_machine->addBreakpoint(addr);
 }
 
 EMSCRIPTEN_KEEPALIVE
 void removeBreakpoint(uint16_t addr) {
-  REQUIRE_EMULATOR();
-  g_emulator->removeBreakpoint(addr);
+  REQUIRE_MACHINE();
+  g_machine->removeBreakpoint(addr);
 }
 
 EMSCRIPTEN_KEEPALIVE
 void enableBreakpoint(uint16_t addr, bool enabled) {
-  REQUIRE_EMULATOR();
-  g_emulator->enableBreakpoint(addr, enabled);
+  REQUIRE_MACHINE();
+  g_machine->enableBreakpoint(addr, enabled);
 }
 
 EMSCRIPTEN_KEEPALIVE
 bool isBreakpointHit() {
-  REQUIRE_EMULATOR_OR(false);
-  return g_emulator->isBreakpointHit();
+  REQUIRE_MACHINE_OR(false);
+  return g_machine->isBreakpointHit();
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint16_t getBreakpointAddress() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getBreakpointAddress();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getBreakpointAddress();
 }
 
 EMSCRIPTEN_KEEPALIVE
 void clearBreakpointHit() {
-  REQUIRE_EMULATOR();
-  g_emulator->clearBreakpointHit();
+  REQUIRE_MACHINE();
+  g_machine->clearBreakpointHit();
 }
 
 // ============================================================================
@@ -233,14 +261,14 @@ void clearBreakpointHit() {
 
 EMSCRIPTEN_KEEPALIVE
 uint8_t readMemory(uint16_t address) {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->readMemory(address);
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->readMemory(address);
 }
 
 EMSCRIPTEN_KEEPALIVE
 void writeMemory(uint16_t address, uint8_t data) {
-  REQUIRE_EMULATOR();
-  g_emulator->writeMemory(address, data);
+  REQUIRE_MACHINE();
+  g_machine->writeMemory(address, data);
 }
 
 // ============================================================================
@@ -249,32 +277,20 @@ void writeMemory(uint16_t address, uint8_t data) {
 
 EMSCRIPTEN_KEEPALIVE
 bool isPaused() {
-  REQUIRE_EMULATOR_OR(false);
-  return g_emulator->isPaused();
+  REQUIRE_MACHINE_OR(false);
+  return g_machine->isPaused();
 }
 
 EMSCRIPTEN_KEEPALIVE
 void setPaused(bool paused) {
-  REQUIRE_EMULATOR();
-  g_emulator->setPaused(paused);
+  REQUIRE_MACHINE();
+  g_machine->setPaused(paused);
 }
 
 EMSCRIPTEN_KEEPALIVE
 void stepInstruction() {
-  REQUIRE_EMULATOR();
-  g_emulator->stepInstruction();
-}
-
-EMSCRIPTEN_KEEPALIVE
-bool isTurbo() {
-  REQUIRE_EMULATOR_OR(false);
-  return g_emulator->isTurbo();
-}
-
-EMSCRIPTEN_KEEPALIVE
-void setTurbo(bool turbo) {
-  REQUIRE_EMULATOR();
-  g_emulator->setTurbo(turbo);
+  REQUIRE_MACHINE();
+  g_machine->stepInstruction();
 }
 
 // ============================================================================
@@ -283,20 +299,20 @@ void setTurbo(bool turbo) {
 
 EMSCRIPTEN_KEEPALIVE
 void runFrame() {
-  REQUIRE_EMULATOR();
-  g_emulator->runFrame();
+  REQUIRE_MACHINE();
+  g_machine->runFrame();
 }
 
 EMSCRIPTEN_KEEPALIVE
 const uint8_t* getFramebuffer() {
-  REQUIRE_EMULATOR_OR(nullptr);
-  return g_emulator->getFramebuffer();
+  REQUIRE_MACHINE_OR(nullptr);
+  return g_machine->getFramebuffer();
 }
 
 EMSCRIPTEN_KEEPALIVE
 int getFramebufferSize() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getFramebufferSize();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getFramebufferSize();
 }
 
 // ============================================================================
@@ -305,20 +321,20 @@ int getFramebufferSize() {
 
 EMSCRIPTEN_KEEPALIVE
 const float* getAudioBuffer() {
-  REQUIRE_EMULATOR_OR(nullptr);
-  return g_emulator->getAudioBuffer();
+  REQUIRE_MACHINE_OR(nullptr);
+  return g_machine->getAudioBuffer();
 }
 
 EMSCRIPTEN_KEEPALIVE
 int getAudioSampleCount() {
-  REQUIRE_EMULATOR_OR(0);
-  return g_emulator->getAudioSampleCount();
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getAudioSampleCount();
 }
 
 EMSCRIPTEN_KEEPALIVE
 void resetAudioBuffer() {
-  REQUIRE_EMULATOR();
-  g_emulator->resetAudioBuffer();
+  REQUIRE_MACHINE();
+  g_machine->resetAudioBuffer();
 }
 
 // ============================================================================
@@ -327,20 +343,20 @@ void resetAudioBuffer() {
 
 EMSCRIPTEN_KEEPALIVE
 void keyDown(int row, int bit) {
-  REQUIRE_EMULATOR();
-  g_emulator->keyDown(row, bit);
+  REQUIRE_MACHINE();
+  g_machine->keyDown(row, bit);
 }
 
 EMSCRIPTEN_KEEPALIVE
 void keyUp(int row, int bit) {
-  REQUIRE_EMULATOR();
-  g_emulator->keyUp(row, bit);
+  REQUIRE_MACHINE();
+  g_machine->keyUp(row, bit);
 }
 
 EMSCRIPTEN_KEEPALIVE
 uint8_t getKeyboardRow(int row) {
-  REQUIRE_EMULATOR_OR(0xBF);
-  return g_emulator->getKeyboardRow(row);
+  REQUIRE_MACHINE_OR(0xBF);
+  return g_machine->getKeyboardRow(row);
 }
 
 // ============================================================================
@@ -349,20 +365,20 @@ uint8_t getKeyboardRow(int row) {
 
 EMSCRIPTEN_KEEPALIVE
 void loadSNA(const uint8_t* data, int size) {
-  REQUIRE_EMULATOR();
-  g_emulator->loadSNA(data, static_cast<uint32_t>(size));
+  REQUIRE_MACHINE();
+  g_machine->loadSNA(data, static_cast<uint32_t>(size));
 }
 
 EMSCRIPTEN_KEEPALIVE
 void loadZ80(const uint8_t* data, int size) {
-  REQUIRE_EMULATOR();
-  g_emulator->loadZ80(data, static_cast<uint32_t>(size));
+  REQUIRE_MACHINE();
+  g_machine->loadZ80(data, static_cast<uint32_t>(size));
 }
 
 EMSCRIPTEN_KEEPALIVE
 void loadTZX(const uint8_t* data, int size) {
-  REQUIRE_EMULATOR();
-  g_emulator->loadTZX(data, static_cast<uint32_t>(size));
+  REQUIRE_MACHINE();
+  g_machine->loadTZX(data, static_cast<uint32_t>(size));
 }
 
 } // extern "C"

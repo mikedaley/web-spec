@@ -1784,7 +1784,7 @@ Z80::Z80OpcodeTable Z80::Main_Opcodes = {
         { nullptr							 , 0,									nullptr },
 		{ &Z80::CALL_Z_off_nn       , 0,									"CALL Z, %W" },
 		{ &Z80::CALL_off_nn         , 0,									"CALL %W" },
-		{ &Z80::ADC_A_n             , 0,									"ADC  A, %B" },
+		{ &Z80::ADC_A_n             , Z80::OPCODEFLAG_AltersFlags,	"ADC  A, %B" },
 		{ &Z80::RST_8H              , 0,									"RST  8H" },
 		{ &Z80::RET_NC              , 0,									"RET  NC" },
 		{ &Z80::POP_DE              , 0,									"POP  DE" },

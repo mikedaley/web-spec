@@ -14,25 +14,19 @@ import { WindowManager } from "./windows/window-manager.js";
 import { AudioDriver } from "./audio/audio-driver.js";
 import { InputHandler } from "./input/input-handler.js";
 import { SnapshotLoader } from "./snapshot/snapshot-loader.js";
-import { AYWindow } from "./debug/ay-window.js";
 import { CPUDebuggerWindow } from "./debug/cpu-debugger-window.js";
 import { StackViewerWindow } from "./debug/stack-viewer-window.js";
-
-// ZX Spectrum timing constants (from types.hpp)
-const CPU_CLOCK_HZ = 3500000;
-const TSTATES_PER_FRAME = 69888;
-const FRAMES_PER_SECOND = 50.08;
+import { EmulatorProxy } from "./emulator-proxy.js";
 
 class ZXSpectrumEmulator {
   constructor() {
-    this.wasmModule = null;
+    this.proxy = null;
     this.renderer = null;
     this.audioDriver = null;
     this.inputHandler = null;
     this.windowManager = null;
     this.screenWindow = null;
     this.displaySettingsWindow = null;
-    this.ayWindow = null;
     this.cpuDebuggerWindow = null;
 
     this.snapshotLoader = null;
@@ -45,11 +39,9 @@ class ZXSpectrumEmulator {
     this.showLoading(true);
 
     try {
-      // Load WASM module - use global function loaded via script tag
-      this.wasmModule = await window.createZXSpecModule();
-
-      // Initialize emulator core
-      this.wasmModule._init();
+      // Create proxy and initialize WASM in worker
+      this.proxy = new EmulatorProxy();
+      await this.proxy.init(0); // 0 = ZX Spectrum 48K
 
       // Set up renderer (async - loads external shaders)
       const canvas = document.getElementById("screen");
@@ -69,11 +61,6 @@ class ZXSpectrumEmulator {
       this.displaySettingsWindow.create();
       this.windowManager.register(this.displaySettingsWindow);
 
-      // Create AY debug window
-      this.ayWindow = new AYWindow();
-      this.ayWindow.create();
-      this.windowManager.register(this.ayWindow);
-
       // Create CPU debugger window
       this.cpuDebuggerWindow = new CPUDebuggerWindow();
       this.cpuDebuggerWindow.create();
@@ -91,7 +78,6 @@ class ZXSpectrumEmulator {
       this.windowManager.applyDefaultLayout([
         { id: "screen-window", position: "viewport-fill", visible: true, viewportLocked: true },
         { id: "display-settings", visible: false },
-        { id: "ay-debug", visible: false },
         { id: "cpu-debugger", visible: false },
         { id: "stack-viewer", visible: false },
       ]);
@@ -103,15 +89,15 @@ class ZXSpectrumEmulator {
       this.displaySettingsWindow.applyAllSettings();
 
       // Set up audio driver
-      this.audioDriver = new AudioDriver(this.wasmModule);
+      this.audioDriver = new AudioDriver(this.proxy);
 
       // Connect audio-driven frame sync to rendering
-      this.audioDriver.onFrameReady = () => {
-        this.renderFrame();
+      this.audioDriver.onFrameReady = (framebuffer) => {
+        this.renderFrame(framebuffer);
       };
 
       // Set up input handler
-      this.inputHandler = new InputHandler(this.wasmModule);
+      this.inputHandler = new InputHandler(this.proxy);
       this.inputHandler.init();
 
       // Set up UI controls
@@ -154,7 +140,7 @@ class ZXSpectrumEmulator {
     if (resetBtn) {
       resetBtn.addEventListener("click", () => {
         if (this.running) {
-          this.wasmModule._reset();
+          this.proxy.reset();
           console.log("Emulator reset");
         }
         this.refocusCanvas();
@@ -162,7 +148,7 @@ class ZXSpectrumEmulator {
     }
 
     // SNA snapshot loader
-    this.snapshotLoader = new SnapshotLoader(this.wasmModule);
+    this.snapshotLoader = new SnapshotLoader(this.proxy);
     this.snapshotLoader.init();
     this.snapshotLoader.onLoaded = () => {
       if (!this.running) {
@@ -171,28 +157,7 @@ class ZXSpectrumEmulator {
         this.audioDriver.start();
         this.updatePowerButton();
       }
-      // Update machine type display after snapshot load (may have auto-detected 128K)
-      const machineType = this.wasmModule._getMachineType();
-      const name = machineType === 1 ? "128K" : "48K";
-      const logoText = document.querySelector(".logo-text");
-      if (logoText) logoText.textContent = `ZX Spectrum ${name}`;
     };
-
-    // File menu > Machine type selection
-    const machine48kBtn = document.getElementById("btn-machine-48k");
-    if (machine48kBtn) {
-      machine48kBtn.addEventListener("click", () => {
-        this.closeAllMenus();
-        this.setMachineType(0);
-      });
-    }
-    const machine128kBtn = document.getElementById("btn-machine-128k");
-    if (machine128kBtn) {
-      machine128kBtn.addEventListener("click", () => {
-        this.closeAllMenus();
-        this.setMachineType(1);
-      });
-    }
 
     // File menu > Load Snapshot
     const loadSnapshotBtn = document.getElementById("btn-load-snapshot");
@@ -208,16 +173,6 @@ class ZXSpectrumEmulator {
     if (displayBtn) {
       displayBtn.addEventListener("click", () => {
         this.windowManager.toggleWindow("display-settings");
-        this.closeAllMenus();
-        this.refocusCanvas();
-      });
-    }
-
-    // View menu > AY Sound (opens AY debug window)
-    const aySoundBtn = document.getElementById("btn-ay-sound");
-    if (aySoundBtn) {
-      aySoundBtn.addEventListener("click", () => {
-        this.windowManager.toggleWindow("ay-debug");
         this.closeAllMenus();
         this.refocusCanvas();
       });
@@ -431,44 +386,11 @@ class ZXSpectrumEmulator {
     return this.running;
   }
 
-  setSpeed(multiplier) {
-    multiplier = Math.max(1, Math.floor(multiplier));
-    if (this.wasmModule) {
-      this.wasmModule._setTurbo(multiplier > 1);
-    }
-    if (this.audioDriver) {
-      this.audioDriver.speedMultiplier = multiplier;
-      if (multiplier > 1) {
-        this.audioDriver.startTurboLoop();
-      } else {
-        this.audioDriver.stopTurboLoop();
-      }
-    }
-    console.log(`Speed: ${multiplier}x`);
-  }
-
-  setMachineType(type) {
-    if (!this.wasmModule) return;
-    this.wasmModule._setMachineType(type);
-    this.wasmModule._reset();
-    const name = type === 1 ? "128K" : "48K";
-    console.log(`Machine type set to ZX Spectrum ${name}`);
-    // Update logo text
-    const logoText = document.querySelector(".logo-text");
-    if (logoText) logoText.textContent = `ZX Spectrum ${name}`;
-    if (!this.running) {
-      this.running = true;
-      this.renderer.setNoSignal(false);
-      this.audioDriver.start();
-      this.updatePowerButton();
-    }
-    this.refocusCanvas();
-  }
 
   start() {
     if (this.running) return;
 
-    this.wasmModule._reset();
+    this.proxy.reset();
     this.running = true;
     this.renderer.setNoSignal(false);
     this.audioDriver.start();
@@ -484,13 +406,12 @@ class ZXSpectrumEmulator {
     console.log("Emulator powered off");
   }
 
-  renderFrame() {
-    const ptr = this.wasmModule._getFramebuffer();
-    const size = this.wasmModule._getFramebufferSize();
-    const framebuffer = new Uint8Array(this.wasmModule.HEAPU8.buffer, ptr, size);
-    this.renderer.updateTexture(framebuffer);
-    this.renderer.draw();
-    this.windowManager.updateAll(this.wasmModule);
+  renderFrame(framebuffer) {
+    if (framebuffer) {
+      this.renderer.updateTexture(framebuffer);
+      this.renderer.draw();
+    }
+    this.windowManager.updateAll(this.proxy);
   }
 
   startRenderLoop() {
@@ -499,7 +420,7 @@ class ZXSpectrumEmulator {
         this.renderer.draw();
       }
       // Always update debug windows (needed for stepping when paused)
-      this.windowManager.updateAll(this.wasmModule);
+      this.windowManager.updateAll(this.proxy);
       this.animFrameId = requestAnimationFrame(render);
     };
 
@@ -541,11 +462,6 @@ class ZXSpectrumEmulator {
       this.displaySettingsWindow = null;
     }
 
-    if (this.ayWindow) {
-      this.ayWindow.destroy();
-      this.ayWindow = null;
-    }
-
     if (this.cpuDebuggerWindow) {
       this.cpuDebuggerWindow.destroy();
       this.cpuDebuggerWindow = null;
@@ -554,6 +470,11 @@ class ZXSpectrumEmulator {
     if (this.snapshotLoader) {
       this.snapshotLoader.destroy();
       this.snapshotLoader = null;
+    }
+
+    if (this.proxy) {
+      this.proxy.destroy();
+      this.proxy = null;
     }
 
     this.renderer = null;

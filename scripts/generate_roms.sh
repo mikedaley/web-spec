@@ -48,13 +48,8 @@ generate_array() {
     echo "" >> "$OUTPUT_FILE"
 }
 
-# Generate arrays for each ROM
-# ZX Spectrum 48K ROM
+# Generate array for 48K ROM only
 generate_array "$ROM_DIR/48.rom" "ROM_48K"
-
-# ZX Spectrum 128K ROMs
-generate_array "$ROM_DIR/128-0.rom" "ROM_128K_0"
-generate_array "$ROM_DIR/128-1.rom" "ROM_128K_1"
 
 # Close namespace
 echo "} // namespace roms" >> "$OUTPUT_FILE"

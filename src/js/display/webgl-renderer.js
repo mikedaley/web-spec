@@ -6,8 +6,8 @@
  */
 
 // ZX Spectrum display dimensions (from types.hpp)
-const TOTAL_WIDTH = 352; // 48 + 256 + 48
-const TOTAL_HEIGHT = 296; // 48 + 192 + 56
+const TOTAL_WIDTH = 320; // 32 + 256 + 32
+const TOTAL_HEIGHT = 256; // 32 + 192 + 32
 
 export class WebGLRenderer {
   constructor(canvas) {

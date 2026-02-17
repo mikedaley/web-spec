@@ -49,7 +49,7 @@ void Z80::RLC_L(uint8_t opcode)
 void Z80::RLC_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     RLC(t);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -96,7 +96,7 @@ void Z80::RRC_L(uint8_t opcode)
 void Z80::RRC_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     RRC(t);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -143,7 +143,7 @@ void Z80::RL_L(uint8_t opcode)
 void Z80::RL_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     RL(t);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -190,7 +190,7 @@ void Z80::RR_L(uint8_t opcode)
 void Z80::RR_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     RR(t);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -237,7 +237,7 @@ void Z80::SLA_L(uint8_t opcode)
 void Z80::SLA_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     SLA(t);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -284,7 +284,7 @@ void Z80::SRA_L(uint8_t opcode)
 void Z80::SRA_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     SRA(t);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -331,7 +331,7 @@ void Z80::SLL_L(uint8_t opcode)
 void Z80::SLL_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     SLL(t);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -378,7 +378,7 @@ void Z80::SRL_L(uint8_t opcode)
 void Z80::SRL_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     SRL(t);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -425,7 +425,7 @@ void Z80::BIT_0_L(uint8_t opcode)
 void Z80::BIT_0_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     BitWithMemptr(t, 0);
 }
 
@@ -471,7 +471,7 @@ void Z80::BIT_1_L(uint8_t opcode)
 void Z80::BIT_1_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     BitWithMemptr(t, 1);
 }
 
@@ -517,7 +517,7 @@ void Z80::BIT_2_L(uint8_t opcode)
 void Z80::BIT_2_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     BitWithMemptr(t, 2);
 }
 
@@ -563,7 +563,7 @@ void Z80::BIT_3_L(uint8_t opcode)
 void Z80::BIT_3_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     BitWithMemptr(t, 3);
 }
 
@@ -609,7 +609,7 @@ void Z80::BIT_4_L(uint8_t opcode)
 void Z80::BIT_4_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     BitWithMemptr(t, 4);
 }
 
@@ -655,7 +655,7 @@ void Z80::BIT_5_L(uint8_t opcode)
 void Z80::BIT_5_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     BitWithMemptr(t, 5);
 }
 
@@ -701,7 +701,7 @@ void Z80::BIT_6_L(uint8_t opcode)
 void Z80::BIT_6_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     BitWithMemptr(t, 6);
 }
 
@@ -747,7 +747,7 @@ void Z80::BIT_7_L(uint8_t opcode)
 void Z80::BIT_7_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     BitWithMemptr(t, 7);
 }
 
@@ -793,7 +793,7 @@ void Z80::RES_0_L(uint8_t opcode)
 void Z80::RES_0_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Res(t, 0);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -840,7 +840,7 @@ void Z80::RES_1_L(uint8_t opcode)
 void Z80::RES_1_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Res(t, 1);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -887,7 +887,7 @@ void Z80::RES_2_L(uint8_t opcode)
 void Z80::RES_2_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Res(t, 2);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -934,7 +934,7 @@ void Z80::RES_3_L(uint8_t opcode)
 void Z80::RES_3_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Res(t, 3);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -981,7 +981,7 @@ void Z80::RES_4_L(uint8_t opcode)
 void Z80::RES_4_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Res(t, 4);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -1028,7 +1028,7 @@ void Z80::RES_5_L(uint8_t opcode)
 void Z80::RES_5_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Res(t, 5);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -1075,7 +1075,7 @@ void Z80::RES_6_L(uint8_t opcode)
 void Z80::RES_6_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Res(t, 6);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -1122,7 +1122,7 @@ void Z80::RES_7_L(uint8_t opcode)
 void Z80::RES_7_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Res(t, 7);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -1169,7 +1169,7 @@ void Z80::SET_0_L(uint8_t opcode)
 void Z80::SET_0_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Set(t, 0);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -1216,7 +1216,7 @@ void Z80::SET_1_L(uint8_t opcode)
 void Z80::SET_1_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Set(t, 1);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -1263,7 +1263,7 @@ void Z80::SET_2_L(uint8_t opcode)
 void Z80::SET_2_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Set(t, 2);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -1310,7 +1310,7 @@ void Z80::SET_3_L(uint8_t opcode)
 void Z80::SET_3_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Set(t, 3);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -1357,7 +1357,7 @@ void Z80::SET_4_L(uint8_t opcode)
 void Z80::SET_4_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Set(t, 4);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -1404,7 +1404,7 @@ void Z80::SET_5_L(uint8_t opcode)
 void Z80::SET_5_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Set(t, 5);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -1451,7 +1451,7 @@ void Z80::SET_6_L(uint8_t opcode)
 void Z80::SET_6_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Set(t, 6);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }
@@ -1498,7 +1498,7 @@ void Z80::SET_7_L(uint8_t opcode)
 void Z80::SET_7_off_HL(uint8_t opcode)
 {
     uint8_t t = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Set(t, 7);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, t);
 }

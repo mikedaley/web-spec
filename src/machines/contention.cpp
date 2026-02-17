@@ -1,26 +1,27 @@
 /*
- * ula_contention.cpp - ULA memory and IO contention timing for ZX Spectrum
+ * contention.cpp - ULA memory and IO contention timing (shared across machines)
  *
  * Written by
  *  Mike Daley <michael_daley@icloud.com>
  */
 
-#include "ula_contention.hpp"
-#include "../z80/z80.hpp"
+#include "contention.hpp"
+#include "../core/z80/z80.hpp"
 
 namespace zxspec {
 
-void ULAContention::init(int tsPerFrame, int tsPerScanline, int tsToOrigin)
+void ULAContention::init(const MachineInfo& info)
 {
-    tsPerFrame_ = tsPerFrame;
-    tsPerScanline_ = tsPerScanline;
-    tsToOrigin_ = tsToOrigin;
+    tsPerFrame_ = info.tsPerFrame;
+    tsPerScanline_ = info.tsPerLine;
+    tsToOrigin_ = info.tsToOrigin;
+    altContention_ = info.altContention;
     buildContentionTable();
 }
 
 void ULAContention::buildContentionTable()
 {
-    for (int i = 0; i <= tsPerFrame_; i++)
+    for (uint32_t i = 0; i <= tsPerFrame_; i++)
     {
         memoryContentionTable_[i] = 0;
         ioContentionTable_[i] = 0;
@@ -30,8 +31,7 @@ void ULAContention::buildContentionTable()
             uint32_t line = (i - tsToOrigin_) / tsPerScanline_;
             uint32_t ts = (i - tsToOrigin_) % tsPerScanline_;
 
-            // Contention only during active display: 192 lines, first 128 tstates per line
-            if (line < static_cast<uint32_t>(SCREEN_HEIGHT) && ts < 128)
+            if (line < SCREEN_HEIGHT && ts < TS_HORIZONTAL_DISPLAY)
             {
                 memoryContentionTable_[i] = ULA_CONTENTION_VALUES[ts & 0x07];
                 ioContentionTable_[i] = ULA_CONTENTION_VALUES[ts & 0x07];
@@ -50,22 +50,8 @@ uint32_t ULAContention::ioContention(uint32_t tstates) const
     return ioContentionTable_[tstates % tsPerFrame_];
 }
 
-void ULAContention::applyIOContention(Z80& z80, uint16_t address, MachineType machineType) const
+void ULAContention::applyIOContention(Z80& z80, uint16_t address, bool contended) const
 {
-    bool contended;
-    if (machineType == MachineType::Spectrum48K)
-    {
-        contended = (address & 0xC000) == 0x4000;
-    }
-    else
-    {
-        // 128K: contended if address is in 0x4000-0x7FFF range
-        // (slot 1 = page 5, always contended)
-        // Also contended if slot 3 has an odd page, but IO contention
-        // traditionally only checks the address high byte
-        contended = (address & 0xC000) == 0x4000;
-    }
-
     bool evenPort = (address & 0x01) == 0;
 
     if (contended)

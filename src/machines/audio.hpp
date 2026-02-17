@@ -1,5 +1,5 @@
 /*
- * audio.hpp - Audio subsystem for ZX Spectrum beeper
+ * audio.hpp - Audio subsystem (beeper) shared across machine variants
  *
  * Written by
  *  Mike Daley <michael_daley@icloud.com>
@@ -22,6 +22,7 @@ public:
     void frameEnd();
 
     void setEarBit(uint8_t bit) { earBit_ = bit; }
+    uint8_t getEarBit() const { return earBit_; }
 
     const float* getBuffer() const { return sampleBuffer_; }
     float* getMutableBuffer() { return sampleBuffer_; }

@@ -125,7 +125,8 @@ public:
 
     void initialise(MemReadFunc memRead, MemWriteFunc memWrite,
                     IoReadFunc ioRead, IoWriteFunc ioWrite,
-                    ContentionFunc contention, void* param);
+                    ContentionFunc contention, ContentionFunc noMreqContention,
+                    void* param);
 
     void reset(bool hardReset = true);
     uint32_t execute(uint32_t numTStates = 0, uint32_t intTStates = 32);
@@ -165,6 +166,7 @@ public:
     uint8_t z80IORead(uint16_t address);
     void z80IOWrite(uint16_t address, uint8_t data);
     void z80MemContention(uint16_t address, uint32_t tstates);
+    void z80NoMreqContention(uint16_t address, uint32_t tstates);
 
 protected:
     // ALU operations
@@ -810,6 +812,7 @@ protected:
     IoReadFunc m_IORead;
     IoWriteFunc m_IOWrite;
     ContentionFunc m_MemContentionHandling;
+    ContentionFunc m_NoMreqContentionHandling;
     OpcodeCallback m_OpcodeCallback;
 };
 

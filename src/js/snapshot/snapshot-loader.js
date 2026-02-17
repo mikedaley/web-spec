@@ -8,8 +8,8 @@
 const SNA_48K_SIZE = 49179;
 
 export class SnapshotLoader {
-  constructor(wasmModule) {
-    this.wasmModule = wasmModule;
+  constructor(proxy) {
+    this.proxy = proxy;
     this.fileInput = null;
     this.onLoaded = null;
   }
@@ -27,6 +27,17 @@ export class SnapshotLoader {
       this.loadFile(file);
       this.fileInput.value = "";
     });
+
+    // Listen for snapshot loaded confirmation from worker
+    this.proxy.onSnapshotLoaded = () => {
+      if (this._pendingFileName) {
+        console.log(`Loaded snapshot: ${this._pendingFileName}`);
+        this._pendingFileName = null;
+      }
+      if (this.onLoaded) {
+        this.onLoaded();
+      }
+    };
   }
 
   open() {
@@ -44,38 +55,28 @@ export class SnapshotLoader {
           console.error(`Invalid SNA file: expected ${SNA_48K_SIZE} bytes, got ${data.length}`);
           return;
         }
-        this.loadIntoWasm(data, "_loadSNA");
+        this._pendingFileName = file.name;
+        this.proxy.loadSnapshot("sna", data.buffer);
       } else if (ext === "z80") {
         if (data.length < 30) {
           console.error(`Invalid Z80 file: too small (${data.length} bytes)`);
           return;
         }
-        this.loadIntoWasm(data, "_loadZ80");
+        this._pendingFileName = file.name;
+        this.proxy.loadSnapshot("z80", data.buffer);
       } else if (ext === "tzx") {
         if (data.length < 10) {
           console.error(`Invalid TZX file: too small (${data.length} bytes)`);
           return;
         }
-        this.loadIntoWasm(data, "_loadTZX");
+        this._pendingFileName = file.name;
+        this.proxy.loadSnapshot("tzx", data.buffer);
       } else {
         console.error(`Unsupported snapshot format: .${ext}`);
         return;
       }
-
-      console.log(`Loaded snapshot: ${file.name} (${data.length} bytes)`);
-
-      if (this.onLoaded) {
-        this.onLoaded(file.name);
-      }
     };
     reader.readAsArrayBuffer(file);
-  }
-
-  loadIntoWasm(data, funcName) {
-    const ptr = this.wasmModule._malloc(data.length);
-    this.wasmModule.HEAPU8.set(data, ptr);
-    this.wasmModule[funcName](ptr, data.length);
-    this.wasmModule._free(ptr);
   }
 
   destroy() {

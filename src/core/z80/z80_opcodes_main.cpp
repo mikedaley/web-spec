@@ -41,8 +41,8 @@ void Z80::LD_off_BC_A(uint8_t opcode)
 // 0x03 - INC BC
 void Z80::INC_BC(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     m_CPURegisters.reg_pairs.regBC++;
 }
 
@@ -90,13 +90,13 @@ void Z80::EX_AF_AF_(uint8_t opcode)
 // 0x09 - ADD HL, BC
 void Z80::ADD_HL_BC(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
 
     Add16(m_CPURegisters.reg_pairs.regHL, m_CPURegisters.reg_pairs.regBC);
 }
@@ -113,8 +113,8 @@ void Z80::LD_A_off_BC(uint8_t opcode)
 // 0x0B - DEC BC
 void Z80::DEC_BC(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     m_CPURegisters.reg_pairs.regBC--;
 }
 
@@ -153,18 +153,18 @@ void Z80::RRCA(uint8_t opcode)
 // 0x10 - DJNZ off_PC_e
 void Z80::DJNZ_off_PC_e(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     int8_t offset = z80MemRead(m_CPURegisters.regPC);
 
     m_CPURegisters.regs.regB--;
 
     if (m_CPURegisters.regs.regB != 0)
     {
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
         m_CPURegisters.regPC += offset;
         m_MEMPTR = m_CPURegisters.regPC + 1;
     }
@@ -194,8 +194,8 @@ void Z80::LD_off_DE_A(uint8_t opcode)
 // 0x13 - INC DE
 void Z80::INC_DE(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     m_CPURegisters.reg_pairs.regDE++;
 }
 
@@ -237,11 +237,11 @@ void Z80::JR_off_PC_e(uint8_t opcode)
 {
     int8_t offset = z80MemRead(m_CPURegisters.regPC);
 
-    z80MemContention(m_CPURegisters.regPC, 1);
-    z80MemContention(m_CPURegisters.regPC, 1);
-    z80MemContention(m_CPURegisters.regPC, 1);
-    z80MemContention(m_CPURegisters.regPC, 1);
-    z80MemContention(m_CPURegisters.regPC, 1);
+    z80NoMreqContention(m_CPURegisters.regPC, 1);
+    z80NoMreqContention(m_CPURegisters.regPC, 1);
+    z80NoMreqContention(m_CPURegisters.regPC, 1);
+    z80NoMreqContention(m_CPURegisters.regPC, 1);
+    z80NoMreqContention(m_CPURegisters.regPC, 1);
 
     m_CPURegisters.regPC += offset;
     m_CPURegisters.regPC++;
@@ -253,13 +253,13 @@ void Z80::JR_off_PC_e(uint8_t opcode)
 // 0x19 - ADD HL, DE
 void Z80::ADD_HL_DE(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
 
     Add16(m_CPURegisters.reg_pairs.regHL, m_CPURegisters.reg_pairs.regDE);
 }
@@ -276,8 +276,8 @@ void Z80::LD_A_off_DE(uint8_t opcode)
 // 0x1B - DEC DE
 void Z80::DEC_DE(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     m_CPURegisters.reg_pairs.regDE--;
 }
 
@@ -321,11 +321,11 @@ void Z80::JR_NZ_off_PC_e(uint8_t opcode)
 
     if ((m_CPURegisters.regs.regF & FLAG_Z) != FLAG_Z)
     {
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
 
         m_CPURegisters.regPC += offset;
         m_MEMPTR = m_CPURegisters.regPC + 1;
@@ -357,8 +357,8 @@ void Z80::LD_off_nn_HL(uint8_t opcode)
 // 0x23 - INC HL
 void Z80::INC_HL(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     m_CPURegisters.reg_pairs.regHL++;
 }
 
@@ -427,11 +427,11 @@ void Z80::JR_Z_off_PC_e(uint8_t opcode)
 
     if ((m_CPURegisters.regs.regF & FLAG_Z) == FLAG_Z)
     {
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
 
         m_CPURegisters.regPC += offset;
         m_MEMPTR = m_CPURegisters.regPC + 1;
@@ -444,13 +444,13 @@ void Z80::JR_Z_off_PC_e(uint8_t opcode)
 // 0x29 - ADD HL, HL
 void Z80::ADD_HL_HL(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
 
     Add16(m_CPURegisters.reg_pairs.regHL, m_CPURegisters.reg_pairs.regHL);
 }
@@ -470,8 +470,8 @@ void Z80::LD_HL_off_nn(uint8_t opcode)
 // 0x2B - DEC HL
 void Z80::DEC_HL(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     m_CPURegisters.reg_pairs.regHL--;
 }
 
@@ -514,11 +514,11 @@ void Z80::JR_NC_off_PC_e(uint8_t opcode)
 
     if ((m_CPURegisters.regs.regF & FLAG_C) != FLAG_C)
     {
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
 
         m_CPURegisters.regPC += offset;
         m_MEMPTR = m_CPURegisters.regPC + 1;
@@ -554,8 +554,8 @@ void Z80::LD_off_nn_A(uint8_t opcode)
 // 0x33 - INC SP
 void Z80::INC_SP(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     m_CPURegisters.regSP++;
 }
 
@@ -564,7 +564,7 @@ void Z80::INC_SP(uint8_t opcode)
 void Z80::INC_off_HL(uint8_t opcode)
 {
     uint8_t temp = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Inc(temp);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, temp);
 }
@@ -574,7 +574,7 @@ void Z80::INC_off_HL(uint8_t opcode)
 void Z80::DEC_off_HL(uint8_t opcode)
 {
     uint8_t temp = z80MemRead(m_CPURegisters.reg_pairs.regHL);
-    z80MemContention(m_CPURegisters.reg_pairs.regHL, 1);
+    z80NoMreqContention(m_CPURegisters.reg_pairs.regHL, 1);
     Dec(temp);
     z80MemWrite(m_CPURegisters.reg_pairs.regHL, temp);
 }
@@ -612,11 +612,11 @@ void Z80::JR_C_off_PC_e(uint8_t opcode)
 
     if ((m_CPURegisters.regs.regF & FLAG_C) == FLAG_C)
     {
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
-        z80MemContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
+        z80NoMreqContention(m_CPURegisters.regPC, 1);
 
         m_CPURegisters.regPC += offset;
         m_MEMPTR = m_CPURegisters.regPC + 1;
@@ -629,13 +629,13 @@ void Z80::JR_C_off_PC_e(uint8_t opcode)
 // 0x39 - ADD HL, SP
 void Z80::ADD_HL_SP(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
 
     Add16(m_CPURegisters.reg_pairs.regHL, m_CPURegisters.regSP);
 }
@@ -654,8 +654,8 @@ void Z80::LD_A_off_nn(uint8_t opcode)
 // 0x3B - DEC SP
 void Z80::DEC_SP(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     m_CPURegisters.regSP--;
 }
 
@@ -1608,7 +1608,7 @@ void Z80::CP_A(uint8_t opcode)
 // 0xC0 - RET NZ
 void Z80::RET_NZ(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
 
     if ((m_CPURegisters.regs.regF & FLAG_Z) != FLAG_Z)
     {
@@ -1659,7 +1659,7 @@ void Z80::CALL_NZ_off_nn(uint8_t opcode)
 
     if ((m_CPURegisters.regs.regF & FLAG_Z) != FLAG_Z)
     {
-        z80MemContention(m_CPURegisters.regPC - 1, 1);
+        z80NoMreqContention(m_CPURegisters.regPC - 1, 1);
         z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
         z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
 
@@ -1671,7 +1671,7 @@ void Z80::CALL_NZ_off_nn(uint8_t opcode)
 // 0xC5 - PUSH BC
 void Z80::PUSH_BC(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     z80MemWrite(--m_CPURegisters.regSP, m_CPURegisters.regs.regB);
     z80MemWrite(--m_CPURegisters.regSP, m_CPURegisters.regs.regC);
 }
@@ -1688,7 +1688,7 @@ void Z80::ADD_A_n(uint8_t opcode)
 // 0xC7 - RST 00H
 void Z80::RST_0H(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
     m_CPURegisters.regPC = 0x0000;
@@ -1700,7 +1700,7 @@ void Z80::RST_0H(uint8_t opcode)
 // 0xC8 - RET Z
 void Z80::RET_Z(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
 
     if ((m_CPURegisters.regs.regF & FLAG_Z) == FLAG_Z)
     {
@@ -1746,7 +1746,7 @@ void Z80::CALL_Z_off_nn(uint8_t opcode)
 
     if ((m_CPURegisters.regs.regF & FLAG_Z) == FLAG_Z)
     {
-        z80MemContention(m_CPURegisters.regPC - 1, 1);
+        z80NoMreqContention(m_CPURegisters.regPC - 1, 1);
         z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
         z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
 
@@ -1761,7 +1761,7 @@ void Z80::CALL_off_nn(uint8_t opcode)
     m_MEMPTR = z80MemRead(m_CPURegisters.regPC++);
     m_MEMPTR |= z80MemRead(m_CPURegisters.regPC++) << 8;
 
-    z80MemContention(m_CPURegisters.regPC - 1, 1);
+    z80NoMreqContention(m_CPURegisters.regPC - 1, 1);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
 
@@ -1780,7 +1780,7 @@ void Z80::ADC_A_n(uint8_t opcode)
 // 0xCF - RST 08H
 void Z80::RST_8H(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
     m_CPURegisters.regPC = 0x0008;
@@ -1792,7 +1792,7 @@ void Z80::RST_8H(uint8_t opcode)
 // 0xD0 - RET NC
 void Z80::RET_NC(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
 
     if ((m_CPURegisters.regs.regF & FLAG_C) != FLAG_C)
     {
@@ -1843,7 +1843,7 @@ void Z80::CALL_NC_off_nn(uint8_t opcode)
 
     if ((m_CPURegisters.regs.regF & FLAG_C) != FLAG_C)
     {
-        z80MemContention(m_CPURegisters.regPC - 1, 1);
+        z80NoMreqContention(m_CPURegisters.regPC - 1, 1);
         z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
         z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
 
@@ -1855,7 +1855,7 @@ void Z80::CALL_NC_off_nn(uint8_t opcode)
 // 0xD5 - PUSH DE
 void Z80::PUSH_DE(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     z80MemWrite(--m_CPURegisters.regSP, m_CPURegisters.regs.regD);
     z80MemWrite(--m_CPURegisters.regSP, m_CPURegisters.regs.regE);
 }
@@ -1872,7 +1872,7 @@ void Z80::SUB_A_n(uint8_t opcode)
 // 0xD7 - RST 10H
 void Z80::RST_10H(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
     m_CPURegisters.regPC = 0x0010;
@@ -1884,7 +1884,7 @@ void Z80::RST_10H(uint8_t opcode)
 // 0xD8 - RET C
 void Z80::RET_C(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
 
     if ((m_CPURegisters.regs.regF & FLAG_C) == FLAG_C)
     {
@@ -1942,7 +1942,7 @@ void Z80::CALL_C_off_nn(uint8_t opcode)
 
     if ((m_CPURegisters.regs.regF & FLAG_C) == FLAG_C)
     {
-        z80MemContention(m_CPURegisters.regPC - 1, 1);
+        z80NoMreqContention(m_CPURegisters.regPC - 1, 1);
         z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
         z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
 
@@ -1965,7 +1965,7 @@ void Z80::SBC_A_n(uint8_t opcode)
 // 0xDF - RST 18H
 void Z80::RST_18H(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
     m_CPURegisters.regPC = 0x0018;
@@ -1977,7 +1977,7 @@ void Z80::RST_18H(uint8_t opcode)
 // 0xE0 - RET PO
 void Z80::RET_PO(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
 
     if ((m_CPURegisters.regs.regF & FLAG_P) != FLAG_P)
     {
@@ -2015,11 +2015,11 @@ void Z80::EX_off_SP_HL(uint8_t opcode)
 {
     uint8_t tl = z80MemRead(m_CPURegisters.regSP + 0);
     uint8_t th = z80MemRead(m_CPURegisters.regSP + 1);
-    z80MemContention(m_CPURegisters.regSP + 1, 1);
+    z80NoMreqContention(m_CPURegisters.regSP + 1, 1);
     z80MemWrite(m_CPURegisters.regSP + 1, m_CPURegisters.regs.regH);
     z80MemWrite(m_CPURegisters.regSP + 0, m_CPURegisters.regs.regL);
-    z80MemContention(m_CPURegisters.regSP, 1);
-    z80MemContention(m_CPURegisters.regSP, 1);
+    z80NoMreqContention(m_CPURegisters.regSP, 1);
+    z80NoMreqContention(m_CPURegisters.regSP, 1);
     m_CPURegisters.regs.regH = th;
     m_CPURegisters.regs.regL = tl;
 
@@ -2035,7 +2035,7 @@ void Z80::CALL_PO_off_nn(uint8_t opcode)
 
     if ((m_CPURegisters.regs.regF & FLAG_P) != FLAG_P)
     {
-        z80MemContention(m_CPURegisters.regPC - 1, 1);
+        z80NoMreqContention(m_CPURegisters.regPC - 1, 1);
         z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
         z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
 
@@ -2047,7 +2047,7 @@ void Z80::CALL_PO_off_nn(uint8_t opcode)
 // 0xE5 - PUSH HL
 void Z80::PUSH_HL(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     z80MemWrite(--m_CPURegisters.regSP, m_CPURegisters.regs.regH);
     z80MemWrite(--m_CPURegisters.regSP, m_CPURegisters.regs.regL);
 }
@@ -2064,7 +2064,7 @@ void Z80::AND_n(uint8_t opcode)
 // 0xE7 - RST 20H
 void Z80::RST_20H(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
     m_CPURegisters.regPC = 0x0020;
@@ -2076,7 +2076,7 @@ void Z80::RST_20H(uint8_t opcode)
 // 0xE8 - RET PE
 void Z80::RET_PE(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
 
     if ((m_CPURegisters.regs.regF & FLAG_P) == FLAG_P)
     {
@@ -2125,7 +2125,7 @@ void Z80::CALL_PE_off_nn(uint8_t opcode)
 
     if ((m_CPURegisters.regs.regF & FLAG_P) == FLAG_P)
     {
-        z80MemContention(m_CPURegisters.regPC - 1, 1);
+        z80NoMreqContention(m_CPURegisters.regPC - 1, 1);
         z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
         z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
 
@@ -2148,7 +2148,7 @@ void Z80::XOR_n(uint8_t opcode)
 // 0xEF - RST 28H
 void Z80::RST_28H(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
     m_CPURegisters.regPC = 0x0028;
@@ -2160,7 +2160,7 @@ void Z80::RST_28H(uint8_t opcode)
 // 0xF0 - RET P
 void Z80::RET_P(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
 
     if ((m_CPURegisters.regs.regF & FLAG_S) != FLAG_S)
     {
@@ -2209,7 +2209,7 @@ void Z80::CALL_P_off_nn(uint8_t opcode)
 
     if ((m_CPURegisters.regs.regF & FLAG_S) != FLAG_S)
     {
-        z80MemContention(m_CPURegisters.regPC - 1, 1);
+        z80NoMreqContention(m_CPURegisters.regPC - 1, 1);
         z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
         z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
 
@@ -2221,7 +2221,7 @@ void Z80::CALL_P_off_nn(uint8_t opcode)
 // 0xF5 - PUSH AF
 void Z80::PUSH_AF(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     z80MemWrite(--m_CPURegisters.regSP, m_CPURegisters.regs.regA);
     z80MemWrite(--m_CPURegisters.regSP, m_CPURegisters.regs.regF);
 }
@@ -2238,7 +2238,7 @@ void Z80::OR_n(uint8_t opcode)
 // 0xF7 - RST 30H
 void Z80::RST_30H(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
     m_CPURegisters.regPC = 0x0030;
@@ -2250,7 +2250,7 @@ void Z80::RST_30H(uint8_t opcode)
 // 0xF8 - RET M
 void Z80::RET_M(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
 
     if ((m_CPURegisters.regs.regF & FLAG_S) == FLAG_S)
     {
@@ -2265,8 +2265,8 @@ void Z80::RET_M(uint8_t opcode)
 // 0xF9 - LD SP, HL
 void Z80::LD_SP_HL(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     m_CPURegisters.regSP = m_CPURegisters.reg_pairs.regHL;
 }
 
@@ -2301,7 +2301,7 @@ void Z80::CALL_M_off_nn(uint8_t opcode)
 
     if ((m_CPURegisters.regs.regF & FLAG_S) == FLAG_S)
     {
-        z80MemContention(m_CPURegisters.regPC - 1, 1);
+        z80NoMreqContention(m_CPURegisters.regPC - 1, 1);
         z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
         z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
 
@@ -2324,7 +2324,7 @@ void Z80::CP_n(uint8_t opcode)
 // 0xFF - RST 38H
 void Z80::RST_38H(uint8_t opcode)
 {
-    z80MemContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
+    z80NoMreqContention(static_cast<uint16_t>((m_CPURegisters.regI << 8) | m_CPURegisters.regR), 1);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
     z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
     m_CPURegisters.regPC = 0x0038;

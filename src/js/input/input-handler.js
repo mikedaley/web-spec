@@ -97,8 +97,8 @@ const KEY_MAP = {
 };
 
 export class InputHandler {
-  constructor(wasmModule) {
-    this.wasmModule = wasmModule;
+  constructor(proxy) {
+    this.proxy = proxy;
     this.canvas = null;
     this.pressedKeys = new Set();
     this._onKeyDown = (e) => this.handleKeyDown(e);
@@ -137,7 +137,7 @@ export class InputHandler {
     this.pressedKeys.add(event.code);
 
     for (const [row, bit] of mapping) {
-      this.wasmModule._keyDown(row, bit);
+      this.proxy.keyDown(row, bit);
     }
   }
 
@@ -153,7 +153,7 @@ export class InputHandler {
     this.pressedKeys.delete(event.code);
 
     for (const [row, bit] of mapping) {
-      this.wasmModule._keyUp(row, bit);
+      this.proxy.keyUp(row, bit);
     }
   }
 

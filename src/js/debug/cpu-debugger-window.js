@@ -27,12 +27,15 @@ export class CPUDebuggerWindow extends BaseWindow {
     this.breakpointManager = new BreakpointManager();
     this.prevValues = {};
     this.elements = null;
-    this.wasmSynced = false;
+    this.proxySynced = false;
     this.activeTab = "breakpoints";
     this.followPC = true;
     this.disasmBaseAddr = 0;
     this.lastUpdateTime = 0;
     this.updateInterval = 1000 / 5; // 5 updates per second
+    this._proxy = null;
+    this._memoryCache = null;
+    this._memoryPending = false;
   }
 
   renderContent() {
@@ -40,7 +43,7 @@ export class CPUDebuggerWindow extends BaseWindow {
       <div class="cpu-dbg">
         <div class="cpu-dbg-toolbar">
           <div class="cpu-dbg-btn-group">
-            <button class="cpu-dbg-btn cpu-btn-run-pause" id="dbg-run-pause" title="Run/Pause">⏸ Pause</button>
+            <button class="cpu-dbg-btn cpu-btn-run-pause" id="dbg-run-pause" title="Run/Pause">&#x23F8; Pause</button>
           </div>
           <span class="cpu-dbg-sep"></span>
           <div class="cpu-dbg-btn-group">
@@ -171,8 +174,6 @@ export class CPUDebuggerWindow extends BaseWindow {
   }
 
   setupHandlers() {
-    const el = this.contentElement;
-
     // Toolbar
     this.elements.toolbar.runPause.addEventListener("click", () => this.handleRunPause());
     this.elements.toolbar.step.addEventListener("click", () => this.handleStep());
@@ -192,11 +193,10 @@ export class CPUDebuggerWindow extends BaseWindow {
     });
     this.elements.disasmGotoPC.addEventListener("click", () => {
       this.followPC = true;
-      this.renderDisassembly(this._wasmModule);
+      this.requestDisassemblyMemory();
     });
 
-    // Disassembly click for breakpoint toggle (mousedown + stopPropagation
-    // so the window's bring-to-front handler doesn't swallow the event)
+    // Disassembly click for breakpoint toggle
     this.elements.disasmView.addEventListener("mousedown", (e) => {
       const line = e.target.closest(".cpu-disasm-line");
       if (line && line.dataset.addr) {
@@ -204,19 +204,22 @@ export class CPUDebuggerWindow extends BaseWindow {
         e.preventDefault();
         e.stopPropagation();
         this.breakpointManager.toggle(addr);
-        if (this._wasmModule) {
+        if (this._proxy) {
           if (this.breakpointManager.has(addr)) {
-            this.breakpointManager.addToWasm(this._wasmModule, addr);
+            this.breakpointManager.addToProxy(this._proxy, addr);
           } else {
-            this.breakpointManager.removeFromWasm(this._wasmModule, addr);
+            this.breakpointManager.removeFromProxy(this._proxy, addr);
           }
         }
         this.renderBreakpointList();
-        this.renderDisassembly(this._wasmModule);
+        if (this._memoryCache) {
+          this.renderDisassemblyFromCache();
+        }
       }
     });
 
     // Tab switching
+    const el = this.contentElement;
     el.querySelectorAll(".cpu-dbg-tab").forEach((tab) => {
       tab.addEventListener("click", () => {
         el.querySelectorAll(".cpu-dbg-tab").forEach((t) => t.classList.remove("active"));
@@ -231,20 +234,20 @@ export class CPUDebuggerWindow extends BaseWindow {
     // Register double-click to edit
     this.contentElement.addEventListener("dblclick", (e) => {
       const regValue = e.target.closest(".reg-value");
-      if (regValue && this._wasmModule?._isPaused?.()) {
+      if (regValue && this._proxy?.isPaused?.()) {
         this.startRegisterEdit(regValue);
       }
     });
   }
 
-  updateRegisters(wasm) {
+  updateRegisters(proxy) {
     const regs = {
-      af: wasm._getAF(), bc: wasm._getBC(), de: wasm._getDE(), hl: wasm._getHL(),
-      ix: wasm._getIX(), iy: wasm._getIY(), sp: wasm._getSP(), pc: wasm._getPC(),
-      i: wasm._getI(), r: wasm._getR(), im: wasm._getIM(),
-      iff1: wasm._getIFF1(), iff2: wasm._getIFF2(), ts: wasm._getTStates(),
-      "alt-af": wasm._getAltAF(), "alt-bc": wasm._getAltBC(),
-      "alt-de": wasm._getAltDE(), "alt-hl": wasm._getAltHL(),
+      af: proxy.getAF(), bc: proxy.getBC(), de: proxy.getDE(), hl: proxy.getHL(),
+      ix: proxy.getIX(), iy: proxy.getIY(), sp: proxy.getSP(), pc: proxy.getPC(),
+      i: proxy.getI(), r: proxy.getR(), im: proxy.getIM(),
+      iff1: proxy.getIFF1(), iff2: proxy.getIFF2(), ts: proxy.getTStates(),
+      "alt-af": proxy.getAltAF(), "alt-bc": proxy.getAltBC(),
+      "alt-de": proxy.getAltDE(), "alt-hl": proxy.getAltHL(),
     };
 
     for (const [name, value] of Object.entries(regs)) {
@@ -271,42 +274,39 @@ export class CPUDebuggerWindow extends BaseWindow {
     }
   }
 
-  updateStatus(wasm, emulatorRunning) {
+  updateStatus(proxy, emulatorRunning) {
     const statusBar = this.elements.statusBar;
     const statusText = this.elements.statusText;
-
     const btn = this.elements.toolbar.runPause;
 
     if (!emulatorRunning) {
       statusBar.dataset.state = "off";
       statusText.textContent = "EMULATOR OFF";
       statusText.className = "cpu-dbg-status-text";
-      btn.textContent = "⏸ Pause";
+      btn.textContent = "\u23F8 Pause";
       btn.dataset.state = "pause";
-    } else if (wasm._isPaused()) {
+    } else if (proxy.isPaused()) {
       statusBar.dataset.state = "paused";
       statusText.textContent = "PAUSED";
       statusText.className = "cpu-dbg-status-text";
-      btn.textContent = "▶ Run";
+      btn.textContent = "\u25B6 Run";
       btn.dataset.state = "run";
     } else {
       statusBar.dataset.state = "running";
       statusText.textContent = "RUNNING";
       statusText.className = "cpu-dbg-status-text running";
-      btn.textContent = "⏸ Pause";
+      btn.textContent = "\u23F8 Pause";
       btn.dataset.state = "pause";
     }
   }
 
   colorizeMnemonic(mnemonic) {
-    // Split into instruction and operands
     const match = mnemonic.match(/^(\S+)\s*(.*)?$/);
     if (!match) return mnemonic;
 
     const instr = match[1];
     const operands = match[2] || "";
 
-    // Classify instruction
     let instrClass = "disasm-op";
     const upper = instr.toUpperCase();
 
@@ -327,7 +327,6 @@ export class CPUDebuggerWindow extends BaseWindow {
 
     let result = `<span class="${instrClass}">${instr}</span>`;
     if (operands) {
-      // Highlight numeric values in operands (e.g. 00h, 1234h)
       const coloredOps = operands.replace(/\b([0-9A-Fa-f]{2,4}h)\b/g,
         '<span class="disasm-num">$1</span>');
       result += ` <span class="disasm-operands">${coloredOps}</span>`;
@@ -335,20 +334,44 @@ export class CPUDebuggerWindow extends BaseWindow {
     return result;
   }
 
-  renderDisassembly(wasm) {
-    if (!wasm) return;
+  requestDisassemblyMemory() {
+    if (!this._proxy || this._memoryPending) return;
 
-    const pc = wasm._getPC();
+    const pc = this._proxy.getPC();
     let addr = this.followPC ? pc : this.disasmBaseAddr;
 
-    // Start well before PC so scrollIntoView can centre it
     if (this.followPC) {
       addr = (addr - 40) & 0xFFFF;
     }
 
+    this._disasmStartAddr = addr;
+    this._memoryPending = true;
+
+    // Request enough memory for disassembly (DISASM_LINES * max 4 bytes per instruction)
+    const length = Math.min(DISASM_LINES * 4, 0x10000);
+    this._proxy.readMemory(addr, length).then((data) => {
+      this._memoryCache = { addr, data };
+      this._memoryPending = false;
+      this.renderDisassemblyFromCache();
+    });
+  }
+
+  renderDisassemblyFromCache() {
+    if (!this._memoryCache || !this._proxy) return;
+
+    const { addr: baseAddr, data } = this._memoryCache;
+    const pc = this._proxy.getPC();
+
+    const readByte = (a) => {
+      const offset = (a - baseAddr) & 0xFFFF;
+      if (offset < data.length) return data[offset];
+      return 0;
+    };
+
+    let addr = baseAddr;
     let html = "";
     for (let i = 0; i < DISASM_LINES; i++) {
-      const result = z80Disassemble(addr, (a) => wasm._readMemory(a));
+      const result = z80Disassemble(addr, readByte);
       const isCurrent = addr === pc;
       const hasBp = this.breakpointManager.has(addr);
 
@@ -364,7 +387,7 @@ export class CPUDebuggerWindow extends BaseWindow {
       if (hasBp) {
         html += `<span class="bp-dot"></span>`;
       } else if (isCurrent) {
-        html += `<span class="pc-arrow">▶</span>`;
+        html += `<span class="pc-arrow">\u25B6</span>`;
       }
       html += `</div>`;
       html += `<div class="cpu-disasm-addr">${addrStr}</div>`;
@@ -377,7 +400,6 @@ export class CPUDebuggerWindow extends BaseWindow {
 
     this.elements.disasmView.innerHTML = html;
 
-    // Scroll current line into view
     const currentLine = this.elements.disasmView.querySelector(".current");
     if (currentLine) {
       currentLine.scrollIntoView({ block: "center", behavior: "auto" });
@@ -387,7 +409,6 @@ export class CPUDebuggerWindow extends BaseWindow {
   renderBreakpointList() {
     const bps = this.breakpointManager.getAll();
 
-    // Update tab count
     if (this.elements?.bpTabCount) {
       this.elements.bpTabCount.textContent = bps.length;
       this.elements.bpTabCount.classList.toggle("has-items", bps.length > 0);
@@ -405,15 +426,14 @@ export class CPUDebuggerWindow extends BaseWindow {
       </div>`;
     }).join("");
 
-    // Attach remove handlers
     this.elements.bpList.querySelectorAll("[data-action='remove']").forEach((el) => {
       el.addEventListener("click", (e) => {
         const item = e.target.closest(".cpu-bp-item");
         const addr = parseInt(item.dataset.addr);
         this.breakpointManager.remove(addr);
-        this.breakpointManager.removeFromWasm(this._wasmModule, addr);
+        this.breakpointManager.removeFromProxy(this._proxy, addr);
         this.renderBreakpointList();
-        this.renderDisassembly(this._wasmModule);
+        if (this._memoryCache) this.renderDisassemblyFromCache();
       });
     });
   }
@@ -424,75 +444,98 @@ export class CPUDebuggerWindow extends BaseWindow {
     if (isNaN(addr) || addr < 0 || addr > 0xFFFF) return;
     this.followPC = false;
     this.disasmBaseAddr = addr;
-    this.renderDisassembly(this._wasmModule);
+    this.requestDisassemblyMemory();
   }
 
   handleRunPause() {
-    if (!this._wasmModule) return;
+    if (!this._proxy) return;
     const emulator = window.zxspec;
     if (!emulator?.isRunning()) return;
 
-    if (this._wasmModule._isPaused()) {
-      this._wasmModule._clearBreakpointHit();
-      this._wasmModule._setPaused(false);
+    if (this._proxy.isPaused()) {
+      this._proxy.resume();
     } else {
-      this._wasmModule._setPaused(true);
+      this._proxy.pause();
     }
   }
 
   handleStep() {
-    if (!this._wasmModule) return;
-    if (!this._wasmModule._isPaused()) {
-      this._wasmModule._setPaused(true);
+    if (!this._proxy) return;
+    if (!this._proxy.isPaused()) {
+      this._proxy.pause();
+      return;
     }
-    this._wasmModule._clearBreakpointHit();
-    this._wasmModule._stepInstruction();
+    this._proxy.step();
     this.followPC = true;
   }
 
   handleStepOver() {
-    if (!this._wasmModule) return;
-    if (!this._wasmModule._isPaused()) {
-      this._wasmModule._setPaused(true);
+    if (!this._proxy) return;
+    if (!this._proxy.isPaused()) {
+      this._proxy.pause();
       return;
     }
 
-    const pc = this._wasmModule._getPC();
-    const opcode = this._wasmModule._readMemory(pc);
+    // For step-over we need memory at PC to determine instruction type
+    const pc = this._proxy.getPC();
 
+    // Use cached memory if available
+    if (this._memoryCache) {
+      const offset = (pc - this._memoryCache.addr) & 0xFFFF;
+      if (offset < this._memoryCache.data.length) {
+        const opcode = this._memoryCache.data[offset];
+        this._doStepOver(pc, opcode);
+        return;
+      }
+    }
+
+    // Otherwise request memory
+    this._proxy.readMemory(pc, 4).then((data) => {
+      this._doStepOver(pc, data[0]);
+    });
+  }
+
+  _doStepOver(pc, opcode) {
     const isCall = opcode === 0xCD || opcode === 0xC4 || opcode === 0xCC ||
                    opcode === 0xD4 || opcode === 0xDC || opcode === 0xE4 ||
                    opcode === 0xEC || opcode === 0xF4 || opcode === 0xFC;
     const isRst = (opcode & 0xC7) === 0xC7 && opcode !== 0xC7;
 
     if (isCall || isRst) {
-      const result = z80Disassemble(pc, (a) => this._wasmModule._readMemory(a));
+      // Need to figure out instruction length to set breakpoint after the CALL
+      const readByte = (a) => {
+        if (this._memoryCache) {
+          const offset = (a - this._memoryCache.addr) & 0xFFFF;
+          if (offset < this._memoryCache.data.length) return this._memoryCache.data[offset];
+        }
+        return 0;
+      };
+      const result = z80Disassemble(pc, readByte);
       const nextAddr = (pc + result.length) & 0xFFFF;
-      this._wasmModule._addBreakpoint(nextAddr);
+      this._proxy.addBreakpoint(nextAddr);
       this.breakpointManager.setTempBreakpoint(nextAddr);
-      this._wasmModule._clearBreakpointHit();
-      this._wasmModule._setPaused(false);
+      this._proxy.resume();
     } else {
-      this.handleStep();
+      this._proxy.step();
+      this.followPC = true;
     }
   }
 
   handleStepOut() {
-    if (!this._wasmModule) return;
-    if (!this._wasmModule._isPaused()) {
-      this._wasmModule._setPaused(true);
+    if (!this._proxy) return;
+    if (!this._proxy.isPaused()) {
+      this._proxy.pause();
       return;
     }
 
-    const sp = this._wasmModule._getSP();
-    const retLow = this._wasmModule._readMemory(sp);
-    const retHigh = this._wasmModule._readMemory((sp + 1) & 0xFFFF);
-    const retAddr = (retHigh << 8) | retLow;
-
-    this._wasmModule._addBreakpoint(retAddr);
-    this.breakpointManager.setTempBreakpoint(retAddr);
-    this._wasmModule._clearBreakpointHit();
-    this._wasmModule._setPaused(false);
+    const sp = this._proxy.getSP();
+    // Read return address from stack
+    this._proxy.readMemory(sp, 2).then((data) => {
+      const retAddr = (data[1] << 8) | data[0];
+      this._proxy.addBreakpoint(retAddr);
+      this.breakpointManager.setTempBreakpoint(retAddr);
+      this._proxy.resume();
+    });
   }
 
   handleAddBreakpoint() {
@@ -502,10 +545,10 @@ export class CPUDebuggerWindow extends BaseWindow {
     if (isNaN(addr) || addr < 0 || addr > 0xFFFF) return;
 
     this.breakpointManager.add(addr);
-    this.breakpointManager.addToWasm(this._wasmModule, addr);
+    this.breakpointManager.addToProxy(this._proxy, addr);
     input.value = "";
     this.renderBreakpointList();
-    this.renderDisassembly(this._wasmModule);
+    if (this._memoryCache) this.renderDisassemblyFromCache();
   }
 
   startRegisterEdit(el) {
@@ -527,15 +570,15 @@ export class CPUDebuggerWindow extends BaseWindow {
 
     const commit = () => {
       const val = parseInt(input.value, 16);
-      if (!isNaN(val) && this._wasmModule) {
-        const setters = {
-          "AF": "_setAF", "BC": "_setBC", "DE": "_setDE", "HL": "_setHL",
-          "IX": "_setIX", "IY": "_setIY", "SP": "_setSP", "PC": "_setPC",
-          "I": "_setI", "R": "_setR",
+      if (!isNaN(val) && this._proxy) {
+        const regMap = {
+          "AF": "AF", "BC": "BC", "DE": "DE", "HL": "HL",
+          "IX": "IX", "IY": "IY", "SP": "SP", "PC": "PC",
+          "I": "I", "R": "R",
         };
-        const setter = setters[regName];
-        if (setter && this._wasmModule[setter]) {
-          this._wasmModule[setter](val);
+        const reg = regMap[regName];
+        if (reg) {
+          this._proxy.setRegister(reg, val);
         }
       }
       el.removeChild(input);
@@ -549,30 +592,30 @@ export class CPUDebuggerWindow extends BaseWindow {
     });
   }
 
-  update(wasmModule) {
-    if (!wasmModule) return;
-    this._wasmModule = wasmModule;
+  update(proxy) {
+    if (!proxy) return;
+    this._proxy = proxy;
 
     if (!this.elements) {
       this.cacheElements();
     }
 
-    // Sync breakpoints to WASM on first update
-    if (!this.wasmSynced) {
-      this.wasmSynced = true;
-      this.breakpointManager.syncToWasm(wasmModule);
+    // Sync breakpoints to proxy on first update
+    if (!this.proxySynced) {
+      this.proxySynced = true;
+      this.breakpointManager.syncToProxy(proxy);
     }
 
     // Check for temp breakpoint hit
-    if (this.breakpointManager.getTempBreakpoint() !== null && wasmModule._isBreakpointHit()) {
+    if (this.breakpointManager.getTempBreakpoint() !== null && proxy.isBreakpointHit()) {
       const tempAddr = this.breakpointManager.getTempBreakpoint();
-      wasmModule._removeBreakpoint(tempAddr);
+      proxy.removeBreakpoint(tempAddr);
       this.breakpointManager.clearTempBreakpoint();
     }
 
     const emulator = window.zxspec;
     const running = emulator?.isRunning() ?? false;
-    const paused = wasmModule._isPaused();
+    const paused = proxy.isPaused();
 
     // Always update immediately when paused (stepping needs instant feedback),
     // otherwise throttle to 5 updates per second while running
@@ -582,8 +625,8 @@ export class CPUDebuggerWindow extends BaseWindow {
       this.lastUpdateTime = now;
     }
 
-    this.updateStatus(wasmModule, running);
-    this.updateRegisters(wasmModule);
-    this.renderDisassembly(wasmModule);
+    this.updateStatus(proxy, running);
+    this.updateRegisters(proxy);
+    this.requestDisassemblyMemory();
   }
 }

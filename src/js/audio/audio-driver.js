@@ -7,14 +7,12 @@
 
 // Audio constants (ZX Spectrum 48K)
 const SAMPLE_RATE = 48000;
-const CPU_CLOCK_HZ = 3500000;
-const TSTATES_PER_FRAME = 69888;
 const FRAMES_PER_SECOND = 50.08;
 const DEFAULT_VOLUME = 0.5;
 
 export class AudioDriver {
-  constructor(wasmModule) {
-    this.wasmModule = wasmModule;
+  constructor(proxy) {
+    this.proxy = proxy;
     this.audioContext = null;
     this.workletNode = null;
     this.gainNode = null;
@@ -30,11 +28,33 @@ export class AudioDriver {
     // Frame synchronization callback
     this.onFrameReady = null;
 
-    // Speed multiplier: 1 = normal (50fps), 2 = 2x, 4 = 4x, etc.
-    this.speedMultiplier = 1;
+    // Latest framebuffer received from worker
+    this._latestFramebuffer = null;
 
-    // Turbo mode: runs frames from rAF instead of audio callback
-    this.turboAnimId = null;
+    // Set up frame callback from proxy
+    this.proxy.onFrame = (framebuffer, audio, sampleCount) => {
+      this._latestFramebuffer = framebuffer;
+
+      // Forward audio to worklet
+      if (this.workletNode && audio && sampleCount > 0) {
+        const samplesCopy = new Float32Array(audio);
+        this.workletNode.port.postMessage(
+          { type: "samples", data: samplesCopy },
+          [samplesCopy.buffer],
+        );
+      } else if (this.workletNode) {
+        const silence = new Float32Array(128);
+        this.workletNode.port.postMessage(
+          { type: "samples", data: silence },
+          [silence.buffer],
+        );
+      }
+
+      // Notify main thread to render
+      if (this.onFrameReady) {
+        this.onFrameReady(this._latestFramebuffer);
+      }
+    };
   }
 
   async start() {
@@ -79,7 +99,7 @@ export class AudioDriver {
 
       this.workletNode.port.onmessage = (event) => {
         if (event.data.type === "requestSamples") {
-          this.generateAndSendSamples();
+          this.requestFrames();
         }
       };
 
@@ -100,87 +120,10 @@ export class AudioDriver {
     }
   }
 
-  generateAndSendSamples() {
-    // In turbo mode, frames are driven by rAF loop instead
-    if (this.speedMultiplier > 1) {
-      // Send silence to keep the worklet alive
-      this.wasmModule._resetAudioBuffer();
-      const silence = new Float32Array(960);
-      this.workletNode.port.postMessage(
-        { type: "samples", data: silence },
-        [silence.buffer],
-      );
-      return;
-    }
-
-    // Run 2 frames per request to keep the worklet buffer well-stocked.
+  requestFrames() {
+    // Request 2 frames from the worker
     // 25 requests/sec × 2 frames = 50fps — correct emulation speed.
-    for (let i = 0; i < 2; i++) {
-      this.wasmModule._runFrame();
-      if (this.onFrameReady) {
-        this.onFrameReady();
-      }
-    }
-
-    const sampleCount = this.wasmModule._getAudioSampleCount();
-    if (sampleCount > 0) {
-      const bufferPtr = this.wasmModule._getAudioBuffer();
-      const samples = new Float32Array(
-        this.wasmModule.HEAPF32.buffer,
-        bufferPtr,
-        sampleCount,
-      );
-      const samplesCopy = new Float32Array(samples);
-      this.wasmModule._resetAudioBuffer();
-
-      this.workletNode.port.postMessage(
-        { type: "samples", data: samplesCopy },
-        [samplesCopy.buffer],
-      );
-    } else {
-      this.wasmModule._resetAudioBuffer();
-      // Send empty samples so the worklet clears pendingRequest
-      // and will request more samples on the next process() call
-      const silence = new Float32Array(128);
-      this.workletNode.port.postMessage(
-        { type: "samples", data: silence },
-        [silence.buffer],
-      );
-    }
-  }
-
-  startTurboLoop() {
-    if (this.turboAnimId) return;
-
-    const turboTick = () => {
-      if (this.speedMultiplier <= 1) {
-        this.turboAnimId = null;
-        return;
-      }
-
-      // Run multiple frames per rAF tick with a time budget of 12ms
-      // to keep the UI responsive (leaves ~4ms for rendering)
-      const deadline = performance.now() + 12;
-      while (performance.now() < deadline) {
-        this.wasmModule._runFrame();
-        this.wasmModule._resetAudioBuffer();
-      }
-
-      if (this.onFrameReady) {
-        this.onFrameReady();
-      }
-
-      this.turboAnimId = requestAnimationFrame(turboTick);
-    };
-
-    this.turboAnimId = requestAnimationFrame(turboTick);
-  }
-
-  stopTurboLoop() {
-    if (this.turboAnimId) {
-      cancelAnimationFrame(this.turboAnimId);
-      this.turboAnimId = null;
-    }
+    this.proxy.runFrames(2);
   }
 
   setupAutoResumeAudio() {
@@ -211,20 +154,12 @@ export class AudioDriver {
 
   /**
    * Fallback timing using setInterval when Web Audio API is unavailable.
-   *
-   * The ZX Spectrum 48K runs at 3.5 MHz with 69888 T-states per frame at ~50Hz.
-   * Each tick at 50Hz should execute ~69888 T-states.
    */
   startFallbackTiming() {
     if (this.fallbackInterval) return;
 
     this.fallbackInterval = setInterval(() => {
-      this.wasmModule._runFrame();
-      this.wasmModule._resetAudioBuffer();
-
-      if (this.onFrameReady) {
-        this.onFrameReady();
-      }
+      this.proxy.runFrames(1);
     }, 1000 / FRAMES_PER_SECOND);
 
     this.running = true;
@@ -235,8 +170,6 @@ export class AudioDriver {
     if (!this.running) return;
 
     this.running = false;
-    this.stopTurboLoop();
-
     if (this.workletNode) {
       try {
         this.workletNode.port.postMessage({ type: "stop" });

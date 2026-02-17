@@ -69,27 +69,27 @@ export class BreakpointManager {
     return this.tempBreakpoint;
   }
 
-  syncToWasm(wasmModule) {
-    if (!wasmModule) return;
+  syncToProxy(proxy) {
+    if (!proxy) return;
     for (const [addr, bp] of this.breakpoints) {
-      wasmModule._addBreakpoint(addr);
-      wasmModule._enableBreakpoint(addr, bp.enabled);
+      proxy.addBreakpoint(addr);
+      proxy.enableBreakpoint(addr, bp.enabled);
     }
   }
 
-  addToWasm(wasmModule, addr) {
-    if (!wasmModule) return;
-    wasmModule._addBreakpoint(addr);
+  addToProxy(proxy, addr) {
+    if (!proxy) return;
+    proxy.addBreakpoint(addr);
   }
 
-  removeFromWasm(wasmModule, addr) {
-    if (!wasmModule) return;
-    wasmModule._removeBreakpoint(addr);
+  removeFromProxy(proxy, addr) {
+    if (!proxy) return;
+    proxy.removeBreakpoint(addr);
   }
 
-  enableInWasm(wasmModule, addr, enabled) {
-    if (!wasmModule) return;
-    wasmModule._enableBreakpoint(addr, enabled);
+  enableInProxy(proxy, addr, enabled) {
+    if (!proxy) return;
+    proxy.enableBreakpoint(addr, enabled);
   }
 
   save() {

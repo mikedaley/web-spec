@@ -60,8 +60,6 @@ public:
 
     bool isPaused() const override { return paused_; }
     void setPaused(bool paused) override { paused_ = paused; }
-    bool isTurbo() const override { return turbo_; }
-    void setTurbo(bool turbo) override { turbo_ = turbo; }
 
     void addBreakpoint(uint16_t addr) override;
     void removeBreakpoint(uint16_t addr) override;
@@ -150,7 +148,6 @@ protected:
 
     // Execution state
     bool paused_ = false;
-    bool turbo_ = false;
 
     // Breakpoint support
     std::set<uint16_t> breakpoints_;

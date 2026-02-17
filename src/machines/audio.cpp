@@ -1,5 +1,5 @@
 /*
- * audio.cpp - Audio subsystem for ZX Spectrum beeper
+ * audio.cpp - Audio subsystem (beeper) shared across machine variants
  *
  * Written by
  *  Mike Daley <michael_daley@icloud.com>
@@ -43,7 +43,6 @@ void Audio::update(int32_t tStates)
                     static_cast<float>(outputLevel_ / tsCounter_);
             }
             tsCounter_ -= beeperTsStep_;
-            // Carry fractional T-state contribution into next sample
             outputLevel_ = static_cast<double>(level) * tsCounter_;
         }
     }
