@@ -161,7 +161,7 @@ export class ScreenWindow extends BaseWindow {
       const vpH = window.innerHeight;
       const header = document.querySelector("header");
       const minTop = header ? header.offsetHeight : 0;
-      const margin = 8;
+      const margin = 24;
 
       const w = vpW - margin * 2;
       const h = vpH - minTop - margin * 2;

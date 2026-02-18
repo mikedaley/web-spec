@@ -51,7 +51,7 @@ ctest --verbose
 - CPU: 3.5MHz clock (3,500,000 Hz)
 - Frame: 69,888 T-states per frame (50Hz)
 - Audio: 48kHz sample rate
-- Screen: 256x192 pixels (display area), 352x296 including border
+- Screen: 256x192 pixels (display area), 320x256 including border (32px border on each side)
 
 ### WASM Interface Pattern
 

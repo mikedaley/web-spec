@@ -96,8 +96,8 @@
   --control-border: rgba(48, 54, 61, 0.8);
 
   /* Shadows */
-  --shadow-window: 0 2px 12px rgba(0, 0, 0, 0.2);
-  --shadow-window-focused: 0 8px 40px rgba(0, 0, 0, 0.85), 0 2px 16px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(24, 171, 234, 0.5);
+  --shadow-window: 0 2px 12px rgba(0, 0, 0, 0.4);
+  --shadow-window-focused: 0 16px 64px rgba(0, 0, 0, 1), 0 6px 24px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(24, 171, 234, 0.6);
 
   /* Radii */
   --radius-sm: 4px;
@@ -202,9 +202,9 @@ html[data-theme="light"] {
   /* Control tokens */
   --control-border: rgba(208, 215, 222, 0.8);
 
-  /* Shadows - lighter for light theme */
-  --shadow-window: 0 2px 12px rgba(31, 35, 40, 0.08);
-  --shadow-window-focused: 0 8px 40px rgba(31, 35, 40, 0.16), 0 2px 16px rgba(31, 35, 40, 0.1), 0 0 0 1px rgba(0, 111, 163, 0.4);
+  /* Shadows */
+  --shadow-window: 0 2px 12px rgba(0, 0, 0, 0.12);
+  --shadow-window-focused: 0 16px 64px rgba(0, 0, 0, 0.5), 0 6px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 111, 163, 0.6);
 }
 
 *,

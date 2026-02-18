@@ -64,9 +64,9 @@ float rgb2grey(vec3 v) {
 vec2 applyOverscan(vec2 uv) {
     if (u_overscan > 0.999) return uv;
 
-    // ZX Spectrum: 256x192 display centered in 352x296 framebuffer
-    // Border is 48px horizontal, 52px vertical on each side
-    const vec2 borderUV = vec2(48.0 / 352.0, 52.0 / 296.0);
+    // ZX Spectrum: 256x192 display centered in 320x256 framebuffer
+    // Border is 32px on each side
+    const vec2 borderUV = vec2(32.0 / 320.0, 32.0 / 256.0);
 
     // u_overscan 1.0 = full border, 0.0 = no border (display area only)
     vec2 margin = borderUV * (1.0 - u_overscan);
@@ -128,7 +128,7 @@ vec2 applyJitter(vec2 uv, float time) {
 float staticNoise(vec2 uv, float time) {
     if (u_staticNoise < 0.001) return 0.0;
 
-    vec2 blockSize = vec2(2.0, 2.0);
+    vec2 blockSize = vec2(1.0, 1.0);
     vec2 pixelCoord = floor(uv * u_textureSize / blockSize);
 
     vec2 noiseCoord = pixelCoord + vec2(
@@ -153,7 +153,7 @@ float staticNoise(vec2 uv, float time) {
 // ============================================
 
 vec3 noSignalStatic(vec2 uv, float time) {
-    vec2 blockSize = vec2(2.0, 2.0);
+    vec2 blockSize = vec2(1.0, 1.0);
     vec2 pixelCoord = floor(uv * u_textureSize / blockSize);
 
     float frameTime = floor(time * 50.0);
