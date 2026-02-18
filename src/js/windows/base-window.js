@@ -405,6 +405,7 @@ export class BaseWindow {
       width: this.currentWidth,
       height: this.currentHeight,
       visible: this.isVisible,
+      zIndex: this.zIndex,
     };
   }
 
@@ -430,6 +431,11 @@ export class BaseWindow {
       const height = Math.min(this.maxHeight, Math.max(state.height, this.minHeight));
       this.element.style.height = `${height}px`;
       this.currentHeight = height;
+    }
+
+    // Restore z-index if present
+    if (state.zIndex !== undefined) {
+      this.setZIndex(state.zIndex);
     }
 
     // Ensure window is within current viewport bounds

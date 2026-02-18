@@ -145,6 +145,31 @@ export class CPUDebuggerWindow extends BaseWindow {
     `;
   }
 
+  getState() {
+    const state = super.getState();
+    state.activeTab = this.activeTab;
+    return state;
+  }
+
+  restoreState(state) {
+    if (state.activeTab) {
+      this.switchToTab(state.activeTab);
+    }
+    super.restoreState(state);
+  }
+
+  switchToTab(tabName) {
+    const el = this.contentElement;
+    if (!el) return;
+    el.querySelectorAll(".cpu-dbg-tab").forEach((t) => t.classList.remove("active"));
+    el.querySelectorAll(".cpu-dbg-tab-content").forEach((c) => c.classList.remove("active"));
+    const tab = el.querySelector(`.cpu-dbg-tab[data-tab="${tabName}"]`);
+    if (tab) tab.classList.add("active");
+    const panel = el.querySelector(`.cpu-dbg-tab-content[data-tab="${tabName}"]`);
+    if (panel) panel.classList.add("active");
+    this.activeTab = tabName;
+  }
+
   onContentRendered() {
     this.cacheElements();
     this.setupHandlers();
@@ -219,15 +244,9 @@ export class CPUDebuggerWindow extends BaseWindow {
     });
 
     // Tab switching
-    const el = this.contentElement;
-    el.querySelectorAll(".cpu-dbg-tab").forEach((tab) => {
+    this.contentElement.querySelectorAll(".cpu-dbg-tab").forEach((tab) => {
       tab.addEventListener("click", () => {
-        el.querySelectorAll(".cpu-dbg-tab").forEach((t) => t.classList.remove("active"));
-        el.querySelectorAll(".cpu-dbg-tab-content").forEach((c) => c.classList.remove("active"));
-        tab.classList.add("active");
-        const panel = el.querySelector(`.cpu-dbg-tab-content[data-tab="${tab.dataset.tab}"]`);
-        if (panel) panel.classList.add("active");
-        this.activeTab = tab.dataset.tab;
+        this.switchToTab(tab.dataset.tab);
       });
     });
 

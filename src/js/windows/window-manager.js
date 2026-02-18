@@ -198,6 +198,18 @@ export class WindowManager {
             window.restoreState(windowState);
           }
         }
+
+        // Update highestZIndex to the max z-index across all restored windows
+        let maxZ = 1000;
+        for (const win of this.windows.values()) {
+          if (win.zIndex > maxZ) {
+            maxZ = win.zIndex;
+          }
+        }
+        this.highestZIndex = maxZ;
+
+        // Focus the topmost visible window
+        this.focusTopWindow();
       }
     } catch (e) {
       console.warn('Could not load window state:', e);

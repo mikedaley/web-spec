@@ -39,6 +39,24 @@ export class TapeWindow extends BaseWindow {
     this.onTapeLoaded = null;
   }
 
+  getState() {
+    const state = super.getState();
+    state.instantLoad = !!this.contentElement?.querySelector("#tape-speed-checkbox")?.checked;
+    return state;
+  }
+
+  restoreState(state) {
+    if (state.instantLoad) {
+      const checkbox = this.contentElement?.querySelector("#tape-speed-checkbox");
+      if (checkbox) {
+        checkbox.checked = true;
+        this._proxy.tapeSetInstantLoad(true);
+        this._updateSpeedSwitch(true);
+      }
+    }
+    super.restoreState(state);
+  }
+
   renderContent() {
     return `
       <div class="tape-player">
@@ -73,7 +91,14 @@ export class TapeWindow extends BaseWindow {
               </button>
             </div>
           </div>
-          <button class="tape-speed-btn normal-speed" id="tape-btn-speed" title="Toggle loading speed">Normal</button>
+          <div class="tape-speed-switch" id="tape-speed-switch" title="Toggle loading speed">
+            <span class="tape-speed-label tape-speed-label-normal">Normal</span>
+            <label class="tape-toggle">
+              <input type="checkbox" id="tape-speed-checkbox" />
+              <span class="tape-toggle-track"></span>
+            </label>
+            <span class="tape-speed-label tape-speed-label-instant">Instant</span>
+          </div>
           <button class="tape-eject-btn" id="tape-btn-eject" title="Eject Tape" disabled>Eject</button>
         </div>
         <div class="tape-status-bar" id="tape-status-bar">
@@ -154,13 +179,15 @@ export class TapeWindow extends BaseWindow {
     };
     document.addEventListener("click", this._outsideClickHandler);
 
-    // Speed toggle button (disabled for TZX files)
-    const speedBtn = this.contentElement.querySelector("#tape-btn-speed");
-    speedBtn.addEventListener("click", () => {
-      if (this._isTZX) return;
-      const isInstant = this._proxy.tapeGetInstantLoad();
-      this._proxy.tapeSetInstantLoad(!isInstant);
-      this._updateSpeedButton(!isInstant);
+    // Speed toggle switch (disabled for TZX files)
+    const speedCheckbox = this.contentElement.querySelector("#tape-speed-checkbox");
+    speedCheckbox.addEventListener("change", () => {
+      if (this._isTZX) {
+        speedCheckbox.checked = false;
+        return;
+      }
+      this._proxy.tapeSetInstantLoad(speedCheckbox.checked);
+      this._updateSpeedSwitch(speedCheckbox.checked);
     });
 
     // Eject button
@@ -223,7 +250,7 @@ export class TapeWindow extends BaseWindow {
     this._lastCurrentBlock = -1;
     this._lastIsPlaying = false;
     this._renderBlocks();
-    this._updateSpeedButton(false);
+    this._updateSpeedSwitch(false);
     const ejectBtn = this.contentElement.querySelector("#tape-btn-eject");
     if (ejectBtn) ejectBtn.disabled = true;
   }
@@ -372,23 +399,22 @@ export class TapeWindow extends BaseWindow {
     this._isTZX = ext === "tzx";
     if (this._isTZX) {
       this._proxy.tapeSetInstantLoad(false);
-      this._updateSpeedButton(false);
+      this._updateSpeedSwitch(false);
     }
   }
 
-  _updateSpeedButton(isInstant) {
-    const speedBtn = this.contentElement.querySelector("#tape-btn-speed");
-    if (!speedBtn) return;
+  _updateSpeedSwitch(isInstant) {
+    const switchContainer = this.contentElement.querySelector("#tape-speed-switch");
+    const checkbox = this.contentElement.querySelector("#tape-speed-checkbox");
+    if (!switchContainer || !checkbox) return;
     if (this._isTZX) {
-      speedBtn.textContent = "Normal";
-      speedBtn.classList.add("normal-speed");
-      speedBtn.classList.add("disabled");
-      speedBtn.disabled = true;
+      checkbox.checked = false;
+      switchContainer.classList.add("disabled");
+      switchContainer.classList.remove("instant");
     } else {
-      speedBtn.textContent = isInstant ? "Instant" : "Normal";
-      speedBtn.classList.toggle("normal-speed", !isInstant);
-      speedBtn.classList.remove("disabled");
-      speedBtn.disabled = false;
+      checkbox.checked = isInstant;
+      switchContainer.classList.toggle("instant", isInstant);
+      switchContainer.classList.remove("disabled");
     }
   }
 
