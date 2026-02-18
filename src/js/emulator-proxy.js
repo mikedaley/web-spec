@@ -184,6 +184,12 @@ export class EmulatorProxy {
   tapeIsLoaded() { return this.state.tapeIsLoaded ?? false; }
   tapeGetBlockCount() { return this.state.tapeBlockCount ?? 0; }
   tapeGetCurrentBlock() { return this.state.tapeCurrentBlock ?? 0; }
+  tapeGetInstantLoad() { return this.state.tapeInstantLoad ?? false; }
+  tapeGetBlockProgress() { return this.state.tapeBlockProgress ?? 0; }
+
+  tapeSetInstantLoad(instant) {
+    this.worker.postMessage({ type: "tapeSetInstantLoad", instant });
+  }
 
   destroy() {
     this.worker.terminate();

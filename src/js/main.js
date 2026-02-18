@@ -180,6 +180,16 @@ class ZXSpectrumEmulator {
       }
     };
 
+    // Tape window's own Load/Recent/Library also needs emulator running
+    this.tapeWindow.onTapeLoaded = () => {
+      if (!this.running) {
+        this.running = true;
+        this.renderer.setNoSignal(false);
+        this.audioDriver.start();
+        this.updatePowerButton();
+      }
+    };
+
     // File menu > Load Snapshot
     const loadSnapshotBtn = document.getElementById("btn-load-snapshot");
     if (loadSnapshotBtn) {

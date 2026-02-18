@@ -5,6 +5,8 @@
  *  Mike Daley <michael_daley@icloud.com>
  */
 
+import { addToRecentTapes } from "../tape/tape-persistence.js";
+
 const SNA_48K_SIZE = 49179;
 
 export class SnapshotLoader {
@@ -77,6 +79,7 @@ export class SnapshotLoader {
           return;
         }
         this._pendingFileName = file.name;
+        addToRecentTapes(file.name, data);
         this.proxy.loadTAP(data.buffer);
       } else {
         console.error(`Unsupported snapshot format: .${ext}`);

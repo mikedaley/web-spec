@@ -35,6 +35,8 @@ function getState() {
     tapeIsLoaded: wasm._tapeIsLoaded(),
     tapeBlockCount: wasm._tapeGetBlockCount(),
     tapeCurrentBlock: wasm._tapeGetCurrentBlock(),
+    tapeInstantLoad: wasm._tapeGetInstantLoad(),
+    tapeBlockProgress: wasm._tapeGetBlockProgress(),
   };
 }
 
@@ -231,6 +233,10 @@ self.onmessage = async function (e) {
 
     case "tapeRewind":
       if (wasm) wasm._tapeRewind();
+      break;
+
+    case "tapeSetInstantLoad":
+      if (wasm) wasm._tapeSetInstantLoad(msg.instant ? 1 : 0);
       break;
 
     case "getState":

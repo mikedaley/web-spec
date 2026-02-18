@@ -6,6 +6,13 @@
  */
 
 import { BaseWindow } from "../windows/base-window.js";
+import {
+  addToRecentTapes,
+  getRecentTapes,
+  loadRecentTape,
+  clearRecentTapes,
+  getLibraryTapeData,
+} from "./tape-persistence.js";
 import "../css/tape-window.css";
 
 export class TapeWindow extends BaseWindow {
@@ -23,6 +30,12 @@ export class TapeWindow extends BaseWindow {
     this._blocks = [];
     this._lastCurrentBlock = -1;
     this._lastIsPlaying = false;
+    this._dropdownOpen = false;
+    this._fileInput = null;
+    this._currentFilename = null;
+
+    // Callback for when a TAP is loaded via the window's own controls
+    this.onTapeLoaded = null;
   }
 
   renderContent() {
@@ -48,6 +61,20 @@ export class TapeWindow extends BaseWindow {
             </svg>
           </button>
         </div>
+        <div class="tape-controls-bar">
+          <div class="tape-load-container">
+            <button class="tape-load-btn" id="tape-btn-load" title="Load TAP File">Load</button>
+            <div class="tape-recent-container">
+              <button class="tape-recent-btn" id="tape-btn-recent" title="Recent &amp; Library">
+                <svg viewBox="0 0 12 12" width="10" height="10">
+                  <path d="M3 5l3-3 3 3" fill="none" stroke="currentColor" stroke-width="1.5"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <button class="tape-speed-btn normal-speed" id="tape-btn-speed" title="Toggle loading speed">Normal</button>
+          <button class="tape-eject-btn" id="tape-btn-eject" title="Eject Tape" disabled>Eject</button>
+        </div>
         <div class="tape-status-bar" id="tape-status-bar">
           <div class="tape-status-dot"></div>
           <span class="tape-status-text" id="tape-status-text">No tape</span>
@@ -57,6 +84,7 @@ export class TapeWindow extends BaseWindow {
   }
 
   onContentRendered() {
+    // Transport controls
     const playBtn = this.contentElement.querySelector("#tape-btn-play");
     const stopBtn = this.contentElement.querySelector("#tape-btn-stop");
     const rewindBtn = this.contentElement.querySelector("#tape-btn-rewind");
@@ -76,11 +104,260 @@ export class TapeWindow extends BaseWindow {
     rewindBtn.addEventListener("click", () => {
       this._proxy.tapeRewind();
     });
+
+    // Load button - opens file picker
+    const loadBtn = this.contentElement.querySelector("#tape-btn-load");
+    this._fileInput = document.createElement("input");
+    this._fileInput.type = "file";
+    this._fileInput.accept = ".tap";
+    this._fileInput.style.display = "none";
+    this.contentElement.appendChild(this._fileInput);
+
+    loadBtn.addEventListener("click", () => {
+      this._closeDropdown();
+      this._fileInput.click();
+    });
+
+    this._fileInput.addEventListener("change", (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      this._loadFileFromDisk(file);
+      this._fileInput.value = "";
+    });
+
+    // Recent/Library dropdown (appended to body to avoid overflow clipping)
+    this._dropdown = document.createElement("div");
+    this._dropdown.className = "tape-recent-dropdown";
+    this._dropdown.id = "tape-recent-dropdown";
+    document.body.appendChild(this._dropdown);
+
+    const recentBtn = this.contentElement.querySelector("#tape-btn-recent");
+    recentBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this._toggleDropdown();
+    });
+
+    // Close dropdown on outside click
+    this._outsideClickHandler = (e) => {
+      if (!e.target.closest(".tape-recent-container") &&
+          !this._dropdown.contains(e.target)) {
+        this._closeDropdown();
+      }
+    };
+    document.addEventListener("click", this._outsideClickHandler);
+
+    // Speed toggle button
+    const speedBtn = this.contentElement.querySelector("#tape-btn-speed");
+    speedBtn.addEventListener("click", () => {
+      const isInstant = this._proxy.tapeGetInstantLoad();
+      this._proxy.tapeSetInstantLoad(!isInstant);
+      this._updateSpeedButton(!isInstant);
+    });
+
+    // Eject button
+    const ejectBtn = this.contentElement.querySelector("#tape-btn-eject");
+    ejectBtn.addEventListener("click", () => {
+      this._ejectTape();
+    });
+  }
+
+  /**
+   * Load a TAP file from the local file picker
+   */
+  _loadFileFromDisk(file) {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const data = new Uint8Array(ev.target.result);
+      if (data.length < 2) {
+        console.error(`Invalid TAP file: too small (${data.length} bytes)`);
+        return;
+      }
+      this._currentFilename = file.name;
+      // Add to recent before loading (data gets transferred)
+      addToRecentTapes(file.name, data);
+      this._proxy.loadTAP(data.buffer);
+      if (this.onTapeLoaded) this.onTapeLoaded();
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  /**
+   * Load a TAP from raw data (used by recent and library)
+   */
+  _loadFromData(filename, data) {
+    this._currentFilename = filename;
+    addToRecentTapes(filename, data);
+    const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+    this._proxy.loadTAP(buffer);
+    if (this.onTapeLoaded) this.onTapeLoaded();
+  }
+
+  /**
+   * Eject the current tape
+   */
+  _ejectTape() {
+    this._blocks = [];
+    this._currentFilename = null;
+    this._lastCurrentBlock = -1;
+    this._lastIsPlaying = false;
+    this._renderBlocks();
+    const ejectBtn = this.contentElement.querySelector("#tape-btn-eject");
+    if (ejectBtn) ejectBtn.disabled = true;
+  }
+
+  /**
+   * Toggle the Recent/Library dropdown
+   */
+  async _toggleDropdown() {
+    if (this._dropdownOpen) {
+      this._closeDropdown();
+    } else {
+      await this._populateDropdown();
+      this._positionDropdown();
+      this._dropdown.classList.add("open");
+      this._dropdownOpen = true;
+    }
+  }
+
+  _positionDropdown() {
+    const recentBtn = this.contentElement.querySelector("#tape-btn-recent");
+    if (!recentBtn) return;
+    const rect = recentBtn.getBoundingClientRect();
+    this._dropdown.style.position = "fixed";
+    this._dropdown.style.left = `${rect.right}px`;
+    this._dropdown.style.bottom = `${window.innerHeight - rect.top + 4}px`;
+    this._dropdown.style.right = "auto";
+    this._dropdown.style.top = "auto";
+
+    // After positioning, clamp to viewport
+    requestAnimationFrame(() => {
+      const dropRect = this._dropdown.getBoundingClientRect();
+      if (dropRect.left + dropRect.width > window.innerWidth) {
+        this._dropdown.style.left = `${window.innerWidth - dropRect.width - 4}px`;
+      }
+      if (dropRect.top < 0) {
+        this._dropdown.style.bottom = "auto";
+        this._dropdown.style.top = `${rect.bottom + 4}px`;
+      }
+    });
+  }
+
+  _closeDropdown() {
+    if (this._dropdown) this._dropdown.classList.remove("open");
+    this._dropdownOpen = false;
+  }
+
+  /**
+   * Populate the dropdown with Recent tapes and Library entries
+   */
+  async _populateDropdown() {
+    const dropdown = this._dropdown;
+    dropdown.innerHTML = "";
+
+    // Recent section label
+    const recentLabel = document.createElement("div");
+    recentLabel.className = "tape-dropdown-label";
+    recentLabel.textContent = "Recent";
+    dropdown.appendChild(recentLabel);
+
+    const recentTapes = await getRecentTapes();
+
+    if (recentTapes.length === 0) {
+      const emptyItem = document.createElement("div");
+      emptyItem.className = "tape-dropdown-item empty";
+      emptyItem.textContent = "No recent tapes";
+      dropdown.appendChild(emptyItem);
+    } else {
+      for (const tape of recentTapes) {
+        const item = document.createElement("div");
+        item.className = "tape-dropdown-item";
+        item.textContent = tape.filename;
+        item.title = tape.filename;
+        item.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          this._closeDropdown();
+          const tapeData = await loadRecentTape(tape.id);
+          if (tapeData) {
+            this._loadFromData(tapeData.filename, tapeData.data);
+          }
+        });
+        dropdown.appendChild(item);
+      }
+
+      // Separator + Clear
+      const sep1 = document.createElement("div");
+      sep1.className = "tape-dropdown-separator";
+      dropdown.appendChild(sep1);
+
+      const clearItem = document.createElement("div");
+      clearItem.className = "tape-dropdown-item clear";
+      clearItem.textContent = "Clear Recent";
+      clearItem.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        await clearRecentTapes();
+        this._closeDropdown();
+      });
+      dropdown.appendChild(clearItem);
+    }
+
+    // Library section
+    await this._appendLibrarySection(dropdown);
+  }
+
+  /**
+   * Append library entries to the dropdown
+   */
+  async _appendLibrarySection(dropdown) {
+    try {
+      const resp = await fetch("/tapes/library.json");
+      if (!resp.ok) return;
+      const library = await resp.json();
+      if (!library.length) return;
+
+      const sep = document.createElement("div");
+      sep.className = "tape-dropdown-separator";
+      dropdown.appendChild(sep);
+
+      const label = document.createElement("div");
+      label.className = "tape-dropdown-label";
+      label.textContent = "Library";
+      dropdown.appendChild(label);
+
+      for (const entry of library) {
+        const item = document.createElement("div");
+        item.className = "tape-dropdown-item";
+        item.textContent = entry.name;
+        item.title = entry.description || entry.name;
+        item.addEventListener("click", async (e) => {
+          e.stopPropagation();
+          this._closeDropdown();
+          try {
+            const data = await getLibraryTapeData(entry);
+            this._loadFromData(entry.file, data);
+          } catch (err) {
+            console.error(`Failed to load library tape ${entry.file}:`, err);
+          }
+        });
+        dropdown.appendChild(item);
+      }
+    } catch (err) {
+      // Library fetch failed silently - not critical
+    }
+  }
+
+  _updateSpeedButton(isInstant) {
+    const speedBtn = this.contentElement.querySelector("#tape-btn-speed");
+    if (!speedBtn) return;
+    speedBtn.textContent = isInstant ? "Instant" : "Normal";
+    speedBtn.classList.toggle("normal-speed", !isInstant);
   }
 
   setBlocks(blocks) {
     this._blocks = blocks;
+    this._lastCurrentBlock = -1;
     this._renderBlocks();
+    const ejectBtn = this.contentElement.querySelector("#tape-btn-eject");
+    if (ejectBtn) ejectBtn.disabled = false;
   }
 
   _renderBlocks() {
@@ -112,6 +389,7 @@ export class TapeWindow extends BaseWindow {
         : isHeader ? typeName : "Data";
 
       html += `<div class="tape-block-item" data-index="${block.index}">
+        <div class="tape-block-progress" data-progress-index="${block.index}"></div>
         <span class="tape-block-index">${block.index}</span>
         <span class="tape-block-badge ${badgeClass}">${badgeText}</span>
         <span class="tape-block-name">${name}</span>
@@ -136,10 +414,30 @@ export class TapeWindow extends BaseWindow {
         item.classList.toggle("active", idx === currentBlock);
       });
 
-      // Auto-scroll to active block
+      // Reset progress bars on completed blocks
+      this.contentElement.querySelectorAll(".tape-block-progress").forEach((bar) => {
+        const idx = parseInt(bar.dataset.progressIndex, 10);
+        if (idx < currentBlock) {
+          bar.style.width = "100%";
+        } else if (idx > currentBlock) {
+          bar.style.width = "0%";
+        }
+      });
+
       const activeItem = this.contentElement.querySelector(".tape-block-item.active");
       if (activeItem) {
         activeItem.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+    }
+
+    // Update progress bar on the active block
+    if (isPlaying) {
+      const progress = proxy.tapeGetBlockProgress();
+      const activeBar = this.contentElement.querySelector(
+        `.tape-block-progress[data-progress-index="${currentBlock}"]`
+      );
+      if (activeBar) {
+        activeBar.style.width = `${progress}%`;
       }
     }
 
@@ -149,7 +447,6 @@ export class TapeWindow extends BaseWindow {
       const playBtn = this.contentElement.querySelector("#tape-btn-play");
       playBtn.classList.toggle("playing", isPlaying);
 
-      // Swap icon between play and pause
       if (isPlaying) {
         playBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
           <rect x="6" y="5" width="4" height="14"/>
@@ -179,5 +476,16 @@ export class TapeWindow extends BaseWindow {
       statusBar.className = "tape-status-bar";
       statusText.textContent = "No tape";
     }
+  }
+
+  destroy() {
+    if (this._outsideClickHandler) {
+      document.removeEventListener("click", this._outsideClickHandler);
+    }
+    if (this._dropdown && this._dropdown.parentNode) {
+      this._dropdown.parentNode.removeChild(this._dropdown);
+      this._dropdown = null;
+    }
+    super.destroy();
   }
 }

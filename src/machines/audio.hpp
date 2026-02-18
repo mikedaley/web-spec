@@ -24,6 +24,8 @@ public:
     void setEarBit(uint8_t bit) { earBit_ = bit; }
     uint8_t getEarBit() const { return earBit_; }
 
+    void setTapeEarBit(uint8_t bit) { tapeEarBit_ = bit; }
+
     const float* getBuffer() const { return sampleBuffer_; }
     float* getMutableBuffer() { return sampleBuffer_; }
     int getSampleCount() const { return sampleIndex_; }
@@ -32,8 +34,10 @@ public:
 private:
     static constexpr int MAX_SAMPLES_PER_FRAME = 2048;
     static constexpr float BEEPER_VOLUME = 0.3f;
+    static constexpr float TAPE_VOLUME = 0.15f;
 
     uint8_t earBit_ = 0;
+    uint8_t tapeEarBit_ = 0;
 
     float sampleBuffer_[MAX_SAMPLES_PER_FRAME]{};
     int sampleIndex_ = 0;

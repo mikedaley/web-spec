@@ -127,6 +127,9 @@ if(EMSCRIPTEN)
                 \"_tapeGetBlockCount\", \
                 \"_tapeGetCurrentBlock\", \
                 \"_tapeGetBlockInfo\", \
+                \"_tapeGetBlockProgress\", \
+                \"_tapeSetInstantLoad\", \
+                \"_tapeGetInstantLoad\", \
                 \"_getAltAF\", \
                 \"_getAltBC\", \
                 \"_getAltDE\", \

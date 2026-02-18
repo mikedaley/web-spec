@@ -31,6 +31,8 @@
   cursor: default;
   border-left: 2px solid transparent;
   transition: background 0.08s;
+  position: relative;
+  overflow: hidden;
 }
 
 .tape-block-item:hover {
@@ -38,8 +40,24 @@
 }
 
 .tape-block-item.active {
-  background: var(--accent-blue-bg);
+  background: transparent;
   border-left-color: var(--accent-blue);
+}
+
+.tape-block-progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 0%;
+  background: var(--accent-blue-bg);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.tape-block-item > *:not(.tape-block-progress) {
+  position: relative;
+  z-index: 1;
 }
 
 .tape-block-index {
@@ -150,6 +168,195 @@
 .tape-transport-btn.play svg {
   width: 16px;
   height: 16px;
+}
+
+/* ---- Controls Bar (Load / Eject) ---- */
+.tape-controls-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 0 6px;
+}
+
+.tape-load-container {
+  display: flex;
+  flex: 1;
+}
+
+.tape-load-btn,
+.tape-eject-btn {
+  padding: 4px 10px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 500;
+  background: var(--glass-bg-header);
+  border: 1px solid var(--control-border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.tape-load-btn {
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+  border-right: none;
+  flex: 1;
+}
+
+.tape-load-btn:hover {
+  background: var(--glass-border);
+  color: var(--text-primary);
+}
+
+.tape-eject-btn {
+  border-radius: var(--radius-sm);
+}
+
+.tape-speed-btn {
+  padding: 4px 10px;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 500;
+  background: var(--accent-blue-bg);
+  border: 1px solid var(--accent-blue-border);
+  color: var(--accent-blue);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.tape-speed-btn:hover {
+  background: var(--accent-blue-bg-strong, var(--accent-blue-bg));
+  color: var(--text-primary);
+}
+
+.tape-speed-btn.normal-speed {
+  background: var(--accent-orange-bg-strong);
+  border-color: var(--accent-orange-border-light);
+  color: var(--accent-orange);
+}
+
+.tape-speed-btn.normal-speed:hover {
+  color: var(--text-primary);
+}
+
+.tape-eject-btn:hover:not(:disabled) {
+  background: var(--accent-red-bg);
+  border-color: var(--accent-red-border);
+  color: var(--accent-red);
+}
+
+.tape-eject-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---- Recent/Library Dropdown ---- */
+.tape-recent-container {
+  position: relative;
+  display: flex;
+}
+
+.tape-recent-btn {
+  padding: 4px 6px;
+  background: var(--glass-bg-header);
+  border: 1px solid var(--control-border);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.tape-recent-btn:hover {
+  background: var(--glass-border);
+  color: var(--text-primary);
+}
+
+.tape-recent-dropdown {
+  display: none;
+  position: fixed;
+  min-width: 220px;
+  max-width: 300px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: var(--glass-bg-solid);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.4);
+  z-index: 10000;
+}
+
+.tape-recent-dropdown.open {
+  display: block;
+}
+
+.tape-dropdown-label {
+  padding: 4px 10px 2px;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  cursor: default;
+}
+
+.tape-dropdown-item {
+  padding: 5px 10px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.12s;
+}
+
+.tape-dropdown-item:hover:not(.empty) {
+  background: var(--overlay-hover);
+  color: var(--text-primary);
+}
+
+.tape-dropdown-item.empty {
+  color: var(--text-muted);
+  font-style: italic;
+  cursor: default;
+}
+
+.tape-dropdown-item.clear {
+  color: var(--text-muted);
+  text-align: center;
+  font-family: var(--font-sans);
+}
+
+.tape-dropdown-item.clear:hover {
+  color: var(--accent-red);
+  background: var(--accent-red-bg);
+}
+
+.tape-dropdown-separator {
+  height: 1px;
+  background: var(--glass-border);
+  margin: 3px 0;
+}
+
+/* Scrollbar styling for dropdown */
+.tape-recent-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.tape-recent-dropdown::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.tape-recent-dropdown::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 3px;
 }
 
 /* ---- Status Bar ---- */

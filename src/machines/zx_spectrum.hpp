@@ -115,6 +115,23 @@ public:
     size_t tapeGetBlockCount() const override { return tapeBlocks_.size(); }
     size_t tapeGetCurrentBlock() const override { return tapeBlockIndex_; }
     const std::vector<TapeBlockInfo>& tapeGetBlockInfo() const { return tapeBlockInfo_; }
+    void tapeSetInstantLoad(bool instant) { tapeInstantLoad_ = instant; }
+    bool tapeGetInstantLoad() const { return tapeInstantLoad_; }
+
+    int tapeGetBlockProgress() const
+    {
+        if (tapePulseBlockStarts_.empty() || tapeBlockIndex_ >= tapePulseBlockStarts_.size())
+            return 0;
+        size_t blockStart = tapePulseBlockStarts_[tapeBlockIndex_];
+        size_t blockEnd = (tapeBlockIndex_ + 1 < tapePulseBlockStarts_.size())
+            ? tapePulseBlockStarts_[tapeBlockIndex_ + 1]
+            : tapePulses_.size();
+        size_t blockLen = blockEnd - blockStart;
+        if (blockLen == 0) return 100;
+        size_t pos = (tapePulseIndex_ > blockStart) ? tapePulseIndex_ - blockStart : 0;
+        if (pos >= blockLen) return 100;
+        return static_cast<int>((pos * 100) / blockLen);
+    }
 
     // Pure virtual - machine-specific memory/IO (the 7 core methods)
     virtual uint8_t coreMemoryRead(uint16_t address) = 0;
@@ -186,6 +203,9 @@ protected:
 
     // Tape block metadata for UI
     std::vector<TapeBlockInfo> tapeBlockInfo_;
+
+    // Instant load mode (ROM trap) vs normal speed (EAR bit pulses)
+    bool tapeInstantLoad_ = false;
 
     int muteFrames_ = 0;
 

@@ -21,6 +21,7 @@ void Audio::setup(int sampleRate, double framesPerSecond, int tStatesPerFrame)
 void Audio::reset()
 {
     earBit_ = 0;
+    tapeEarBit_ = 0;
     sampleIndex_ = 0;
     tsCounter_ = 0.0;
     outputLevel_ = 0.0;
@@ -28,7 +29,8 @@ void Audio::reset()
 
 void Audio::update(int32_t tStates)
 {
-    float level = earBit_ ? BEEPER_VOLUME : 0.0f;
+    float level = (earBit_ ? BEEPER_VOLUME : 0.0f)
+               + (tapeEarBit_ ? TAPE_VOLUME : 0.0f);
 
     for (int32_t i = 0; i < tStates; i++)
     {

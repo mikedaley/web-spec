@@ -468,4 +468,25 @@ const uint8_t* tapeGetBlockInfo() {
   return s_blockInfoBuf;
 }
 
+EMSCRIPTEN_KEEPALIVE
+int tapeGetBlockProgress() {
+  REQUIRE_MACHINE_OR(0);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec ? spec->tapeGetBlockProgress() : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void tapeSetInstantLoad(int instant) {
+  REQUIRE_MACHINE();
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  if (spec) spec->tapeSetInstantLoad(instant != 0);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int tapeGetInstantLoad() {
+  REQUIRE_MACHINE_OR(0);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec ? (spec->tapeGetInstantLoad() ? 1 : 0) : 0;
+}
+
 } // extern "C"

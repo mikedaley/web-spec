@@ -125,6 +125,23 @@ void ZXSpectrum::runFrame()
         uint32_t before = z80_->getTStates();
         z80_->execute(1, machineInfo_.intLength);
         int32_t delta = static_cast<int32_t>(z80_->getTStates() - before);
+
+        // Advance tape and pipe EAR level into audio for loading sounds
+        if (tapePulseActive_ && tapePulseIndex_ < tapePulses_.size())
+        {
+            uint32_t curTs = z80_->getTStates();
+            if (curTs > lastTapeReadTs_)
+            {
+                advanceTape(curTs - lastTapeReadTs_);
+                lastTapeReadTs_ = curTs;
+            }
+            audio_.setTapeEarBit(tapeEarLevel_ ? 1 : 0);
+        }
+        else
+        {
+            audio_.setTapeEarBit(0);
+        }
+
         audio_.update(delta);
     }
 
@@ -310,8 +327,10 @@ void ZXSpectrum::installOpcodeCallback()
 
 void ZXSpectrum::tapePlay()
 {
-    if (!tapeActive_ || tapeBlocks_.empty()) return;
+    if (tapeBlocks_.empty()) return;
+    tapeActive_ = true;
     tapePulseActive_ = true;
+    installOpcodeCallback();
 }
 
 void ZXSpectrum::tapeStop()
@@ -338,6 +357,7 @@ bool ZXSpectrum::handleTapeTrap(uint16_t address)
     // so the block type and LOAD/VERIFY flag are in the alternate registers.
     // This matches SpectREMCPP's trap location.
     if (address != 0x056B) return false;
+    if (!tapeInstantLoad_) return false;
 
     if (tapeBlockIndex_ >= tapeBlocks_.size())
     {
@@ -402,7 +422,6 @@ bool ZXSpectrum::handleTapeTrap(uint16_t address)
 
     if (tapeBlockIndex_ >= tapeBlocks_.size())
     {
-        tapeActive_ = false;
         tapePulseActive_ = false;
     }
     else
@@ -429,6 +448,13 @@ void ZXSpectrum::advanceTape(uint32_t tstates)
             tapePulseRemaining_ = 0;
             tapePulseIndex_++;
             tapeEarLevel_ = !tapeEarLevel_;
+
+            // Track block boundaries during pulse playback
+            if (tapeBlockIndex_ + 1 < tapePulseBlockStarts_.size() &&
+                tapePulseIndex_ >= tapePulseBlockStarts_[tapeBlockIndex_ + 1])
+            {
+                tapeBlockIndex_++;
+            }
         }
         else
         {
@@ -440,7 +466,6 @@ void ZXSpectrum::advanceTape(uint32_t tstates)
     if (tapePulseIndex_ >= tapePulses_.size())
     {
         tapePulseActive_ = false;
-        tapeActive_ = false;
     }
 }
 
