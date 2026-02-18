@@ -101,13 +101,16 @@ void ZXSpectrum48::coreMemoryWrite(uint16_t address, uint8_t data)
     int slot = address >> 14;
     if (!pageWrite_[slot]) return;  // ROM protection
 
-    // Trigger display update if writing to screen memory area
-    uint16_t offset = address & 0x3FFF;
-    if (slot == 1 && offset < 6912)
+    // Trigger display update if writing to screen memory area (skip during tape acceleration)
+    if (!tapeAccelerating_)
     {
-        display_.updateWithTs(
-            static_cast<int32_t>((z80_->getTStates() - display_.getCurrentDisplayTs()) + machineInfo_.paperDrawingOffset),
-            getScreenMemory(), borderColor_, frameCounter_);
+        uint16_t offset = address & 0x3FFF;
+        if (slot == 1 && offset < 6912)
+        {
+            display_.updateWithTs(
+                static_cast<int32_t>((z80_->getTStates() - display_.getCurrentDisplayTs()) + machineInfo_.paperDrawingOffset),
+                getScreenMemory(), borderColor_, frameCounter_);
+        }
     }
 
     pageWrite_[slot][address & 0x3FFF] = data;
@@ -138,6 +141,7 @@ void ZXSpectrum48::coreDebugWrite(uint16_t address, uint8_t data)
 
 void ZXSpectrum48::coreMemoryContention(uint16_t address, uint32_t /*tstates*/)
 {
+    if (tapeAccelerating_) return;
     if ((address >> 14) == 1)
     {
         z80_->addContentionTStates(contention_.memoryContention(z80_->getTStates()));
@@ -146,6 +150,7 @@ void ZXSpectrum48::coreMemoryContention(uint16_t address, uint32_t /*tstates*/)
 
 void ZXSpectrum48::coreNoMreqContention(uint16_t address, uint32_t /*tstates*/)
 {
+    if (tapeAccelerating_) return;
     if ((address >> 14) == 1)
     {
         z80_->addContentionTStates(contention_.ioContention(z80_->getTStates()));
@@ -158,8 +163,11 @@ void ZXSpectrum48::coreNoMreqContention(uint16_t address, uint32_t /*tstates*/)
 
 uint8_t ZXSpectrum48::coreIORead(uint16_t address)
 {
-    bool contended = ((address >> 14) == 1);
-    contention_.applyIOContention(*z80_, address, contended);
+    if (!tapeAccelerating_)
+    {
+        bool contended = ((address >> 14) == 1);
+        contention_.applyIOContention(*z80_, address, contended);
+    }
 
     // ULA owned (even) ports — keyboard
     if ((address & 0x01) == 0)
@@ -198,15 +206,21 @@ uint8_t ZXSpectrum48::coreIORead(uint16_t address)
 
 void ZXSpectrum48::coreIOWrite(uint16_t address, uint8_t data)
 {
-    bool contended = ((address >> 14) == 1);
-    contention_.applyIOContention(*z80_, address, contended);
+    if (!tapeAccelerating_)
+    {
+        bool contended = ((address >> 14) == 1);
+        contention_.applyIOContention(*z80_, address, contended);
+    }
 
     // ULA owned (even) ports — border colour and EAR/MIC
     if ((address & 0x01) == 0)
     {
-        display_.updateWithTs(
-            static_cast<int32_t>((z80_->getTStates() - display_.getCurrentDisplayTs()) + machineInfo_.borderDrawingOffset),
-            getScreenMemory(), borderColor_, frameCounter_);
+        if (!tapeAccelerating_)
+        {
+            display_.updateWithTs(
+                static_cast<int32_t>((z80_->getTStates() - display_.getCurrentDisplayTs()) + machineInfo_.borderDrawingOffset),
+                getScreenMemory(), borderColor_, frameCounter_);
+        }
         audio_.setEarBit((data >> 4) & 1);
         borderColor_ = data & 0x07;
     }
@@ -277,6 +291,16 @@ void ZXSpectrum48::loadTZX(const uint8_t* data, uint32_t size)
 void ZXSpectrum48::loadTAP(const uint8_t* data, uint32_t size)
 {
     zxspec::TAPLoader::load(*this, data, size);
+}
+
+void ZXSpectrum48::loadTZXTape(const uint8_t* data, uint32_t size)
+{
+    // Load TZX into tape player (no reset, no boot, no auto-play)
+    zxspec::TZXLoader::load(*this, data, size);
+    tapePulseActive_ = false;
+
+    // Generate block info for UI (reuse TAP block info parser)
+    zxspec::TAPLoader::parseBlockInfo(tapeBlocks_, tapeBlockInfo_);
 }
 
 } // namespace zxspec::zx48k

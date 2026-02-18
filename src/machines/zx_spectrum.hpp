@@ -178,6 +178,7 @@ protected:
 
     // Execution state
     bool paused_ = false;
+    bool tapeAccelerating_ = false;
 
     // Breakpoint support
     std::set<uint16_t> breakpoints_;

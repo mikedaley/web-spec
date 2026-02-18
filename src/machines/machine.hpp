@@ -40,6 +40,7 @@ public:
     virtual void loadZ80(const uint8_t* data, uint32_t size) = 0;
     virtual void loadTZX(const uint8_t* data, uint32_t size) = 0;
     virtual void loadTAP(const uint8_t* data, uint32_t size) = 0;
+    virtual void loadTZXTape(const uint8_t* data, uint32_t size) = 0;
 
     // Tape transport
     virtual void tapePlay() = 0;

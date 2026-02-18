@@ -120,13 +120,67 @@ void ZXSpectrum::runFrame()
 {
     if (paused_) return;
 
+    // Instant load: run CPU at full host speed until tape finishes loading.
+    // No audio, no display, no contention — just blast through all tape pulses.
+    if (tapePulseActive_ && tapeInstantLoad_)
+    {
+        tapeAccelerating_ = true;
+
+        // Run frames until all tape pulses are consumed or tape stops
+        while (tapePulseActive_ && tapePulseIndex_ < tapePulses_.size())
+        {
+            while (z80_->getTStates() < machineInfo_.tsPerFrame && !paused_)
+            {
+                uint32_t before = z80_->getTStates();
+                z80_->execute(1, machineInfo_.intLength);
+
+                // Advance tape timing
+                uint32_t curTs = z80_->getTStates();
+                if (curTs > lastTapeReadTs_)
+                {
+                    advanceTape(curTs - lastTapeReadTs_);
+                    lastTapeReadTs_ = curTs;
+                }
+            }
+
+            if (paused_) break;
+
+            // End-of-frame tape advance before T-state reset
+            if (tapePulseActive_ && tapePulseIndex_ < tapePulses_.size())
+            {
+                uint32_t curTs = z80_->getTStates();
+                if (curTs >= lastTapeReadTs_)
+                    advanceTape(curTs - lastTapeReadTs_);
+                lastTapeReadTs_ = 0;
+            }
+
+            z80_->resetTStates(machineInfo_.tsPerFrame);
+            z80_->signalInterrupt();
+            display_.frameReset();
+            frameCounter_++;
+        }
+
+        tapeAccelerating_ = false;
+
+        // Produce a silent audio frame and render the final display state
+        audio_.resetBuffer();
+        muteFrames_ = 2;
+        display_.updateWithTs(
+            static_cast<int32_t>(machineInfo_.tsPerFrame),
+            getScreenMemory(), borderColor_, frameCounter_);
+        display_.frameReset();
+        frameCounter_++;
+        return;
+    }
+
+    // Normal speed frame
     while (z80_->getTStates() < machineInfo_.tsPerFrame && !paused_)
     {
         uint32_t before = z80_->getTStates();
         z80_->execute(1, machineInfo_.intLength);
         int32_t delta = static_cast<int32_t>(z80_->getTStates() - before);
 
-        // Advance tape and pipe EAR level into audio for loading sounds
+        // Advance tape
         if (tapePulseActive_ && tapePulseIndex_ < tapePulses_.size())
         {
             uint32_t curTs = z80_->getTStates();
@@ -147,14 +201,6 @@ void ZXSpectrum::runFrame()
 
     if (paused_) return;
 
-    audio_.frameEnd();
-
-    if (muteFrames_ > 0)
-    {
-        audio_.resetBuffer();
-        muteFrames_--;
-    }
-
     // Advance tape playback to end of frame before T-state reset
     if (tapePulseActive_ && tapePulseIndex_ < tapePulses_.size())
     {
@@ -166,6 +212,15 @@ void ZXSpectrum::runFrame()
 
     z80_->resetTStates(machineInfo_.tsPerFrame);
     z80_->signalInterrupt();
+
+    audio_.frameEnd();
+
+    if (muteFrames_ > 0)
+    {
+        audio_.resetBuffer();
+        muteFrames_--;
+    }
+
     display_.updateWithTs(
         static_cast<int32_t>(machineInfo_.tsPerFrame - display_.getCurrentDisplayTs()),
         getScreenMemory(), borderColor_, frameCounter_);

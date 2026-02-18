@@ -223,6 +223,38 @@ self.onmessage = async function (e) {
       break;
     }
 
+    case "loadTZXTape": {
+      if (!wasm) break;
+      const tzxData = new Uint8Array(msg.data);
+      const tzxPtr = wasm._malloc(tzxData.length);
+      wasm.HEAPU8.set(tzxData, tzxPtr);
+      wasm._loadTZXTape(tzxPtr, tzxData.length);
+      wasm._free(tzxPtr);
+
+      // Read block info from WASM (same format as TAP)
+      const tzxBlockCount = wasm._tapeGetBlockCount();
+      const tzxBlocks = [];
+      if (tzxBlockCount > 0) {
+        const tzxInfoPtr = wasm._tapeGetBlockInfo();
+        for (let i = 0; i < tzxBlockCount; i++) {
+          const base = tzxInfoPtr + i * 16;
+          const flagByte = wasm.HEAPU8[base];
+          const headerType = wasm.HEAPU8[base + 1];
+          let filename = "";
+          for (let c = 0; c < 10; c++) {
+            const ch = wasm.HEAPU8[base + 2 + c];
+            if (ch >= 32 && ch < 127) filename += String.fromCharCode(ch);
+          }
+          filename = filename.trimEnd();
+          const dataLength = wasm.HEAPU8[base + 12] | (wasm.HEAPU8[base + 13] << 8);
+          tzxBlocks.push({ index: i, flagByte, headerType, filename, dataLength });
+        }
+      }
+
+      self.postMessage({ type: "tapLoaded", blocks: tzxBlocks, state: getState() });
+      break;
+    }
+
     case "tapePlay":
       if (wasm) wasm._tapePlay();
       break;

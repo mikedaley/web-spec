@@ -33,6 +33,7 @@ export class TapeWindow extends BaseWindow {
     this._dropdownOpen = false;
     this._fileInput = null;
     this._currentFilename = null;
+    this._isTZX = false;
 
     // Callback for when a TAP is loaded via the window's own controls
     this.onTapeLoaded = null;
@@ -109,7 +110,7 @@ export class TapeWindow extends BaseWindow {
     const loadBtn = this.contentElement.querySelector("#tape-btn-load");
     this._fileInput = document.createElement("input");
     this._fileInput.type = "file";
-    this._fileInput.accept = ".tap";
+    this._fileInput.accept = ".tap,.tzx";
     this._fileInput.style.display = "none";
     this.contentElement.appendChild(this._fileInput);
 
@@ -146,9 +147,10 @@ export class TapeWindow extends BaseWindow {
     };
     document.addEventListener("click", this._outsideClickHandler);
 
-    // Speed toggle button
+    // Speed toggle button (disabled for TZX files)
     const speedBtn = this.contentElement.querySelector("#tape-btn-speed");
     speedBtn.addEventListener("click", () => {
+      if (this._isTZX) return;
       const isInstant = this._proxy.tapeGetInstantLoad();
       this._proxy.tapeSetInstantLoad(!isInstant);
       this._updateSpeedButton(!isInstant);
@@ -169,13 +171,18 @@ export class TapeWindow extends BaseWindow {
     reader.onload = (ev) => {
       const data = new Uint8Array(ev.target.result);
       if (data.length < 2) {
-        console.error(`Invalid TAP file: too small (${data.length} bytes)`);
+        console.error(`Invalid tape file: too small (${data.length} bytes)`);
         return;
       }
       this._currentFilename = file.name;
-      // Add to recent before loading (data gets transferred)
       addToRecentTapes(file.name, data);
-      this._proxy.loadTAP(data.buffer);
+      const ext = file.name.split(".").pop().toLowerCase();
+      this._setTapeFormat(ext);
+      if (ext === "tzx") {
+        this._proxy.loadTZXTape(data.buffer);
+      } else {
+        this._proxy.loadTAP(data.buffer);
+      }
       if (this.onTapeLoaded) this.onTapeLoaded();
     };
     reader.readAsArrayBuffer(file);
@@ -188,7 +195,13 @@ export class TapeWindow extends BaseWindow {
     this._currentFilename = filename;
     addToRecentTapes(filename, data);
     const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-    this._proxy.loadTAP(buffer);
+    const ext = filename.split(".").pop().toLowerCase();
+    this._setTapeFormat(ext);
+    if (ext === "tzx") {
+      this._proxy.loadTZXTape(buffer);
+    } else {
+      this._proxy.loadTAP(buffer);
+    }
     if (this.onTapeLoaded) this.onTapeLoaded();
   }
 
@@ -198,9 +211,11 @@ export class TapeWindow extends BaseWindow {
   _ejectTape() {
     this._blocks = [];
     this._currentFilename = null;
+    this._isTZX = false;
     this._lastCurrentBlock = -1;
     this._lastIsPlaying = false;
     this._renderBlocks();
+    this._updateSpeedButton(false);
     const ejectBtn = this.contentElement.querySelector("#tape-btn-eject");
     if (ejectBtn) ejectBtn.disabled = true;
   }
@@ -345,11 +360,28 @@ export class TapeWindow extends BaseWindow {
     }
   }
 
+  _setTapeFormat(ext) {
+    this._isTZX = ext === "tzx";
+    if (this._isTZX) {
+      this._proxy.tapeSetInstantLoad(false);
+      this._updateSpeedButton(false);
+    }
+  }
+
   _updateSpeedButton(isInstant) {
     const speedBtn = this.contentElement.querySelector("#tape-btn-speed");
     if (!speedBtn) return;
-    speedBtn.textContent = isInstant ? "Instant" : "Normal";
-    speedBtn.classList.toggle("normal-speed", !isInstant);
+    if (this._isTZX) {
+      speedBtn.textContent = "Normal";
+      speedBtn.classList.add("normal-speed");
+      speedBtn.classList.add("disabled");
+      speedBtn.disabled = true;
+    } else {
+      speedBtn.textContent = isInstant ? "Instant" : "Normal";
+      speedBtn.classList.toggle("normal-speed", !isInstant);
+      speedBtn.classList.remove("disabled");
+      speedBtn.disabled = false;
+    }
   }
 
   setBlocks(blocks) {

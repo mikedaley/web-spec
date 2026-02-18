@@ -394,6 +394,12 @@ void loadTAP(const uint8_t* data, int size) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void loadTZXTape(const uint8_t* data, int size) {
+  REQUIRE_MACHINE();
+  g_machine->loadTZXTape(data, static_cast<uint32_t>(size));
+}
+
+EMSCRIPTEN_KEEPALIVE
 void tapePlay() {
   REQUIRE_MACHINE();
   g_machine->tapePlay();

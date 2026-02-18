@@ -18,6 +18,7 @@ import { CPUDebuggerWindow } from "./debug/cpu-debugger-window.js";
 import { StackViewerWindow } from "./debug/stack-viewer-window.js";
 import { TapeWindow } from "./tape/tape-window.js";
 import { EmulatorProxy } from "./emulator-proxy.js";
+import { ThemeManager } from "./ui/theme-manager.js";
 
 class ZXSpectrumEmulator {
   constructor() {
@@ -32,6 +33,7 @@ class ZXSpectrumEmulator {
     this.tapeWindow = null;
 
     this.snapshotLoader = null;
+    this.themeManager = null;
 
     this.running = false;
     this.animFrameId = null;
@@ -107,6 +109,9 @@ class ZXSpectrumEmulator {
       // Set up input handler
       this.inputHandler = new InputHandler(this.proxy);
       this.inputHandler.init();
+
+      // Set up theme manager
+      this.themeManager = new ThemeManager();
 
       // Set up UI controls
       this.setupControls();
@@ -247,6 +252,9 @@ class ZXSpectrumEmulator {
 
     // Fullscreen button
     this.setupFullscreen();
+
+    // Theme selector
+    this.setupThemeSelector();
   }
 
   /**
@@ -278,6 +286,18 @@ class ZXSpectrumEmulator {
   closeAllMenus() {
     document.querySelectorAll(".header-menu-container.open").forEach((c) => {
       c.classList.remove("open");
+      const menu = c.querySelector(".header-menu");
+      if (menu) {
+        // Reset inline styles after the close transition finishes
+        menu.addEventListener("transitionend", () => {
+          if (!c.classList.contains("open")) {
+            menu.style.left = "";
+            menu.style.right = "";
+            menu.style.maxHeight = "";
+            menu.style.overflowY = "";
+          }
+        }, { once: true });
+      }
     });
   }
 
@@ -297,6 +317,7 @@ class ZXSpectrumEmulator {
         this.closeAllMenus();
         if (!wasOpen) {
           container.classList.add("open");
+          this.clampMenuToViewport(container);
         }
       });
 
@@ -306,6 +327,7 @@ class ZXSpectrumEmulator {
         if (anyOpen && anyOpen !== container) {
           this.closeAllMenus();
           container.classList.add("open");
+          this.clampMenuToViewport(container);
         }
       });
     });
@@ -331,6 +353,73 @@ class ZXSpectrumEmulator {
   }
 
   /**
+   * Clamp a dropdown menu so it stays within the visible viewport
+   */
+  clampMenuToViewport(container) {
+    const menu = container.querySelector(".header-menu");
+    if (!menu) return;
+
+    // Reset any previous inline positioning
+    menu.style.left = "";
+    menu.style.right = "";
+
+    // Wait one frame for the menu to render with its natural position
+    requestAnimationFrame(() => {
+      const rect = menu.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const margin = 8;
+
+      // Clamp horizontal: if right edge overflows, shift left
+      if (rect.right > vw - margin) {
+        menu.style.left = "auto";
+        menu.style.right = "0";
+      }
+
+      // If left edge overflows (e.g. after right-aligning), clamp to left
+      const updated = menu.getBoundingClientRect();
+      if (updated.left < margin) {
+        menu.style.left = `${margin - updated.left}px`;
+        menu.style.right = "auto";
+      }
+
+      // Clamp vertical: if bottom edge overflows, cap max-height
+      if (rect.bottom > vh - margin) {
+        menu.style.maxHeight = `${vh - rect.top - margin}px`;
+        menu.style.overflowY = "auto";
+      }
+    });
+  }
+
+  /**
+   * Clamp an absolutely-positioned popup so it stays within the viewport
+   */
+  clampPopupToViewport(popup) {
+    popup.style.left = "";
+    popup.style.right = "";
+
+    requestAnimationFrame(() => {
+      const rect = popup.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const margin = 8;
+
+      if (rect.right > vw - margin) {
+        const shift = rect.right - (vw - margin);
+        popup.style.right = `${shift}px`;
+      }
+      if (rect.left < margin) {
+        popup.style.left = `${margin}px`;
+        popup.style.right = "auto";
+      }
+      if (rect.bottom > vh - margin) {
+        popup.style.maxHeight = `${vh - rect.top - margin}px`;
+        popup.style.overflowY = "auto";
+      }
+    });
+  }
+
+  /**
    * Set up sound button + popup (volume slider, mute toggle)
    */
   setupSoundControls() {
@@ -346,6 +435,9 @@ class ZXSpectrumEmulator {
       e.stopPropagation();
       this.closeAllMenus();
       soundPopup.classList.toggle("hidden");
+      if (!soundPopup.classList.contains("hidden")) {
+        this.clampPopupToViewport(soundPopup);
+      }
     });
 
     // Close popup on outside click
@@ -421,6 +513,28 @@ class ZXSpectrumEmulator {
       }
       this.refocusCanvas();
     });
+  }
+
+  setupThemeSelector() {
+    const buttons = document.querySelectorAll(".theme-btn");
+    if (!buttons.length || !this.themeManager) return;
+
+    const updateActive = () => {
+      const pref = this.themeManager.getPreference();
+      buttons.forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.theme === pref);
+      });
+    };
+
+    buttons.forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        this.themeManager.setPreference(btn.dataset.theme);
+        updateActive();
+      });
+    });
+
+    updateActive();
   }
 
   isRunning() {
@@ -516,6 +630,11 @@ class ZXSpectrumEmulator {
     if (this.snapshotLoader) {
       this.snapshotLoader.destroy();
       this.snapshotLoader = null;
+    }
+
+    if (this.themeManager) {
+      this.themeManager.destroy();
+      this.themeManager = null;
     }
 
     if (this.proxy) {

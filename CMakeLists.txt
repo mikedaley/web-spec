@@ -119,6 +119,7 @@ if(EMSCRIPTEN)
                 \"_loadZ80\", \
                 \"_loadTZX\", \
                 \"_loadTAP\", \
+                \"_loadTZXTape\", \
                 \"_tapePlay\", \
                 \"_tapeStop\", \
                 \"_tapeRewind\", \

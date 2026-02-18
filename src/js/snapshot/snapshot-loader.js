@@ -72,7 +72,8 @@ export class SnapshotLoader {
           return;
         }
         this._pendingFileName = file.name;
-        this.proxy.loadSnapshot("tzx", data.buffer);
+        addToRecentTapes(file.name, data);
+        this.proxy.loadTZXTape(data.buffer);
       } else if (ext === "tap") {
         if (data.length < 2) {
           console.error(`Invalid TAP file: too small (${data.length} bytes)`);

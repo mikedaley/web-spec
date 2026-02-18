@@ -40,8 +40,8 @@
 }
 
 .tape-block-item.active {
-  background: transparent;
-  border-left-color: var(--accent-blue);
+  background: var(--overlay-subtle);
+  border-left-color: var(--accent-green);
 }
 
 .tape-block-progress {
@@ -239,6 +239,16 @@
 
 .tape-speed-btn.normal-speed:hover {
   color: var(--text-primary);
+}
+
+.tape-speed-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.tape-speed-btn.disabled:hover {
+  background: var(--accent-orange-bg-strong);
+  color: var(--accent-orange);
 }
 
 .tape-eject-btn:hover:not(:disabled) {

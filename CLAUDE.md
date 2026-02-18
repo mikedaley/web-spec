@@ -89,6 +89,7 @@ src/
     ├── audio/          # Web Audio API driver and worklet
     ├── display/        # WebGL renderer
     ├── input/          # Keyboard input
+    ├── ui/             # Theme manager and UI utilities
     └── css/            # Stylesheets
 public/                 # Static assets, built WASM files
 tests/
@@ -98,6 +99,23 @@ tests/
 ### File Naming Convention
 
 All JavaScript files use **kebab-case** (e.g., `audio-driver.js`). C++ files use **snake_case** (e.g., `z80_opcodes_main.cpp`). Class names remain PascalCase in the code.
+
+## Theme System (Light/Dark Mode)
+
+The project uses a CSS custom property theme system with three modes: **dark** (default), **light**, and **system** (follows OS preference). This mirrors the web-a2e implementation.
+
+### Key files
+
+- `src/js/ui/theme-manager.js` - `ThemeManager` class: persists preference to localStorage (`zxspec-theme`), sets `data-theme` attribute on `<html>`, listens for OS `prefers-color-scheme` changes
+- `src/js/css/base.css` - `:root` defines dark theme variables; `html[data-theme="light"]` overrides all variables for light mode
+- `public/index.html` - Theme selector buttons (sun/moon/monitor icons) in the View menu
+
+### Rules for all new CSS
+
+- **Never use hard-coded colors.** Always reference CSS custom properties from `:root` (e.g., `var(--bg-primary)`, `var(--text-secondary)`, `var(--accent-blue)`).
+- When adding new CSS variables, define them in **both** the `:root` (dark) and `html[data-theme="light"]` blocks in `base.css`.
+- Use the existing token categories: `--bg-*`, `--text-*`, `--accent-*-bg`, `--accent-*-border`, `--glass-*`, `--overlay-*`, `--input-*`, `--control-*`, `--shadow-*`.
+- Test UI in both themes before considering CSS work complete.
 
 ## Git Commits
 

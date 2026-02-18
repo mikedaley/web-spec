@@ -118,6 +118,13 @@ export class EmulatorProxy {
     );
   }
 
+  loadTZXTape(arrayBuffer) {
+    this.worker.postMessage(
+      { type: "loadTZXTape", data: arrayBuffer },
+      [arrayBuffer],
+    );
+  }
+
   tapePlay() {
     this.worker.postMessage({ type: "tapePlay" });
   }

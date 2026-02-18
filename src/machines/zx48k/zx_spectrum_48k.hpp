@@ -29,6 +29,7 @@ public:
     void loadZ80(const uint8_t* data, uint32_t size) override;
     void loadTZX(const uint8_t* data, uint32_t size) override;
     void loadTAP(const uint8_t* data, uint32_t size) override;
+    void loadTZXTape(const uint8_t* data, uint32_t size) override;
 
     // Core virtual overrides — the 7 machine-specific methods
     uint8_t coreMemoryRead(uint16_t address) override;
