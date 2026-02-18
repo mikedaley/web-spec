@@ -30,12 +30,14 @@ export class TapeWindow extends BaseWindow {
     this._blocks = [];
     this._metadata = null;
     this._infoPanelOpen = false;
+    this._cassettePanelOpen = false;
     this._lastCurrentBlock = -1;
     this._lastIsPlaying = false;
     this._dropdownOpen = false;
     this._fileInput = null;
     this._currentFilename = null;
     this._isTZX = false;
+    this._rawTapeData = null;
 
     // Callback for when a TAP is loaded via the window's own controls
     this.onTapeLoaded = null;
@@ -45,6 +47,7 @@ export class TapeWindow extends BaseWindow {
     const state = super.getState();
     state.instantLoad = !!this.contentElement?.querySelector("#tape-speed-checkbox")?.checked;
     state.infoPanelOpen = this._infoPanelOpen;
+    state.cassettePanelOpen = this._cassettePanelOpen;
     return state;
   }
 
@@ -61,6 +64,10 @@ export class TapeWindow extends BaseWindow {
       this._infoPanelOpen = true;
       this._applyInfoPanelState();
     }
+    if (state.cassettePanelOpen) {
+      this._cassettePanelOpen = true;
+      this._applyCassettePanelState();
+    }
     super.restoreState(state);
   }
 
@@ -70,6 +77,15 @@ export class TapeWindow extends BaseWindow {
         <div class="tape-filename-banner hidden" id="tape-filename-banner">
           <span class="tape-format-badge" id="tape-format-badge"></span>
           <span class="tape-filename-text" id="tape-filename-text"></span>
+        </div>
+        <div class="tape-cassette-toggle" id="tape-cassette-toggle">
+          <svg class="tape-cassette-chevron" viewBox="0 0 12 12" width="10" height="10">
+            <path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          <span>Cassette</span>
+        </div>
+        <div class="tape-cassette-vis hidden" id="tape-cassette-vis">
+          <div class="tape-cassette-label" id="tape-cassette-label"></div>
         </div>
         <div class="tape-block-list" id="tape-block-list">
           <div class="tape-empty-state">No tape inserted</div>
@@ -140,7 +156,11 @@ export class TapeWindow extends BaseWindow {
     const rewindBtn = this.contentElement.querySelector("#tape-btn-rewind");
 
     playBtn.addEventListener("click", () => {
-      if (!this._proxy.tapeIsLoaded()) return;
+      if (!this._proxy.tapeIsLoaded() && !this._blocks.length) return;
+      // Re-send tape data to WASM if it was lost (e.g. after power cycle reset)
+      if (!this._proxy.tapeIsLoaded() && this._rawTapeData) {
+        this._reloadTapeIntoWasm();
+      }
       if (this._proxy.tapeIsPlaying()) {
         this._proxy.tapeStop();
       } else {
@@ -149,12 +169,12 @@ export class TapeWindow extends BaseWindow {
     });
 
     stopBtn.addEventListener("click", () => {
-      if (!this._proxy.tapeIsLoaded()) return;
+      if (!this._proxy.tapeIsLoaded() && !this._blocks.length) return;
       this._proxy.tapeStop();
     });
 
     rewindBtn.addEventListener("click", () => {
-      if (!this._proxy.tapeIsLoaded()) return;
+      if (!this._proxy.tapeIsLoaded() && !this._blocks.length) return;
       this._proxy.tapeRewind();
       this._lastCurrentBlock = -1;
       this.contentElement.querySelectorAll(".tape-block-progress").forEach((bar) => {
@@ -226,6 +246,40 @@ export class TapeWindow extends BaseWindow {
       this._infoPanelOpen = !this._infoPanelOpen;
       this._applyInfoPanelState();
     });
+
+    // Cassette visualization toggle
+    const cassetteToggle = this.contentElement.querySelector("#tape-cassette-toggle");
+    cassetteToggle.addEventListener("click", () => {
+      this._cassettePanelOpen = !this._cassettePanelOpen;
+      this._applyCassettePanelState();
+    });
+
+    // Load cassette SVG inline so we can animate spindle elements
+    this._loadCassetteSvg();
+  }
+
+  async _loadCassetteSvg() {
+    const container = this.contentElement?.querySelector("#tape-cassette-vis");
+    if (!container) return;
+    try {
+      const resp = await fetch("/assets/cassette.svg");
+      const svgText = await resp.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(svgText, "image/svg+xml");
+      const svg = doc.querySelector("svg");
+      if (!svg) return;
+
+      svg.classList.add("tape-cassette-img");
+      svg.removeAttribute("width");
+      svg.removeAttribute("height");
+
+      // Insert SVG before the label overlay
+      const label = container.querySelector("#tape-cassette-label");
+      container.insertBefore(svg, label);
+      this._cassetteSvg = svg;
+    } catch (err) {
+      console.warn("Failed to load cassette SVG:", err);
+    }
   }
 
   /**
@@ -240,6 +294,7 @@ export class TapeWindow extends BaseWindow {
         return;
       }
       this._currentFilename = file.name;
+      this._rawTapeData = new Uint8Array(data);
       addToRecentTapes(file.name, data);
       const ext = file.name.split(".").pop().toLowerCase();
       this._setTapeFormat(ext);
@@ -258,6 +313,7 @@ export class TapeWindow extends BaseWindow {
    */
   _loadFromData(filename, data) {
     this._currentFilename = filename;
+    this._rawTapeData = new Uint8Array(data);
     addToRecentTapes(filename, data);
     const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
     const ext = filename.split(".").pop().toLowerCase();
@@ -278,15 +334,25 @@ export class TapeWindow extends BaseWindow {
     this._blocks = [];
     this._metadata = null;
     this._infoPanelOpen = false;
+    this._cassettePanelOpen = false;
     this._currentFilename = null;
     this._isTZX = false;
+    this._rawTapeData = null;
     this._lastCurrentBlock = -1;
     this._lastIsPlaying = false;
     this._renderBlocks();
     this._renderInfoPanel();
     this._applyInfoPanelState();
+    this._applyCassettePanelState();
     this._updateFilenameBanner();
     this._updateSpeedSwitch(false);
+    // Stop spindle animation
+    if (this._cassetteSvg) {
+      for (const id of ["#spindle-left-filled", "#spindle-left-outline", "#spindle-right-filled", "#spindle-right-outline"]) {
+        const el = this._cassetteSvg.querySelector(id);
+        if (el) el.classList.remove("spinning");
+      }
+    }
     const ejectBtn = this.contentElement.querySelector("#tape-btn-eject");
     if (ejectBtn) ejectBtn.disabled = true;
   }
@@ -309,10 +375,24 @@ export class TapeWindow extends BaseWindow {
     }
   }
 
+  _applyCassettePanelState() {
+    const panel = this.contentElement?.querySelector("#tape-cassette-vis");
+    const toggle = this.contentElement?.querySelector("#tape-cassette-toggle");
+    if (!panel || !toggle) return;
+    if (this._cassettePanelOpen) {
+      panel.classList.remove("hidden");
+      toggle.classList.add("open");
+    } else {
+      panel.classList.add("hidden");
+      toggle.classList.remove("open");
+    }
+  }
+
   _updateFilenameBanner() {
     const banner = this.contentElement?.querySelector("#tape-filename-banner");
     const text = this.contentElement?.querySelector("#tape-filename-text");
     const badge = this.contentElement?.querySelector("#tape-format-badge");
+    const label = this.contentElement?.querySelector("#tape-cassette-label");
     if (!banner || !text || !badge) return;
     if (this._currentFilename) {
       const ext = this._currentFilename.split(".").pop().toUpperCase();
@@ -321,11 +401,15 @@ export class TapeWindow extends BaseWindow {
       text.textContent = this._currentFilename;
       banner.classList.remove("hidden");
       banner.classList.remove("error");
+      // Update cassette label text
+      const displayName = this._currentFilename.replace(/\.(tap|tzx)$/i, "");
+      if (label) label.textContent = displayName;
     } else {
       banner.classList.add("hidden");
       banner.classList.remove("error");
       text.textContent = "";
       badge.textContent = "";
+      if (label) label.textContent = "";
     }
   }
 
@@ -336,6 +420,10 @@ export class TapeWindow extends BaseWindow {
     this._renderBlocks();
     this._renderInfoPanel();
     this._applyInfoPanelState();
+
+    // Collapse cassette visualization on error
+    this._cassettePanelOpen = false;
+    this._applyCassettePanelState();
 
     const banner = this.contentElement?.querySelector("#tape-filename-banner");
     const text = this.contentElement?.querySelector("#tape-filename-text");
@@ -594,6 +682,23 @@ export class TapeWindow extends BaseWindow {
     }
   }
 
+  /**
+   * Re-send cached tape data to WASM when it has been lost (e.g. after reset)
+   */
+  _reloadTapeIntoWasm() {
+    if (!this._rawTapeData || !this._currentFilename) return;
+    const buffer = this._rawTapeData.buffer.slice(
+      this._rawTapeData.byteOffset,
+      this._rawTapeData.byteOffset + this._rawTapeData.byteLength
+    );
+    const ext = this._currentFilename.split(".").pop().toLowerCase();
+    if (ext === "tzx") {
+      this._proxy.loadTZXTape(buffer);
+    } else {
+      this._proxy.loadTAP(buffer);
+    }
+  }
+
   _setTapeFormat(ext) {
     this._isTZX = ext === "tzx";
     if (this._isTZX) {
@@ -707,9 +812,18 @@ export class TapeWindow extends BaseWindow {
       }
     }
 
-    // Update play button state
+    // Update play button state and spindle rotation
     if (isPlaying !== this._lastIsPlaying) {
       this._lastIsPlaying = isPlaying;
+
+      // Spindle rotation — target all four spindle paths by their IDs
+      if (this._cassetteSvg) {
+        for (const id of ["#spindle-left-filled", "#spindle-left-outline", "#spindle-right-filled", "#spindle-right-outline"]) {
+          const el = this._cassetteSvg.querySelector(id);
+          if (el) el.classList.toggle("spinning", isPlaying);
+        }
+      }
+
       const playBtn = this.contentElement.querySelector("#tape-btn-play");
       playBtn.classList.toggle("playing", isPlaying);
 
@@ -735,9 +849,9 @@ export class TapeWindow extends BaseWindow {
     if (isPlaying) {
       statusBar.className = "tape-status-bar playing";
       statusText.textContent = `PLAYING block ${currentBlock + 1} of ${blockCount}`;
-    } else if (proxy.tapeIsLoaded()) {
+    } else if (proxy.tapeIsLoaded() || this._blocks.length) {
       statusBar.className = "tape-status-bar stopped";
-      statusText.textContent = `STOPPED - ${blockCount} blocks`;
+      statusText.textContent = `STOPPED - ${this._blocks.length} blocks`;
     } else {
       statusBar.className = "tape-status-bar";
       statusText.textContent = "No tape";

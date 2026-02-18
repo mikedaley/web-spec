@@ -77,6 +77,103 @@
   font-size: 10px;
 }
 
+/* ---- Cassette Visualization Toggle ---- */
+.tape-cassette-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.tape-cassette-toggle:hover {
+  color: var(--text-secondary);
+}
+
+.tape-cassette-chevron {
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.tape-cassette-toggle.open .tape-cassette-chevron {
+  transform: rotate(90deg);
+}
+
+/* ---- Cassette Visualization ---- */
+.tape-cassette-vis {
+  position: relative;
+  margin-bottom: 6px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: var(--input-bg-dark);
+  border: 1px solid var(--glass-border-subtle);
+}
+
+.tape-cassette-vis.hidden {
+  display: none;
+}
+
+.tape-cassette-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+}
+
+.tape-cassette-label {
+  position: absolute;
+  /* Label area: SVG coords (433,250)-(2362,486) on 2626x1654 viewport */
+  left: 16.5%;
+  top: 15.1%;
+  width: 73.5%;
+  height: 14.3%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: clamp(6px, 2.5vw, 12px);
+  font-weight: 700;
+  color: #333;
+  text-align: center;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 4%;
+  pointer-events: none;
+}
+
+/* Spindle rotation — targets spindle paths inside inlined SVG */
+#spindle-left-filled,
+#spindle-left-outline {
+  transform-origin: 828px 757px;
+}
+
+#spindle-right-filled,
+#spindle-right-outline {
+  transform-origin: 1785px 757px;
+}
+
+#spindle-left-filled.spinning,
+#spindle-left-outline.spinning,
+#spindle-right-filled.spinning,
+#spindle-right-outline.spinning {
+  animation: tape-spindle-rotate 3s linear infinite;
+}
+
+@keyframes tape-spindle-rotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-360deg); }
+}
+
 /* ---- Block List ---- */
 .tape-block-list {
   flex: 1;
@@ -475,11 +572,11 @@
 }
 
 .tape-speed-switch:not(.disabled):not(.instant) .tape-speed-label-normal {
-  color: var(--accent-blue);
+  color: var(--accent-green);
 }
 
 .tape-speed-switch:not(.disabled).instant .tape-speed-label-instant {
-  color: var(--accent-orange);
+  color: var(--accent-green);
 }
 
 .tape-toggle {
@@ -500,8 +597,8 @@
 .tape-toggle-track {
   position: absolute;
   inset: 0;
-  background: var(--accent-blue-bg);
-  border: 1px solid var(--accent-blue-border);
+  background: var(--accent-green-bg-strong);
+  border: 1px solid var(--accent-green-border-light);
   border-radius: 7px;
   cursor: pointer;
   transition: all 0.2s;
@@ -514,19 +611,19 @@
   width: 10px;
   left: 1px;
   top: 1px;
-  background: var(--accent-blue);
+  background: var(--accent-green);
   border-radius: 50%;
   transition: all 0.2s;
 }
 
 .tape-toggle input:checked + .tape-toggle-track {
-  background: var(--accent-orange-bg-strong);
-  border-color: var(--accent-orange-border-light);
+  background: var(--accent-green-bg-strong);
+  border-color: var(--accent-green-border-light);
 }
 
 .tape-toggle input:checked + .tape-toggle-track::before {
   transform: translateX(14px);
-  background: var(--accent-orange);
+  background: var(--accent-green);
 }
 
 .tape-eject-btn:hover:not(:disabled) {

@@ -2,14 +2,18 @@ import { defineConfig } from "vite";
 import { resolve } from "path";
 import { copyFileSync, mkdirSync } from "fs";
 
-// Plugin to copy audio worklet file (can't be bundled)
-const copyAudioWorklet = () => ({
-  name: "copy-audio-worklet",
+// Plugin to copy worker files that can't be bundled (classic workers, worklets)
+const copyWorkerFiles = () => ({
+  name: "copy-worker-files",
   writeBundle() {
-    mkdirSync(resolve(__dirname, "dist"), { recursive: true });
+    mkdirSync(resolve(__dirname, "dist/src/js"), { recursive: true });
     copyFileSync(
       resolve(__dirname, "src/js/audio/audio-worklet.js"),
       resolve(__dirname, "dist/audio-worklet.js"),
+    );
+    copyFileSync(
+      resolve(__dirname, "src/js/emulator-worker.js"),
+      resolve(__dirname, "dist/src/js/emulator-worker.js"),
     );
   },
 });
@@ -51,5 +55,5 @@ export default defineConfig({
     exclude: ["zxspec.js"],
   },
 
-  plugins: [copyAudioWorklet()],
+  plugins: [copyWorkerFiles()],
 });

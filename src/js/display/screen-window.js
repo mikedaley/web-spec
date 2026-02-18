@@ -14,7 +14,7 @@ export class ScreenWindow extends BaseWindow {
   constructor(renderer) {
     super({
       id: "screen-window",
-      title: "Monitor",
+      title: "Screen",
       minWidth: 284,
       minHeight: 274,
       defaultWidth: 480,

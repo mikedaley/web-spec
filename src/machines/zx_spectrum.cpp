@@ -99,12 +99,8 @@ void ZXSpectrum::reset()
     display_.frameReset();
     paused_ = false;
 
-    tapeBlocks_.clear();
-    tapeBlockInfo_.clear();
+    // Reset tape playback position but keep loaded tape data
     tapeBlockIndex_ = 0;
-    tapeActive_ = false;
-    tapePulses_.clear();
-    tapePulseBlockStarts_.clear();
     tapePulseIndex_ = 0;
     tapePulseRemaining_ = 0;
     tapeEarLevel_ = false;
