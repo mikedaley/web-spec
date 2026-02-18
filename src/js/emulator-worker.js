@@ -199,27 +199,38 @@ self.onmessage = async function (e) {
       wasm._loadTAP(tapPtr, tapData.length);
       wasm._free(tapPtr);
 
-      // Read block info from WASM
+      // Check if load succeeded (blocks were parsed)
       const blockCount = wasm._tapeGetBlockCount();
-      const blocks = [];
-      if (blockCount > 0) {
-        const infoPtr = wasm._tapeGetBlockInfo();
-        for (let i = 0; i < blockCount; i++) {
-          const base = infoPtr + i * 16;
-          const flagByte = wasm.HEAPU8[base];
-          const headerType = wasm.HEAPU8[base + 1];
-          let filename = "";
-          for (let c = 0; c < 10; c++) {
-            const ch = wasm.HEAPU8[base + 2 + c];
-            if (ch >= 32 && ch < 127) filename += String.fromCharCode(ch);
-          }
-          filename = filename.trimEnd();
-          const dataLength = wasm.HEAPU8[base + 12] | (wasm.HEAPU8[base + 13] << 8);
-          blocks.push({ index: i, flagByte, headerType, filename, dataLength });
-        }
+      if (blockCount === 0 || !wasm._tapeIsLoaded()) {
+        self.postMessage({ type: "tapLoadError", error: "Invalid or empty TAP file", state: getState() });
+        break;
       }
 
-      self.postMessage({ type: "tapLoaded", blocks, state: getState() });
+      // Read block info from WASM (20 bytes per block)
+      const blocks = [];
+      const infoPtr = wasm._tapeGetBlockInfo();
+      for (let i = 0; i < blockCount; i++) {
+        const base = infoPtr + i * 20;
+        const flagByte = wasm.HEAPU8[base];
+        const headerType = wasm.HEAPU8[base + 1];
+        let filename = "";
+        for (let c = 0; c < 10; c++) {
+          const ch = wasm.HEAPU8[base + 2 + c];
+          if (ch >= 32 && ch < 127) filename += String.fromCharCode(ch);
+        }
+        filename = filename.trimEnd();
+        const dataLength = wasm.HEAPU8[base + 12] | (wasm.HEAPU8[base + 13] << 8);
+        const param1 = wasm.HEAPU8[base + 14] | (wasm.HEAPU8[base + 15] << 8);
+        const param2 = wasm.HEAPU8[base + 16] | (wasm.HEAPU8[base + 17] << 8);
+        blocks.push({ index: i, flagByte, headerType, filename, dataLength, param1, param2 });
+      }
+
+      // Read metadata JSON
+      const metaPtr = wasm._tapeGetMetadata();
+      const metadataJson = wasm.UTF8ToString(metaPtr);
+      const metadata = metadataJson ? JSON.parse(metadataJson) : {};
+
+      self.postMessage({ type: "tapLoaded", blocks, metadata, state: getState() });
       break;
     }
 
@@ -231,27 +242,38 @@ self.onmessage = async function (e) {
       wasm._loadTZXTape(tzxPtr, tzxData.length);
       wasm._free(tzxPtr);
 
-      // Read block info from WASM (same format as TAP)
+      // Check if load succeeded
       const tzxBlockCount = wasm._tapeGetBlockCount();
-      const tzxBlocks = [];
-      if (tzxBlockCount > 0) {
-        const tzxInfoPtr = wasm._tapeGetBlockInfo();
-        for (let i = 0; i < tzxBlockCount; i++) {
-          const base = tzxInfoPtr + i * 16;
-          const flagByte = wasm.HEAPU8[base];
-          const headerType = wasm.HEAPU8[base + 1];
-          let filename = "";
-          for (let c = 0; c < 10; c++) {
-            const ch = wasm.HEAPU8[base + 2 + c];
-            if (ch >= 32 && ch < 127) filename += String.fromCharCode(ch);
-          }
-          filename = filename.trimEnd();
-          const dataLength = wasm.HEAPU8[base + 12] | (wasm.HEAPU8[base + 13] << 8);
-          tzxBlocks.push({ index: i, flagByte, headerType, filename, dataLength });
-        }
+      if (tzxBlockCount === 0 || !wasm._tapeIsLoaded()) {
+        self.postMessage({ type: "tapLoadError", error: "Invalid or empty TZX file", state: getState() });
+        break;
       }
 
-      self.postMessage({ type: "tapLoaded", blocks: tzxBlocks, state: getState() });
+      // Read block info from WASM (20 bytes per block)
+      const tzxBlocks = [];
+      const tzxInfoPtr = wasm._tapeGetBlockInfo();
+      for (let i = 0; i < tzxBlockCount; i++) {
+        const base = tzxInfoPtr + i * 20;
+        const flagByte = wasm.HEAPU8[base];
+        const headerType = wasm.HEAPU8[base + 1];
+        let filename = "";
+        for (let c = 0; c < 10; c++) {
+          const ch = wasm.HEAPU8[base + 2 + c];
+          if (ch >= 32 && ch < 127) filename += String.fromCharCode(ch);
+        }
+        filename = filename.trimEnd();
+        const dataLength = wasm.HEAPU8[base + 12] | (wasm.HEAPU8[base + 13] << 8);
+        const param1 = wasm.HEAPU8[base + 14] | (wasm.HEAPU8[base + 15] << 8);
+        const param2 = wasm.HEAPU8[base + 16] | (wasm.HEAPU8[base + 17] << 8);
+        tzxBlocks.push({ index: i, flagByte, headerType, filename, dataLength, param1, param2 });
+      }
+
+      // Read metadata JSON
+      const tzxMetaPtr = wasm._tapeGetMetadata();
+      const tzxMetadataJson = wasm.UTF8ToString(tzxMetaPtr);
+      const tzxMetadata = tzxMetadataJson ? JSON.parse(tzxMetadataJson) : {};
+
+      self.postMessage({ type: "tapLoaded", blocks: tzxBlocks, metadata: tzxMetadata, state: getState() });
       break;
     }
 

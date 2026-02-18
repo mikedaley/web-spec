@@ -173,21 +173,17 @@ class ZXSpectrumEmulator {
     };
 
     // TAP loaded callback - show tape window with block list
-    this.proxy.onTapLoaded = (blocks) => {
+    this.proxy.onTapLoaded = (blocks, metadata) => {
       this.tapeWindow.setBlocks(blocks);
+      this.tapeWindow.setMetadata(metadata);
       this.windowManager.showWindow("tape-window");
-      // Ensure emulator is running so user can type LOAD ""
-      if (!this.running) {
-        this.running = true;
-        this.renderer.setNoSignal(false);
-        this.audioDriver.start();
-        this.updatePowerButton();
-      }
     };
 
-    // Note: tapeWindow.onTapeLoaded is not needed here — the proxy.onTapLoaded
-    // callback above already fires for all tape loads (including from the tape
-    // window's Load/Recent/Library), since they all go through the worker.
+    // TAP load error callback
+    this.proxy.onTapLoadError = (error) => {
+      this.tapeWindow.showError(error);
+      this.windowManager.showWindow("tape-window");
+    };
 
     // File menu > Load Snapshot
     const loadSnapshotBtn = document.getElementById("btn-load-snapshot");
@@ -208,7 +204,7 @@ class ZXSpectrumEmulator {
       });
     }
 
-    // View menu > Z80 Debugger (opens CPU debugger window)
+    // Dev menu > Z80 Debugger (opens CPU debugger window)
     const z80DebugBtn = document.getElementById("btn-z80-debug");
     if (z80DebugBtn) {
       z80DebugBtn.addEventListener("click", () => {
@@ -228,7 +224,7 @@ class ZXSpectrumEmulator {
       });
     }
 
-    // View menu > Stack Viewer
+    // Dev menu > Stack Viewer
     const stackViewerBtn = document.getElementById("btn-stack-viewer");
     if (stackViewerBtn) {
       stackViewerBtn.addEventListener("click", () => {

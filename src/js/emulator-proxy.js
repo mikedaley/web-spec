@@ -13,6 +13,7 @@ export class EmulatorProxy {
     this.onReady = null;
     this.onSnapshotLoaded = null;
     this.onTapLoaded = null;
+    this.onTapLoadError = null;
     this.onStateUpdate = null;
     this._nextId = 1;
     this._pendingRequests = new Map();
@@ -38,7 +39,12 @@ export class EmulatorProxy {
 
       case "tapLoaded":
         this.state = msg.state;
-        if (this.onTapLoaded) this.onTapLoaded(msg.blocks);
+        if (this.onTapLoaded) this.onTapLoaded(msg.blocks, msg.metadata);
+        break;
+
+      case "tapLoadError":
+        this.state = msg.state;
+        if (this.onTapLoadError) this.onTapLoadError(msg.error);
         break;
 
       case "stateUpdate":

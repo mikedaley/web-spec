@@ -8,6 +8,7 @@
 #include "tzx_loader.hpp"
 #include "../zx_spectrum.hpp"
 #include <cstring>
+#include <string>
 
 namespace zxspec {
 
@@ -26,9 +27,21 @@ bool TZXLoader::load(ZXSpectrum& machine, const uint8_t* data, uint32_t size)
     if (size < TZX_HEADER_SIZE) return false;
     if (std::memcmp(data, "ZXTape!\x1A", 8) != 0) return false;
 
+    TapeMetadata metadata;
+    metadata.format = "TZX";
+    metadata.fileSize = size;
+    metadata.versionMajor = data[8];
+    metadata.versionMinor = data[9];
+
     std::vector<TapeBlock> blocks;
-    if (!parseBlocks(data, size, blocks)) return false;
+    if (!parseBlocks(data, size, blocks, metadata)) return false;
     if (blocks.empty()) return false;
+
+    metadata.blockCount = static_cast<uint16_t>(blocks.size());
+    metadata.totalDataBytes = 0;
+    for (const auto& block : blocks) {
+        metadata.totalDataBytes += static_cast<uint32_t>(block.data.size());
+    }
 
     // Generate pulse sequences for EAR bit playback
     std::vector<uint32_t> pulses;
@@ -46,6 +59,7 @@ bool TZXLoader::load(ZXSpectrum& machine, const uint8_t* data, uint32_t size)
     machine.tapeEarLevel_ = false;
     machine.tapePulseActive_ = true;
     machine.lastTapeReadTs_ = 0;
+    machine.tapeMetadata_ = std::move(metadata);
 
     machine.installOpcodeCallback();
 
@@ -103,7 +117,8 @@ void TZXLoader::generatePulses(const std::vector<TapeBlock>& blocks,
     blockPulseStarts.push_back(pulses.size());
 }
 
-bool TZXLoader::parseBlocks(const uint8_t* data, uint32_t size, std::vector<TapeBlock>& blocks)
+bool TZXLoader::parseBlocks(const uint8_t* data, uint32_t size,
+                            std::vector<TapeBlock>& blocks, TapeMetadata& metadata)
 {
     uint32_t offset = TZX_HEADER_SIZE;
 
@@ -267,8 +282,14 @@ bool TZXLoader::parseBlocks(const uint8_t* data, uint32_t size, std::vector<Tape
             {
                 if (offset + 1 > size) return false;
                 uint8_t len = data[offset];
-                offset += 1 + len;
-                if (offset > size) return false;
+                offset += 1;
+                if (offset + len > size) return false;
+                std::string text(reinterpret_cast<const char*>(data + offset), len);
+                if (!metadata.comment.empty()) {
+                    metadata.comment += "\n";
+                }
+                metadata.comment += text;
+                offset += len;
                 break;
             }
 
@@ -285,8 +306,35 @@ bool TZXLoader::parseBlocks(const uint8_t* data, uint32_t size, std::vector<Tape
             {
                 if (offset + 2 > size) return false;
                 uint16_t blockLen = readWord(data + offset);
-                offset += 2 + blockLen;
-                if (offset > size) return false;
+                uint32_t blockEnd = offset + 2 + blockLen;
+                if (blockEnd > size) return false;
+                offset += 2;
+                if (offset < blockEnd) {
+                    uint8_t numStrings = data[offset++];
+                    for (uint8_t s = 0; s < numStrings && offset + 2 <= blockEnd; s++) {
+                        uint8_t typeId = data[offset++];
+                        uint8_t strLen = data[offset++];
+                        if (offset + strLen > blockEnd) break;
+                        std::string text(reinterpret_cast<const char*>(data + offset), strLen);
+                        offset += strLen;
+                        switch (typeId) {
+                            case 0x00: metadata.title = text; break;
+                            case 0x01: metadata.publisher = text; break;
+                            case 0x02: metadata.author = text; break;
+                            case 0x03: metadata.year = text; break;
+                            case 0x04: metadata.language = text; break;
+                            case 0x05: metadata.type = text; break;
+                            case 0x06: metadata.price = text; break;
+                            case 0x07: metadata.protection = text; break;
+                            case 0x08: metadata.origin = text; break;
+                            case 0xFF:
+                                if (!metadata.comment.empty()) metadata.comment += "\n";
+                                metadata.comment += text;
+                                break;
+                        }
+                    }
+                }
+                offset = blockEnd;
                 break;
             }
 

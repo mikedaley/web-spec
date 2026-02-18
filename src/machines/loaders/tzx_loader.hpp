@@ -8,6 +8,7 @@
 #pragma once
 
 #include "../tape_block.hpp"
+#include "tap_loader.hpp"
 #include <cstdint>
 #include <vector>
 
@@ -23,7 +24,8 @@ public:
                                std::vector<size_t>& blockPulseStarts);
 
 private:
-    static bool parseBlocks(const uint8_t* data, uint32_t size, std::vector<TapeBlock>& blocks);
+    static bool parseBlocks(const uint8_t* data, uint32_t size,
+                            std::vector<TapeBlock>& blocks, TapeMetadata& metadata);
     static uint16_t readWord(const uint8_t* data);
     static uint32_t readTriple(const uint8_t* data);
 

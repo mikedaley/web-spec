@@ -116,6 +116,7 @@ public:
     size_t tapeGetBlockCount() const override { return tapeBlocks_.size(); }
     size_t tapeGetCurrentBlock() const override { return tapeBlockIndex_; }
     const std::vector<TapeBlockInfo>& tapeGetBlockInfo() const { return tapeBlockInfo_; }
+    const TapeMetadata& tapeGetMetadata() const { return tapeMetadata_; }
     void tapeSetInstantLoad(bool instant) { tapeInstantLoad_ = instant; }
     bool tapeGetInstantLoad() const { return tapeInstantLoad_; }
 
@@ -205,6 +206,7 @@ protected:
 
     // Tape block metadata for UI
     std::vector<TapeBlockInfo> tapeBlockInfo_;
+    TapeMetadata tapeMetadata_;
 
     // Instant load mode (ROM trap) vs normal speed (EAR bit pulses)
     bool tapeInstantLoad_ = false;

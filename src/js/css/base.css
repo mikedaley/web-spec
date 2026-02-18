@@ -253,6 +253,13 @@ header {
   gap: 12px;
 }
 
+.header-logo {
+  display: block;
+  height: 28px;
+  width: auto;
+  color: var(--text-primary);
+}
+
 .logo-text {
   font-size: 16px;
   font-weight: 600;

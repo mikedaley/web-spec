@@ -9,6 +9,7 @@
 #include "../machines/zx_spectrum.hpp"
 #include "../machines/zx48k/zx_spectrum_48k.hpp"
 #include <cstring>
+#include <string>
 #include <emscripten.h>
 
 // Global machine instance
@@ -447,18 +448,19 @@ int tapeGetCurrentBlock() {
   return static_cast<int>(g_machine->tapeGetCurrentBlock());
 }
 
-// Serialized block info buffer: 16 bytes per block
+// Serialized block info buffer: 20 bytes per block
 // [0]     flagByte
 // [1]     headerType
 // [2-11]  filename (10 bytes)
 // [12-13] dataLength (LE)
-// [14-15] reserved
-static uint8_t s_blockInfoBuf[4096]; // max 256 blocks
+// [14-15] param1 (LE)
+// [16-17] param2 (LE)
+// [18-19] reserved
+static uint8_t s_blockInfoBuf[5120]; // max 256 blocks * 20 bytes
 
 EMSCRIPTEN_KEEPALIVE
 const uint8_t* tapeGetBlockInfo() {
   REQUIRE_MACHINE_OR(nullptr);
-  // We need to downcast to ZXSpectrum to access tapeGetBlockInfo()
   auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
   if (!spec) return nullptr;
 
@@ -467,17 +469,86 @@ const uint8_t* tapeGetBlockInfo() {
   if (count > 256) count = 256;
 
   for (size_t i = 0; i < count; i++) {
-    uint8_t* dst = s_blockInfoBuf + i * 16;
+    uint8_t* dst = s_blockInfoBuf + i * 20;
     dst[0] = info[i].flagByte;
     dst[1] = info[i].headerType;
     memcpy(dst + 2, info[i].filename, 10);
     dst[12] = info[i].dataLength & 0xFF;
     dst[13] = (info[i].dataLength >> 8) & 0xFF;
-    dst[14] = 0;
-    dst[15] = 0;
+    dst[14] = info[i].param1 & 0xFF;
+    dst[15] = (info[i].param1 >> 8) & 0xFF;
+    dst[16] = info[i].param2 & 0xFF;
+    dst[17] = (info[i].param2 >> 8) & 0xFF;
+    dst[18] = 0;
+    dst[19] = 0;
   }
 
   return s_blockInfoBuf;
+}
+
+// JSON metadata buffer
+static std::string s_metadataJson;
+
+static void jsonEscape(std::string& out, const std::string& s) {
+  for (char c : s) {
+    switch (c) {
+      case '"':  out += "\\\""; break;
+      case '\\': out += "\\\\"; break;
+      case '\n': out += "\\n"; break;
+      case '\r': out += "\\r"; break;
+      case '\t': out += "\\t"; break;
+      default:   out += c; break;
+    }
+  }
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* tapeGetMetadata() {
+  REQUIRE_MACHINE_OR("");
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  if (!spec) return "";
+
+  const auto& m = spec->tapeGetMetadata();
+  s_metadataJson.clear();
+  s_metadataJson = "{";
+
+  auto addStr = [&](const char* key, const std::string& val) {
+    s_metadataJson += "\"";
+    s_metadataJson += key;
+    s_metadataJson += "\":\"";
+    jsonEscape(s_metadataJson, val);
+    s_metadataJson += "\",";
+  };
+  auto addNum = [&](const char* key, uint32_t val) {
+    s_metadataJson += "\"";
+    s_metadataJson += key;
+    s_metadataJson += "\":";
+    s_metadataJson += std::to_string(val);
+    s_metadataJson += ",";
+  };
+
+  addStr("format", m.format);
+  addNum("versionMajor", m.versionMajor);
+  addNum("versionMinor", m.versionMinor);
+  addNum("fileSize", m.fileSize);
+  addNum("blockCount", m.blockCount);
+  addNum("totalDataBytes", m.totalDataBytes);
+  addStr("title", m.title);
+  addStr("publisher", m.publisher);
+  addStr("author", m.author);
+  addStr("year", m.year);
+  addStr("language", m.language);
+  addStr("type", m.type);
+  addStr("price", m.price);
+  addStr("protection", m.protection);
+  addStr("origin", m.origin);
+  addStr("comment", m.comment);
+
+  // Remove trailing comma and close
+  if (s_metadataJson.back() == ',') s_metadataJson.pop_back();
+  s_metadataJson += "}";
+
+  return s_metadataJson.c_str();
 }
 
 EMSCRIPTEN_KEEPALIVE

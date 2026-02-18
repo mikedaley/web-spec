@@ -29,6 +29,16 @@ bool TAPLoader::load(ZXSpectrum& machine, const uint8_t* data, uint32_t size)
     std::vector<TapeBlockInfo> info;
     parseBlockInfo(blocks, info);
 
+    // Build tape metadata
+    TapeMetadata metadata;
+    metadata.format = "TAP";
+    metadata.fileSize = size;
+    metadata.blockCount = static_cast<uint16_t>(blocks.size());
+    metadata.totalDataBytes = 0;
+    for (const auto& block : blocks) {
+        metadata.totalDataBytes += static_cast<uint32_t>(block.data.size());
+    }
+
     // Generate pulse sequences reusing TZX standard timing
     std::vector<uint32_t> pulses;
     std::vector<size_t> blockPulseStarts;
@@ -46,8 +56,9 @@ bool TAPLoader::load(ZXSpectrum& machine, const uint8_t* data, uint32_t size)
     machine.tapePulseActive_ = false;  // Loaded but NOT playing
     machine.lastTapeReadTs_ = 0;
 
-    // Store block info for UI
+    // Store block info and metadata for UI
     machine.tapeBlockInfo_ = std::move(info);
+    machine.tapeMetadata_ = std::move(metadata);
 
     machine.installOpcodeCallback();
 
@@ -106,6 +117,8 @@ bool TAPLoader::parseBlockInfo(const std::vector<TapeBlock>& blocks,
             // Copy filename (bytes 2-11)
             std::memcpy(bi.filename, &block.data[2], 10);
             bi.filename[10] = '\0';
+            bi.param1 = readWord(&block.data[12]);
+            bi.param2 = readWord(&block.data[14]);
         }
         else
         {

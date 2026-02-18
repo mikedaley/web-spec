@@ -129,6 +129,7 @@ if(EMSCRIPTEN)
                 \"_tapeGetBlockCount\", \
                 \"_tapeGetCurrentBlock\", \
                 \"_tapeGetBlockInfo\", \
+                \"_tapeGetMetadata\", \
                 \"_tapeGetBlockProgress\", \
                 \"_tapeSetInstantLoad\", \
                 \"_tapeGetInstantLoad\", \

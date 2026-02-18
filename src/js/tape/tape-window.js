@@ -28,6 +28,8 @@ export class TapeWindow extends BaseWindow {
     });
     this._proxy = proxy;
     this._blocks = [];
+    this._metadata = null;
+    this._infoPanelOpen = false;
     this._lastCurrentBlock = -1;
     this._lastIsPlaying = false;
     this._dropdownOpen = false;
@@ -42,6 +44,7 @@ export class TapeWindow extends BaseWindow {
   getState() {
     const state = super.getState();
     state.instantLoad = !!this.contentElement?.querySelector("#tape-speed-checkbox")?.checked;
+    state.infoPanelOpen = this._infoPanelOpen;
     return state;
   }
 
@@ -54,14 +57,31 @@ export class TapeWindow extends BaseWindow {
         this._updateSpeedSwitch(true);
       }
     }
+    if (state.infoPanelOpen) {
+      this._infoPanelOpen = true;
+      this._applyInfoPanelState();
+    }
     super.restoreState(state);
   }
 
   renderContent() {
     return `
       <div class="tape-player">
+        <div class="tape-filename-banner hidden" id="tape-filename-banner">
+          <span class="tape-format-badge" id="tape-format-badge"></span>
+          <span class="tape-filename-text" id="tape-filename-text"></span>
+        </div>
         <div class="tape-block-list" id="tape-block-list">
-          <div class="tape-empty-state">No tape loaded</div>
+          <div class="tape-empty-state">No tape inserted</div>
+        </div>
+        <div class="tape-info-toggle" id="tape-info-toggle">
+          <svg class="tape-info-chevron" viewBox="0 0 12 12" width="10" height="10">
+            <path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          <span>Tape Info</span>
+        </div>
+        <div class="tape-info-panel hidden" id="tape-info-panel">
+          <div class="tape-info-content" id="tape-info-content"></div>
         </div>
         <div class="tape-transport">
           <button class="tape-transport-btn rewind" id="tape-btn-rewind" title="Rewind">
@@ -82,7 +102,7 @@ export class TapeWindow extends BaseWindow {
         </div>
         <div class="tape-controls-bar">
           <div class="tape-load-container">
-            <button class="tape-load-btn" id="tape-btn-load" title="Load TAP File">Load</button>
+            <button class="tape-load-btn" id="tape-btn-load" title="Insert Tape">Insert</button>
             <div class="tape-recent-container">
               <button class="tape-recent-btn" id="tape-btn-recent" title="Recent &amp; Library">
                 <svg viewBox="0 0 12 12" width="10" height="10">
@@ -91,15 +111,19 @@ export class TapeWindow extends BaseWindow {
               </button>
             </div>
           </div>
+          <button class="tape-eject-btn" id="tape-btn-eject" title="Eject Tape" disabled>Eject</button>
           <div class="tape-speed-switch" id="tape-speed-switch" title="Toggle loading speed">
-            <span class="tape-speed-label tape-speed-label-normal">Normal</span>
+            <span class="tape-speed-label tape-speed-label-normal" title="Normal speed">
+              <svg class="tape-speed-icon" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            </span>
             <label class="tape-toggle">
               <input type="checkbox" id="tape-speed-checkbox" />
               <span class="tape-toggle-track"></span>
             </label>
-            <span class="tape-speed-label tape-speed-label-instant">Instant</span>
+            <span class="tape-speed-label tape-speed-label-instant" title="Instant speed">
+              <svg class="tape-speed-icon" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"/></svg>
+            </span>
           </div>
-          <button class="tape-eject-btn" id="tape-btn-eject" title="Eject Tape" disabled>Eject</button>
         </div>
         <div class="tape-status-bar" id="tape-status-bar">
           <div class="tape-status-dot"></div>
@@ -195,6 +219,13 @@ export class TapeWindow extends BaseWindow {
     ejectBtn.addEventListener("click", () => {
       this._ejectTape();
     });
+
+    // Info panel toggle
+    const infoToggle = this.contentElement.querySelector("#tape-info-toggle");
+    infoToggle.addEventListener("click", () => {
+      this._infoPanelOpen = !this._infoPanelOpen;
+      this._applyInfoPanelState();
+    });
   }
 
   /**
@@ -245,14 +276,182 @@ export class TapeWindow extends BaseWindow {
   _ejectTape() {
     this._proxy.tapeEject();
     this._blocks = [];
+    this._metadata = null;
+    this._infoPanelOpen = false;
     this._currentFilename = null;
     this._isTZX = false;
     this._lastCurrentBlock = -1;
     this._lastIsPlaying = false;
     this._renderBlocks();
+    this._renderInfoPanel();
+    this._applyInfoPanelState();
+    this._updateFilenameBanner();
     this._updateSpeedSwitch(false);
     const ejectBtn = this.contentElement.querySelector("#tape-btn-eject");
     if (ejectBtn) ejectBtn.disabled = true;
+  }
+
+  setMetadata(metadata) {
+    this._metadata = metadata || null;
+    this._renderInfoPanel();
+  }
+
+  _applyInfoPanelState() {
+    const panel = this.contentElement?.querySelector("#tape-info-panel");
+    const toggle = this.contentElement?.querySelector("#tape-info-toggle");
+    if (!panel || !toggle) return;
+    if (this._infoPanelOpen) {
+      panel.classList.remove("hidden");
+      toggle.classList.add("open");
+    } else {
+      panel.classList.add("hidden");
+      toggle.classList.remove("open");
+    }
+  }
+
+  _updateFilenameBanner() {
+    const banner = this.contentElement?.querySelector("#tape-filename-banner");
+    const text = this.contentElement?.querySelector("#tape-filename-text");
+    const badge = this.contentElement?.querySelector("#tape-format-badge");
+    if (!banner || !text || !badge) return;
+    if (this._currentFilename) {
+      const ext = this._currentFilename.split(".").pop().toUpperCase();
+      badge.textContent = ext === "TZX" ? "TZX" : "TAP";
+      badge.className = `tape-format-badge ${ext === "TZX" ? "tzx" : "tap"}`;
+      text.textContent = this._currentFilename;
+      banner.classList.remove("hidden");
+      banner.classList.remove("error");
+    } else {
+      banner.classList.add("hidden");
+      banner.classList.remove("error");
+      text.textContent = "";
+      badge.textContent = "";
+    }
+  }
+
+  showError(error) {
+    this._blocks = [];
+    this._metadata = null;
+    this._infoPanelOpen = false;
+    this._renderBlocks();
+    this._renderInfoPanel();
+    this._applyInfoPanelState();
+
+    const banner = this.contentElement?.querySelector("#tape-filename-banner");
+    const text = this.contentElement?.querySelector("#tape-filename-text");
+    const badge = this.contentElement?.querySelector("#tape-format-badge");
+    if (banner && text && badge) {
+      badge.textContent = "ERR";
+      badge.className = "tape-format-badge error";
+      const filename = this._currentFilename || "Unknown file";
+      text.textContent = `${filename} — ${error}`;
+      banner.classList.remove("hidden");
+      banner.classList.add("error");
+    }
+
+    this._currentFilename = null;
+    this._isTZX = false;
+    const ejectBtn = this.contentElement?.querySelector("#tape-btn-eject");
+    if (ejectBtn) ejectBtn.disabled = true;
+  }
+
+  _renderInfoPanel() {
+    const content = this.contentElement?.querySelector("#tape-info-content");
+    if (!content) return;
+
+    if (!this._metadata || !this._metadata.format) {
+      content.innerHTML = "";
+      return;
+    }
+
+    const m = this._metadata;
+    const esc = (v) => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    let html = "";
+
+    // File stats row — compact pills
+    let version = "";
+    if (m.format === "TZX" && (m.versionMajor || m.versionMinor)) {
+      version = ` v${m.versionMajor}.${String(m.versionMinor).padStart(2, "0")}`;
+    }
+    html += '<div class="tape-info-stats">';
+    html += `<span class="tape-info-pill format">${esc(m.format)}${version}</span>`;
+    html += `<span class="tape-info-pill">${this._formatBytes(m.fileSize)}</span>`;
+    html += `<span class="tape-info-pill">${m.blockCount} blocks</span>`;
+    html += `<span class="tape-info-pill">${this._formatBytes(m.totalDataBytes)} data</span>`;
+    html += "</div>";
+
+    // Archive section (TZX only) — title prominent, details in grid
+    const archiveFields = [
+      ["Publisher", m.publisher], ["Author", m.author], ["Year", m.year],
+      ["Language", m.language], ["Type", m.type], ["Price", m.price],
+      ["Protection", m.protection], ["Origin", m.origin],
+    ].filter(([, v]) => v);
+    const hasArchive = m.title || archiveFields.length > 0 || m.comment;
+
+    if (hasArchive) {
+      html += '<div class="tape-info-archive">';
+      if (m.title) {
+        html += `<div class="tape-info-title">${esc(m.title)}</div>`;
+      }
+      if (archiveFields.length > 0) {
+        html += '<div class="tape-info-grid">';
+        for (const [label, value] of archiveFields) {
+          html += `<span class="tape-info-grid-label">${label}</span>`;
+          html += `<span class="tape-info-grid-value">${esc(value)}</span>`;
+        }
+        html += "</div>";
+      }
+      if (m.comment) {
+        html += `<div class="tape-info-comment">${esc(m.comment)}</div>`;
+      }
+      html += "</div>";
+    }
+
+    // Headers — compact inline entries
+    const headerBlocks = this._blocks.filter((b) => b.flagByte === 0x00);
+    if (headerBlocks.length > 0) {
+      html += '<div class="tape-info-headers">';
+      for (const b of headerBlocks) {
+        let typeBadge = "";
+        let detail = "";
+        switch (b.headerType) {
+          case 0:
+            typeBadge = "PRG";
+            detail = esc(b.filename || "unnamed");
+            if (b.param1 !== 32768 && b.param1 !== 65535) {
+              detail += ` <span class="tape-info-detail-dim">LINE ${b.param1}</span>`;
+            }
+            break;
+          case 3:
+            typeBadge = "CODE";
+            detail = `${esc(b.filename || "unnamed")} <span class="tape-info-detail-dim">@ 0x${b.param1.toString(16).toUpperCase().padStart(4, "0")} (${b.dataLength}b)</span>`;
+            break;
+          case 1:
+            typeBadge = "NUM[]";
+            detail = esc(b.filename || "unnamed");
+            break;
+          case 2:
+            typeBadge = "CHR[]";
+            detail = esc(b.filename || "unnamed");
+            break;
+          default:
+            typeBadge = "HDR";
+            detail = esc(b.filename || "unnamed");
+        }
+        html += `<div class="tape-info-header-entry">`;
+        html += `<span class="tape-info-type-badge">${typeBadge}</span>`;
+        html += `<span class="tape-info-header-detail">${detail}</span>`;
+        html += `</div>`;
+      }
+      html += "</div>";
+    }
+
+    content.innerHTML = html;
+  }
+
+  _formatBytes(bytes) {
+    if (bytes < 1024) return `${bytes}B`;
+    return `${(bytes / 1024).toFixed(1)}KB`;
   }
 
   /**
@@ -422,6 +621,7 @@ export class TapeWindow extends BaseWindow {
     this._blocks = blocks;
     this._lastCurrentBlock = -1;
     this._renderBlocks();
+    this._updateFilenameBanner();
     const ejectBtn = this.contentElement.querySelector("#tape-btn-eject");
     if (ejectBtn) ejectBtn.disabled = false;
   }
@@ -429,7 +629,7 @@ export class TapeWindow extends BaseWindow {
   _renderBlocks() {
     const list = this.contentElement.querySelector("#tape-block-list");
     if (!this._blocks.length) {
-      list.innerHTML = '<div class="tape-empty-state">No tape loaded</div>';
+      list.innerHTML = '<div class="tape-empty-state">No tape inserted</div>';
       return;
     }
 
