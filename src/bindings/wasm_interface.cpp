@@ -418,6 +418,12 @@ void tapeRewind() {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void tapeEject() {
+  REQUIRE_MACHINE();
+  g_machine->tapeEject();
+}
+
+EMSCRIPTEN_KEEPALIVE
 int tapeIsPlaying() {
   REQUIRE_MACHINE_OR(0);
   return g_machine->tapeIsPlaying() ? 1 : 0;

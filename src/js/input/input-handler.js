@@ -101,8 +101,19 @@ export class InputHandler {
     this.proxy = proxy;
     this.canvas = null;
     this.pressedKeys = new Set();
+
+    // Reference count for each matrix bit so compound keys sharing a bit
+    // (e.g. ArrowLeft and ShiftLeft both press [0,0]) don't release it
+    // prematurely when only one key is lifted.
+    this._bitRefCount = new Array(8 * 5).fill(0);
+
     this._onKeyDown = (e) => this.handleKeyDown(e);
     this._onKeyUp = (e) => this.handleKeyUp(e);
+    this._onBlur = () => this.releaseAllKeys();
+  }
+
+  _bitIndex(row, bit) {
+    return row * 5 + bit;
   }
 
   init() {
@@ -121,6 +132,9 @@ export class InputHandler {
     // Keyboard event listeners
     document.addEventListener("keydown", this._onKeyDown);
     document.addEventListener("keyup", this._onKeyUp);
+
+    // Release all keys when window loses focus to prevent stuck keys
+    window.addEventListener("blur", this._onBlur);
   }
 
   handleKeyDown(event) {
@@ -133,11 +147,18 @@ export class InputHandler {
 
     event.preventDefault();
 
+    // Ignore OS key repeat (matches SpectREMCPP's !event.isARepeat)
+    if (event.repeat) return;
+
     if (this.pressedKeys.has(event.code)) return;
     this.pressedKeys.add(event.code);
 
     for (const [row, bit] of mapping) {
-      this.proxy.keyDown(row, bit);
+      const idx = this._bitIndex(row, bit);
+      this._bitRefCount[idx]++;
+      if (this._bitRefCount[idx] === 1) {
+        this.proxy.keyDown(row, bit);
+      }
     }
   }
 
@@ -150,15 +171,34 @@ export class InputHandler {
 
     event.preventDefault();
 
+    if (!this.pressedKeys.has(event.code)) return;
     this.pressedKeys.delete(event.code);
 
     for (const [row, bit] of mapping) {
-      this.proxy.keyUp(row, bit);
+      const idx = this._bitIndex(row, bit);
+      this._bitRefCount[idx]--;
+      if (this._bitRefCount[idx] <= 0) {
+        this._bitRefCount[idx] = 0;
+        this.proxy.keyUp(row, bit);
+      }
     }
+  }
+
+  releaseAllKeys() {
+    for (const code of this.pressedKeys) {
+      const mapping = KEY_MAP[code];
+      if (!mapping) continue;
+      for (const [row, bit] of mapping) {
+        this.proxy.keyUp(row, bit);
+      }
+    }
+    this.pressedKeys.clear();
+    this._bitRefCount.fill(0);
   }
 
   destroy() {
     document.removeEventListener("keydown", this._onKeyDown);
     document.removeEventListener("keyup", this._onKeyUp);
+    window.removeEventListener("blur", this._onBlur);
   }
 }

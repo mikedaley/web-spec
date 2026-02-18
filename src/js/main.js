@@ -185,15 +185,9 @@ class ZXSpectrumEmulator {
       }
     };
 
-    // Tape window's own Load/Recent/Library also needs emulator running
-    this.tapeWindow.onTapeLoaded = () => {
-      if (!this.running) {
-        this.running = true;
-        this.renderer.setNoSignal(false);
-        this.audioDriver.start();
-        this.updatePowerButton();
-      }
-    };
+    // Note: tapeWindow.onTapeLoaded is not needed here — the proxy.onTapLoaded
+    // callback above already fires for all tape loads (including from the tape
+    // window's Load/Recent/Library), since they all go through the worker.
 
     // File menu > Load Snapshot
     const loadSnapshotBtn = document.getElementById("btn-load-snapshot");

@@ -256,15 +256,31 @@ self.onmessage = async function (e) {
     }
 
     case "tapePlay":
-      if (wasm) wasm._tapePlay();
+      if (wasm) {
+        wasm._tapePlay();
+        self.postMessage({ type: "stateUpdate", state: getState() });
+      }
       break;
 
     case "tapeStop":
-      if (wasm) wasm._tapeStop();
+      if (wasm) {
+        wasm._tapeStop();
+        self.postMessage({ type: "stateUpdate", state: getState() });
+      }
       break;
 
     case "tapeRewind":
-      if (wasm) wasm._tapeRewind();
+      if (wasm) {
+        wasm._tapeRewind();
+        self.postMessage({ type: "stateUpdate", state: getState() });
+      }
+      break;
+
+    case "tapeEject":
+      if (wasm) {
+        wasm._tapeEject();
+        self.postMessage({ type: "stateUpdate", state: getState() });
+      }
       break;
 
     case "tapeSetInstantLoad":

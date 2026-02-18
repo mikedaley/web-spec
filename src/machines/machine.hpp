@@ -46,6 +46,7 @@ public:
     virtual void tapePlay() = 0;
     virtual void tapeStop() = 0;
     virtual void tapeRewind() = 0;
+    virtual void tapeEject() = 0;
     virtual bool tapeIsPlaying() const = 0;
     virtual bool tapeIsLoaded() const = 0;
     virtual size_t tapeGetBlockCount() const = 0;

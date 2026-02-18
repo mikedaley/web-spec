@@ -402,6 +402,27 @@ void ZXSpectrum::tapeRewind()
     lastTapeReadTs_ = 0;
 }
 
+void ZXSpectrum::tapeEject()
+{
+    tapePulseActive_ = false;
+    tapeActive_ = false;
+    tapeBlocks_.clear();
+    tapeBlockInfo_.clear();
+    tapeBlockIndex_ = 0;
+    tapePulses_.clear();
+    tapePulseBlockStarts_.clear();
+    tapePulseIndex_ = 0;
+    tapePulseRemaining_ = 0;
+    tapeEarLevel_ = false;
+    lastTapeReadTs_ = 0;
+    tapeInstantLoad_ = false;
+
+    // Remove opcode callback if no breakpoints remain
+    if (breakpoints_.empty()) {
+        z80_->registerOpcodeCallback(nullptr);
+    }
+}
+
 // ============================================================================
 // Tape (default: 48K ROM trap at 0x056B — RET NZ inside LD-BYTES)
 // ============================================================================

@@ -123,6 +123,7 @@ if(EMSCRIPTEN)
                 \"_tapePlay\", \
                 \"_tapeStop\", \
                 \"_tapeRewind\", \
+                \"_tapeEject\", \
                 \"_tapeIsPlaying\", \
                 \"_tapeIsLoaded\", \
                 \"_tapeGetBlockCount\", \

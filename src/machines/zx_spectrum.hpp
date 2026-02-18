@@ -110,6 +110,7 @@ public:
     void tapePlay() override;
     void tapeStop() override;
     void tapeRewind() override;
+    void tapeEject() override;
     bool tapeIsPlaying() const override { return tapePulseActive_; }
     bool tapeIsLoaded() const override { return tapeActive_; }
     size_t tapeGetBlockCount() const override { return tapeBlocks_.size(); }

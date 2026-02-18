@@ -91,6 +91,7 @@ export class TapeWindow extends BaseWindow {
     const rewindBtn = this.contentElement.querySelector("#tape-btn-rewind");
 
     playBtn.addEventListener("click", () => {
+      if (!this._proxy.tapeIsLoaded()) return;
       if (this._proxy.tapeIsPlaying()) {
         this._proxy.tapeStop();
       } else {
@@ -99,11 +100,17 @@ export class TapeWindow extends BaseWindow {
     });
 
     stopBtn.addEventListener("click", () => {
+      if (!this._proxy.tapeIsLoaded()) return;
       this._proxy.tapeStop();
     });
 
     rewindBtn.addEventListener("click", () => {
+      if (!this._proxy.tapeIsLoaded()) return;
       this._proxy.tapeRewind();
+      this._lastCurrentBlock = -1;
+      this.contentElement.querySelectorAll(".tape-block-progress").forEach((bar) => {
+        bar.style.width = "0%";
+      });
     });
 
     // Load button - opens file picker
@@ -209,6 +216,7 @@ export class TapeWindow extends BaseWindow {
    * Eject the current tape
    */
   _ejectTape() {
+    this._proxy.tapeEject();
     this._blocks = [];
     this._currentFilename = null;
     this._isTZX = false;

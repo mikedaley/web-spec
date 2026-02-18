@@ -137,6 +137,10 @@ export class EmulatorProxy {
     this.worker.postMessage({ type: "tapeRewind" });
   }
 
+  tapeEject() {
+    this.worker.postMessage({ type: "tapeEject" });
+  }
+
   readMemory(addr, length) {
     const id = this._nextId++;
     return new Promise((resolve) => {
