@@ -918,12 +918,13 @@ export class SoundWindow extends BaseWindow {
 
   updateAYWaveforms(proxy) {
     const colors = [CHANNEL_COLORS.a, CHANNEL_COLORS.b, CHANNEL_COLORS.c];
+    const ayOn = proxy.isAYEnabled();
 
     for (let ch = 0; ch < 3; ch++) {
       const ctx = this.ayElements.canvasCtx[ch];
       if (!ctx) continue;
       const canvas = this.ayElements.canvases[ch];
-      const samples = proxy.getAYWaveform ? proxy.getAYWaveform(ch) : null;
+      const samples = ayOn && proxy.getAYWaveform ? proxy.getAYWaveform(ch) : null;
       this.drawChannelWaveform(ctx, canvas, samples, colors[ch]);
     }
   }
