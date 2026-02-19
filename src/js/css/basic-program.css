@@ -129,37 +129,37 @@
 .bas-editor-scroll {
   flex: 1;
   overflow: auto;
-  position: relative;
   min-width: 0;
+  /* Grid overlay: highlight and textarea share the same cell */
+  display: grid;
+  grid-template: 1fr / 1fr;
 }
 
 /* Highlight overlay - rendered pre behind transparent textarea */
 .bas-highlight {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
+  grid-area: 1 / 1;
   padding: 8px;
+  margin: 0;
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 18px;
   white-space: pre-wrap;
   word-wrap: break-word;
-  color: transparent;
   pointer-events: none;
   tab-size: 4;
+  overflow: hidden;
 }
 
 .bas-textarea {
+  grid-area: 1 / 1;
   display: block;
-  width: 100%;
-  min-height: 100%;
   padding: 8px;
+  margin: 0;
   border: none;
   outline: none;
   resize: none;
   background: transparent;
-  color: var(--text-primary);
+  color: transparent;
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 18px;
@@ -167,7 +167,6 @@
   word-wrap: break-word;
   tab-size: 4;
   caret-color: var(--accent-blue);
-  position: relative;
   z-index: 1;
 }
 
@@ -281,6 +280,56 @@
 .bas-vars-table td.bas-var-value {
   color: var(--accent-green);
   max-width: 100px;
+}
+
+.bas-vars-table td.bas-var-array-cell {
+  padding: 2px 4px;
+}
+
+/* Array data tables (nested inside the main vars table) */
+.bas-array-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  margin: 2px 0;
+}
+
+.bas-array-table thead th {
+  padding: 1px 4px;
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: center;
+  border-bottom: 1px solid var(--glass-border-subtle);
+}
+
+.bas-array-table td {
+  padding: 1px 4px;
+  line-height: 14px;
+  text-align: center;
+  border: 1px solid var(--glass-border-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+}
+
+.bas-array-table td.bas-array-idx {
+  color: var(--text-muted);
+  font-size: 9px;
+  border: none;
+  text-align: right;
+  padding-right: 6px;
+}
+
+.bas-array-table td.bas-var-value {
+  color: var(--accent-green);
+  max-width: none;
+}
+
+.bas-array-table tbody tr:hover {
+  background: var(--overlay-hover);
 }
 
 /* ============================================

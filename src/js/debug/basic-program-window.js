@@ -115,7 +115,7 @@ export class BasicProgramWindow extends BaseWindow {
 
     // Textarea events
     this._textarea.addEventListener("input", () => this._onInput());
-    this._textarea.addEventListener("scroll", () => this._syncScroll());
+    this._editorScroll.addEventListener("scroll", () => this._syncScroll());
     this._textarea.addEventListener("keydown", (e) => this._onKeyDown(e));
     this._textarea.addEventListener("click", () => this._updateCursorStatus());
     this._textarea.addEventListener("keyup", () => this._updateCursorStatus());
@@ -187,7 +187,7 @@ export class BasicProgramWindow extends BaseWindow {
   }
 
   _syncScroll() {
-    this._highlight.style.transform = `translate(-${this._editorScroll.scrollLeft}px, -${this._editorScroll.scrollTop}px)`;
+    // Gutter follows the editor's vertical scroll
     this._gutter.style.transform = `translateY(-${this._editorScroll.scrollTop}px)`;
   }
 

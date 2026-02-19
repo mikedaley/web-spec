@@ -115,9 +115,15 @@ export class BasicVariableInspector {
             dims.push(data[i] | (data[i + 1] << 8));
             i += 2;
           }
-          // Skip to end of array data
+          // Read element values (5 bytes each)
+          const totalElements = dims.reduce((a, b) => a * b, 1);
+          const elements = [];
+          for (let e = 0; e < totalElements && i + 4 < data.length; e++) {
+            elements.push(this._decodeFloat(data, i));
+            i += 5;
+          }
           i = startOffset + totalLen;
-          vars.push({ name: letter + "()", type: "numArray", value: `[${dims.join("x")}]`, dimensions: dims });
+          vars.push({ name: letter + "()", type: "numArray", dimensions: dims, elements });
           break;
         }
 
@@ -135,8 +141,20 @@ export class BasicVariableInspector {
             dims2.push(data[i] | (data[i + 1] << 8));
             i += 2;
           }
+          // Last dimension is string length for each element
+          const strLen = dims2.length > 0 ? dims2[dims2.length - 1] : 0;
+          const outerDims = dims2.slice(0, -1);
+          const totalStrings = outerDims.length > 0 ? outerDims.reduce((a, b) => a * b, 1) : 1;
+          const strElements = [];
+          for (let e = 0; e < totalStrings && i + strLen - 1 < data.length; e++) {
+            let s = "";
+            for (let c = 0; c < strLen && i < data.length; c++, i++) {
+              s += String.fromCharCode(data[i]);
+            }
+            strElements.push(s.trimEnd());
+          }
           i = startOffset2 + totalLen2;
-          vars.push({ name: letter + "$()", type: "strArray", value: `[${dims2.join("x")}]`, dimensions: dims2 });
+          vars.push({ name: letter + "$()", type: "strArray", dimensions: outerDims, strLen, elements: strElements });
           break;
         }
 
@@ -186,7 +204,11 @@ export class BasicVariableInspector {
       const low = data[offset + 2];
       const high = data[offset + 3];
       const intVal = low | (high << 8);
-      return sign === 0xFF ? -intVal : intVal;
+      if (sign === 0xFF) {
+        // Negative: low/high are two's complement
+        return intVal >= 0x8000 ? intVal - 0x10000 : -intVal;
+      }
+      return intVal;
     }
 
     // Full floating point
@@ -224,6 +246,71 @@ export class BasicVariableInspector {
    * @param {Array} variables
    * @param {HTMLElement} container
    */
+  /**
+   * Render an array variable as an HTML table.
+   * 1D: rows with index and value.
+   * 2D: grid with row/column headers.
+   */
+  _renderArray(v) {
+    const dims = v.dimensions;
+    const elements = v.elements;
+    const isString = v.type === "strArray";
+
+    if (!elements || elements.length === 0) {
+      return '<span class="bas-var-type">empty</span>';
+    }
+
+    const fmtVal = (val) => {
+      if (isString) return '"' + escHtml(val) + '"';
+      return this._formatNumber(val);
+    };
+
+    // 1D array
+    if (dims.length <= 1) {
+      let html = '<table class="bas-array-table">';
+      html += '<thead><tr><th>#</th><th>Value</th></tr></thead><tbody>';
+      for (let i = 0; i < elements.length; i++) {
+        html += `<tr><td class="bas-array-idx">${i + 1}</td><td class="bas-var-value">${fmtVal(elements[i])}</td></tr>`;
+      }
+      html += '</tbody></table>';
+      return html;
+    }
+
+    // 2D array
+    if (dims.length === 2) {
+      const rows = dims[0];
+      const cols = dims[1];
+      let html = '<table class="bas-array-table">';
+      // Column headers
+      html += '<thead><tr><th></th>';
+      for (let c = 1; c <= cols; c++) {
+        html += `<th>${c}</th>`;
+      }
+      html += '</tr></thead><tbody>';
+      // Data rows
+      for (let r = 0; r < rows; r++) {
+        html += `<tr><td class="bas-array-idx">${r + 1}</td>`;
+        for (let c = 0; c < cols; c++) {
+          const idx = r * cols + c;
+          const val = idx < elements.length ? fmtVal(elements[idx]) : "";
+          html += `<td class="bas-var-value">${val}</td>`;
+        }
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+      return html;
+    }
+
+    // Higher dimensions: just show flat list
+    let html = '<table class="bas-array-table">';
+    html += '<thead><tr><th>#</th><th>Value</th></tr></thead><tbody>';
+    for (let i = 0; i < elements.length; i++) {
+      html += `<tr><td class="bas-array-idx">${i + 1}</td><td class="bas-var-value">${fmtVal(elements[i])}</td></tr>`;
+    }
+    html += '</tbody></table>';
+    return html;
+  }
+
   render(variables, container) {
     if (!container) return;
 
@@ -255,13 +342,15 @@ export class BasicVariableInspector {
           value = `${this._formatNumber(v.value)} TO ${this._formatNumber(v.limit)} STEP ${this._formatNumber(v.step)}`;
           break;
         case "numArray":
-          type = "Num()";
-          value = escHtml(v.value);
-          break;
-        case "strArray":
-          type = "Str()";
-          value = escHtml(v.value);
-          break;
+        case "strArray": {
+          type = v.type === "numArray" ? "Num()" : "Str()";
+          const dims = v.dimensions;
+          html += `<tr><td class="bas-var-name">${name}</td><td class="bas-var-type">${type}</td><td class="bas-var-value">[${dims.join("x")}]</td></tr>`;
+          html += '<tr><td colspan="3" class="bas-var-array-cell">';
+          html += this._renderArray(v);
+          html += '</td></tr>';
+          continue;
+        }
       }
 
       html += `<tr><td class="bas-var-name">${name}</td><td class="bas-var-type">${type}</td><td class="bas-var-value">${value}</td></tr>`;
