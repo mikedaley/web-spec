@@ -37,6 +37,8 @@ export class BasicProgramWindow extends BaseWindow {
     this._pendingHighlight = false;
     this._romReady = false; // true once ROM has finished startup (RAM test etc.)
     this._programRunning = false; // true when PPC > 0 (BASIC program executing)
+    this._traceEnabled = false; // highlight current line while running (no pause)
+    this._traceLastLine = null; // last line highlighted by trace (avoid redundant DOM updates)
 
     // BASIC debugging state
     this._basicBreakpoints = new Set();
@@ -66,6 +68,11 @@ export class BasicProgramWindow extends BaseWindow {
           <button class="bas-toolbar-btn continue" data-action="continue" title="Continue to next breakpoint">Continue</button>
           <button class="bas-toolbar-btn stop" data-action="stop-debug" title="Stop debugging">Stop</button>
         </div>
+        <div class="bas-toolbar-separator"></div>
+        <label class="bas-trace-toggle" title="Highlight current line while running">
+          <input type="checkbox" class="bas-trace-checkbox">
+          <span>Trace</span>
+        </label>
         <div class="bas-toolbar-separator"></div>
         <div class="bas-toolbar-group">
           <button class="bas-toolbar-btn" data-action="read" title="Read program from Spectrum memory">Read</button>
@@ -153,6 +160,19 @@ export class BasicProgramWindow extends BaseWindow {
       this._sidebarResize.classList.add("active");
       document.addEventListener("mousemove", this._onSidebarResizeMove);
       document.addEventListener("mouseup", this._onSidebarResizeEnd);
+    });
+
+    // Trace toggle
+    this._traceCheckbox = this.contentElement.querySelector(".bas-trace-checkbox");
+    this._traceCheckbox.checked = this._traceEnabled;
+    this._traceCheckbox.addEventListener("change", () => {
+      this._traceEnabled = this._traceCheckbox.checked;
+      if (!this._traceEnabled) {
+        this._traceLastLine = null;
+        this._clearHighlight();
+        this._updateGutter();
+      }
+      if (this.onStateChange) this.onStateChange();
     });
 
     // Load saved content
@@ -916,6 +936,15 @@ export class BasicProgramWindow extends BaseWindow {
         // Program is running when ERR_NR is 0xFF (no error/report yet)
         // AND PPC holds a valid line number
         this._programRunning = (errNr === 0xFF && ppc > 0 && ppc <= 9999);
+        // Trace mode: highlight current line while running (no pause)
+        if (this._traceEnabled && this._programRunning && !this._basicStepping) {
+          if (ppc !== this._traceLastLine) {
+            this._traceLastLine = ppc;
+            this._currentBasicLine = ppc;
+            this._highlightBasicLine(ppc);
+            this._updateGutter();
+          }
+        }
         // Program ended naturally — clear debug state
         if (!this._programRunning && this._basicStepping) {
           this._basicStepping = false;
@@ -924,6 +953,13 @@ export class BasicProgramWindow extends BaseWindow {
           this._updateDebugStatus("");
           this._updateGutter();
           this.proxy.clearBasicBreakpointMode();
+        }
+        // Program ended — clear trace highlight
+        if (!this._programRunning && this._traceLastLine !== null) {
+          this._traceLastLine = null;
+          this._currentBasicLine = null;
+          this._clearHighlight();
+          this._updateGutter();
         }
       }).catch(() => { this._romReadyChecking = false; });
     }
@@ -952,6 +988,7 @@ export class BasicProgramWindow extends BaseWindow {
     state.sidebarVisible = this._sidebarVisible;
     state.sidebarWidth = this._sidebarWidth;
     state.basicBreakpoints = [...this._basicBreakpoints];
+    state.traceEnabled = this._traceEnabled;
     return state;
   }
 
@@ -964,6 +1001,9 @@ export class BasicProgramWindow extends BaseWindow {
     }
     if (state.basicBreakpoints) {
       this._basicBreakpoints = new Set(state.basicBreakpoints);
+    }
+    if (state.traceEnabled !== undefined) {
+      this._traceEnabled = state.traceEnabled;
     }
     super.restoreState(state);
 

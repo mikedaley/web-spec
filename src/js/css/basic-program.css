@@ -123,6 +123,64 @@
   color: var(--accent-red);
 }
 
+/* Trace toggle switch */
+.bas-trace-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 4px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--text-secondary);
+  user-select: none;
+  transition: color 0.15s;
+}
+
+.bas-trace-toggle:hover {
+  color: var(--text-primary);
+}
+
+.bas-trace-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 26px;
+  height: 14px;
+  border: 1px solid var(--glass-border);
+  border-radius: 7px;
+  background: var(--control-bg);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.bas-trace-checkbox::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  transition: transform 0.2s, background 0.2s;
+}
+
+.bas-trace-checkbox:checked {
+  background: var(--accent-blue-bg-stronger);
+  border-color: var(--accent-blue);
+}
+
+.bas-trace-checkbox:checked::after {
+  transform: translateX(12px);
+  background: var(--accent-blue);
+}
+
+.bas-trace-checkbox:hover {
+  border-color: var(--accent-blue);
+}
+
 /* ============================================
    EDITOR AREA
    ============================================ */
