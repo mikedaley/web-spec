@@ -127,6 +127,18 @@
   user-select: none;
 }
 
+.tape-empty-deck {
+  position: relative;
+}
+
+.tape-empty-deck + .tape-cassette-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
 .tape-cassette-label {
   position: absolute;
   /* Label area: SVG coords (433,250)-(2362,486) on 2626x1654 viewport */
@@ -151,22 +163,35 @@
   pointer-events: none;
 }
 
-/* Spindle rotation — targets spindle paths inside inlined SVG */
+/* Spindle rotation — deck spindles and cassette spindle elements */
+#deck-spindle-left,
 #spindle-left-filled,
 #spindle-left-outline {
   transform-origin: 828px 757px;
 }
 
+#deck-spindle-right,
 #spindle-right-filled,
 #spindle-right-outline {
   transform-origin: 1785px 757px;
 }
 
+#deck-spindle-left.spinning,
+#deck-spindle-right.spinning,
 #spindle-left-filled.spinning,
 #spindle-left-outline.spinning,
 #spindle-right-filled.spinning,
 #spindle-right-outline.spinning {
   animation: tape-spindle-rotate 3s linear infinite;
+}
+
+#deck-spindle-left.spinning.paused,
+#deck-spindle-right.spinning.paused,
+#spindle-left-filled.spinning.paused,
+#spindle-left-outline.spinning.paused,
+#spindle-right-filled.spinning.paused,
+#spindle-right-outline.spinning.paused {
+  animation-play-state: paused;
 }
 
 @keyframes tape-spindle-rotate {
@@ -482,6 +507,20 @@
 
 .tape-transport-btn:active {
   transform: scale(0.95);
+}
+
+.tape-transport-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.tape-transport-btn:disabled:hover {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.tape-transport-btn:disabled:active {
+  transform: none;
 }
 
 .tape-transport-btn.play {

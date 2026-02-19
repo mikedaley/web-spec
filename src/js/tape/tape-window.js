@@ -21,10 +21,11 @@ export class TapeWindow extends BaseWindow {
       id: "tape-window",
       title: "Tape Player",
       minWidth: 280,
-      minHeight: 240,
-      defaultWidth: 320,
+      minHeight: 650,
+      defaultWidth: 280,
       defaultHeight: 400,
       defaultPosition: { x: 80, y: 80 },
+      resizeDirections: ["n", "s"],
     });
     this._proxy = proxy;
     this._blocks = [];
@@ -45,7 +46,9 @@ export class TapeWindow extends BaseWindow {
 
   getState() {
     const state = super.getState();
-    state.instantLoad = !!this.contentElement?.querySelector("#tape-speed-checkbox")?.checked;
+    state.instantLoad = !!this.contentElement?.querySelector(
+      "#tape-speed-checkbox",
+    )?.checked;
     state.infoPanelOpen = this._infoPanelOpen;
     state.cassettePanelOpen = this._cassettePanelOpen;
     return state;
@@ -53,7 +56,9 @@ export class TapeWindow extends BaseWindow {
 
   restoreState(state) {
     if (state.instantLoad) {
-      const checkbox = this.contentElement?.querySelector("#tape-speed-checkbox");
+      const checkbox = this.contentElement?.querySelector(
+        "#tape-speed-checkbox",
+      );
       if (checkbox) {
         checkbox.checked = true;
         this._proxy.tapeSetInstantLoad(true);
@@ -74,10 +79,6 @@ export class TapeWindow extends BaseWindow {
   renderContent() {
     return `
       <div class="tape-player">
-        <div class="tape-filename-banner hidden" id="tape-filename-banner">
-          <span class="tape-format-badge" id="tape-format-badge"></span>
-          <span class="tape-filename-text" id="tape-filename-text"></span>
-        </div>
         <div class="tape-cassette-toggle" id="tape-cassette-toggle">
           <svg class="tape-cassette-chevron" viewBox="0 0 12 12" width="10" height="10">
             <path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5"/>
@@ -85,7 +86,65 @@ export class TapeWindow extends BaseWindow {
           <span>Cassette</span>
         </div>
         <div class="tape-cassette-vis hidden" id="tape-cassette-vis">
+          <div class="tape-empty-deck" id="tape-empty-deck">
+            <svg viewBox="0 0 2626 1654" class="tape-cassette-img">
+              <defs>
+                <radialGradient id="spindle-face" cx="45%" cy="40%" r="50%">
+                  <stop offset="0%" stop-color="#666"/>
+                  <stop offset="60%" stop-color="#4a4a4a"/>
+                  <stop offset="100%" stop-color="#3a3a3c"/>
+                </radialGradient>
+              </defs>
+              <rect x="0" y="0" width="2626" height="1654" fill="#1a1a1a"/>
+              <!-- Left spindle — center 828,757 matching cassette -->
+              <g id="deck-spindle-left" class="deck-spindle">
+                <circle cx="828" cy="757" r="155" fill="#222" stroke="#333" stroke-width="3"/>
+                <circle cx="828" cy="757" r="120" fill="url(#spindle-face)" stroke="#555" stroke-width="3"/>
+                <circle cx="828" cy="757" r="82" fill="#333" stroke="#4a4a4a" stroke-width="2"/>
+                <rect x="817" y="686" width="22" height="142" rx="3" fill="#5a5a5a" stroke="#6a6a6a" stroke-width="1"/>
+                <rect x="767" y="746" width="122" height="22" rx="3" fill="#5a5a5a" stroke="#6a6a6a" stroke-width="1"/>
+                <circle cx="828" cy="757" r="24" fill="#1a1a1a" stroke="#444" stroke-width="2"/>
+                <rect x="822" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(0,828,757)"/>
+                <rect x="822" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(30,828,757)"/>
+                <rect x="822" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(60,828,757)"/>
+                <rect x="822" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(90,828,757)"/>
+                <rect x="822" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(120,828,757)"/>
+                <rect x="822" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(150,828,757)"/>
+                <rect x="822" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(180,828,757)"/>
+                <rect x="822" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(210,828,757)"/>
+                <rect x="822" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(240,828,757)"/>
+                <rect x="822" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(270,828,757)"/>
+                <rect x="822" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(300,828,757)"/>
+                <rect x="822" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(330,828,757)"/>
+              </g>
+              <!-- Right spindle — center 1785,757 matching cassette -->
+              <g id="deck-spindle-right" class="deck-spindle">
+                <circle cx="1785" cy="757" r="155" fill="#222" stroke="#333" stroke-width="3"/>
+                <circle cx="1785" cy="757" r="120" fill="url(#spindle-face)" stroke="#555" stroke-width="3"/>
+                <circle cx="1785" cy="757" r="82" fill="#333" stroke="#4a4a4a" stroke-width="2"/>
+                <rect x="1774" y="686" width="22" height="142" rx="3" fill="#5a5a5a" stroke="#6a6a6a" stroke-width="1"/>
+                <rect x="1724" y="746" width="122" height="22" rx="3" fill="#5a5a5a" stroke="#6a6a6a" stroke-width="1"/>
+                <circle cx="1785" cy="757" r="24" fill="#1a1a1a" stroke="#444" stroke-width="2"/>
+                <rect x="1779" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(0,1785,757)"/>
+                <rect x="1779" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(30,1785,757)"/>
+                <rect x="1779" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(60,1785,757)"/>
+                <rect x="1779" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(90,1785,757)"/>
+                <rect x="1779" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(120,1785,757)"/>
+                <rect x="1779" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(150,1785,757)"/>
+                <rect x="1779" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(180,1785,757)"/>
+                <rect x="1779" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(210,1785,757)"/>
+                <rect x="1779" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(240,1785,757)"/>
+                <rect x="1779" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(270,1785,757)"/>
+                <rect x="1779" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(300,1785,757)"/>
+                <rect x="1779" y="630" width="12" height="16" rx="2" fill="#555" transform="rotate(330,1785,757)"/>
+              </g>
+            </svg>
+          </div>
           <div class="tape-cassette-label" id="tape-cassette-label"></div>
+        </div>
+        <div class="tape-filename-banner hidden" id="tape-filename-banner">
+          <span class="tape-format-badge" id="tape-format-badge"></span>
+          <span class="tape-filename-text" id="tape-filename-text"></span>
         </div>
         <div class="tape-block-list" id="tape-block-list">
           <div class="tape-empty-state">No tape inserted</div>
@@ -175,11 +234,14 @@ export class TapeWindow extends BaseWindow {
 
     rewindBtn.addEventListener("click", () => {
       if (!this._proxy.tapeIsLoaded() && !this._blocks.length) return;
+      if (this._proxy.tapeIsPlaying()) return;
       this._proxy.tapeRewind();
       this._lastCurrentBlock = -1;
-      this.contentElement.querySelectorAll(".tape-block-progress").forEach((bar) => {
-        bar.style.width = "0%";
-      });
+      this.contentElement
+        .querySelectorAll(".tape-block-progress")
+        .forEach((bar) => {
+          bar.style.width = "0%";
+        });
     });
 
     // Load button - opens file picker
@@ -216,15 +278,19 @@ export class TapeWindow extends BaseWindow {
 
     // Close dropdown on outside click
     this._outsideClickHandler = (e) => {
-      if (!e.target.closest(".tape-recent-container") &&
-          !this._dropdown.contains(e.target)) {
+      if (
+        !e.target.closest(".tape-recent-container") &&
+        !this._dropdown.contains(e.target)
+      ) {
         this._closeDropdown();
       }
     };
     document.addEventListener("click", this._outsideClickHandler);
 
     // Speed toggle switch (disabled for TZX files)
-    const speedCheckbox = this.contentElement.querySelector("#tape-speed-checkbox");
+    const speedCheckbox = this.contentElement.querySelector(
+      "#tape-speed-checkbox",
+    );
     speedCheckbox.addEventListener("change", () => {
       if (this._isTZX) {
         speedCheckbox.checked = false;
@@ -248,7 +314,9 @@ export class TapeWindow extends BaseWindow {
     });
 
     // Cassette visualization toggle
-    const cassetteToggle = this.contentElement.querySelector("#tape-cassette-toggle");
+    const cassetteToggle = this.contentElement.querySelector(
+      "#tape-cassette-toggle",
+    );
     cassetteToggle.addEventListener("click", () => {
       this._cassettePanelOpen = !this._cassettePanelOpen;
       this._applyCassettePanelState();
@@ -273,10 +341,30 @@ export class TapeWindow extends BaseWindow {
       svg.removeAttribute("width");
       svg.removeAttribute("height");
 
+      // Initially hidden until a tape is inserted
+      svg.style.display = "none";
+
+      // Make the reel window fills transparent so deck spindles are visible behind the cassette spindles
+
+
+      // Make reel window fills transparent so deck spindles are visible
+      for (const id of ["#path19", "#path20"]) {
+        const el = svg.querySelector(id);
+        if (el) {
+          el.setAttribute("fill", "transparent");
+          el.setAttribute("stroke", "transparent");
+        }
+      }
+
       // Insert SVG before the label overlay
       const label = container.querySelector("#tape-cassette-label");
       container.insertBefore(svg, label);
       this._cassetteSvg = svg;
+
+      // Show cassette if a tape is already loaded (e.g. restored from session)
+      if (this._blocks.length > 0) {
+        this._showCassette(true);
+      }
     } catch (err) {
       console.warn("Failed to load cassette SVG:", err);
     }
@@ -315,7 +403,10 @@ export class TapeWindow extends BaseWindow {
     this._currentFilename = filename;
     this._rawTapeData = new Uint8Array(data);
     addToRecentTapes(filename, data);
-    const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+    const buffer = data.buffer.slice(
+      data.byteOffset,
+      data.byteOffset + data.byteLength,
+    );
     const ext = filename.split(".").pop().toLowerCase();
     this._setTapeFormat(ext);
     if (ext === "tzx") {
@@ -334,7 +425,6 @@ export class TapeWindow extends BaseWindow {
     this._blocks = [];
     this._metadata = null;
     this._infoPanelOpen = false;
-    this._cassettePanelOpen = false;
     this._currentFilename = null;
     this._isTZX = false;
     this._rawTapeData = null;
@@ -343,16 +433,11 @@ export class TapeWindow extends BaseWindow {
     this._renderBlocks();
     this._renderInfoPanel();
     this._applyInfoPanelState();
-    this._applyCassettePanelState();
     this._updateFilenameBanner();
     this._updateSpeedSwitch(false);
-    // Stop spindle animation
-    if (this._cassetteSvg) {
-      for (const id of ["#spindle-left-filled", "#spindle-left-outline", "#spindle-right-filled", "#spindle-right-outline"]) {
-        const el = this._cassetteSvg.querySelector(id);
-        if (el) el.classList.remove("spinning");
-      }
-    }
+    this._showCassette(false);
+    // Reset spindle animation fully on eject
+    this._resetSpindles();
     const ejectBtn = this.contentElement.querySelector("#tape-btn-eject");
     if (ejectBtn) ejectBtn.disabled = true;
   }
@@ -385,6 +470,53 @@ export class TapeWindow extends BaseWindow {
     } else {
       panel.classList.add("hidden");
       toggle.classList.remove("open");
+    }
+  }
+
+  _showCassette(hasTape) {
+    if (this._cassetteSvg) {
+      this._cassetteSvg.style.display = hasTape ? "" : "none";
+    }
+    // Hide label overlay when no tape
+    const label = this.contentElement?.querySelector("#tape-cassette-label");
+    if (label) label.style.display = hasTape ? "" : "none";
+  }
+
+  _getAllSpindleEls() {
+    const els = [];
+    const deckSvg = this.contentElement?.querySelector("#tape-empty-deck svg");
+    if (deckSvg) {
+      for (const id of ["#deck-spindle-left", "#deck-spindle-right"]) {
+        const el = deckSvg.querySelector(id);
+        if (el) els.push(el);
+      }
+    }
+    if (this._cassetteSvg) {
+      for (const id of [
+        "#spindle-left-filled", "#spindle-left-outline",
+        "#spindle-right-filled", "#spindle-right-outline",
+      ]) {
+        const el = this._cassetteSvg.querySelector(id);
+        if (el) els.push(el);
+      }
+    }
+    return els;
+  }
+
+  _setSpindleSpinning(isPlaying) {
+    for (const el of this._getAllSpindleEls()) {
+      if (isPlaying) {
+        el.classList.add("spinning");
+        el.classList.remove("paused");
+      } else {
+        el.classList.add("paused");
+      }
+    }
+  }
+
+  _resetSpindles() {
+    for (const el of this._getAllSpindleEls()) {
+      el.classList.remove("spinning", "paused");
     }
   }
 
@@ -453,7 +585,11 @@ export class TapeWindow extends BaseWindow {
     }
 
     const m = this._metadata;
-    const esc = (v) => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const esc = (v) =>
+      String(v)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
     let html = "";
 
     // File stats row — compact pills
@@ -470,9 +606,14 @@ export class TapeWindow extends BaseWindow {
 
     // Archive section (TZX only) — title prominent, details in grid
     const archiveFields = [
-      ["Publisher", m.publisher], ["Author", m.author], ["Year", m.year],
-      ["Language", m.language], ["Type", m.type], ["Price", m.price],
-      ["Protection", m.protection], ["Origin", m.origin],
+      ["Publisher", m.publisher],
+      ["Author", m.author],
+      ["Year", m.year],
+      ["Language", m.language],
+      ["Type", m.type],
+      ["Price", m.price],
+      ["Protection", m.protection],
+      ["Origin", m.origin],
     ].filter(([, v]) => v);
     const hasArchive = m.title || archiveFields.length > 0 || m.comment;
 
@@ -689,7 +830,7 @@ export class TapeWindow extends BaseWindow {
     if (!this._rawTapeData || !this._currentFilename) return;
     const buffer = this._rawTapeData.buffer.slice(
       this._rawTapeData.byteOffset,
-      this._rawTapeData.byteOffset + this._rawTapeData.byteLength
+      this._rawTapeData.byteOffset + this._rawTapeData.byteLength,
     );
     const ext = this._currentFilename.split(".").pop().toLowerCase();
     if (ext === "tzx") {
@@ -708,7 +849,8 @@ export class TapeWindow extends BaseWindow {
   }
 
   _updateSpeedSwitch(isInstant) {
-    const switchContainer = this.contentElement.querySelector("#tape-speed-switch");
+    const switchContainer =
+      this.contentElement.querySelector("#tape-speed-switch");
     const checkbox = this.contentElement.querySelector("#tape-speed-checkbox");
     if (!switchContainer || !checkbox) return;
     if (this._isTZX) {
@@ -727,6 +869,7 @@ export class TapeWindow extends BaseWindow {
     this._lastCurrentBlock = -1;
     this._renderBlocks();
     this._updateFilenameBanner();
+    this._showCassette(blocks.length > 0);
     const ejectBtn = this.contentElement.querySelector("#tape-btn-eject");
     if (ejectBtn) ejectBtn.disabled = false;
   }
@@ -747,17 +890,30 @@ export class TapeWindow extends BaseWindow {
       let typeName = "";
       if (isHeader) {
         switch (block.headerType) {
-          case 0: typeName = "Program"; break;
-          case 1: typeName = "Num Array"; break;
-          case 2: typeName = "Char Array"; break;
-          case 3: typeName = "Code"; break;
-          default: typeName = "Header"; break;
+          case 0:
+            typeName = "Program";
+            break;
+          case 1:
+            typeName = "Num Array";
+            break;
+          case 2:
+            typeName = "Char Array";
+            break;
+          case 3:
+            typeName = "Code";
+            break;
+          default:
+            typeName = "Header";
+            break;
         }
       }
 
-      const name = isHeader && block.filename
-        ? `${typeName}: ${block.filename}`
-        : isHeader ? typeName : "Data";
+      const name =
+        isHeader && block.filename
+          ? `${typeName}: ${block.filename}`
+          : isHeader
+            ? typeName
+            : "Data";
 
       html += `<div class="tape-block-item" data-index="${block.index}">
         <div class="tape-block-progress" data-progress-index="${block.index}"></div>
@@ -786,16 +942,20 @@ export class TapeWindow extends BaseWindow {
       });
 
       // Reset progress bars on completed blocks
-      this.contentElement.querySelectorAll(".tape-block-progress").forEach((bar) => {
-        const idx = parseInt(bar.dataset.progressIndex, 10);
-        if (idx < currentBlock) {
-          bar.style.width = "100%";
-        } else if (idx > currentBlock) {
-          bar.style.width = "0%";
-        }
-      });
+      this.contentElement
+        .querySelectorAll(".tape-block-progress")
+        .forEach((bar) => {
+          const idx = parseInt(bar.dataset.progressIndex, 10);
+          if (idx < currentBlock) {
+            bar.style.width = "100%";
+          } else if (idx > currentBlock) {
+            bar.style.width = "0%";
+          }
+        });
 
-      const activeItem = this.contentElement.querySelector(".tape-block-item.active");
+      const activeItem = this.contentElement.querySelector(
+        ".tape-block-item.active",
+      );
       if (activeItem) {
         activeItem.scrollIntoView({ block: "nearest", behavior: "smooth" });
       }
@@ -805,7 +965,7 @@ export class TapeWindow extends BaseWindow {
     if (isPlaying) {
       const progress = proxy.tapeGetBlockProgress();
       const activeBar = this.contentElement.querySelector(
-        `.tape-block-progress[data-progress-index="${currentBlock}"]`
+        `.tape-block-progress[data-progress-index="${currentBlock}"]`,
       );
       if (activeBar) {
         activeBar.style.width = `${progress}%`;
@@ -816,13 +976,12 @@ export class TapeWindow extends BaseWindow {
     if (isPlaying !== this._lastIsPlaying) {
       this._lastIsPlaying = isPlaying;
 
-      // Spindle rotation — target all four spindle paths by their IDs
-      if (this._cassetteSvg) {
-        for (const id of ["#spindle-left-filled", "#spindle-left-outline", "#spindle-right-filled", "#spindle-right-outline"]) {
-          const el = this._cassetteSvg.querySelector(id);
-          if (el) el.classList.toggle("spinning", isPlaying);
-        }
-      }
+      // Spindle rotation — add spinning class on first play, then toggle paused
+      this._setSpindleSpinning(isPlaying);
+
+      // Disable rewind while playing
+      const rewindBtn = this.contentElement.querySelector("#tape-btn-rewind");
+      if (rewindBtn) rewindBtn.disabled = isPlaying;
 
       const playBtn = this.contentElement.querySelector("#tape-btn-play");
       playBtn.classList.toggle("playing", isPlaying);
