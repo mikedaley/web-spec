@@ -7,6 +7,7 @@
 
 #include "zx_spectrum.hpp"
 #include <cstring>
+#include <random>
 
 namespace zxspec {
 
@@ -98,6 +99,14 @@ void ZXSpectrum::reset()
     keyboardMatrix_.fill(0xBF);
     display_.frameReset();
     paused_ = false;
+
+    // Fill RAM with random data (mimics real hardware power-on state)
+    std::random_device rd;
+    std::mt19937 rng(rd());
+    std::uniform_int_distribution<int> dist(0, 255);
+    for (auto& byte : memoryRam_) {
+        byte = static_cast<uint8_t>(dist(rng));
+    }
 
     // Reset tape playback position but keep loaded tape data
     tapeBlockIndex_ = 0;
