@@ -33,8 +33,10 @@ export class BasicProgramWindow extends BaseWindow {
     this._sidebarVisible = true;
     this._sidebarWidth = 180;
     this._lastVariableUpdate = 0;
-    this._variableUpdateInterval = 500; // ms between variable refreshes
+    this._variableUpdateInterval = 100; // ms between variable refreshes
     this._pendingHighlight = false;
+    this._romReady = false; // true once ROM has finished startup (RAM test etc.)
+    this._programRunning = false; // true when PPC > 0 (BASIC program executing)
 
     // BASIC debugging state
     this._basicBreakpoints = new Set();
@@ -128,14 +130,18 @@ export class BasicProgramWindow extends BaseWindow {
     this._textarea.addEventListener("click", () => this._onCursorMove());
     this._textarea.addEventListener("keyup", () => this._onCursorMove());
 
-    // Toolbar button events
+    // Cache toolbar button references and wire up click handlers
+    this._actionButtons = {};
     this.contentElement.querySelectorAll("[data-action]").forEach((btn) => {
+      this._actionButtons[btn.dataset.action] = btn;
       btn.addEventListener("click", (e) => {
         e.stopPropagation();
+        if (btn.disabled) return;
         const action = btn.dataset.action;
         this._handleAction(action);
       });
     });
+    this._updateToolbarState();
 
     // Sidebar resize
     this._sidebarResize.addEventListener("mousedown", (e) => {
@@ -440,6 +446,37 @@ export class BasicProgramWindow extends BaseWindow {
     this._statusCursor.textContent = `Ln ${ln}, Col ${col}`;
   }
 
+  _updateToolbarState() {
+    if (!this._actionButtons) return;
+    const paused = this.proxy?.isPaused() ?? false;
+    const stepping = this._basicStepping;
+    const ready = this._romReady;
+
+    // Read/Write: ROM must be ready (past startup) and not in debug/stepping mode
+    const canReadWrite = ready && !stepping;
+    this._setButtonEnabled("read", canReadWrite);
+    this._setButtonEnabled("write", canReadWrite);
+
+    // Run: ROM must be ready, and not currently stepping/debugging
+    this._setButtonEnabled("run", ready && !stepping);
+
+    // Step: available when a BASIC program is executing
+    this._setButtonEnabled("step", ready && (stepping || this._programRunning));
+
+    // Continue: available when paused during debugging (resume execution)
+    this._setButtonEnabled("continue", stepping);
+
+    // Stop: available when a BASIC program is executing (sends BREAK)
+    this._setButtonEnabled("stop-debug", ready && (stepping || this._programRunning));
+  }
+
+  _setButtonEnabled(action, enabled) {
+    const btn = this._actionButtons[action];
+    if (!btn) return;
+    btn.disabled = !enabled;
+    btn.classList.toggle("disabled", !enabled);
+  }
+
   async _handleAction(action) {
     switch (action) {
       case "read":
@@ -658,6 +695,8 @@ export class BasicProgramWindow extends BaseWindow {
       }
     }
 
+    this._updateToolbarState();
+
     for (const [row, bit] of keys) {
       this.proxy.keyDown(row, bit);
       await this._delay(50);
@@ -667,53 +706,61 @@ export class BasicProgramWindow extends BaseWindow {
   }
 
   async _stepBasicLine() {
-    if (!this._basicStepping) {
-      // Start stepping from the beginning — write program, inject RUN, install step BP
-      await this._writeToMemory();
-      this._basicStepping = true;
-      this._updateDebugStatus("Stepping...");
-      this._installBasicBreakpointHandler();
-      this.proxy.setBasicBreakpointMode("step", null);
-
-      const keys = [
-        [2, 3], // R
-        [6, 0], // ENTER
-      ];
-      for (const [row, bit] of keys) {
-        this.proxy.keyDown(row, bit);
-        await this._delay(50);
-        this.proxy.keyUp(row, bit);
-        await this._delay(50);
-      }
-    } else {
-      // Already stepping — just advance one statement
-      this._installBasicBreakpointHandler();
-      this.proxy.setBasicBreakpointMode("step", null);
-    }
+    // Always break on the next BASIC statement — whether a program is
+    // already running, we're mid-step, or nothing is happening yet.
+    this._basicStepping = true;
+    this._updateDebugStatus("Stepping...");
+    this._installBasicBreakpointHandler();
+    this.proxy.setBasicBreakpointMode("step", null);
+    this._updateToolbarState();
   }
 
   _continueToBreakpoint() {
-    if (!this._basicStepping || this._basicBreakpoints.size === 0) return;
-    this._updateDebugStatus("Running...");
+    this._currentBasicLine = null;
     this._clearHighlight();
-    this._installBasicBreakpointHandler();
-    this.proxy.setBasicBreakpointMode("run", this._basicBreakpoints);
+
+    if (this._basicBreakpoints.size > 0) {
+      // Resume with breakpoints armed — will pause at the next matching line
+      this._basicStepping = true;
+      this._updateDebugStatus("Running...");
+      this._installBasicBreakpointHandler();
+      this.proxy.setBasicBreakpointMode("run", this._basicBreakpoints);
+    } else {
+      // No breakpoints — just resume freely
+      this._basicStepping = false;
+      this._updateDebugStatus("");
+      this.proxy.clearBasicBreakpointMode();
+      this.proxy.resume();
+    }
+    this._updateToolbarState();
   }
 
-  _stopDebugging() {
+  async _stopDebugging() {
+    // Break the program by sending CAPS SHIFT + SPACE (the Spectrum's
+    // BREAK key combination).  The ROM checks this during execution and
+    // will stop the program with "BREAK into program" / report L.
+    this.proxy.clearBasicBreakpointMode();
+
+    // If paused at a breakpoint, resume so the ROM can process the key
+    if (this.proxy.isPaused()) {
+      this.proxy.resume();
+    }
+
+    // CAPS SHIFT = row 0 bit 0, SPACE = row 7 bit 0
+    this.proxy.keyDown(0, 0); // CAPS SHIFT
+    this.proxy.keyDown(7, 0); // SPACE
+    await this._delay(150);
+    this.proxy.keyUp(0, 0);
+    this.proxy.keyUp(7, 0);
+
     this._basicStepping = false;
+    this._programRunning = false;
     this._currentBasicLine = null;
     this._clearHighlight();
     this._updateDebugStatus("");
     this._updateGutter();
-    // Re-sync: keeps 0x1B76 active if breakpoints still exist, clears if none.
-    // setBasicBreakpointMode resumes the emulator; if no breakpoints, resume manually.
-    if (this._basicBreakpoints.size > 0) {
-      this._syncBreakpointsToWorker();
-    } else {
-      this.proxy.clearBasicBreakpointMode();
-      this.proxy.resume();
-    }
+    this._refreshVariables();
+    this._updateToolbarState();
   }
 
   _installBasicBreakpointHandler() {
@@ -731,6 +778,10 @@ export class BasicProgramWindow extends BaseWindow {
     if (framebuffer && this.onRenderFrame) {
       this.onRenderFrame(framebuffer);
     }
+    // Force an immediate variable refresh so the sidebar shows
+    // the latest state after each step/breakpoint hit
+    this._refreshVariables();
+    this._updateToolbarState();
   }
 
   _toggleBreakpoint(lineNumber) {
@@ -844,6 +895,38 @@ export class BasicProgramWindow extends BaseWindow {
    */
   update(proxy) {
     if (!this.isVisible) return;
+
+    // Keep toolbar state in sync with emulator state every frame
+    this._updateToolbarState();
+
+    // Check ROM readiness (PROG at 0x5C53) and whether a BASIC program
+    // is currently executing.  Read ERR_NR, PPC, and PROG in one call.
+    // ERR_NR (0x5C3A) = 0xFF while running; changes on error/OK/BREAK.
+    // PPC (0x5C45) = current line number (> 0 during execution).
+    // PROG (0x5C53) = program start address (valid once ROM has initialised).
+    if (!this._romReadyChecking) {
+      this._romReadyChecking = true;
+      // Read from 0x5C3A to 0x5C54 inclusive (27 bytes)
+      proxy.readMemory(0x5C3A, 27).then((data) => {
+        this._romReadyChecking = false;
+        const errNr = data[0];                            // 0x5C3A
+        const ppc = data[11] | (data[12] << 8);          // 0x5C45-46
+        const prog = data[25] | (data[26] << 8);         // 0x5C53-54
+        this._romReady = (prog >= 0x5C00 && prog < 0x8000);
+        // Program is running when ERR_NR is 0xFF (no error/report yet)
+        // AND PPC holds a valid line number
+        this._programRunning = (errNr === 0xFF && ppc > 0 && ppc <= 9999);
+        // Program ended naturally — clear debug state
+        if (!this._programRunning && this._basicStepping) {
+          this._basicStepping = false;
+          this._currentBasicLine = null;
+          this._clearHighlight();
+          this._updateDebugStatus("");
+          this._updateGutter();
+          this.proxy.clearBasicBreakpointMode();
+        }
+      }).catch(() => { this._romReadyChecking = false; });
+    }
 
     // Throttled variable refresh
     const now = performance.now();

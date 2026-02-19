@@ -68,6 +68,13 @@
   background: var(--overlay-active);
 }
 
+.bas-toolbar-btn.disabled,
+.bas-toolbar-btn:disabled {
+  opacity: 0.3;
+  pointer-events: none;
+  cursor: default;
+}
+
 .bas-toolbar-btn.run {
   color: var(--accent-green);
   border-color: var(--accent-green-border-light);
