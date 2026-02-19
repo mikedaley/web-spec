@@ -31,6 +31,9 @@ export class EmulatorProxy {
       case "frame":
         this.state = msg.state;
         if (msg.recordedBlocks) this._recordedBlocks = msg.recordedBlocks;
+        if (msg.ayRegisters) this._ayRegisters = msg.ayRegisters;
+        if (msg.ayMutes) this._ayMutes = msg.ayMutes;
+        if (msg.ayWaveforms) this._ayWaveforms = msg.ayWaveforms;
         if (this.onFrame) this.onFrame(msg.framebuffer, msg.audio, msg.sampleCount);
         break;
 
@@ -222,6 +225,32 @@ export class EmulatorProxy {
   tapeIsRecording() { return this.state.tapeIsRecording ?? false; }
   tapeRecordGetBlockCount() { return this.state.tapeRecordBlockCount ?? 0; }
   tapeRecordGetBlocks() { return this._recordedBlocks || []; }
+
+  // AY-3-8912 accessors (from cached frame data)
+  _getAYRegister(reg) {
+    return this._ayRegisters ? this._ayRegisters[reg] ?? 0 : 0;
+  }
+
+  _getAYChannelMute(ch) {
+    return this._ayMutes ? this._ayMutes[ch] ?? false : false;
+  }
+
+  _setAYChannelMute(ch, muted) {
+    if (this._ayMutes) this._ayMutes[ch] = muted;
+    this.worker.postMessage({ type: "setAYChannelMute", ch, muted });
+  }
+
+  getAYWaveform(ch) {
+    return this._ayWaveforms ? this._ayWaveforms[ch] ?? null : null;
+  }
+
+  isAYEnabled() {
+    return this.state.ayEnabled ?? false;
+  }
+
+  setAYEnabled(enabled) {
+    this.worker.postMessage({ type: "setAYEnabled", enabled });
+  }
 
   tapeRecordStart() {
     this._recordedBlocks = null;

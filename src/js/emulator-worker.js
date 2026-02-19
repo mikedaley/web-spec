@@ -39,6 +39,7 @@ function getState() {
     tapeBlockProgress: wasm._tapeGetBlockProgress(),
     tapeIsRecording: wasm._tapeIsRecording(),
     tapeRecordBlockCount: wasm._tapeRecordGetBlockCount(),
+    ayEnabled: wasm._isAYEnabled(),
   };
 }
 
@@ -88,11 +89,40 @@ function runFrames(count) {
     }
   }
 
+  // Read AY state when enabled
+  let ayRegisters = null;
+  let ayMutes = null;
+  let ayWaveforms = null;
+  if (state.ayEnabled) {
+    ayRegisters = new Uint8Array(16);
+    for (let r = 0; r < 16; r++) {
+      ayRegisters[r] = wasm._getAYRegister(r);
+    }
+    ayMutes = [
+      !!wasm._getAYChannelMute(0),
+      !!wasm._getAYChannelMute(1),
+      !!wasm._getAYChannelMute(2),
+    ];
+    // Read waveform data for 3 channels (256 floats each)
+    const waveformCount = 256;
+    const wavePtr = wasm._malloc(waveformCount * 4);
+    ayWaveforms = [];
+    for (let ch = 0; ch < 3; ch++) {
+      wasm._getAYWaveform(ch, wavePtr, waveformCount);
+      const heapOffset = wavePtr >> 2;
+      ayWaveforms.push(new Float32Array(wasm.HEAPF32.buffer, heapOffset * 4, waveformCount).slice());
+    }
+    wasm._free(wavePtr);
+  }
+
   // Transfer buffers for zero-copy
   const transfer = [framebuffer.buffer];
   if (audio) transfer.push(audio.buffer);
+  if (ayWaveforms) {
+    for (const wf of ayWaveforms) transfer.push(wf.buffer);
+  }
 
-  self.postMessage({ type: "frame", framebuffer, audio, sampleCount: sampleCount, state, recordedBlocks }, transfer);
+  self.postMessage({ type: "frame", framebuffer, audio, sampleCount: sampleCount, state, recordedBlocks, ayRegisters, ayMutes, ayWaveforms }, transfer);
 }
 
 self.onmessage = async function (e) {
@@ -396,6 +426,14 @@ self.onmessage = async function (e) {
           tapData ? [tapData.buffer] : []
         );
       }
+      break;
+
+    case "setAYChannelMute":
+      if (wasm) wasm._setAYChannelMute(msg.ch, msg.muted ? 1 : 0);
+      break;
+
+    case "setAYEnabled":
+      if (wasm) wasm._setAYEnabled(msg.enabled ? 1 : 0);
       break;
 
     case "getState":

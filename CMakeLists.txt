@@ -26,6 +26,7 @@ set(ZXSPECTRUM_BASE_SOURCES
     src/machines/zx_spectrum.cpp
     src/machines/display.cpp
     src/machines/audio.cpp
+    src/machines/ay.cpp
     src/machines/contention.cpp
     src/machines/loaders/sna_loader.cpp
     src/machines/loaders/z80_loader.cpp
@@ -163,6 +164,12 @@ if(EMSCRIPTEN)
                 \"_isBreakpointHit\", \
                 \"_getBreakpointAddress\", \
                 \"_clearBreakpointHit\", \
+                \"_getAYRegister\", \
+                \"_setAYChannelMute\", \
+                \"_getAYChannelMute\", \
+                \"_getAYWaveform\", \
+                \"_isAYEnabled\", \
+                \"_setAYEnabled\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \

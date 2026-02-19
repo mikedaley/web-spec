@@ -14,6 +14,7 @@
 #include "machine.hpp"
 #include "machine_info.hpp"
 #include "audio.hpp"
+#include "ay.hpp"
 #include "display.hpp"
 #include "contention.hpp"
 #include "tape_block.hpp"
@@ -106,6 +107,12 @@ public:
 
     void setBorderColor(uint8_t color) { borderColor_ = color & 0x07; }
 
+    // AY-3-8912 sound chip
+    AY3_8912& getAY() { return ay_; }
+    const AY3_8912& getAY() const { return ay_; }
+    bool isAYEnabled() const { return ayEnabled_; }
+    void setAYEnabled(bool enabled) { ayEnabled_ = enabled; }
+
     // Tape transport controls
     void tapePlay() override;
     void tapeStop() override;
@@ -176,8 +183,13 @@ protected:
     // Core components
     std::unique_ptr<Z80> z80_;
     Audio audio_;
+    AY3_8912 ay_;
     Display display_;
     ULAContention contention_;
+
+    // AY sound chip state
+    bool ayEnabled_ = false;
+    int ayMixOffset_ = 0;
 
     // Memory (allocated by base, managed by variant)
     std::vector<uint8_t> memoryRom_;

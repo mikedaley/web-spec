@@ -662,4 +662,50 @@ const uint8_t* tapeRecordGetBlockInfo() {
   return s_recBlockInfoBuf;
 }
 
+// ============================================================================
+// AY-3-8912 Sound Chip
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+int getAYRegister(int reg) {
+  REQUIRE_MACHINE_OR(0);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec ? spec->getAY().getRegister(reg) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void setAYChannelMute(int ch, int muted) {
+  REQUIRE_MACHINE();
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  if (spec) spec->getAY().setChannelMute(ch, muted != 0);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int getAYChannelMute(int ch) {
+  REQUIRE_MACHINE_OR(0);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec ? (spec->getAY().getChannelMute(ch) ? 1 : 0) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void getAYWaveform(int ch, float* buf, int count) {
+  REQUIRE_MACHINE();
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  if (spec) spec->getAY().getWaveform(ch, buf, count);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int isAYEnabled() {
+  REQUIRE_MACHINE_OR(0);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec ? (spec->isAYEnabled() ? 1 : 0) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void setAYEnabled(int enabled) {
+  REQUIRE_MACHINE();
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  if (spec) spec->setAYEnabled(enabled != 0);
+}
+
 } // extern "C"

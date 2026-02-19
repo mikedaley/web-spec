@@ -82,8 +82,14 @@ void ZXSpectrum::baseInit()
     double fps = CPU_CLOCK_HZ / static_cast<double>(machineInfo_.tsPerFrame);
 
     audio_.setup(AUDIO_SAMPLE_RATE, fps, machineInfo_.tsPerFrame);
+    ay_.setup(AUDIO_SAMPLE_RATE, fps, machineInfo_.tsPerFrame);
     contention_.init(machineInfo_);
     display_.init(machineInfo_);
+
+    // 128K machines have AY built-in
+    if (machineInfo_.hasAY) {
+        ayEnabled_ = true;
+    }
 
     reset();
     z80_->signalInterrupt();
@@ -97,6 +103,8 @@ void ZXSpectrum::reset()
 {
     z80_->reset(true);
     audio_.reset();
+    ay_.reset();
+    ayMixOffset_ = 0;
     keyboardMatrix_.fill(0xBF);
     display_.frameReset();
     paused_ = false;
@@ -214,6 +222,7 @@ void ZXSpectrum::runFrame()
         }
 
         audio_.update(delta);
+        if (ayEnabled_) ay_.update(delta);
     }
 
     if (paused_) return;
@@ -233,9 +242,25 @@ void ZXSpectrum::runFrame()
 
     audio_.frameEnd();
 
+    // Mix AY output into beeper buffer (only new samples since last mix)
+    if (ayEnabled_) {
+        ay_.frameEnd();
+        int aySamples = ay_.getSampleCount();
+        int beeperSamples = audio_.getSampleCount();
+        int mixEnd = (aySamples < beeperSamples) ? aySamples : beeperSamples;
+        float* beeperBuf = audio_.getMutableBuffer();
+        const float* ayBuf = ay_.getBuffer();
+        for (int i = ayMixOffset_; i < mixEnd; i++) {
+            beeperBuf[i] += ayBuf[i];
+        }
+        ayMixOffset_ = beeperSamples;
+    }
+
     if (muteFrames_ > 0)
     {
         audio_.resetBuffer();
+        ay_.resetBuffer();
+        ayMixOffset_ = 0;
         muteFrames_--;
     }
 
@@ -284,6 +309,8 @@ int ZXSpectrum::getAudioSampleCount() const
 void ZXSpectrum::resetAudioBuffer()
 {
     audio_.resetBuffer();
+    ay_.resetBuffer();
+    ayMixOffset_ = 0;
 }
 
 // ============================================================================

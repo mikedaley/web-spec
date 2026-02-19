@@ -79,9 +79,8 @@ export class AYWindow extends BaseWindow {
     // Previous values for dirty checking
     this.prevValues = {};
 
-    // Waveform buffer
+    // Waveform sample count
     this.waveformSampleCount = 256;
-    this.waveformBufferPtr = null;
 
     // Canvas drawing colors
     this.canvasBg = "#05050a";
@@ -306,12 +305,6 @@ export class AYWindow extends BaseWindow {
     }
   }
 
-  allocateWaveformBuffer(wasmModule) {
-    if (!this.waveformBufferPtr && wasmModule?._malloc) {
-      this.waveformBufferPtr = wasmModule._malloc(this.waveformSampleCount * 4);
-    }
-  }
-
   resizeCanvases() {
     for (let ch = 0; ch < 3; ch++) {
       const canvas = this.elements.canvases[ch];
@@ -331,20 +324,12 @@ export class AYWindow extends BaseWindow {
     this.canvasLine = style.getPropertyValue("--canvas-line").trim() || "#1a1a2a";
   }
 
-  destroy() {
-    if (this.waveformBufferPtr && this._lastWasmModule?._free) {
-      this._lastWasmModule._free(this.waveformBufferPtr);
-      this.waveformBufferPtr = null;
-    }
-    super.destroy();
-  }
-
   getState() {
     const base = super.getState();
-    if (this._lastWasmModule?._getAYChannelMute) {
+    if (this._lastProxy?._getAYChannelMute) {
       const muteState = [];
       for (let ch = 0; ch < 3; ch++) {
-        muteState.push(!!this._lastWasmModule._getAYChannelMute(ch));
+        muteState.push(!!this._lastProxy._getAYChannelMute(ch));
       }
       base.channelMutes = muteState;
     }
@@ -358,24 +343,23 @@ export class AYWindow extends BaseWindow {
     super.restoreState(state);
   }
 
-  update(wasmModule) {
-    if (!wasmModule) return;
-    this._lastWasmModule = wasmModule;
+  update(proxy) {
+    if (!proxy) return;
+    this._lastProxy = proxy;
 
     // Cache elements on first update
     if (!this.elements) {
       this.cacheElements();
-      this.allocateWaveformBuffer(wasmModule);
       this.updateCanvasColors();
     }
 
     // Apply pending mute state from session restore
-    if (this._pendingMuteState && wasmModule._setAYChannelMute) {
+    if (this._pendingMuteState && proxy._setAYChannelMute) {
       const mutes = this._pendingMuteState;
       this._pendingMuteState = null;
       for (let ch = 0; ch < 3; ch++) {
         if (mutes[ch]) {
-          wasmModule._setAYChannelMute(ch, true);
+          proxy._setAYChannelMute(ch, true);
         }
       }
     }
@@ -388,24 +372,24 @@ export class AYWindow extends BaseWindow {
       this.muteHandlerAttached = true;
       this.contentElement.addEventListener("click", (e) => {
         const muteBtn = e.target.closest(".ay-mute-btn");
-        if (muteBtn && wasmModule._setAYChannelMute) {
+        if (muteBtn && this._lastProxy?._setAYChannelMute) {
           const ch = parseInt(muteBtn.dataset.ch, 10);
-          const currentlyMuted = wasmModule._getAYChannelMute(ch);
-          wasmModule._setAYChannelMute(ch, !currentlyMuted);
-          this.updateMuteState(wasmModule);
+          const currentlyMuted = this._lastProxy._getAYChannelMute(ch);
+          this._lastProxy._setAYChannelMute(ch, !currentlyMuted);
+          this.updateMuteState(this._lastProxy);
           if (this.onStateChange) this.onStateChange();
         }
       });
     }
 
     // Update all sections
-    this.updateChannels(wasmModule);
-    this.updateWaveforms(wasmModule);
-    this.updateMuteState(wasmModule);
+    this.updateChannels(proxy);
+    this.updateWaveforms(proxy);
+    this.updateMuteState(proxy);
   }
 
-  updateChannels(wasmModule) {
-    if (!wasmModule._getAYRegister) return;
+  updateChannels(proxy) {
+    if (!proxy._getAYRegister) return;
 
     const channelRegs = [
       [0, 1],  // Channel A tone fine/coarse
@@ -413,12 +397,12 @@ export class AYWindow extends BaseWindow {
       [4, 5],  // Channel C
     ];
 
-    const r7 = wasmModule._getAYRegister(7);
+    const r7 = proxy._getAYRegister(7);
 
     for (let ch = 0; ch < 3; ch++) {
       // Frequency and note
-      const fine = wasmModule._getAYRegister(channelRegs[ch][0]);
-      const coarse = wasmModule._getAYRegister(channelRegs[ch][1]);
+      const fine = proxy._getAYRegister(channelRegs[ch][0]);
+      const coarse = proxy._getAYRegister(channelRegs[ch][1]);
       const period = fine | ((coarse & 0x0f) << 8);
       const freq = period > 0 ? Math.round(PSG_CLOCK / (16 * period)) : 0;
 
@@ -453,7 +437,7 @@ export class AYWindow extends BaseWindow {
       }
 
       // Volume / envelope mode
-      const ampReg = wasmModule._getAYRegister(8 + ch);
+      const ampReg = proxy._getAYRegister(8 + ch);
       const useEnv = (ampReg & 0x10) !== 0;
       const vol = ampReg & 0x0f;
 
@@ -476,7 +460,7 @@ export class AYWindow extends BaseWindow {
     }
 
     // Envelope shape and frequency
-    const envShape = wasmModule._getAYRegister(13);
+    const envShape = proxy._getAYRegister(13);
     const envShapeKey = "envShape";
     if (this.prevValues[envShapeKey] !== envShape) {
       this.prevValues[envShapeKey] = envShape;
@@ -485,8 +469,8 @@ export class AYWindow extends BaseWindow {
       }
     }
 
-    const envFine = wasmModule._getAYRegister(11);
-    const envCoarse = wasmModule._getAYRegister(12);
+    const envFine = proxy._getAYRegister(11);
+    const envCoarse = proxy._getAYRegister(12);
     const envPeriod = envFine | (envCoarse << 8);
     const envFreq = envPeriod > 0 ? (PSG_CLOCK / (256 * envPeriod)).toFixed(1) : 0;
     const envFreqKey = "envFreq";
@@ -498,7 +482,7 @@ export class AYWindow extends BaseWindow {
     }
 
     // Noise frequency
-    const noisePeriod = wasmModule._getAYRegister(6);
+    const noisePeriod = proxy._getAYRegister(6);
     const noiseFreq = noisePeriod > 0 ? (PSG_CLOCK / (16 * noisePeriod)).toFixed(1) : 0;
     const noiseFreqKey = "noiseFreq";
     if (this.prevValues[noiseFreqKey] !== noiseFreq) {
@@ -509,11 +493,11 @@ export class AYWindow extends BaseWindow {
     }
   }
 
-  updateMuteState(wasmModule) {
-    if (!wasmModule?._getAYChannelMute) return;
+  updateMuteState(proxy) {
+    if (!proxy?._getAYChannelMute) return;
 
     for (let ch = 0; ch < 3; ch++) {
-      const isMuted = wasmModule._getAYChannelMute(ch);
+      const isMuted = proxy._getAYChannelMute(ch);
       const key = `mute${ch}`;
       if (this.prevValues[key] !== isMuted) {
         this.prevValues[key] = isMuted;
@@ -523,12 +507,8 @@ export class AYWindow extends BaseWindow {
     }
   }
 
-  updateWaveforms(wasmModule) {
-    if (!wasmModule._getAYWaveform || !this.waveformBufferPtr) return;
-
+  updateWaveforms(proxy) {
     const colors = [CHANNEL_COLORS.a, CHANNEL_COLORS.b, CHANNEL_COLORS.c];
-    const sampleCount = this.waveformSampleCount;
-    const heapOffset = this.waveformBufferPtr >> 2;
 
     for (let ch = 0; ch < 3; ch++) {
       const ctx = this.elements.canvasCtx[ch];
@@ -539,7 +519,8 @@ export class AYWindow extends BaseWindow {
       const height = canvas.height;
       if (width === 0 || height === 0) continue;
 
-      wasmModule._getAYWaveform(ch, this.waveformBufferPtr, sampleCount);
+      // Get waveform data from proxy (Float32Array or null)
+      const samples = proxy.getAYWaveform ? proxy.getAYWaveform(ch) : null;
 
       // Clear canvas
       ctx.fillStyle = this.canvasBg;
@@ -552,14 +533,17 @@ export class AYWindow extends BaseWindow {
       ctx.lineTo(width, height / 2);
       ctx.stroke();
 
+      if (!samples || samples.length === 0) continue;
+
       // Draw waveform scaled to canvas width
       ctx.strokeStyle = colors[ch];
       ctx.lineWidth = 1;
       ctx.beginPath();
 
+      const sampleCount = samples.length;
       const xScale = width / (sampleCount - 1);
       for (let i = 0; i < sampleCount; i++) {
-        const sample = wasmModule.HEAPF32[heapOffset + i];
+        const sample = samples[i];
         const x = i * xScale;
         const y = height - sample * (height - 2) - 1;
         if (i === 0) {

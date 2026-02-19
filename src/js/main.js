@@ -18,6 +18,7 @@ import { CPUDebuggerWindow } from "./debug/cpu-debugger-window.js";
 import { StackViewerWindow } from "./debug/stack-viewer-window.js";
 import { TapeWindow } from "./tape/tape-window.js";
 import { SoundWindow } from "./audio/sound-window.js";
+import { AYWindow } from "./debug/ay-window.js";
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
 
@@ -33,6 +34,7 @@ class ZXSpectrumEmulator {
     this.cpuDebuggerWindow = null;
     this.tapeWindow = null;
     this.soundWindow = null;
+    this.ayWindow = null;
 
     this.snapshotLoader = null;
     this.themeManager = null;
@@ -90,6 +92,11 @@ class ZXSpectrumEmulator {
       this.soundWindow.create();
       this.windowManager.register(this.soundWindow);
 
+      // Create AY debug window
+      this.ayWindow = new AYWindow();
+      this.ayWindow.create();
+      this.windowManager.register(this.ayWindow);
+
       // Attach canvas to screen window
       this.screenWindow.attachCanvas();
 
@@ -101,6 +108,7 @@ class ZXSpectrumEmulator {
         { id: "stack-viewer", visible: false },
         { id: "tape-window", visible: false },
         { id: "sound-debug", visible: false },
+        { id: "ay-debug", visible: false },
       ]);
 
       // Load saved window state (overrides defaults if present)
@@ -241,6 +249,29 @@ class ZXSpectrumEmulator {
         this.closeAllMenus();
         this.refocusCanvas();
       });
+    }
+
+    // Dev menu > AY Sound
+    const ayDebugBtn = document.getElementById("btn-ay-debug");
+    if (ayDebugBtn) {
+      ayDebugBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("ay-debug");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
+    // AY Chip toggle (48K enable/disable)
+    const ayToggle = document.getElementById("ay-toggle");
+    if (ayToggle) {
+      ayToggle.checked = this.proxy.isAYEnabled();
+      ayToggle.addEventListener("change", () => {
+        this.proxy.setAYEnabled(ayToggle.checked);
+      });
+      // Update toggle on state changes
+      this.proxy.onStateUpdate = () => {
+        ayToggle.checked = this.proxy.isAYEnabled();
+      };
     }
 
     // Dev menu > Stack Viewer
@@ -634,6 +665,11 @@ class ZXSpectrumEmulator {
     if (this.soundWindow) {
       this.soundWindow.destroy();
       this.soundWindow = null;
+    }
+
+    if (this.ayWindow) {
+      this.ayWindow.destroy();
+      this.ayWindow = null;
     }
 
     if (this.cpuDebuggerWindow) {

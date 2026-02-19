@@ -169,6 +169,11 @@ uint8_t ZXSpectrum48::coreIORead(uint16_t address)
         contention_.applyIOContention(*z80_, address, contended);
     }
 
+    // AY-3-8912 data read: port 0xFFFD — (address & 0xC002) == 0xC000
+    if (ayEnabled_ && (address & 0xC002) == 0xC000) {
+        return ay_.readData();
+    }
+
     // ULA owned (even) ports — keyboard
     if ((address & 0x01) == 0)
     {
@@ -210,6 +215,18 @@ void ZXSpectrum48::coreIOWrite(uint16_t address, uint8_t data)
     {
         bool contended = ((address >> 14) == 1);
         contention_.applyIOContention(*z80_, address, contended);
+    }
+
+    // AY-3-8912 ports (128K-compatible scheme)
+    if (ayEnabled_) {
+        // Register select: port 0xFFFD — (address & 0xC002) == 0xC000
+        if ((address & 0xC002) == 0xC000) {
+            ay_.selectRegister(data);
+        }
+        // Data write: port 0xBFFD — (address & 0xC002) == 0x8000
+        if ((address & 0xC002) == 0x8000) {
+            ay_.writeData(data);
+        }
     }
 
     // ULA owned (even) ports — border colour and EAR/MIC
