@@ -529,8 +529,8 @@ export class SoundWindow extends BaseWindow {
       .snd-toggle {
         position: relative;
         display: inline-block;
-        width: 36px;
-        height: 20px;
+        width: 40px;
+        height: 22px;
         flex-shrink: 0;
       }
       .snd-toggle input {
@@ -542,30 +542,26 @@ export class SoundWindow extends BaseWindow {
         position: absolute;
         cursor: pointer;
         inset: 0;
-        background: var(--input-bg-deeper);
-        border: 1px solid var(--border-muted);
-        border-radius: 10px;
+        background: var(--overlay-active);
+        border-radius: 22px;
         transition: all 0.2s;
       }
       .snd-toggle-track::before {
         content: "";
         position: absolute;
-        width: 14px;
-        height: 14px;
-        left: 2px;
-        bottom: 2px;
-        background: var(--text-muted);
+        width: 16px;
+        height: 16px;
+        left: 3px;
+        bottom: 3px;
+        background: white;
         border-radius: 50%;
         transition: all 0.2s;
       }
       .snd-toggle input:checked + .snd-toggle-track {
         background: var(--accent-blue);
-        border-color: var(--accent-blue-border);
-        box-shadow: 0 0 8px var(--accent-blue-bg-strong);
       }
       .snd-toggle input:checked + .snd-toggle-track::before {
-        transform: translateX(16px);
-        background: var(--bg-primary);
+        transform: translateX(18px);
       }
     </style>`;
   }

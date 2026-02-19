@@ -89,11 +89,15 @@ function runFrames(count) {
     }
   }
 
-  // Use the frame's audio samples as the beeper waveform for visualization.
-  // The ring buffer (256 samples / ~5ms) is too small to capture brief events
-  // like keyboard clicks; the full frame buffer (~960 samples / 20ms) shows everything.
-  const beeperWaveform = audio ? new Float32Array(audio) : new Float32Array(0);
-  const waveformCount = 256;
+  // Read beeper-only waveform from the C++ ring buffer (1024 samples max).
+  // Cap to ring buffer size to avoid reading stale wrapped data.
+  const beeperWaveCount = Math.min(Math.max(sampleCount, 256), 1024);
+  const ayWaveCount = 256;
+  const waveAllocSize = Math.max(beeperWaveCount, ayWaveCount);
+  const wavePtr = wasm._malloc(waveAllocSize * 4);
+  wasm._getBeeperWaveform(wavePtr, beeperWaveCount);
+  const beeperHeapOffset = wavePtr >> 2;
+  const beeperWaveform = new Float32Array(wasm.HEAPF32.buffer, beeperHeapOffset * 4, beeperWaveCount).slice();
 
   // Read AY state when enabled
   let ayRegisters = null;
@@ -110,15 +114,14 @@ function runFrames(count) {
       !!wasm._getAYChannelMute(2),
     ];
     // Read waveform data for 3 channels (256 floats each)
-    const wavePtr = wasm._malloc(waveformCount * 4);
     ayWaveforms = [];
     for (let ch = 0; ch < 3; ch++) {
-      wasm._getAYWaveform(ch, wavePtr, waveformCount);
+      wasm._getAYWaveform(ch, wavePtr, ayWaveCount);
       const heapOffset = wavePtr >> 2;
-      ayWaveforms.push(new Float32Array(wasm.HEAPF32.buffer, heapOffset * 4, waveformCount).slice());
+      ayWaveforms.push(new Float32Array(wasm.HEAPF32.buffer, heapOffset * 4, ayWaveCount).slice());
     }
-    wasm._free(wavePtr);
   }
+  wasm._free(wavePtr);
 
   // Transfer buffers for zero-copy
   const transfer = [framebuffer.buffer, beeperWaveform.buffer];
