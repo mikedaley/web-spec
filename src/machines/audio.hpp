@@ -36,9 +36,9 @@ public:
 
 private:
     static constexpr int MAX_SAMPLES_PER_FRAME = 2048;
-    static constexpr int WAVEFORM_BUFFER_SIZE = 1024;
-    static constexpr float BEEPER_VOLUME = 0.3f;
-    static constexpr float TAPE_VOLUME = 0.15f;
+    static constexpr int WAVEFORM_BUFFER_SIZE = 2048;
+    static constexpr float BEEPER_VOLUME = 0.6f;
+    static constexpr float TAPE_VOLUME = 0.3f;
 
     uint8_t earBit_ = 0;
     uint8_t tapeEarBit_ = 0;

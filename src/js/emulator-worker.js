@@ -91,7 +91,7 @@ function runFrames(count) {
 
   // Read beeper-only waveform from the C++ ring buffer (1024 samples max).
   // Cap to ring buffer size to avoid reading stale wrapped data.
-  const beeperWaveCount = Math.min(Math.max(sampleCount, 256), 1024);
+  const beeperWaveCount = Math.min(Math.max(sampleCount, 256), 2048);
   const ayWaveCount = 256;
   const waveAllocSize = Math.max(beeperWaveCount, ayWaveCount);
   const wavePtr = wasm._malloc(waveAllocSize * 4);
