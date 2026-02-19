@@ -31,9 +31,17 @@ export class AudioDriver {
     // Latest framebuffer received from worker
     this._latestFramebuffer = null;
 
+    // Latest audio samples for waveform visualization
+    this.latestSamples = null;
+
     // Set up frame callback from proxy
     this.proxy.onFrame = (framebuffer, audio, sampleCount) => {
       this._latestFramebuffer = framebuffer;
+
+      // Store a copy of the audio samples for visualization
+      if (audio && sampleCount > 0) {
+        this.latestSamples = new Float32Array(audio);
+      }
 
       // Forward audio to worklet
       if (this.workletNode && audio && sampleCount > 0) {

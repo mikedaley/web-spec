@@ -17,6 +17,7 @@ import { SnapshotLoader } from "./snapshot/snapshot-loader.js";
 import { CPUDebuggerWindow } from "./debug/cpu-debugger-window.js";
 import { StackViewerWindow } from "./debug/stack-viewer-window.js";
 import { TapeWindow } from "./tape/tape-window.js";
+import { SoundWindow } from "./audio/sound-window.js";
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
 
@@ -31,6 +32,7 @@ class ZXSpectrumEmulator {
     this.displaySettingsWindow = null;
     this.cpuDebuggerWindow = null;
     this.tapeWindow = null;
+    this.soundWindow = null;
 
     this.snapshotLoader = null;
     this.themeManager = null;
@@ -90,6 +92,7 @@ class ZXSpectrumEmulator {
         { id: "cpu-debugger", visible: false },
         { id: "stack-viewer", visible: false },
         { id: "tape-window", visible: false },
+        { id: "sound-debug", visible: false },
       ]);
 
       // Load saved window state (overrides defaults if present)
@@ -100,6 +103,11 @@ class ZXSpectrumEmulator {
 
       // Set up audio driver
       this.audioDriver = new AudioDriver(this.proxy);
+
+      // Create sound debug window (needs audioDriver)
+      this.soundWindow = new SoundWindow(this.audioDriver);
+      this.soundWindow.create();
+      this.windowManager.register(this.soundWindow);
 
       // Connect audio-driven frame sync to rendering
       this.audioDriver.onFrameReady = (framebuffer) => {
@@ -219,6 +227,16 @@ class ZXSpectrumEmulator {
     if (tapePlayerBtn) {
       tapePlayerBtn.addEventListener("click", () => {
         this.windowManager.toggleWindow("tape-window");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
+    // View menu > Sound
+    const soundDebugBtn = document.getElementById("btn-sound-debug");
+    if (soundDebugBtn) {
+      soundDebugBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("sound-debug");
         this.closeAllMenus();
         this.refocusCanvas();
       });
@@ -610,6 +628,11 @@ class ZXSpectrumEmulator {
     if (this.tapeWindow) {
       this.tapeWindow.destroy();
       this.tapeWindow = null;
+    }
+
+    if (this.soundWindow) {
+      this.soundWindow.destroy();
+      this.soundWindow = null;
     }
 
     if (this.cpuDebuggerWindow) {
