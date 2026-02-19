@@ -88,7 +88,7 @@ class ZXSpectrumEmulator {
       this.audioDriver = new AudioDriver(this.proxy);
 
       // Create sound debug window (needs audioDriver)
-      this.soundWindow = new SoundWindow(this.audioDriver);
+      this.soundWindow = new SoundWindow(this.audioDriver, this.proxy);
       this.soundWindow.create();
       this.windowManager.register(this.soundWindow);
 
@@ -259,19 +259,6 @@ class ZXSpectrumEmulator {
         this.closeAllMenus();
         this.refocusCanvas();
       });
-    }
-
-    // AY Chip toggle (48K enable/disable)
-    const ayToggle = document.getElementById("ay-toggle");
-    if (ayToggle) {
-      ayToggle.checked = this.proxy.isAYEnabled();
-      ayToggle.addEventListener("change", () => {
-        this.proxy.setAYEnabled(ayToggle.checked);
-      });
-      // Update toggle on state changes
-      this.proxy.onStateUpdate = () => {
-        ayToggle.checked = this.proxy.isAYEnabled();
-      };
     }
 
     // Dev menu > Stack Viewer

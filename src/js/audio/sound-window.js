@@ -8,23 +8,25 @@
 import { BaseWindow } from "../windows/base-window.js";
 
 export class SoundWindow extends BaseWindow {
-  constructor(audioDriver) {
+  constructor(audioDriver, proxy) {
     super({
       id: "sound-debug",
       title: "Sound",
       defaultWidth: 340,
-      defaultHeight: 260,
+      defaultHeight: 300,
       minWidth: 300,
-      minHeight: 220,
+      minHeight: 260,
       maxWidth: 500,
       defaultPosition: { x: 60, y: 300 },
     });
     this.audioDriver = audioDriver;
+    this.proxy = proxy;
     this.canvas = null;
     this.ctx = null;
     this.volumeSlider = null;
     this.volumeLabel = null;
     this.muteBtn = null;
+    this.ayToggle = null;
     this._frameCount = 0;
   }
 
@@ -44,6 +46,16 @@ export class SoundWindow extends BaseWindow {
             <canvas class="sound-waveform-canvas" id="sound-win-canvas"></canvas>
           </div>
         </div>
+        <div class="sound-section sound-section-options">
+          <div class="sound-section-header">Options</div>
+          <div class="sound-controls-row">
+            <label class="sound-label">AY Chip (48K)</label>
+            <label class="sound-toggle-switch">
+              <input type="checkbox" id="sound-win-ay-toggle" ${this.proxy && this.proxy.isAYEnabled() ? "checked" : ""} />
+              <span class="sound-toggle-slider"></span>
+            </label>
+          </div>
+        </div>
       </div>
       ${this.renderStyles()}
     `;
@@ -51,8 +63,10 @@ export class SoundWindow extends BaseWindow {
 
   renderStyles() {
     return `<style>
+      #sound-debug .debug-window-content {
+        overflow: hidden;
+      }
       .sound-window-content {
-        padding: 8px;
         font-size: 12px;
         color: var(--text-primary);
         height: 100%;
@@ -123,6 +137,52 @@ export class SoundWindow extends BaseWindow {
         height: 100%;
         display: block;
       }
+      .sound-section-options {
+        flex: 0 0 auto;
+        margin-top: 8px;
+      }
+      .sound-section-options .sound-controls-row {
+        margin-bottom: 0;
+      }
+      .sound-toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 36px;
+        height: 20px;
+        flex-shrink: 0;
+      }
+      .sound-toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+      .sound-toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        inset: 0;
+        background: var(--control-bg, #333);
+        border: 1px solid var(--control-border, var(--glass-border));
+        border-radius: 10px;
+        transition: background 0.2s;
+      }
+      .sound-toggle-slider::before {
+        content: "";
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        left: 2px;
+        bottom: 2px;
+        background: var(--text-secondary);
+        border-radius: 50%;
+        transition: transform 0.2s;
+      }
+      .sound-toggle-switch input:checked + .sound-toggle-slider {
+        background: var(--accent-blue);
+      }
+      .sound-toggle-switch input:checked + .sound-toggle-slider::before {
+        transform: translateX(16px);
+        background: var(--bg-primary);
+      }
     </style>`;
   }
 
@@ -144,6 +204,13 @@ export class SoundWindow extends BaseWindow {
         const headerLabel = document.getElementById("volume-value");
         if (headerSlider) headerSlider.value = vol;
         if (headerLabel) headerLabel.textContent = `${vol}%`;
+      });
+    }
+
+    this.ayToggle = this.contentElement.querySelector("#sound-win-ay-toggle");
+    if (this.ayToggle && this.proxy) {
+      this.ayToggle.addEventListener("change", () => {
+        this.proxy.setAYEnabled(this.ayToggle.checked);
       });
     }
 
@@ -185,6 +252,14 @@ export class SoundWindow extends BaseWindow {
       if (parseInt(this.volumeSlider.value, 10) !== currentVol) {
         this.volumeSlider.value = currentVol;
         if (this.volumeLabel) this.volumeLabel.textContent = `${currentVol}%`;
+      }
+    }
+
+    // Sync AY toggle
+    if (this.ayToggle && this.proxy) {
+      const ayEnabled = this.proxy.isAYEnabled();
+      if (this.ayToggle.checked !== ayEnabled) {
+        this.ayToggle.checked = ayEnabled;
       }
     }
 
