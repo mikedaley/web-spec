@@ -15,6 +15,7 @@ export class EmulatorProxy {
     this.onTapLoaded = null;
     this.onTapLoadError = null;
     this.onTapeRecordComplete = null;
+    this.onBasicBreakpointHit = null;
     this.onStateUpdate = null;
     this._nextId = 1;
     this._pendingRequests = new Map();
@@ -63,6 +64,14 @@ export class EmulatorProxy {
         this.state = msg.state;
         if (this.onStateUpdate) this.onStateUpdate();
         break;
+
+      case "basicBreakpointHit": {
+        this.state = msg.state;
+        if (this.onBasicBreakpointHit) {
+          this.onBasicBreakpointHit(msg.framebuffer, msg.lineNumber, msg.hit);
+        }
+        break;
+      }
 
       case "memoryData": {
         const resolve = this._pendingRequests.get(msg.id);
@@ -277,6 +286,18 @@ export class EmulatorProxy {
 
   tapeSetInstantLoad(instant) {
     this.worker.postMessage({ type: "tapeSetInstantLoad", instant });
+  }
+
+  setBasicBreakpointMode(mode, lineNumbers) {
+    if (mode === "step") {
+      this.worker.postMessage({ type: "setBasicBreakpointMode", mode: "step" });
+    } else if (mode === "run") {
+      this.worker.postMessage({ type: "setBasicBreakpointMode", mode: "run", lineNumbers: [...lineNumbers] });
+    }
+  }
+
+  clearBasicBreakpointMode() {
+    this.worker.postMessage({ type: "clearBasicBreakpointMode" });
   }
 
   destroy() {

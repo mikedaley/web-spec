@@ -258,6 +258,12 @@ void clearBreakpointHit() {
   g_machine->clearBreakpointHit();
 }
 
+EMSCRIPTEN_KEEPALIVE
+void resetBreakpointHit() {
+  REQUIRE_MACHINE();
+  g_machine->resetBreakpointHit();
+}
+
 // ============================================================================
 // Memory Access
 // ============================================================================
@@ -294,6 +300,12 @@ EMSCRIPTEN_KEEPALIVE
 void stepInstruction() {
   REQUIRE_MACHINE();
   g_machine->stepInstruction();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void renderDisplay() {
+  REQUIRE_MACHINE();
+  g_machine->renderDisplay();
 }
 
 // ============================================================================

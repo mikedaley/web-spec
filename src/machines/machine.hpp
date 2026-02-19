@@ -22,6 +22,7 @@ public:
     virtual void runFrame() = 0;
     virtual void runCycles(int cycles) = 0;
     virtual void stepInstruction() = 0;
+    virtual void renderDisplay() = 0;
 
     virtual const uint8_t* getFramebuffer() const = 0;
     virtual int getFramebufferSize() const = 0;
@@ -73,6 +74,7 @@ public:
     virtual bool isBreakpointHit() const = 0;
     virtual uint16_t getBreakpointAddress() const = 0;
     virtual void clearBreakpointHit() = 0;
+    virtual void resetBreakpointHit() = 0;
 
     virtual const char* getName() const = 0;
     virtual int getId() const = 0;

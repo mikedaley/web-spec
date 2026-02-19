@@ -107,6 +107,7 @@ if(EMSCRIPTEN)
                 \"_isPaused\", \
                 \"_setPaused\", \
                 \"_stepInstruction\", \
+                \"_renderDisplay\", \
                 \"_runFrame\", \
                 \"_getFramebuffer\", \
                 \"_getFramebufferSize\", \
@@ -164,6 +165,7 @@ if(EMSCRIPTEN)
                 \"_isBreakpointHit\", \
                 \"_getBreakpointAddress\", \
                 \"_clearBreakpointHit\", \
+                \"_resetBreakpointHit\", \
                 \"_getAYRegister\", \
                 \"_setAYChannelMute\", \
                 \"_getAYChannelMute\", \

@@ -36,6 +36,12 @@ export class BasicProgramWindow extends BaseWindow {
     this._variableUpdateInterval = 500; // ms between variable refreshes
     this._pendingHighlight = false;
 
+    // BASIC debugging state
+    this._basicBreakpoints = new Set();
+    this._basicStepping = false;
+    this._currentBasicLine = null;
+    this.onRenderFrame = null; // callback to push framebuffer to display
+
     // Track which editor line the cursor is on for auto-renumber on line change
     this._lastCursorLine = -1;
 
@@ -54,7 +60,9 @@ export class BasicProgramWindow extends BaseWindow {
       <div class="bas-toolbar">
         <div class="bas-toolbar-group">
           <button class="bas-toolbar-btn run" data-action="run" title="Write program and type RUN">Run</button>
-          <button class="bas-toolbar-btn step" data-action="step" title="Step one instruction">Step</button>
+          <button class="bas-toolbar-btn step" data-action="step" title="Step one BASIC statement">Step</button>
+          <button class="bas-toolbar-btn continue" data-action="continue" title="Continue to next breakpoint">Continue</button>
+          <button class="bas-toolbar-btn stop" data-action="stop-debug" title="Stop debugging">Stop</button>
         </div>
         <div class="bas-toolbar-separator"></div>
         <div class="bas-toolbar-group">
@@ -85,6 +93,7 @@ export class BasicProgramWindow extends BaseWindow {
         </div>
       </div>
       <div class="bas-statusbar">
+        <span class="bas-status-item bas-debug-status" data-status="debug"></span>
         <span class="bas-status-item" data-status="lines">0 lines</span>
         <span class="bas-status-item" data-status="cursor">Ln 1, Col 1</span>
         <div class="bas-status-right">
@@ -103,6 +112,7 @@ export class BasicProgramWindow extends BaseWindow {
     this._sidebarResize = this.contentElement.querySelector(".bas-sidebar-resize");
     this._statusLines = this.contentElement.querySelector('[data-status="lines"]');
     this._statusCursor = this.contentElement.querySelector('[data-status="cursor"]');
+    this._debugStatus = this.contentElement.querySelector('[data-status="debug"]');
 
     // Apply saved sidebar state
     if (!this._sidebarVisible) {
@@ -146,6 +156,9 @@ export class BasicProgramWindow extends BaseWindow {
     this._updateHighlight();
     this._updateGutter();
     this._updateStatus();
+
+    // If breakpoints were restored from saved state, activate them in the worker
+    this._syncBreakpointsToWorker();
   }
 
   _onSidebarResizeMove(e) {
@@ -383,12 +396,29 @@ export class BasicProgramWindow extends BaseWindow {
 
   _updateGutter() {
     const text = this._textarea.value;
-    const lineCount = text.split("\n").length;
+    const lines = text.split("\n");
+    const lineCount = lines.length;
     let html = "";
-    for (let i = 1; i <= lineCount; i++) {
-      html += `<div class="bas-gutter-line">${i}</div>`;
+    for (let i = 0; i < lineCount; i++) {
+      const match = lines[i].trim().match(/^(\d+)\s/);
+      const basicLineNum = match ? parseInt(match[1], 10) : null;
+      const hasBp = basicLineNum !== null && this._basicBreakpoints.has(basicLineNum);
+      const isCurrentLine = basicLineNum !== null && basicLineNum === this._currentBasicLine;
+      let cls = "bas-gutter-line";
+      if (hasBp) cls += " breakpoint";
+      if (isCurrentLine) cls += " current-line";
+      const dataAttr = basicLineNum !== null ? ` data-basic-line="${basicLineNum}"` : "";
+      html += `<div class="${cls}"${dataAttr}>${i + 1}</div>`;
     }
     this._gutter.innerHTML = html;
+
+    // Add click handlers for breakpoint toggling
+    this._gutter.querySelectorAll(".bas-gutter-line[data-basic-line]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const lineNum = parseInt(el.dataset.basicLine, 10);
+        this._toggleBreakpoint(lineNum);
+      });
+    });
   }
 
   _updateStatus() {
@@ -437,7 +467,13 @@ export class BasicProgramWindow extends BaseWindow {
         await this._runProgram();
         break;
       case "step":
-        this.proxy.step();
+        await this._stepBasicLine();
+        break;
+      case "continue":
+        await this._continueToBreakpoint();
+        break;
+      case "stop-debug":
+        this._stopDebugging();
         break;
       case "toggle-sidebar":
         this._toggleSidebar();
@@ -604,15 +640,22 @@ export class BasicProgramWindow extends BaseWindow {
 
     // On the 48K, pressing R in keyword mode generates RUN automatically.
     // So we just need R + ENTER.
-    // R = row 2, bit 3; ENTER = row 6, bit 0
     const keys = [
       [2, 3], // R (produces RUN in 48K keyword mode)
       [6, 0], // ENTER
     ];
 
-    // Resume if paused
-    if (this.proxy.isPaused()) {
-      this.proxy.resume();
+    // Breakpoints are already active in the worker (synced on toggle).
+    // If breakpoints exist, mark that we're in stepping/debug mode.
+    if (this._basicBreakpoints.size > 0) {
+      this._basicStepping = true;
+      this._updateDebugStatus("Running...");
+      // Re-sync in case we were paused at a previous breakpoint
+      this._syncBreakpointsToWorker();
+    } else {
+      if (this.proxy.isPaused()) {
+        this.proxy.resume();
+      }
     }
 
     for (const [row, bit] of keys) {
@@ -620,6 +663,144 @@ export class BasicProgramWindow extends BaseWindow {
       await this._delay(50);
       this.proxy.keyUp(row, bit);
       await this._delay(50);
+    }
+  }
+
+  async _stepBasicLine() {
+    if (!this._basicStepping) {
+      // Start stepping from the beginning — write program, inject RUN, install step BP
+      await this._writeToMemory();
+      this._basicStepping = true;
+      this._updateDebugStatus("Stepping...");
+      this._installBasicBreakpointHandler();
+      this.proxy.setBasicBreakpointMode("step", null);
+
+      const keys = [
+        [2, 3], // R
+        [6, 0], // ENTER
+      ];
+      for (const [row, bit] of keys) {
+        this.proxy.keyDown(row, bit);
+        await this._delay(50);
+        this.proxy.keyUp(row, bit);
+        await this._delay(50);
+      }
+    } else {
+      // Already stepping — just advance one statement
+      this._installBasicBreakpointHandler();
+      this.proxy.setBasicBreakpointMode("step", null);
+    }
+  }
+
+  _continueToBreakpoint() {
+    if (!this._basicStepping || this._basicBreakpoints.size === 0) return;
+    this._updateDebugStatus("Running...");
+    this._clearHighlight();
+    this._installBasicBreakpointHandler();
+    this.proxy.setBasicBreakpointMode("run", this._basicBreakpoints);
+  }
+
+  _stopDebugging() {
+    this._basicStepping = false;
+    this._currentBasicLine = null;
+    this._clearHighlight();
+    this._updateDebugStatus("");
+    this._updateGutter();
+    // Re-sync: keeps 0x1B76 active if breakpoints still exist, clears if none.
+    // setBasicBreakpointMode resumes the emulator; if no breakpoints, resume manually.
+    if (this._basicBreakpoints.size > 0) {
+      this._syncBreakpointsToWorker();
+    } else {
+      this.proxy.clearBasicBreakpointMode();
+      this.proxy.resume();
+    }
+  }
+
+  _installBasicBreakpointHandler() {
+    this.proxy.onBasicBreakpointHit = (framebuffer, lineNumber, hit) => {
+      this._onBasicPaused(lineNumber, framebuffer);
+    };
+  }
+
+  _onBasicPaused(lineNumber, framebuffer) {
+    this._basicStepping = true;
+    this._currentBasicLine = lineNumber;
+    this._updateDebugStatus(`Line ${lineNumber}`);
+    this._highlightBasicLine(lineNumber);
+    this._updateGutter();
+    if (framebuffer && this.onRenderFrame) {
+      this.onRenderFrame(framebuffer);
+    }
+  }
+
+  _toggleBreakpoint(lineNumber) {
+    if (this._basicBreakpoints.has(lineNumber)) {
+      this._basicBreakpoints.delete(lineNumber);
+    } else {
+      this._basicBreakpoints.add(lineNumber);
+    }
+    this._syncBreakpointsToWorker();
+    this._updateGutter();
+    if (this.onStateChange) this.onStateChange();
+  }
+
+  /**
+   * Keep the Z80 breakpoint at 0x1B76 active whenever BASIC breakpoints exist,
+   * so programs started from within the emulator (typing RUN, GO TO, etc.) also stop.
+   */
+  _syncBreakpointsToWorker() {
+    if (this._basicBreakpoints.size > 0) {
+      this._installBasicBreakpointHandler();
+      this.proxy.setBasicBreakpointMode("run", this._basicBreakpoints);
+    } else {
+      this.proxy.clearBasicBreakpointMode();
+    }
+  }
+
+  _highlightBasicLine(targetLineNumber) {
+    this._clearHighlight();
+    const lines = this._textarea.value.split("\n");
+    const highlightEl = this._highlight;
+    if (!highlightEl) return;
+
+    // Find which editor line corresponds to the BASIC line number
+    let editorLineIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      const match = lines[i].trim().match(/^(\d+)\s/);
+      if (match && parseInt(match[1], 10) === targetLineNumber) {
+        editorLineIdx = i;
+        break;
+      }
+    }
+
+    if (editorLineIdx < 0) return;
+
+    // Wrap the corresponding highlight line in a highlight span
+    const highlightLines = highlightEl.innerHTML.split("\n");
+    if (editorLineIdx < highlightLines.length) {
+      highlightLines[editorLineIdx] =
+        `<span class="bas-highlight-line">${highlightLines[editorLineIdx]}</span>`;
+      highlightEl.innerHTML = highlightLines.join("\n");
+    }
+
+    // Scroll textarea to make the line visible
+    const lineHeight = 18;
+    const targetScrollTop = editorLineIdx * lineHeight - this._textarea.clientHeight / 2 + lineHeight;
+    this._textarea.scrollTop = Math.max(0, targetScrollTop);
+    this._syncScroll();
+  }
+
+  _clearHighlight() {
+    if (!this._highlight) return;
+    const existing = this._highlight.querySelectorAll(".bas-highlight-line");
+    existing.forEach((el) => {
+      el.outerHTML = el.innerHTML;
+    });
+  }
+
+  _updateDebugStatus(text) {
+    if (this._debugStatus) {
+      this._debugStatus.textContent = text;
     }
   }
 
@@ -687,6 +868,7 @@ export class BasicProgramWindow extends BaseWindow {
     const state = super.getState();
     state.sidebarVisible = this._sidebarVisible;
     state.sidebarWidth = this._sidebarWidth;
+    state.basicBreakpoints = [...this._basicBreakpoints];
     return state;
   }
 
@@ -696,6 +878,9 @@ export class BasicProgramWindow extends BaseWindow {
     }
     if (state.sidebarWidth !== undefined) {
       this._sidebarWidth = state.sidebarWidth;
+    }
+    if (state.basicBreakpoints) {
+      this._basicBreakpoints = new Set(state.basicBreakpoints);
     }
     super.restoreState(state);
 

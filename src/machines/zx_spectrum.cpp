@@ -282,6 +282,19 @@ void ZXSpectrum::stepInstruction()
     z80_->execute(1, machineInfo_.intLength);
 }
 
+void ZXSpectrum::renderDisplay()
+{
+    // Reset display position to start so we re-render the ENTIRE screen
+    // from current memory state (not just the remaining scanlines).
+    // This ensures PRINT output that wrote to already-rendered scanlines
+    // is visible when pausing mid-frame for BASIC stepping.
+    display_.frameReset();
+    display_.updateWithTs(
+        static_cast<int32_t>(machineInfo_.tsPerFrame),
+        getScreenMemory(), borderColor_, frameCounter_);
+    display_.frameReset();
+}
+
 // ============================================================================
 // Display / Audio accessors
 // ============================================================================

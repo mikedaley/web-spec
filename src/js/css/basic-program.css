@@ -96,6 +96,26 @@
   background: var(--accent-blue-bg);
 }
 
+.bas-toolbar-btn.continue {
+  color: var(--accent-green);
+  border-color: var(--accent-green-border-light);
+}
+
+.bas-toolbar-btn.continue:hover {
+  background: var(--accent-green-bg);
+  color: var(--accent-green);
+}
+
+.bas-toolbar-btn.stop {
+  color: var(--accent-red);
+  border-color: var(--accent-red-border);
+}
+
+.bas-toolbar-btn.stop:hover {
+  background: var(--accent-red-bg);
+  color: var(--accent-red);
+}
+
 /* ============================================
    EDITOR AREA
    ============================================ */
@@ -137,6 +157,32 @@
   font-size: 12px;
   line-height: 18px;
   color: var(--text-muted);
+  cursor: pointer;
+  position: relative;
+}
+
+.bas-gutter-line[data-basic-line]:hover {
+  background: var(--overlay-hover);
+}
+
+.bas-gutter-line.breakpoint::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-red);
+}
+
+.bas-gutter-line.breakpoint {
+  padding-left: 14px;
+}
+
+.bas-gutter-line.current-line {
+  background: var(--accent-blue-bg);
 }
 
 /* Editor container: relative parent for absolutely positioned highlight + textarea */
@@ -209,6 +255,23 @@
 .bas-string { color: var(--accent-green); }
 .bas-rem { color: var(--text-muted); font-style: italic; }
 .bas-linenum { color: var(--text-secondary); }
+
+/* Current-line highlight (shown during BASIC stepping) */
+.bas-highlight-line {
+  background: var(--accent-blue-bg);
+  display: inline-block;
+  width: 100%;
+}
+
+/* Debug status in status bar */
+.bas-debug-status {
+  color: var(--accent-green);
+  font-weight: 600;
+}
+
+.bas-debug-status:empty {
+  display: none;
+}
 
 /* ============================================
    VARIABLE SIDEBAR

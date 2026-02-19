@@ -44,6 +44,7 @@ public:
     void runFrame() override;
     void runCycles(int cycles) override;
     void stepInstruction() override;
+    void renderDisplay() override;
 
     const uint8_t* getFramebuffer() const override;
     int getFramebufferSize() const override;
@@ -71,6 +72,7 @@ public:
     bool isBreakpointHit() const override { return breakpointHit_; }
     uint16_t getBreakpointAddress() const override { return breakpointAddress_; }
     void clearBreakpointHit() override;
+    void resetBreakpointHit() override { breakpointHit_ = false; }
 
     const char* getName() const override { return machineInfo_.machineName; }
     int getId() const override { return static_cast<int>(machineInfo_.machineType); }

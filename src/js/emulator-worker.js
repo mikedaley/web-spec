@@ -7,6 +7,9 @@
 
 let wasm = null;
 
+// BASIC-level breakpoint state
+let basicBpMode = null; // null = off, { type: "step" } or { type: "run", lines: Set }
+
 function getState() {
   return {
     pc: wasm._getPC(),
@@ -46,6 +49,69 @@ function getState() {
 function runFrames(count) {
   for (let i = 0; i < count; i++) {
     wasm._runFrame();
+
+    // Check for BASIC-level breakpoint hit at EACH-STMT (0x1B28)
+    // This fires BEFORE each statement executes, with PPC set to the line about to run.
+    if (basicBpMode && wasm._isBreakpointHit() && wasm._getBreakpointAddress() === 0x1B28) {
+      const lo = wasm._readMemory(0x5C45);
+      const hi = wasm._readMemory(0x5C46);
+      const ppc = lo | (hi << 8);
+
+      // Filter: only stop for valid program lines (skip direct-mode hits where PPC=0)
+      const validProgramLine = ppc > 0 && ppc <= 9999;
+      const shouldStop = validProgramLine && (
+        basicBpMode.type === "step" ||
+        (basicBpMode.type === "run" && basicBpMode.lines.has(ppc))
+      );
+
+      if (shouldStop) {
+        // Stay paused, render display, notify JS
+        wasm._renderDisplay();
+        wasm._removeBreakpoint(0x1B28);
+        basicBpMode = null;
+
+        const fbPtr = wasm._getFramebuffer();
+        const fbSize = wasm._getFramebufferSize();
+        const fb = new Uint8Array(wasm.HEAPU8.buffer, fbPtr, fbSize).slice();
+
+        // Send a normal frame (with silence) so the audio worklet stays alive,
+        // then send the breakpoint notification
+        const silenceCount = 960;
+        const silence = new Float32Array(silenceCount);
+        wasm._resetAudioBuffer();
+        const frameState = getState();
+        const frameFb = new Uint8Array(wasm.HEAPU8.buffer, fbPtr, fbSize).slice();
+        self.postMessage({
+          type: "frame",
+          framebuffer: frameFb,
+          audio: silence,
+          sampleCount: silenceCount,
+          state: frameState,
+          recordedBlocks: null,
+          beeperWaveform: new Float32Array(256),
+          ayRegisters: null,
+          ayMutes: null,
+          ayWaveforms: null
+        }, [frameFb.buffer, silence.buffer]);
+
+        self.postMessage({
+          type: "basicBreakpointHit",
+          framebuffer: fb,
+          lineNumber: ppc,
+          hit: true,
+          state: frameState
+        }, [fb.buffer]);
+        return;
+      } else {
+        // Not our target line — step past 0x1B28 without arming skipOnce,
+        // then re-arm the breakpoint so the very next 0x1B28 hit fires.
+        wasm._removeBreakpoint(0x1B28);
+        wasm._resetBreakpointHit();
+        wasm._setPaused(false);
+        wasm._stepInstruction();
+        wasm._addBreakpoint(0x1B28);
+      }
+    }
   }
 
   // Copy framebuffer
@@ -452,6 +518,36 @@ self.onmessage = async function (e) {
     case "setAYEnabled":
       if (wasm) wasm._setAYEnabled(msg.enabled ? 1 : 0);
       break;
+
+    case "setBasicBreakpointMode": {
+      if (!wasm) break;
+      if (msg.mode === "step") {
+        basicBpMode = { type: "step" };
+      } else if (msg.mode === "run") {
+        basicBpMode = { type: "run", lines: new Set(msg.lineNumbers) };
+      }
+      // If currently stopped at EACH-STMT (0x1B28), step past it first
+      // using resetBreakpointHit (no skipOnce) so the next 0x1B28 hit fires.
+      if (wasm._isBreakpointHit() && wasm._getBreakpointAddress() === 0x1B28) {
+        wasm._removeBreakpoint(0x1B28);
+        wasm._resetBreakpointHit();
+        wasm._setPaused(false);
+        wasm._stepInstruction();
+      } else {
+        wasm._resetBreakpointHit();
+      }
+      wasm._addBreakpoint(0x1B28);
+      wasm._setPaused(false);
+      self.postMessage({ type: "stateUpdate", state: getState() });
+      break;
+    }
+
+    case "clearBasicBreakpointMode": {
+      if (!wasm) break;
+      basicBpMode = null;
+      wasm._removeBreakpoint(0x1B28);
+      break;
+    }
 
     case "getState":
       if (wasm) {

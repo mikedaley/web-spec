@@ -95,6 +95,7 @@ class ZXSpectrumEmulator {
 
       // Create BASIC program window
       this.basicProgramWindow = new BasicProgramWindow(this.proxy);
+      this.basicProgramWindow.onRenderFrame = (fb) => this.renderFrame(fb);
       this.basicProgramWindow.create();
       this.windowManager.register(this.basicProgramWindow);
 
