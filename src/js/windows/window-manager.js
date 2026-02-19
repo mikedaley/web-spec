@@ -46,6 +46,10 @@ export class WindowManager {
    * Show a specific window
    */
   showWindow(id) {
+    // During state restoration, don't auto-show windows — let saved
+    // visibility take precedence (e.g. tape reload triggers onTapLoaded
+    // which calls showWindow, but the window may have been closed)
+    if (this._restoring) return;
     const window = this.windows.get(id);
     if (window) {
       window.show();

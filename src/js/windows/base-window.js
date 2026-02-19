@@ -446,6 +446,9 @@ export class BaseWindow {
 
     if (state.visible) {
       this.show();
+    } else {
+      this.element.classList.add("hidden");
+      this.isVisible = false;
     }
   }
 
