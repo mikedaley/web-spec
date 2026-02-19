@@ -140,12 +140,27 @@ All accent and highlight colours **must** come from the ZX Spectrum hardware pal
 
 Dark theme uses the **bright** Spectrum colours (high contrast on dark backgrounds). Light theme uses the **normal** Spectrum colours (legible on white). If a new accent is needed, it must map to one of the 8 Spectrum hardware colours.
 
+### Sound Channel Colours
+
+Waveform traces, meter fills, and canvas drawing in the Sound window use dedicated CSS variables that also follow the Spectrum palette:
+
+| Token | Dark theme (bright) | Light theme (boosted normal) | Usage |
+|---|---|---|---|
+| `--channel-a` | `#00FFFF` | `#0000CD` | AY Channel A waveform & meter |
+| `--channel-b` | `#00FF00` | `#008A00` | AY Channel B waveform & meter |
+| `--channel-c` | `#FF0000` | `#CD0000` | AY Channel C waveform & meter |
+| `--beeper-color` | `#00FF00` | `#008A00` | Beeper waveform trace |
+
+These are defined in `base.css` alongside the accent tokens. The Sound window reads them at runtime via `getComputedStyle()` for `<canvas>` drawing and via `var()` in CSS for meter fills. A `MutationObserver` on `data-theme` triggers a re-read when the theme changes.
+
 ### Rules for all new CSS
 
 - **Never use hard-coded colors.** Always reference CSS custom properties from `:root` (e.g., `var(--bg-primary)`, `var(--text-secondary)`, `var(--accent-blue)`).
 - **Accent colours must be Sinclair Spectrum palette colours** — never use arbitrary hues. See the table above.
 - When adding new CSS variables, define them in **both** the `:root` (dark) and `html[data-theme="light"]` blocks in `base.css`.
-- Use the existing token categories: `--bg-*`, `--text-*`, `--accent-*-bg`, `--accent-*-border`, `--glass-*`, `--overlay-*`, `--input-*`, `--control-*`, `--shadow-*`.
+- Use the existing token categories: `--bg-*`, `--text-*`, `--accent-*-bg`, `--accent-*-border`, `--glass-*`, `--overlay-*`, `--input-*`, `--control-*`, `--shadow-*`, `--channel-*`, `--canvas-*`.
+- **Never hard-code `rgba()` or hex colours in CSS `box-shadow`, `text-shadow`, or `glow` properties.** Use the corresponding `--accent-*-bg-stronger` or `--accent-*-border` variable so glows adapt to both themes.
+- **Canvas drawing in JavaScript must read colours from CSS custom properties** (via `getComputedStyle`) rather than using JS colour constants. This ensures canvases update when the theme changes.
 - Test UI in both themes before considering CSS work complete.
 
 ## Window System
