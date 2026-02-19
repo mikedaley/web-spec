@@ -179,6 +179,11 @@ export class EmulatorProxy {
     this.worker.postMessage({ type: "writeMemory", addr, value });
   }
 
+  writeMemoryBulk(addr, data) {
+    const copy = new Uint8Array(data);
+    this.worker.postMessage({ type: "writeMemoryBulk", addr, data: copy }, [copy.buffer]);
+  }
+
   setRegister(reg, value) {
     this.worker.postMessage({ type: "setRegister", reg, value });
   }

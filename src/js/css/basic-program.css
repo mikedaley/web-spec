@@ -1,0 +1,330 @@
+/*
+ * basic-program.css - Styles for the Sinclair BASIC program window
+ *
+ * Written by
+ *  Mike Daley <michael_daley@icloud.com>
+ */
+
+/* ============================================
+   TOOLBAR
+   ============================================ */
+
+.bas-toolbar {
+  display: flex;
+  gap: 2px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--glass-bg-header);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.bas-toolbar-group {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.bas-toolbar-separator {
+  width: 1px;
+  height: 18px;
+  background: var(--separator-bg);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+.bas-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 8px;
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--control-bg);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.bas-toolbar-btn:hover {
+  background: var(--overlay-hover);
+  color: var(--text-primary);
+  border-color: var(--glass-border);
+}
+
+.bas-toolbar-btn:active {
+  background: var(--overlay-active);
+}
+
+.bas-toolbar-btn.run {
+  color: var(--accent-green);
+  border-color: var(--accent-green-border-light);
+}
+
+.bas-toolbar-btn.run:hover {
+  background: var(--accent-green-bg);
+  color: var(--accent-green);
+}
+
+.bas-toolbar-btn.pause {
+  color: var(--accent-orange);
+  border-color: var(--accent-orange-border-light);
+}
+
+.bas-toolbar-btn.pause:hover {
+  background: var(--accent-orange-bg);
+}
+
+.bas-toolbar-btn.step {
+  color: var(--accent-blue);
+  border-color: var(--accent-blue-border-light);
+}
+
+.bas-toolbar-btn.step:hover {
+  background: var(--accent-blue-bg);
+}
+
+/* ============================================
+   EDITOR AREA
+   ============================================ */
+
+.bas-editor-area {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.bas-editor-container {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.bas-gutter {
+  width: 44px;
+  flex-shrink: 0;
+  background: var(--overlay-faint);
+  border-right: 1px solid var(--glass-border-subtle);
+  overflow: hidden;
+  user-select: none;
+}
+
+.bas-gutter-inner {
+  padding: 8px 4px 8px 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--text-muted);
+  text-align: right;
+  white-space: pre;
+}
+
+.bas-editor-scroll {
+  flex: 1;
+  overflow: auto;
+  position: relative;
+  min-width: 0;
+}
+
+/* Highlight overlay - rendered pre behind transparent textarea */
+.bas-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: transparent;
+  pointer-events: none;
+  tab-size: 4;
+}
+
+.bas-textarea {
+  display: block;
+  width: 100%;
+  min-height: 100%;
+  padding: 8px;
+  border: none;
+  outline: none;
+  resize: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  tab-size: 4;
+  caret-color: var(--accent-blue);
+  position: relative;
+  z-index: 1;
+}
+
+.bas-textarea::selection {
+  background: var(--accent-blue-bg-stronger);
+}
+
+/* ============================================
+   SYNTAX HIGHLIGHTING CLASSES
+   ============================================ */
+
+.bas-kw-flow { color: var(--accent-red); font-weight: 600; }
+.bas-kw-loop { color: var(--accent-purple); font-weight: 600; }
+.bas-kw-io { color: var(--accent-blue); font-weight: 600; }
+.bas-kw-graphics { color: var(--accent-green); font-weight: 600; }
+.bas-kw-memory { color: var(--accent-orange); font-weight: 600; }
+.bas-kw-func { color: var(--accent-blue); }
+.bas-kw-misc { color: var(--text-muted); font-weight: 600; }
+.bas-number { color: var(--accent-orange); }
+.bas-string { color: var(--accent-green); }
+.bas-rem { color: var(--text-muted); font-style: italic; }
+.bas-linenum { color: var(--text-secondary); }
+
+/* ============================================
+   VARIABLE SIDEBAR
+   ============================================ */
+
+.bas-sidebar {
+  width: 180px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--glass-border);
+  background: var(--overlay-faint);
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.bas-sidebar.hidden {
+  display: none;
+}
+
+.bas-sidebar-header {
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--glass-border-subtle);
+  background: var(--glass-bg-header);
+  flex-shrink: 0;
+}
+
+.bas-sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.bas-vars-empty {
+  padding: 12px 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-align: center;
+  font-style: italic;
+}
+
+.bas-vars-group {
+  margin-bottom: 6px;
+}
+
+.bas-vars-group-title {
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: var(--text-muted);
+}
+
+.bas-var-entry {
+  padding: 1px 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 16px;
+  color: var(--text-secondary);
+}
+
+.bas-var-name {
+  color: var(--accent-blue);
+}
+
+.bas-var-value {
+  color: var(--accent-green);
+}
+
+.bas-var-detail {
+  font-size: 10px;
+  color: var(--text-muted);
+  padding-left: 8px;
+}
+
+/* ============================================
+   SIDEBAR RESIZE HANDLE
+   ============================================ */
+
+.bas-sidebar-resize {
+  width: 4px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  z-index: 2;
+}
+
+.bas-sidebar-resize:hover,
+.bas-sidebar-resize.active {
+  background: var(--accent-blue-bg);
+}
+
+/* ============================================
+   STATUS BAR
+   ============================================ */
+
+.bas-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 2px 8px;
+  border-top: 1px solid var(--glass-border);
+  background: var(--glass-bg-header);
+  font-size: 10px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.bas-status-item {
+  white-space: nowrap;
+}
+
+.bas-status-right {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+.bas-sidebar-toggle {
+  cursor: pointer;
+  color: var(--text-muted);
+  border: none;
+  background: none;
+  font-size: 10px;
+  font-family: var(--font-sans);
+  padding: 0 2px;
+}
+
+.bas-sidebar-toggle:hover {
+  color: var(--text-primary);
+}

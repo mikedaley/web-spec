@@ -18,6 +18,7 @@ import { CPUDebuggerWindow } from "./debug/cpu-debugger-window.js";
 import { StackViewerWindow } from "./debug/stack-viewer-window.js";
 import { TapeWindow } from "./tape/tape-window.js";
 import { SoundWindow } from "./audio/sound-window.js";
+import { BasicProgramWindow } from "./debug/basic-program-window.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
@@ -34,6 +35,7 @@ class ZXSpectrumEmulator {
     this.cpuDebuggerWindow = null;
     this.tapeWindow = null;
     this.soundWindow = null;
+    this.basicProgramWindow = null;
 
     this.snapshotLoader = null;
     this.themeManager = null;
@@ -91,6 +93,11 @@ class ZXSpectrumEmulator {
       this.soundWindow.create();
       this.windowManager.register(this.soundWindow);
 
+      // Create BASIC program window
+      this.basicProgramWindow = new BasicProgramWindow(this.proxy);
+      this.basicProgramWindow.create();
+      this.windowManager.register(this.basicProgramWindow);
+
       // Attach canvas to screen window
       this.screenWindow.attachCanvas();
 
@@ -102,6 +109,7 @@ class ZXSpectrumEmulator {
         { id: "stack-viewer", visible: false },
         { id: "tape-window", visible: false },
         { id: "sound-debug", visible: false },
+        { id: "basic-program", visible: false },
       ]);
 
       // Load saved window state (overrides defaults if present)
@@ -249,6 +257,16 @@ class ZXSpectrumEmulator {
     if (stackViewerBtn) {
       stackViewerBtn.addEventListener("click", () => {
         this.windowManager.toggleWindow("stack-viewer");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
+    // Dev menu > BASIC Editor
+    const basicEditorBtn = document.getElementById("btn-basic-editor");
+    if (basicEditorBtn) {
+      basicEditorBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("basic-program");
         this.closeAllMenus();
         this.refocusCanvas();
       });
@@ -635,6 +653,11 @@ class ZXSpectrumEmulator {
     if (this.soundWindow) {
       this.soundWindow.destroy();
       this.soundWindow = null;
+    }
+
+    if (this.basicProgramWindow) {
+      this.basicProgramWindow.destroy();
+      this.basicProgramWindow = null;
     }
 
     if (this.cpuDebuggerWindow) {
