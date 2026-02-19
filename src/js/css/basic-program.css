@@ -5,6 +5,14 @@
  *  Mike Daley <michael_daley@icloud.com>
  */
 
+/* Override base window content: no padding/scroll — panels scroll independently */
+#basic-program .debug-window-content {
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 /* ============================================
    TOOLBAR
    ============================================ */
@@ -99,60 +107,72 @@
   overflow: hidden;
 }
 
-.bas-editor-container {
+/* Gutter + editor side by side */
+.bas-editor-with-gutter {
   display: flex;
   flex: 1;
   min-width: 0;
-  position: relative;
+  min-height: 0;
   overflow: hidden;
 }
 
+/* Gutter: scroll-synced with textarea via JS, scrollbar hidden */
 .bas-gutter {
   width: 44px;
   flex-shrink: 0;
   background: var(--overlay-faint);
   border-right: 1px solid var(--glass-border-subtle);
-  overflow: hidden;
   user-select: none;
+  overflow: hidden;
+  padding: 8px 0;
 }
 
-.bas-gutter-inner {
-  padding: 8px 4px 8px 0;
+.bas-gutter-line {
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 4px 0 0;
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 18px;
   color: var(--text-muted);
-  text-align: right;
-  white-space: pre;
 }
 
-.bas-editor-scroll {
+/* Editor container: relative parent for absolutely positioned highlight + textarea */
+.bas-editor-container {
+  position: relative;
   flex: 1;
-  overflow: auto;
   min-width: 0;
-  /* Grid overlay: highlight and textarea share the same cell */
-  display: grid;
-  grid-template: 1fr / 1fr;
+  min-height: 0;
 }
 
 /* Highlight overlay - rendered pre behind transparent textarea */
 .bas-highlight {
-  grid-area: 1 / 1;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   padding: 8px;
   margin: 0;
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 18px;
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  white-space: pre;
   pointer-events: none;
   tab-size: 4;
   overflow: hidden;
+  z-index: 0;
 }
 
+/* Textarea: scroll master — highlight and gutter sync to this */
 .bas-textarea {
-  grid-area: 1 / 1;
-  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   padding: 8px;
   margin: 0;
   border: none;
@@ -163,11 +183,11 @@
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 18px;
-  white-space: pre-wrap;
-  word-wrap: break-word;
+  white-space: pre;
   tab-size: 4;
   caret-color: var(--accent-blue);
   z-index: 1;
+  overflow: auto;
 }
 
 .bas-textarea::selection {
@@ -199,10 +219,10 @@
   flex-shrink: 0;
   border-left: 1px solid var(--glass-border);
   background: var(--overlay-faint);
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .bas-sidebar.hidden {
@@ -284,6 +304,8 @@
 
 .bas-vars-table td.bas-var-array-cell {
   padding: 2px 4px;
+  overflow-x: auto;
+  max-width: 0;
 }
 
 /* Array data tables (nested inside the main vars table) */

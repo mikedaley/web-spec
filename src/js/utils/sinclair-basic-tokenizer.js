@@ -207,18 +207,16 @@ export class SinclairBasicTokenizer {
       return [0x00, 0x00, 0x00, 0x00, 0x00];
     }
 
-    // Mantissa: 4 bytes. Leading 1 is implied (not stored), replaced by sign bit.
-    // m is in [0.5, 1), multiply by 2^32 to get 32-bit mantissa
-    // But first subtract the implied 0.5 (the leading 1 bit)
-    m -= 0.5;
-    let mantissa32 = Math.round(m * 2 * 0x100000000);
+    // Mantissa: 4 bytes. m is in [0.5, 1), multiply by 2^32 to get 32-bit mantissa.
+    // Bit 7 of byte 1 is the implied leading 1 (0.5); we replace it with the sign bit.
+    let mantissa32 = Math.round(m * 0x100000000);
 
     const b1 = (mantissa32 >>> 24) & 0xFF;
     const b2 = (mantissa32 >>> 16) & 0xFF;
     const b3 = (mantissa32 >>> 8) & 0xFF;
     const b4 = mantissa32 & 0xFF;
 
-    // Set sign bit in mantissa byte 1
+    // Replace implied 1 (bit 7 of b1) with sign bit
     const signedB1 = negative ? (b1 | 0x80) : (b1 & 0x7F);
 
     return [biasedExp, signedB1, b2, b3, b4];

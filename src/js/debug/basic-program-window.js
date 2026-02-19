@@ -49,11 +49,13 @@ export class BasicProgramWindow extends BaseWindow {
     return `
       <div class="bas-toolbar">
         <div class="bas-toolbar-group">
-          <button class="bas-toolbar-btn" data-action="read" title="Read program from Spectrum memory">Read</button>
-          <button class="bas-toolbar-btn" data-action="write" title="Write program to Spectrum memory">Write</button>
+          <button class="bas-toolbar-btn run" data-action="run" title="Write program and type RUN">Run</button>
+          <button class="bas-toolbar-btn step" data-action="step" title="Step one instruction">Step</button>
         </div>
         <div class="bas-toolbar-separator"></div>
         <div class="bas-toolbar-group">
+          <button class="bas-toolbar-btn" data-action="read" title="Read program from Spectrum memory">Read</button>
+          <button class="bas-toolbar-btn" data-action="write" title="Write program to Spectrum memory">Write</button>
           <button class="bas-toolbar-btn" data-action="format" title="Auto-format: sort and indent lines">Format</button>
           <button class="bas-toolbar-btn" data-action="renum" title="Renumber lines by 10s">Renum</button>
         </div>
@@ -63,19 +65,12 @@ export class BasicProgramWindow extends BaseWindow {
           <button class="bas-toolbar-btn" data-action="open" title="Open .bas file">Open</button>
           <button class="bas-toolbar-btn" data-action="save" title="Save as .bas file">Save</button>
         </div>
-        <div class="bas-toolbar-separator"></div>
-        <div class="bas-toolbar-group">
-          <button class="bas-toolbar-btn run" data-action="run" title="Write program and type RUN">Run</button>
-          <button class="bas-toolbar-btn step" data-action="step" title="Step one instruction">Step</button>
-        </div>
       </div>
       <div class="bas-editor-area">
-        <div class="bas-editor-container">
-          <div class="bas-gutter">
-            <div class="bas-gutter-inner"></div>
-          </div>
-          <div class="bas-editor-scroll">
-            <pre class="bas-highlight"></pre>
+        <div class="bas-editor-with-gutter">
+          <div class="bas-gutter"></div>
+          <div class="bas-editor-container">
+            <pre class="bas-highlight" aria-hidden="true"></pre>
             <textarea class="bas-textarea" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
           </div>
         </div>
@@ -98,8 +93,7 @@ export class BasicProgramWindow extends BaseWindow {
   onContentRendered() {
     this._textarea = this.contentElement.querySelector(".bas-textarea");
     this._highlight = this.contentElement.querySelector(".bas-highlight");
-    this._gutter = this.contentElement.querySelector(".bas-gutter-inner");
-    this._editorScroll = this.contentElement.querySelector(".bas-editor-scroll");
+    this._gutter = this.contentElement.querySelector(".bas-gutter");
     this._sidebar = this.contentElement.querySelector(".bas-sidebar");
     this._sidebarContent = this.contentElement.querySelector(".bas-sidebar-content");
     this._sidebarResize = this.contentElement.querySelector(".bas-sidebar-resize");
@@ -113,9 +107,9 @@ export class BasicProgramWindow extends BaseWindow {
     }
     this._sidebar.style.width = `${this._sidebarWidth}px`;
 
-    // Textarea events
+    // Textarea is the scroll master — sync highlight and gutter to it
+    this._textarea.addEventListener("scroll", () => this._syncScroll());
     this._textarea.addEventListener("input", () => this._onInput());
-    this._editorScroll.addEventListener("scroll", () => this._syncScroll());
     this._textarea.addEventListener("keydown", (e) => this._onKeyDown(e));
     this._textarea.addEventListener("click", () => this._updateCursorStatus());
     this._textarea.addEventListener("keyup", () => this._updateCursorStatus());
@@ -187,25 +181,27 @@ export class BasicProgramWindow extends BaseWindow {
   }
 
   _syncScroll() {
-    // Gutter follows the editor's vertical scroll
-    this._gutter.style.transform = `translateY(-${this._editorScroll.scrollTop}px)`;
+    // Textarea is the scroll master — sync highlight and gutter
+    this._highlight.scrollTop = this._textarea.scrollTop;
+    this._highlight.scrollLeft = this._textarea.scrollLeft;
+    this._gutter.scrollTop = this._textarea.scrollTop;
   }
 
   _updateHighlight() {
     const text = this._textarea.value;
     const lines = text.split("\n");
     const highlighted = lines.map((line) => highlightLine(line)).join("\n");
-    this._highlight.innerHTML = highlighted + "\n";
+    this._highlight.innerHTML = highlighted;
   }
 
   _updateGutter() {
     const text = this._textarea.value;
     const lineCount = text.split("\n").length;
-    let gutterText = "";
+    let html = "";
     for (let i = 1; i <= lineCount; i++) {
-      gutterText += i + "\n";
+      html += `<div class="bas-gutter-line">${i}</div>`;
     }
-    this._gutter.textContent = gutterText;
+    this._gutter.innerHTML = html;
   }
 
   _updateStatus() {
