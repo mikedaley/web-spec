@@ -148,6 +148,16 @@ Dark theme uses the **bright** Spectrum colours (high contrast on dark backgroun
 - Use the existing token categories: `--bg-*`, `--text-*`, `--accent-*-bg`, `--accent-*-border`, `--glass-*`, `--overlay-*`, `--input-*`, `--control-*`, `--shadow-*`.
 - Test UI in both themes before considering CSS work complete.
 
+## Window System
+
+All windows extend `BaseWindow` (`src/js/windows/base-window.js`) and are managed by `WindowManager` (`src/js/windows/window-manager.js`), which persists state to localStorage.
+
+### Rules for all windows
+
+- **Every window must save and restore its full state.** `BaseWindow.getState()` persists position, size, visibility, and zIndex automatically. If a window has additional state (e.g., viewport lock, mute toggles, selected tabs), override `getState()` and `restoreState()` to include it.
+- **All windows must be registered with the window manager before `loadState()` is called** in `main.js`. If a window is registered after `loadState()`, its saved state will not be restored on page load.
+- Include new windows in the `applyDefaultLayout` array in `main.js` so they have sensible defaults for first-time users.
+
 ## Git Commits
 
 Do not add `Co-Authored-By` or any other attribution lines for Claude in commit messages.

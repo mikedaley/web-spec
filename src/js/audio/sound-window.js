@@ -175,9 +175,9 @@ export class SoundWindow extends BaseWindow {
   }
 
   update() {
-    // Throttle to every 3rd frame (~16fps)
+    // Throttle to every 2nd frame (~25fps)
     this._frameCount++;
-    if (this._frameCount % 3 !== 0) return;
+    if (this._frameCount % 2 !== 0) return;
 
     // Sync volume slider if changed externally
     if (this.volumeSlider) {
@@ -242,7 +242,7 @@ export class SoundWindow extends BaseWindow {
     const scale = peak > 0 ? 1 / peak : 1;
 
     // Draw waveform
-    ctx.strokeStyle = "#22c55e";
+    ctx.strokeStyle = "#00FF00";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
 

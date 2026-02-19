@@ -82,12 +82,20 @@ class ZXSpectrumEmulator {
       this.tapeWindow.create();
       this.windowManager.register(this.tapeWindow);
 
+      // Set up audio driver (before window registration so sound window can be created)
+      this.audioDriver = new AudioDriver(this.proxy);
+
+      // Create sound debug window (needs audioDriver)
+      this.soundWindow = new SoundWindow(this.audioDriver);
+      this.soundWindow.create();
+      this.windowManager.register(this.soundWindow);
+
       // Attach canvas to screen window
       this.screenWindow.attachCanvas();
 
       // Apply default layout (viewport-fill for first-time users)
       this.windowManager.applyDefaultLayout([
-        { id: "screen-window", position: "viewport-fill", visible: true, viewportLocked: true },
+        { id: "screen-window", position: "viewport-fill", visible: true, viewportLocked: false },
         { id: "display-settings", visible: false },
         { id: "cpu-debugger", visible: false },
         { id: "stack-viewer", visible: false },
@@ -100,14 +108,6 @@ class ZXSpectrumEmulator {
 
       // Apply saved display settings to renderer
       this.displaySettingsWindow.applyAllSettings();
-
-      // Set up audio driver
-      this.audioDriver = new AudioDriver(this.proxy);
-
-      // Create sound debug window (needs audioDriver)
-      this.soundWindow = new SoundWindow(this.audioDriver);
-      this.soundWindow.create();
-      this.windowManager.register(this.soundWindow);
 
       // Connect audio-driven frame sync to rendering
       this.audioDriver.onFrameReady = (framebuffer) => {
@@ -162,6 +162,7 @@ class ZXSpectrumEmulator {
       resetBtn.addEventListener("click", () => {
         if (this.running) {
           this.proxy.reset();
+          this.audioDriver.latestSamples = null;
           console.log("Emulator reset");
         }
         this.refocusCanvas();
