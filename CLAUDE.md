@@ -161,6 +161,7 @@ These are defined in `base.css` alongside the accent tokens. The Sound window re
 - Use the existing token categories: `--bg-*`, `--text-*`, `--accent-*-bg`, `--accent-*-border`, `--glass-*`, `--overlay-*`, `--input-*`, `--control-*`, `--shadow-*`, `--channel-*`, `--canvas-*`.
 - **Never hard-code `rgba()` or hex colours in CSS `box-shadow`, `text-shadow`, or `glow` properties.** Use the corresponding `--accent-*-bg-stronger` or `--accent-*-border` variable so glows adapt to both themes.
 - **Canvas drawing in JavaScript must read colours from CSS custom properties** (via `getComputedStyle`) rather than using JS colour constants. This ensures canvases update when the theme changes.
+- **All text colours must meet WCAG AA contrast requirements** (minimum 4.5:1 ratio for normal text, 3:1 for large text) against their background in both themes. When choosing or adjusting colours, verify contrast ratios to ensure legibility.
 - Test UI in both themes before considering CSS work complete.
 
 ## Window System

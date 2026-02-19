@@ -10,6 +10,7 @@ import { BaseWindow } from "../windows/base-window.js";
 import { SinclairBasicParser } from "../utils/sinclair-basic-parser.js";
 import { SinclairBasicTokenizer } from "../utils/sinclair-basic-tokenizer.js";
 import { highlightLine } from "../utils/sinclair-basic-highlighting.js";
+import { KEYWORDS_BY_LENGTH } from "../utils/sinclair-basic-tokens.js";
 import { BasicVariableInspector } from "./basic-variable-inspector.js";
 
 export class BasicProgramWindow extends BaseWindow {
@@ -34,6 +35,9 @@ export class BasicProgramWindow extends BaseWindow {
     this._lastVariableUpdate = 0;
     this._variableUpdateInterval = 500; // ms between variable refreshes
     this._pendingHighlight = false;
+
+    // Track which editor line the cursor is on for auto-renumber on line change
+    this._lastCursorLine = -1;
 
     // Sidebar resize state
     this._sidebarResizing = false;
@@ -111,8 +115,8 @@ export class BasicProgramWindow extends BaseWindow {
     this._textarea.addEventListener("scroll", () => this._syncScroll());
     this._textarea.addEventListener("input", () => this._onInput());
     this._textarea.addEventListener("keydown", (e) => this._onKeyDown(e));
-    this._textarea.addEventListener("click", () => this._updateCursorStatus());
-    this._textarea.addEventListener("keyup", () => this._updateCursorStatus());
+    this._textarea.addEventListener("click", () => this._onCursorMove());
+    this._textarea.addEventListener("keyup", () => this._onCursorMove());
 
     // Toolbar button events
     this.contentElement.querySelectorAll("[data-action]").forEach((btn) => {
@@ -178,6 +182,189 @@ export class BasicProgramWindow extends BaseWindow {
       this._textarea.selectionStart = this._textarea.selectionEnd = start + 2;
       this._onInput();
     }
+  }
+
+  _onCursorMove() {
+    this._autoFormatKeywords();
+
+    // Detect line change and auto-renumber if needed
+    const pos = this._textarea.selectionStart;
+    const currentLine = this._textarea.value.substring(0, pos).split("\n").length - 1;
+    if (this._lastCursorLine >= 0 && currentLine !== this._lastCursorLine) {
+      this._autoRenumberIfNeeded();
+    }
+    this._lastCursorLine = currentLine;
+
+    this._updateCursorStatus();
+  }
+
+  /**
+   * Uppercase all BASIC keywords in the textarea text.
+   * Skips content inside strings and after REM.
+   */
+  _autoFormatKeywords() {
+    const text = this._textarea.value;
+    const cursorStart = this._textarea.selectionStart;
+    const cursorEnd = this._textarea.selectionEnd;
+
+    const lines = text.split("\n");
+    let changed = false;
+
+    for (let lineIdx = 0; lineIdx < lines.length; lineIdx++) {
+      const line = lines[lineIdx];
+      const formatted = this._uppercaseKeywordsInLine(line);
+      if (formatted !== line) {
+        lines[lineIdx] = formatted;
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      this._textarea.value = lines.join("\n");
+      this._textarea.selectionStart = cursorStart;
+      this._textarea.selectionEnd = cursorEnd;
+      this._updateHighlight();
+      this._saveEditorContent();
+    }
+  }
+
+  /**
+   * Uppercase keywords in a single line, preserving strings and REM content.
+   */
+  _uppercaseKeywordsInLine(text) {
+    const chars = [...text];
+    let i = 0;
+    const len = text.length;
+
+    // Skip line number
+    while (i < len && text[i] >= "0" && text[i] <= "9") i++;
+    while (i < len && text[i] === " ") i++;
+
+    let inString = false;
+    let inRem = false;
+
+    while (i < len) {
+      if (inRem) break;
+
+      if (text[i] === '"') {
+        inString = !inString;
+        i++;
+        continue;
+      }
+
+      if (inString) {
+        i++;
+        continue;
+      }
+
+      // Try keyword match
+      let matched = false;
+      const remaining = text.slice(i).toUpperCase();
+      for (const kw of KEYWORDS_BY_LENGTH) {
+        if (remaining.startsWith(kw)) {
+          const afterKw = i + kw.length;
+          if (afterKw < len) {
+            const nextChar = text[afterKw];
+            if (/[A-Za-z]/.test(kw[kw.length - 1]) && /[A-Za-z0-9]/.test(nextChar)) {
+              continue;
+            }
+          }
+          // Replace with uppercase
+          for (let c = 0; c < kw.length; c++) {
+            chars[i + c] = kw[c];
+          }
+          i += kw.length;
+          matched = true;
+          if (kw === "REM") inRem = true;
+          break;
+        }
+      }
+      if (matched) continue;
+
+      i++;
+    }
+
+    return chars.join("");
+  }
+
+  /**
+   * When the cursor moves off a line, check if line numbers are in ascending
+   * order. If a newly inserted line causes overlap, bump all lines below it
+   * by 10 and update GO TO / GO SUB / RESTORE / RUN references.
+   */
+  _autoRenumberIfNeeded() {
+    const text = this._textarea.value;
+    const rawLines = text.split("\n");
+    const cursorStart = this._textarea.selectionStart;
+    const cursorEnd = this._textarea.selectionEnd;
+
+    // Parse line numbers in editor order, keeping track of raw line index
+    const parsed = [];
+    for (let idx = 0; idx < rawLines.length; idx++) {
+      const trimmed = rawLines[idx].trim();
+      if (!trimmed) continue;
+      const match = trimmed.match(/^(\d+)\s*(.*)/);
+      if (match) {
+        parsed.push({ idx, lineNumber: parseInt(match[1], 10), body: match[2] });
+      }
+    }
+
+    if (parsed.length < 2) return;
+
+    // Find first conflict: a line number <= the previous one
+    let conflictIdx = -1;
+    for (let i = 1; i < parsed.length; i++) {
+      if (parsed[i].lineNumber <= parsed[i - 1].lineNumber) {
+        conflictIdx = i;
+        break;
+      }
+    }
+
+    if (conflictIdx < 0) return;
+
+    // The inserted line is the one before the conflict (the new line the user typed).
+    // All lines from conflictIdx onward need to be bumped by 10.
+    const insertedLineNum = parsed[conflictIdx - 1].lineNumber;
+    const mapping = {};
+    let nextNum = insertedLineNum + 10;
+
+    for (let i = conflictIdx; i < parsed.length; i++) {
+      const oldNum = parsed[i].lineNumber;
+      // Only remap if the line would conflict; once we're past the conflict, keep originals if they fit
+      if (oldNum < nextNum) {
+        mapping[oldNum] = nextNum;
+        parsed[i].lineNumber = nextNum;
+      } else {
+        // No more conflicts
+        break;
+      }
+      nextNum = parsed[i].lineNumber + 10;
+    }
+
+    // Nothing changed
+    if (Object.keys(mapping).length === 0) return;
+
+    // Update references in GO TO, GO SUB, RESTORE, RUN across ALL lines
+    const refPattern = /\b(GO\s*TO|GO\s*SUB|RESTORE|RUN)\s+(\d+)/gi;
+    for (const p of parsed) {
+      p.body = p.body.replace(refPattern, (match, keyword, num) => {
+        const oldNum = parseInt(num, 10);
+        const newTarget = mapping[oldNum];
+        return newTarget !== undefined ? `${keyword} ${newTarget}` : match;
+      });
+    }
+
+    // Rebuild the raw lines array with updated line numbers and bodies
+    for (const p of parsed) {
+      rawLines[p.idx] = `${p.lineNumber} ${p.body}`;
+    }
+
+    this._textarea.value = rawLines.join("\n");
+    this._textarea.selectionStart = cursorStart;
+    this._textarea.selectionEnd = cursorEnd;
+    this._updateHighlight();
+    this._updateGutter();
+    this._saveEditorContent();
   }
 
   _syncScroll() {
@@ -266,7 +453,7 @@ export class BasicProgramWindow extends BaseWindow {
       } else {
         this._textarea.value = lines.map((l) => `${l.lineNumber} ${l.text}`).join("\n");
       }
-      this._onInput();
+      this._formatProgram();
     } catch (err) {
       console.error("Failed to read BASIC program:", err);
     }
@@ -372,16 +559,38 @@ export class BasicProgramWindow extends BaseWindow {
       const reader = new FileReader();
       reader.onload = () => {
         this._textarea.value = reader.result;
-        this._onInput();
+        this._formatProgram();
       };
       reader.readAsText(file);
     });
     input.click();
   }
 
-  _saveFile() {
+  async _saveFile() {
     const text = this._textarea.value;
     const blob = new Blob([text], { type: "text/plain" });
+
+    // Use File System Access API if available (lets user pick save location)
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: "program.bas",
+          types: [{
+            description: "BASIC Program",
+            accept: { "text/plain": [".bas", ".txt"] },
+          }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        return;
+      } catch (e) {
+        // User cancelled the dialog
+        if (e.name === "AbortError") return;
+      }
+    }
+
+    // Fallback for browsers without File System Access API
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;

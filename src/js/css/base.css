@@ -144,12 +144,12 @@ html[data-theme="light"] {
   --accent-blue-bg-stronger: rgba(0, 0, 205, 0.22);
   --accent-blue-border: rgba(0, 0, 205, 0.4);
   --accent-blue-border-light: rgba(0, 0, 205, 0.3);
-  --accent-green: #00CD00;
-  --accent-green-bg: rgba(0, 205, 0, 0.1);
-  --accent-green-bg-strong: rgba(0, 205, 0, 0.16);
-  --accent-green-bg-stronger: rgba(0, 205, 0, 0.22);
-  --accent-green-border: rgba(0, 205, 0, 0.4);
-  --accent-green-border-light: rgba(0, 205, 0, 0.3);
+  --accent-green: #008A00;
+  --accent-green-bg: rgba(0, 138, 0, 0.1);
+  --accent-green-bg-strong: rgba(0, 138, 0, 0.16);
+  --accent-green-bg-stronger: rgba(0, 138, 0, 0.22);
+  --accent-green-border: rgba(0, 138, 0, 0.4);
+  --accent-green-border-light: rgba(0, 138, 0, 0.3);
   --accent-red: #CD0000;
   --accent-red-bg: rgba(205, 0, 0, 0.1);
   --accent-red-bg-strong: rgba(205, 0, 0, 0.16);

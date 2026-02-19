@@ -81,8 +81,7 @@ export function highlightLine(text) {
         }
 
         const cat = KEYWORD_TO_CATEGORY[kw] || "misc";
-        const originalText = text.slice(i, i + kw.length);
-        parts.push(`<span class="bas-kw-${cat}">${escapeHtml(originalText)}</span>`);
+        parts.push(`<span class="bas-kw-${cat}">${escapeHtml(kw)}</span>`);
         i += kw.length;
         matched = true;
 
