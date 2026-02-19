@@ -32,19 +32,26 @@ ctest --verbose
 
 ### Two-Layer Design
 
-**C++ Core (src/core/)** - Pure emulation logic compiled to WebAssembly:
+**C++ Core** - Pure emulation logic compiled to WebAssembly:
 
-- `z80/z80.cpp` - Z80 CPU (3.5MHz, ported from SpectREMCPP)
-- `z80/z80_opcodes_*.cpp` - 7 opcode tables (Main, CB, DD, ED, FD, DDCB, FDCB)
-- `emulator.cpp` - Core coordinator
-- `types.hpp` - Shared constants and types
+- `src/core/z80/` - Z80 CPU (3.5MHz, ported from SpectREMCPP) with 7 opcode tables
+- `src/core/palette.hpp` - Colour palette definitions
+- `src/machines/` - Machine-level emulation (audio, display, ULA contention, tape, loaders)
+- `src/machines/zx_spectrum.cpp` - Core coordinator
+- `src/machines/zx48k/` - ZX Spectrum 48K-specific configuration
 
 **JavaScript Layer (src/js/)** - Browser integration:
 
 - `main.js` - ZXSpectrumEmulator class orchestrating all subsystems
+- `emulator-proxy.js` / `emulator-worker.js` - Web Worker proxy for off-thread emulation
 - `audio/` - Web Audio API driver and AudioWorklet
 - `display/` - WebGL renderer
 - `input/` - Keyboard input
+- `tape/` - Tape deck UI and IndexedDB persistence
+- `snapshot/` - Snapshot load/save UI
+- `debug/` - Debug windows (CPU state, sound waveform, etc.)
+- `windows/` - Windowing system for debug panels
+- `utils/` - Shared utilities
 
 ### Key Constants (src/core/types.hpp)
 
@@ -75,20 +82,29 @@ Single global `Emulator` instance in C++ (`wasm_interface.cpp`). JS allocates WA
 
 ```
 src/
-├── core/               # C++ emulator (namespace zxspec::)
+├── core/               # Shared C++ types and CPU (namespace zxspec::)
 │   ├── z80/            # Z80 CPU
-│   ├── audio/          # Beeper audio generation
-│   ├── display/        # ULA display / framebuffer generation
+│   └── palette.hpp     # Colour palette
+├── machines/           # Machine-level C++ emulation
+│   ├── zx_spectrum.cpp # Core coordinator
+│   ├── audio.cpp       # Beeper audio generation
+│   ├── display.cpp     # ULA display / framebuffer generation
+│   ├── contention.cpp  # ULA contention timing
 │   ├── loaders/        # Snapshot loaders (SNA, Z80)
-│   ├── ula/            # ULA contention timing
-│   ├── emulator.cpp    # Core coordinator
-│   └── types.hpp       # Shared constants and types
+│   └── zx48k/          # 48K-specific config
 ├── bindings/           # wasm_interface.cpp - WASM export glue
 └── js/                 # ES6 modules, no framework
     ├── main.js         # Entry point, ZXSpectrumEmulator class
+    ├── emulator-proxy.js  # Web Worker proxy
+    ├── emulator-worker.js # Emulation Web Worker
     ├── audio/          # Web Audio API driver and worklet
     ├── display/        # WebGL renderer
     ├── input/          # Keyboard input
+    ├── tape/           # Tape deck UI and persistence
+    ├── snapshot/       # Snapshot load/save UI
+    ├── debug/          # Debug windows
+    ├── windows/        # Windowing system for panels
+    ├── utils/          # Shared utilities
     ├── ui/             # Theme manager and UI utilities
     └── css/            # Stylesheets
 public/                 # Static assets, built WASM files
