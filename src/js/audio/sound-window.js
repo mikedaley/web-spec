@@ -34,7 +34,7 @@ const CHANNEL_COLORS = { a: "#00FFFF", b: "#00FF00", c: "#FF0000" };
 const BEEPER_COLOR = "#00FF00";
 
 // Beeper max amplitude (must match BEEPER_VOLUME in audio.hpp)
-const BEEPER_VOLUME = 0.3;
+const BEEPER_VOLUME = 0.6;
 
 // ZX Spectrum AY PSG clock
 const PSG_CLOCK = 1773400;
@@ -190,7 +190,7 @@ export class SoundWindow extends BaseWindow {
           <div class="snd-opt-row">
             <span class="snd-opt-label">AY Chip (48K)</span>
             <label class="snd-toggle">
-              <input type="checkbox" id="snd-ay-toggle" ${this.proxy && this.proxy.isAYEnabled() ? "checked" : ""} />
+              <input type="checkbox" id="snd-ay-toggle" ${localStorage.getItem("zxspec-ay-enabled") === "true" ? "checked" : ""} />
               <span class="snd-toggle-track"></span>
             </label>
           </div>
@@ -591,10 +591,27 @@ export class SoundWindow extends BaseWindow {
 
     this.ayToggle = this.contentElement.querySelector("#snd-ay-toggle");
     this._ayTogglePending = false;
-    if (this.ayToggle && this.proxy) {
+    if (this.ayToggle) {
+      // Restore AY enabled from localStorage immediately (proxy may not
+      // be available yet since super() calls onContentRendered before
+      // subclass fields are assigned — applyPendingState handles the
+      // proxy side later).
+      const savedAY = localStorage.getItem("zxspec-ay-enabled");
+      if (savedAY !== null) {
+        const enabled = savedAY === "true";
+        this.ayToggle.checked = enabled;
+        if (this.proxy) {
+          this.proxy.setAYEnabled(enabled);
+        } else {
+          this._pendingAYEnabled = enabled;
+        }
+      }
+
       this.ayToggle.addEventListener("change", () => {
         this._ayTogglePending = true;
-        this.proxy.setAYEnabled(this.ayToggle.checked);
+        if (this.proxy) this.proxy.setAYEnabled(this.ayToggle.checked);
+        localStorage.setItem("zxspec-ay-enabled", this.ayToggle.checked);
+        if (this.onStateChange) this.onStateChange();
       });
     }
 
@@ -929,12 +946,21 @@ export class SoundWindow extends BaseWindow {
 
   getState() {
     const base = super.getState();
-    if (this.proxy?._getAYChannelMute) {
+    if (this._pendingMuteState) {
+      base.ayChannelMutes = this._pendingMuteState;
+    } else if (this.proxy?._getAYChannelMute) {
       const muteState = [];
       for (let ch = 0; ch < 3; ch++) {
         muteState.push(!!this.proxy._getAYChannelMute(ch));
       }
       base.ayChannelMutes = muteState;
+    }
+    // Use pending state if it hasn't been applied yet (proxy may not
+    // have received it), otherwise read live state from the proxy.
+    if (this._pendingAYEnabled !== undefined) {
+      base.ayEnabled = this._pendingAYEnabled;
+    } else if (this.proxy) {
+      base.ayEnabled = this.proxy.isAYEnabled();
     }
     return base;
   }
@@ -943,10 +969,52 @@ export class SoundWindow extends BaseWindow {
     if (state.ayChannelMutes) {
       this._pendingMuteState = state.ayChannelMutes;
     }
+    if (state.ayEnabled !== undefined) {
+      this._pendingAYEnabled = state.ayEnabled;
+    }
     super.restoreState(state);
   }
 
+  /**
+   * Apply any pending restored state to the proxy.
+   * Called every frame regardless of window visibility.
+   */
+  applyPendingState() {
+    const proxy = this.proxy;
+    if (!proxy) return;
+
+    // Keep retrying until the proxy confirms the state matches,
+    // since the worker may drop messages before WASM is loaded.
+    if (this._pendingAYEnabled !== undefined) {
+      if (proxy.isAYEnabled() === this._pendingAYEnabled) {
+        // Sync the checkbox UI before clearing pending state
+        if (this.ayToggle) {
+          this.ayToggle.checked = this._pendingAYEnabled;
+        }
+        this._pendingAYEnabled = undefined;
+      } else {
+        proxy.setAYEnabled(this._pendingAYEnabled);
+      }
+    }
+
+    if (this._pendingMuteState && proxy._setAYChannelMute) {
+      let allApplied = true;
+      for (let ch = 0; ch < 3; ch++) {
+        if (this._pendingMuteState[ch] && !proxy._getAYChannelMute(ch)) {
+          proxy._setAYChannelMute(ch, true);
+          allApplied = false;
+        }
+      }
+      if (allApplied) {
+        this._pendingMuteState = null;
+      }
+    }
+  }
+
   update() {
+    // Apply pending state every frame even if we skip the visual update
+    this.applyPendingState();
+
     this._frameCount++;
     if (this._frameCount % 2 !== 0) return;
 
@@ -961,8 +1029,9 @@ export class SoundWindow extends BaseWindow {
       }
     }
 
-    // Sync AY toggle (skip if user just toggled — wait for worker to catch up)
-    if (this.ayToggle && proxy) {
+    // Sync AY toggle (skip if user just toggled — wait for worker to catch up,
+    // and skip if there's a pending state not yet applied to the proxy)
+    if (this.ayToggle && proxy && this._pendingAYEnabled === undefined) {
       const ayEnabled = proxy.isAYEnabled();
       if (this._ayTogglePending) {
         if (this.ayToggle.checked === ayEnabled) {
@@ -1009,16 +1078,6 @@ export class SoundWindow extends BaseWindow {
     if (proxy) {
       if (!this.ayElements) {
         this.cacheAYElements();
-      }
-
-      if (this._pendingMuteState && proxy._setAYChannelMute) {
-        const mutes = this._pendingMuteState;
-        this._pendingMuteState = null;
-        for (let ch = 0; ch < 3; ch++) {
-          if (mutes[ch]) {
-            proxy._setAYChannelMute(ch, true);
-          }
-        }
       }
 
       this.updateAYChannels(proxy);
