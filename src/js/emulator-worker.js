@@ -234,14 +234,14 @@ self.onmessage = async function (e) {
       if (wasm) wasm._writeMemory(msg.addr, msg.value);
       break;
 
-    case "writeMemoryBulk":
-      if (wasm) {
-        const bulkData = new Uint8Array(msg.data);
-        for (let i = 0; i < bulkData.length; i++) {
-          wasm._writeMemory((msg.addr + i) & 0xFFFF, bulkData[i]);
-        }
+    case "writeMemoryBulk": {
+      if (!wasm) break;
+      const bulkData = new Uint8Array(msg.data);
+      for (let i = 0; i < bulkData.length; i++) {
+        wasm._writeMemory((msg.addr + i) & 0xFFFF, bulkData[i]);
       }
       break;
+    }
 
     case "setRegister":
       if (wasm) {

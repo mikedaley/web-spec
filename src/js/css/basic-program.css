@@ -236,39 +236,51 @@
   font-style: italic;
 }
 
-.bas-vars-group {
-  margin-bottom: 6px;
+.bas-vars-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 11px;
 }
 
-.bas-vars-group-title {
+.bas-vars-table thead th {
   padding: 2px 6px;
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
   color: var(--text-muted);
+  text-align: left;
+  border-bottom: 1px solid var(--glass-border-subtle);
+  position: sticky;
+  top: 0;
+  background: var(--glass-bg-header);
 }
 
-.bas-var-entry {
+.bas-vars-table tbody tr:hover {
+  background: var(--overlay-hover);
+}
+
+.bas-vars-table td {
   padding: 1px 6px;
-  font-family: var(--font-mono);
-  font-size: 11px;
   line-height: 16px;
-  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.bas-var-name {
+.bas-vars-table td.bas-var-name {
   color: var(--accent-blue);
 }
 
-.bas-var-value {
-  color: var(--accent-green);
+.bas-vars-table td.bas-var-type {
+  color: var(--text-muted);
+  font-size: 10px;
 }
 
-.bas-var-detail {
-  font-size: 10px;
-  color: var(--text-muted);
-  padding-left: 8px;
+.bas-vars-table td.bas-var-value {
+  color: var(--accent-green);
+  max-width: 100px;
 }
 
 /* ============================================

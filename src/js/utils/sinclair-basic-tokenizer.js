@@ -235,42 +235,73 @@ export class SinclairBasicTokenizer {
     if (!wasPaused) proxy.pause();
 
     try {
-      // Read PROG address
+      // The readMemory call is async (Promise-based) — the worker will process
+      // the pause message before this read, guaranteeing stable state.
       const progPtrs = await proxy.readMemory(SYS.PROG, 2);
       const progAddr = progPtrs[0] | (progPtrs[1] << 8);
 
-      // Write program bytes
-      await proxy.writeMemoryBulk(progAddr, programBytes);
+      console.log(`BASIC writeTo: PROG=0x${progAddr.toString(16)}, programBytes=${programBytes.length}`);
 
-      // Calculate new VARS address (right after program)
+      // Calculate addresses for the new memory layout
       const varsAddr = progAddr + programBytes.length;
-
-      // Write end marker at VARS
-      proxy.writeMemory(varsAddr, 0x80);
-
-      // Update VARS system variable
-      proxy.writeMemory(SYS.VARS, varsAddr & 0xFF);
-      proxy.writeMemory(SYS.VARS + 1, (varsAddr >> 8) & 0xFF);
-
-      // Update E_LINE (one byte after VARS end marker)
       const eLineAddr = varsAddr + 1;
-      proxy.writeMemory(SYS.E_LINE, eLineAddr & 0xFF);
-      proxy.writeMemory(SYS.E_LINE + 1, (eLineAddr >> 8) & 0xFF);
-
-      // Write empty edit line: 0x0D + 0x80 at E_LINE
-      proxy.writeMemory(eLineAddr, 0x0D);
-      proxy.writeMemory(eLineAddr + 1, 0x80);
-
-      // Update WORKSP (after E_LINE content)
       const workspAddr = eLineAddr + 2;
-      proxy.writeMemory(SYS.WORKSP, workspAddr & 0xFF);
-      proxy.writeMemory(SYS.WORKSP + 1, (workspAddr >> 8) & 0xFF);
 
-      // Update STKBOT and STKEND to WORKSP
-      proxy.writeMemory(SYS.STKBOT, workspAddr & 0xFF);
-      proxy.writeMemory(SYS.STKBOT + 1, (workspAddr >> 8) & 0xFF);
-      proxy.writeMemory(SYS.STKEND, workspAddr & 0xFF);
-      proxy.writeMemory(SYS.STKEND + 1, (workspAddr >> 8) & 0xFF);
+      // Build a single contiguous block covering the entire region from the
+      // system variables through the program area.  By writing EVERYTHING in
+      // one writeMemoryBulk call we avoid any possibility of interleaved
+      // worker messages corrupting the state.
+      //
+      // Layout from VARS sysvar (0x5C4B) to end of edit line:
+      //   0x5C4B-5C4C: VARS (2 bytes, LE)
+      //   ... other sysvars ...
+      //   0x5C53-5C54: PROG (2 bytes, LE)  - unchanged
+      //   0x5C55-5C56: NXTLIN (2 bytes, LE)
+      //   0x5C57-5C58: DATADD (2 bytes, LE)
+      //   0x5C59-5C5A: E_LINE (2 bytes, LE)
+      //   ... gap ...
+      //   0x5C61-5C62: WORKSP (2 bytes, LE)
+      //   0x5C63-5C64: STKBOT (2 bytes, LE)
+      //   0x5C65-5C66: STKEND (2 bytes, LE)
+      //   ... gap to PROG ...
+      //   [PROG]: program bytes + 0x80 + 0x0D + 0x80
+
+      // Read the entire system variable + program region so we can modify
+      // it in place and write it back atomically.
+      const sysStart = SYS.VARS;        // 0x5C4B
+      const blockEnd = workspAddr;       // past edit line end
+      const totalLen = blockEnd - sysStart;
+      const sysData = await proxy.readMemory(sysStart, totalLen);
+
+      // Helper to write a 16-bit LE value into the block
+      const writeWord = (addr, val) => {
+        const off = addr - sysStart;
+        sysData[off] = val & 0xFF;
+        sysData[off + 1] = (val >> 8) & 0xFF;
+      };
+
+      // Update system variables in the block
+      writeWord(SYS.VARS, varsAddr);
+      writeWord(SYS.NXTLIN, progAddr);
+      writeWord(SYS.DATADD, varsAddr);
+      writeWord(SYS.E_LINE, eLineAddr);
+      writeWord(SYS.WORKSP, workspAddr);
+      writeWord(SYS.STKBOT, workspAddr);
+      writeWord(SYS.STKEND, workspAddr);
+
+      // Write program data + markers into the block
+      const progOff = progAddr - sysStart;
+      for (let i = 0; i < programBytes.length; i++) {
+        sysData[progOff + i] = programBytes[i];
+      }
+      sysData[progOff + programBytes.length] = 0x80;       // VARS end marker
+      sysData[progOff + programBytes.length + 1] = 0x0D;   // Edit line: ENTER
+      sysData[progOff + programBytes.length + 2] = 0x80;   // Edit line: end marker
+
+      // Write the entire block atomically
+      proxy.writeMemoryBulk(sysStart, sysData);
+
+      console.log(`BASIC writeTo: wrote ${totalLen} bytes from 0x${sysStart.toString(16)}`);
     } finally {
       if (!wasPaused) proxy.resume();
     }

@@ -58,7 +58,16 @@ export class BasicVariableInspector {
 
       switch (topBits) {
         case 0x60: {
-          // 011xxxxx: Single-letter string variable
+          // 011xxxxx: Single-letter numeric variable
+          if (i + 6 > data.length) return vars;
+          const value = this._decodeFloat(data, i + 1);
+          i += 6;
+          vars.push({ name: letter, type: "number", value });
+          break;
+        }
+
+        case 0x40: {
+          // 010xxxxx: Single-letter string variable
           if (i + 3 > data.length) return vars;
           const strLen = data[i + 1] | (data[i + 2] << 8);
           i += 3;
@@ -67,15 +76,6 @@ export class BasicVariableInspector {
             str += String.fromCharCode(data[i]);
           }
           vars.push({ name: letter + "$", type: "string", value: str });
-          break;
-        }
-
-        case 0x40: {
-          // 010xxxxx: Single-letter numeric variable
-          if (i + 6 > data.length) return vars;
-          const value = this._decodeFloat(data, i + 1);
-          i += 6;
-          vars.push({ name: letter, type: "number", value });
           break;
         }
 
@@ -232,55 +232,42 @@ export class BasicVariableInspector {
       return;
     }
 
-    // Group variables by type
-    const groups = {
-      numbers: variables.filter((v) => v.type === "number"),
-      strings: variables.filter((v) => v.type === "string"),
-      forVars: variables.filter((v) => v.type === "for"),
-      numArrays: variables.filter((v) => v.type === "numArray"),
-      strArrays: variables.filter((v) => v.type === "strArray"),
-    };
+    let html = '<table class="bas-vars-table">';
+    html += '<thead><tr><th>Name</th><th>Type</th><th>Value</th></tr></thead>';
+    html += '<tbody>';
 
-    let html = "";
+    for (const v of variables) {
+      const name = escHtml(v.name);
+      let type = "";
+      let value = "";
 
-    if (groups.numbers.length > 0) {
-      html += '<div class="bas-vars-group">';
-      html += '<div class="bas-vars-group-title">Numeric</div>';
-      for (const v of groups.numbers) {
-        html += `<div class="bas-var-entry"><span class="bas-var-name">${escHtml(v.name)}</span> = <span class="bas-var-value">${this._formatNumber(v.value)}</span></div>`;
+      switch (v.type) {
+        case "number":
+          type = "Num";
+          value = this._formatNumber(v.value);
+          break;
+        case "string":
+          type = "Str";
+          value = '"' + escHtml(v.value.length > 24 ? v.value.slice(0, 24) + "..." : v.value) + '"';
+          break;
+        case "for":
+          type = "FOR";
+          value = `${this._formatNumber(v.value)} TO ${this._formatNumber(v.limit)} STEP ${this._formatNumber(v.step)}`;
+          break;
+        case "numArray":
+          type = "Num()";
+          value = escHtml(v.value);
+          break;
+        case "strArray":
+          type = "Str()";
+          value = escHtml(v.value);
+          break;
       }
-      html += "</div>";
+
+      html += `<tr><td class="bas-var-name">${name}</td><td class="bas-var-type">${type}</td><td class="bas-var-value">${value}</td></tr>`;
     }
 
-    if (groups.strings.length > 0) {
-      html += '<div class="bas-vars-group">';
-      html += '<div class="bas-vars-group-title">String</div>';
-      for (const v of groups.strings) {
-        const displayVal = v.value.length > 32 ? v.value.slice(0, 32) + "..." : v.value;
-        html += `<div class="bas-var-entry"><span class="bas-var-name">${escHtml(v.name)}</span> = <span class="bas-var-value">"${escHtml(displayVal)}"</span></div>`;
-      }
-      html += "</div>";
-    }
-
-    if (groups.forVars.length > 0) {
-      html += '<div class="bas-vars-group">';
-      html += '<div class="bas-vars-group-title">FOR loops</div>';
-      for (const v of groups.forVars) {
-        html += `<div class="bas-var-entry"><span class="bas-var-name">${escHtml(v.name)}</span> = <span class="bas-var-value">${this._formatNumber(v.value)}</span>`;
-        html += `<div class="bas-var-detail">TO ${this._formatNumber(v.limit)} STEP ${this._formatNumber(v.step)} (line ${v.loopLine})</div></div>`;
-      }
-      html += "</div>";
-    }
-
-    if (groups.numArrays.length > 0 || groups.strArrays.length > 0) {
-      html += '<div class="bas-vars-group">';
-      html += '<div class="bas-vars-group-title">Arrays</div>';
-      for (const v of [...groups.numArrays, ...groups.strArrays]) {
-        html += `<div class="bas-var-entry"><span class="bas-var-name">${escHtml(v.name)}</span> <span class="bas-var-value">${escHtml(v.value)}</span></div>`;
-      }
-      html += "</div>";
-    }
-
+    html += '</tbody></table>';
     container.innerHTML = html;
   }
 }
