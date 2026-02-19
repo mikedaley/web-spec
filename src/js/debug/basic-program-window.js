@@ -816,7 +816,7 @@ export class BasicProgramWindow extends BaseWindow {
   }
 
   /**
-   * Keep the Z80 breakpoint at 0x1B76 active whenever BASIC breakpoints exist,
+   * Keep the Z80 breakpoint at 0x1B29 active whenever BASIC breakpoints exist,
    * so programs started from within the emulator (typing RUN, GO TO, etc.) also stop.
    */
   _syncBreakpointsToWorker() {

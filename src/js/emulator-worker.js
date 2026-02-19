@@ -50,9 +50,11 @@ function runFrames(count) {
   for (let i = 0; i < count; i++) {
     wasm._runFrame();
 
-    // Check for BASIC-level breakpoint hit at EACH-STMT (0x1B28)
+    // Check for BASIC-level breakpoint hit at EACH_S_2 (0x1B29)
     // This fires BEFORE each statement executes, with PPC set to the line about to run.
-    if (basicBpMode && wasm._isBreakpointHit() && wasm._getBreakpointAddress() === 0x1B28) {
+    // Both EACH-STMT (0x1B17, first statement) and EACH_S_1 (0x1B28, subsequent
+    // statements) converge here, so every statement is caught.
+    if (basicBpMode && wasm._isBreakpointHit() && wasm._getBreakpointAddress() === 0x1B29) {
       const lo = wasm._readMemory(0x5C45);
       const hi = wasm._readMemory(0x5C46);
       const ppc = lo | (hi << 8);
@@ -67,7 +69,7 @@ function runFrames(count) {
       if (shouldStop) {
         // Stay paused, render display, notify JS
         wasm._renderDisplay();
-        wasm._removeBreakpoint(0x1B28);
+        wasm._removeBreakpoint(0x1B29);
         basicBpMode = null;
 
         const fbPtr = wasm._getFramebuffer();
@@ -103,13 +105,13 @@ function runFrames(count) {
         }, [fb.buffer]);
         return;
       } else {
-        // Not our target line — step past 0x1B28 without arming skipOnce,
-        // then re-arm the breakpoint so the very next 0x1B28 hit fires.
-        wasm._removeBreakpoint(0x1B28);
+        // Not our target line — step past 0x1B29 without arming skipOnce,
+        // then re-arm the breakpoint so the very next 0x1B29 hit fires.
+        wasm._removeBreakpoint(0x1B29);
         wasm._resetBreakpointHit();
         wasm._setPaused(false);
         wasm._stepInstruction();
-        wasm._addBreakpoint(0x1B28);
+        wasm._addBreakpoint(0x1B29);
       }
     }
   }
@@ -526,17 +528,17 @@ self.onmessage = async function (e) {
       } else if (msg.mode === "run") {
         basicBpMode = { type: "run", lines: new Set(msg.lineNumbers) };
       }
-      // If currently stopped at EACH-STMT (0x1B28), step past it first
-      // using resetBreakpointHit (no skipOnce) so the next 0x1B28 hit fires.
-      if (wasm._isBreakpointHit() && wasm._getBreakpointAddress() === 0x1B28) {
-        wasm._removeBreakpoint(0x1B28);
+      // If currently stopped at EACH_S_2 (0x1B29), step past it first
+      // using resetBreakpointHit (no skipOnce) so the next 0x1B29 hit fires.
+      if (wasm._isBreakpointHit() && wasm._getBreakpointAddress() === 0x1B29) {
+        wasm._removeBreakpoint(0x1B29);
         wasm._resetBreakpointHit();
         wasm._setPaused(false);
         wasm._stepInstruction();
       } else {
         wasm._resetBreakpointHit();
       }
-      wasm._addBreakpoint(0x1B28);
+      wasm._addBreakpoint(0x1B29);
       wasm._setPaused(false);
       self.postMessage({ type: "stateUpdate", state: getState() });
       break;
@@ -545,7 +547,7 @@ self.onmessage = async function (e) {
     case "clearBasicBreakpointMode": {
       if (!wasm) break;
       basicBpMode = null;
-      wasm._removeBreakpoint(0x1B28);
+      wasm._removeBreakpoint(0x1B29);
       break;
     }
 
