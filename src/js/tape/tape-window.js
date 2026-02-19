@@ -10,6 +10,7 @@ import {
   addToRecentTapes,
   getRecentTapes,
   loadRecentTape,
+  loadRecentTapeByFilename,
   clearRecentTapes,
   getLibraryTapeData,
 } from "./tape-persistence.js";
@@ -42,6 +43,7 @@ export class TapeWindow extends BaseWindow {
     this._lastIsRecording = false;
     this._lastRecordedBlockCount = 0;
     this._lastRecordedTapData = null;
+    this._filenameRenamed = false;
 
     // Callback for when a TAP is loaded via the window's own controls
     this.onTapeLoaded = null;
@@ -54,6 +56,8 @@ export class TapeWindow extends BaseWindow {
     )?.checked;
     state.infoPanelOpen = this._infoPanelOpen;
     state.cassettePanelOpen = this._cassettePanelOpen;
+    state.currentFilename = this._currentFilename;
+    state.filenameRenamed = this._filenameRenamed;
     return state;
   }
 
@@ -75,6 +79,15 @@ export class TapeWindow extends BaseWindow {
     if (state.cassettePanelOpen) {
       this._cassettePanelOpen = true;
       this._applyCassettePanelState();
+    }
+    if (state.filenameRenamed) {
+      this._filenameRenamed = true;
+    }
+    if (state.currentFilename) {
+      this._currentFilename = state.currentFilename;
+      this._updateFilenameBanner();
+      // Reload the tape data from IndexedDB to restore blocks and cassette
+      this._restoreTapeFromDB(state.currentFilename);
     }
     super.restoreState(state);
   }
@@ -482,6 +495,14 @@ export class TapeWindow extends BaseWindow {
       this._ejectTape();
     });
 
+    // Double-click filename to rename
+    const filenameText = this.contentElement.querySelector("#tape-filename-text");
+    filenameText.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      if (!this._currentFilename) return;
+      this._startFilenameEdit();
+    });
+
     // Info panel toggle
     const infoToggle = this.contentElement.querySelector("#tape-info-toggle");
     infoToggle.addEventListener("click", () => {
@@ -620,6 +641,7 @@ export class TapeWindow extends BaseWindow {
         const savedName = handle.name || suggestedName;
         addToRecentTapes(savedName, tapData);
         this._lastRecordedTapData = null;
+        this._filenameRenamed = false;
       } catch {
         // User cancelled - that's fine, keep the data
       }
@@ -635,6 +657,7 @@ export class TapeWindow extends BaseWindow {
       URL.revokeObjectURL(url);
       addToRecentTapes(suggestedName, tapData);
       this._lastRecordedTapData = null;
+      this._filenameRenamed = false;
     }
   }
 
@@ -671,15 +694,18 @@ export class TapeWindow extends BaseWindow {
    * Eject the current tape
    */
   async _ejectTape() {
-    // If there's unsaved recorded data, prompt save before ejecting
+    // If there's unsaved recorded data or filename was renamed, prompt save before ejecting
     if (this._lastRecordedTapData && this._lastRecordedTapData.length > 0) {
       await this._promptSaveTap();
+    } else if (this._filenameRenamed && this._rawTapeData) {
+      await this._promptSaveTap(this._rawTapeData);
     }
     this._proxy.tapeEject();
     this._blocks = [];
     this._metadata = null;
     this._infoPanelOpen = false;
     this._currentFilename = null;
+    this._filenameRenamed = false;
     this._isTZX = false;
     this._rawTapeData = null;
     this._lastCurrentBlock = -1;
@@ -797,6 +823,54 @@ export class TapeWindow extends BaseWindow {
       badge.textContent = "";
       if (label) label.textContent = "";
     }
+  }
+
+  _startFilenameEdit() {
+    const textEl = this.contentElement?.querySelector("#tape-filename-text");
+    if (!textEl || textEl.querySelector("input")) return;
+
+    const ext = this._currentFilename.split(".").pop();
+    const baseName = this._currentFilename.replace(/\.[^.]+$/, "");
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "tape-filename-input";
+    input.value = baseName;
+    input.spellcheck = false;
+
+    textEl.textContent = "";
+    textEl.appendChild(input);
+    input.focus();
+    input.select();
+
+    let cancelled = false;
+
+    const commit = () => {
+      if (cancelled) return;
+      const newBase = input.value.trim();
+      if (newBase && newBase !== baseName) {
+        this._currentFilename = `${newBase}.${ext}`;
+        this._filenameRenamed = true;
+        // Update IndexedDB entry under the new filename
+        if (this._rawTapeData) {
+          addToRecentTapes(this._currentFilename, this._rawTapeData);
+        }
+      }
+      this._updateFilenameBanner();
+    };
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        input.blur();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        cancelled = true;
+        this._updateFilenameBanner();
+      }
+    });
+
+    input.addEventListener("blur", commit, { once: true });
   }
 
   showError(error) {
@@ -1090,6 +1164,26 @@ export class TapeWindow extends BaseWindow {
       }
     } catch (err) {
       // Library fetch failed silently - not critical
+    }
+  }
+
+  /**
+   * Restore tape from IndexedDB after app state restore
+   */
+  async _restoreTapeFromDB(filename) {
+    const tape = await loadRecentTapeByFilename(filename);
+    if (!tape) return;
+    this._rawTapeData = new Uint8Array(tape.data);
+    const ext = filename.split(".").pop().toLowerCase();
+    this._setTapeFormat(ext);
+    const buffer = tape.data.buffer.slice(
+      tape.data.byteOffset,
+      tape.data.byteOffset + tape.data.byteLength,
+    );
+    if (ext === "tzx") {
+      this._proxy.loadTZXTape(buffer);
+    } else {
+      this._proxy.loadTAP(buffer);
     }
   }
 

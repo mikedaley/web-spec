@@ -154,6 +154,24 @@ export async function loadRecentTape(id) {
 }
 
 /**
+ * Load a recent tape by its filename
+ * @param {string} filename
+ * @returns {Promise<{filename: string, data: Uint8Array} | null>}
+ */
+export async function loadRecentTapeByFilename(filename) {
+  try {
+    const id = await findRecentByFilename(filename);
+    if (id !== null) {
+      return await loadRecentTape(id);
+    }
+    return null;
+  } catch (error) {
+    console.error("Error loading recent tape by filename:", error);
+    return null;
+  }
+}
+
+/**
  * Clear all recent tapes
  */
 export async function clearRecentTapes() {
