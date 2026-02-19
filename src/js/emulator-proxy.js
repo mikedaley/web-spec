@@ -14,6 +14,7 @@ export class EmulatorProxy {
     this.onSnapshotLoaded = null;
     this.onTapLoaded = null;
     this.onTapLoadError = null;
+    this.onTapeRecordComplete = null;
     this.onStateUpdate = null;
     this._nextId = 1;
     this._pendingRequests = new Map();
@@ -29,6 +30,7 @@ export class EmulatorProxy {
 
       case "frame":
         this.state = msg.state;
+        if (msg.recordedBlocks) this._recordedBlocks = msg.recordedBlocks;
         if (this.onFrame) this.onFrame(msg.framebuffer, msg.audio, msg.sampleCount);
         break;
 
@@ -45,6 +47,12 @@ export class EmulatorProxy {
       case "tapLoadError":
         this.state = msg.state;
         if (this.onTapLoadError) this.onTapLoadError(msg.error);
+        break;
+
+      case "tapeRecordComplete":
+        this.state = msg.state;
+        if (msg.recordedBlocks) this._recordedBlocks = msg.recordedBlocks;
+        if (this.onTapeRecordComplete) this.onTapeRecordComplete(msg.data, msg.size, msg.recordedBlocks);
         break;
 
       case "stateUpdate":
@@ -143,6 +151,14 @@ export class EmulatorProxy {
     this.worker.postMessage({ type: "tapeRewind" });
   }
 
+  tapeRewindBlock() {
+    this.worker.postMessage({ type: "tapeRewindBlock" });
+  }
+
+  tapeForwardBlock() {
+    this.worker.postMessage({ type: "tapeForwardBlock" });
+  }
+
   tapeEject() {
     this.worker.postMessage({ type: "tapeEject" });
   }
@@ -203,6 +219,22 @@ export class EmulatorProxy {
   tapeGetCurrentBlock() { return this.state.tapeCurrentBlock ?? 0; }
   tapeGetInstantLoad() { return this.state.tapeInstantLoad ?? false; }
   tapeGetBlockProgress() { return this.state.tapeBlockProgress ?? 0; }
+  tapeIsRecording() { return this.state.tapeIsRecording ?? false; }
+  tapeRecordGetBlockCount() { return this.state.tapeRecordBlockCount ?? 0; }
+  tapeRecordGetBlocks() { return this._recordedBlocks || []; }
+
+  tapeRecordStart() {
+    this._recordedBlocks = null;
+    this.worker.postMessage({ type: "tapeRecordStart" });
+  }
+
+  tapeRecordStop() {
+    this.worker.postMessage({ type: "tapeRecordStop" });
+  }
+
+  tapeSetBlockPause(blockIndex, pauseMs) {
+    this.worker.postMessage({ type: "tapeSetBlockPause", blockIndex, pauseMs });
+  }
 
   tapeSetInstantLoad(instant) {
     this.worker.postMessage({ type: "tapeSetInstantLoad", instant });

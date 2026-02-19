@@ -199,6 +199,29 @@
   to { transform: rotate(-360deg); }
 }
 
+@keyframes tape-spindle-rewind {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+#deck-spindle-left.rewinding,
+#deck-spindle-right.rewinding,
+#spindle-left-filled.rewinding,
+#spindle-left-outline.rewinding,
+#spindle-right-filled.rewinding,
+#spindle-right-outline.rewinding {
+  animation: tape-spindle-rewind 0.4s linear infinite;
+}
+
+#deck-spindle-left.fast-forwarding,
+#deck-spindle-right.fast-forwarding,
+#spindle-left-filled.fast-forwarding,
+#spindle-left-outline.fast-forwarding,
+#spindle-right-filled.fast-forwarding,
+#spindle-right-outline.fast-forwarding {
+  animation: tape-spindle-rotate 0.4s linear infinite;
+}
+
 /* ---- Block List ---- */
 .tape-block-list {
   flex: 1;
@@ -232,6 +255,10 @@
 .tape-block-item.active {
   background: var(--overlay-subtle);
   border-left-color: var(--accent-green);
+}
+
+.tape-block-item.recording {
+  border-left-color: var(--accent-red);
 }
 
 .tape-block-progress {
@@ -534,6 +561,22 @@
   color: var(--accent-green);
 }
 
+.tape-transport-btn.record {
+  color: var(--text-muted);
+}
+
+.tape-transport-btn.record.recording {
+  background: var(--accent-red-bg);
+  border-color: var(--accent-red-border);
+  color: var(--accent-red);
+  animation: tape-record-blink 1s ease-in-out infinite;
+}
+
+@keyframes tape-record-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .tape-transport-btn svg {
   width: 14px;
   height: 14px;
@@ -763,6 +806,18 @@
   background: var(--accent-red-bg);
 }
 
+.tape-dropdown-item.blank {
+  font-family: var(--font-sans);
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.tape-dropdown-item.blank:hover {
+  color: var(--accent-blue);
+  background: var(--accent-blue-bg);
+}
+
 .tape-dropdown-separator {
   height: 1px;
   background: var(--glass-border);
@@ -783,51 +838,3 @@
   border-radius: 3px;
 }
 
-/* ---- Status Bar ---- */
-.tape-status-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 6px;
-  background: var(--input-bg);
-  border: 1px solid var(--glass-border-subtle);
-  border-radius: 4px;
-}
-
-.tape-status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  flex-shrink: 0;
-}
-
-.tape-status-bar.playing .tape-status-dot {
-  background: var(--accent-green);
-  animation: tape-dot-pulse 1.5s ease-in-out infinite;
-}
-
-.tape-status-bar.stopped .tape-status-dot {
-  background: var(--accent-orange);
-}
-
-@keyframes tape-dot-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.75); }
-}
-
-.tape-status-text {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-}
-
-.tape-status-bar.playing .tape-status-text {
-  color: var(--accent-green);
-}
-
-.tape-status-bar.stopped .tape-status-text {
-  color: var(--accent-orange);
-}

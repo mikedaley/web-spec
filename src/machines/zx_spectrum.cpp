@@ -6,6 +6,7 @@
  */
 
 #include "zx_spectrum.hpp"
+#include "loaders/tzx_loader.hpp"
 #include <cstring>
 #include <random>
 
@@ -108,6 +109,16 @@ void ZXSpectrum::reset()
         byte = static_cast<uint8_t>(dist(rng));
     }
 
+    // Stop any active recording
+    tapeRecording_ = false;
+    recordPulses_.clear();
+    recordedTapData_.clear();
+    recordedBlocks_.clear();
+    recordedBlockInfo_.clear();
+    recordCurrentBlockData_.clear();
+    recordDecodeState_ = REC_IDLE;
+    recordAbsoluteTs_ = 0;
+
     // Reset tape playback position but keep loaded tape data
     tapeBlockIndex_ = 0;
     tapePulseIndex_ = 0;
@@ -159,6 +170,7 @@ void ZXSpectrum::runFrame()
                 lastTapeReadTs_ = 0;
             }
 
+            if (tapeRecording_) recordAbsoluteTs_ += machineInfo_.tsPerFrame;
             z80_->resetTStates(machineInfo_.tsPerFrame);
             z80_->signalInterrupt();
             display_.frameReset();
@@ -215,6 +227,7 @@ void ZXSpectrum::runFrame()
         lastTapeReadTs_ = 0;
     }
 
+    if (tapeRecording_) recordAbsoluteTs_ += machineInfo_.tsPerFrame;
     z80_->resetTStates(machineInfo_.tsPerFrame);
     z80_->signalInterrupt();
 
@@ -407,6 +420,47 @@ void ZXSpectrum::tapeRewind()
     lastTapeReadTs_ = 0;
 }
 
+void ZXSpectrum::tapeRewindBlock()
+{
+    if (tapeBlockIndex_ > 0) {
+        tapeBlockIndex_--;
+    }
+    if (tapeBlockIndex_ < tapePulseBlockStarts_.size()) {
+        tapePulseIndex_ = tapePulseBlockStarts_[tapeBlockIndex_];
+    }
+    tapePulseRemaining_ = 0;
+    tapeEarLevel_ = false;
+    lastTapeReadTs_ = 0;
+}
+
+void ZXSpectrum::tapeForwardBlock()
+{
+    if (tapeBlockIndex_ + 1 < tapeBlocks_.size()) {
+        tapeBlockIndex_++;
+    }
+    if (tapeBlockIndex_ < tapePulseBlockStarts_.size()) {
+        tapePulseIndex_ = tapePulseBlockStarts_[tapeBlockIndex_];
+    }
+    tapePulseRemaining_ = 0;
+    tapeEarLevel_ = false;
+    lastTapeReadTs_ = 0;
+}
+
+void ZXSpectrum::tapeSetBlockPause(size_t blockIndex, uint16_t pauseMs)
+{
+    if (blockIndex < tapeBlocks_.size())
+    {
+        tapeBlocks_[blockIndex].pauseMs = pauseMs;
+
+        // Regenerate pulses with the updated pause
+        std::vector<uint32_t> pulses;
+        std::vector<size_t> blockPulseStarts;
+        TZXLoader::generatePulses(tapeBlocks_, pulses, blockPulseStarts);
+        tapePulses_ = std::move(pulses);
+        tapePulseBlockStarts_ = std::move(blockPulseStarts);
+    }
+}
+
 void ZXSpectrum::tapeEject()
 {
     tapePulseActive_ = false;
@@ -513,6 +567,223 @@ bool ZXSpectrum::handleTapeTrap(uint16_t address)
     z80_->setRegister(Z80::WordReg::PC, 0x05E2);
     return true;
 }
+
+// ============================================================================
+// Tape recording
+// ============================================================================
+
+void ZXSpectrum::tapeRecordStart()
+{
+    tapeRecording_ = true;
+    recordPulses_.clear();
+    recordedTapData_.clear();
+    recordedBlocks_.clear();
+    recordedBlockInfo_.clear();
+    recordCurrentBlockData_.clear();
+    recordDecodeState_ = REC_IDLE;
+    recordPilotCount_ = 0;
+    recordDataPulseCount_ = 0;
+    recordCurrentByte_ = 0;
+    recordBitCount_ = 0;
+    recordLastMicBit_ = 0;
+    recordAbsoluteTs_ = 0;
+    recordLastTransitionTs_ = z80_->getTStates();
+}
+
+void ZXSpectrum::tapeRecordStop()
+{
+    if (!tapeRecording_) return;
+    tapeRecording_ = false;
+
+    // Flush any block still being decoded
+    if (recordDecodeState_ == REC_DATA)
+    {
+        recordFinishCurrentBlock();
+    }
+    recordDecodeState_ = REC_IDLE;
+
+    decodePulsesToTap();
+}
+
+const uint8_t* ZXSpectrum::tapeRecordGetData() const
+{
+    if (recordedTapData_.empty()) return nullptr;
+    return recordedTapData_.data();
+}
+
+uint32_t ZXSpectrum::tapeRecordGetSize() const
+{
+    return static_cast<uint32_t>(recordedTapData_.size());
+}
+
+void ZXSpectrum::recordMicTransition(uint8_t micBit)
+{
+    if (!tapeRecording_) return;
+    if (micBit == recordLastMicBit_) return;
+
+    uint64_t currentTs = recordAbsoluteTs_ + z80_->getTStates();
+    uint64_t diff = currentTs - recordLastTransitionTs_;
+    recordLastTransitionTs_ = currentTs;
+    recordLastMicBit_ = micBit;
+
+    if (diff == 0 || diff >= 0xFFFFFFFF) return;
+    uint32_t pulseDuration = static_cast<uint32_t>(diff);
+    recordPulses_.push_back(pulseDuration);
+
+    // Real-time block detection state machine
+    switch (recordDecodeState_)
+    {
+    case REC_IDLE:
+        if (pulseDuration >= 1500 && pulseDuration <= 3500)
+        {
+            recordPilotCount_ = 1;
+            recordDecodeState_ = REC_PILOT;
+        }
+        break;
+
+    case REC_PILOT:
+        if (pulseDuration >= 1500 && pulseDuration <= 3500)
+        {
+            recordPilotCount_++;
+        }
+        else if (recordPilotCount_ >= 200 && pulseDuration >= 400 && pulseDuration <= 1200)
+        {
+            // First sync pulse detected
+            recordDecodeState_ = REC_SYNC1;
+        }
+        else
+        {
+            recordDecodeState_ = REC_IDLE;
+        }
+        break;
+
+    case REC_SYNC1:
+        if (pulseDuration >= 400 && pulseDuration <= 1200)
+        {
+            // Second sync pulse - start data decoding
+            recordDecodeState_ = REC_DATA;
+            recordCurrentBlockData_.clear();
+            recordCurrentByte_ = 0;
+            recordBitCount_ = 0;
+            recordDataPulseCount_ = 0;
+        }
+        else
+        {
+            recordDecodeState_ = REC_IDLE;
+        }
+        break;
+
+    case REC_DATA:
+        recordDataPulseCount_++;
+        if (pulseDuration >= 300 && pulseDuration <= 3000)
+        {
+            // Two pulses per bit - decode on even pulse
+            if (recordDataPulseCount_ % 2 == 0)
+            {
+                uint32_t prevPulse = recordPulses_[recordPulses_.size() - 2];
+                uint32_t avg = (prevPulse + pulseDuration) / 2;
+                int bit = (avg > 1200) ? 1 : 0;
+                recordCurrentByte_ = (recordCurrentByte_ << 1) | bit;
+                recordBitCount_++;
+                if (recordBitCount_ == 8)
+                {
+                    recordCurrentBlockData_.push_back(recordCurrentByte_);
+                    recordCurrentByte_ = 0;
+                    recordBitCount_ = 0;
+                }
+            }
+        }
+        else
+        {
+            // Pulse out of data range - block complete
+            recordFinishCurrentBlock();
+            // Check if this pulse starts a new pilot
+            if (pulseDuration >= 1500 && pulseDuration <= 3500)
+            {
+                recordPilotCount_ = 1;
+                recordDecodeState_ = REC_PILOT;
+            }
+            else
+            {
+                recordDecodeState_ = REC_IDLE;
+            }
+        }
+        break;
+    }
+}
+
+void ZXSpectrum::recordFinishCurrentBlock()
+{
+    if (recordCurrentBlockData_.empty()) return;
+
+    size_t idx = recordedBlocks_.size();
+    recordedBlocks_.push_back({recordCurrentBlockData_});
+    buildRecordedBlockInfo(recordCurrentBlockData_, idx);
+    recordCurrentBlockData_.clear();
+}
+
+void ZXSpectrum::buildRecordedBlockInfo(const std::vector<uint8_t>& data, size_t /*index*/)
+{
+    TapeBlockInfo info{};
+    info.flagByte = data.empty() ? 0xFF : data[0];
+    info.dataLength = static_cast<uint16_t>(data.size() > 1 ? data.size() - 2 : 0); // exclude flag+checksum
+
+    if (info.flagByte == 0x00 && data.size() >= 18)
+    {
+        // Header block: type(1) + filename(10) + dataLen(2) + param1(2) + param2(2) + checksum(1) = 18+ bytes after flag
+        info.headerType = data[1];
+        for (int c = 0; c < 10; c++)
+        {
+            info.filename[c] = static_cast<char>(data[2 + c]);
+        }
+        info.filename[10] = '\0';
+        info.dataLength = data[12] | (data[13] << 8);
+        info.param1 = data[14] | (data[15] << 8);
+        info.param2 = data[16] | (data[17] << 8);
+    }
+    else
+    {
+        info.headerType = 0xFF;
+        info.filename[0] = '\0';
+    }
+
+    recordedBlockInfo_.push_back(info);
+}
+
+void ZXSpectrum::decodePulsesToTap()
+{
+    recordedTapData_.clear();
+
+    // First, write any existing loaded tape blocks
+    for (const auto& block : tapeBlocks_)
+    {
+        if (block.data.empty()) continue;
+        uint16_t blockLen = static_cast<uint16_t>(block.data.size());
+        recordedTapData_.push_back(blockLen & 0xFF);
+        recordedTapData_.push_back((blockLen >> 8) & 0xFF);
+        for (uint8_t b : block.data)
+        {
+            recordedTapData_.push_back(b);
+        }
+    }
+
+    // Then append newly recorded blocks
+    for (const auto& block : recordedBlocks_)
+    {
+        if (block.data.empty()) continue;
+        uint16_t blockLen = static_cast<uint16_t>(block.data.size());
+        recordedTapData_.push_back(blockLen & 0xFF);
+        recordedTapData_.push_back((blockLen >> 8) & 0xFF);
+        for (uint8_t b : block.data)
+        {
+            recordedTapData_.push_back(b);
+        }
+    }
+}
+
+// ============================================================================
+// Tape playback
+// ============================================================================
 
 void ZXSpectrum::advanceTape(uint32_t tstates)
 {

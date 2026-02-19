@@ -46,11 +46,20 @@ public:
     virtual void tapePlay() = 0;
     virtual void tapeStop() = 0;
     virtual void tapeRewind() = 0;
+    virtual void tapeRewindBlock() = 0;
+    virtual void tapeForwardBlock() = 0;
     virtual void tapeEject() = 0;
     virtual bool tapeIsPlaying() const = 0;
     virtual bool tapeIsLoaded() const = 0;
     virtual size_t tapeGetBlockCount() const = 0;
     virtual size_t tapeGetCurrentBlock() const = 0;
+
+    // Tape recording
+    virtual void tapeRecordStart() = 0;
+    virtual void tapeRecordStop() = 0;
+    virtual bool tapeIsRecording() const = 0;
+    virtual const uint8_t* tapeRecordGetData() const = 0;
+    virtual uint32_t tapeRecordGetSize() const = 0;
 
     virtual Z80* getCPU() = 0;
     virtual const Z80* getCPU() const = 0;

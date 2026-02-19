@@ -419,6 +419,18 @@ void tapeRewind() {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void tapeRewindBlock() {
+  REQUIRE_MACHINE();
+  g_machine->tapeRewindBlock();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void tapeForwardBlock() {
+  REQUIRE_MACHINE();
+  g_machine->tapeForwardBlock();
+}
+
+EMSCRIPTEN_KEEPALIVE
 void tapeEject() {
   REQUIRE_MACHINE();
   g_machine->tapeEject();
@@ -570,6 +582,84 @@ int tapeGetInstantLoad() {
   REQUIRE_MACHINE_OR(0);
   auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
   return spec ? (spec->tapeGetInstantLoad() ? 1 : 0) : 0;
+}
+
+// ============================================================================
+// Tape Recording
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+void tapeSetBlockPause(int blockIndex, int pauseMs) {
+  REQUIRE_MACHINE();
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  if (spec) spec->tapeSetBlockPause(static_cast<size_t>(blockIndex), static_cast<uint16_t>(pauseMs));
+}
+
+EMSCRIPTEN_KEEPALIVE
+void tapeRecordStart() {
+  REQUIRE_MACHINE();
+  g_machine->tapeRecordStart();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void tapeRecordStop() {
+  REQUIRE_MACHINE();
+  g_machine->tapeRecordStop();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int tapeIsRecording() {
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->tapeIsRecording() ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* tapeRecordGetData() {
+  REQUIRE_MACHINE_OR(nullptr);
+  return g_machine->tapeRecordGetData();
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint32_t tapeRecordGetSize() {
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->tapeRecordGetSize();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int tapeRecordGetBlockCount() {
+  REQUIRE_MACHINE_OR(0);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec ? static_cast<int>(spec->tapeRecordGetBlockCount()) : 0;
+}
+
+static uint8_t s_recBlockInfoBuf[5120]; // max 256 blocks * 20 bytes
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* tapeRecordGetBlockInfo() {
+  REQUIRE_MACHINE_OR(nullptr);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  if (!spec) return nullptr;
+
+  const auto& info = spec->tapeRecordGetBlockInfo();
+  size_t count = info.size();
+  if (count > 256) count = 256;
+
+  for (size_t i = 0; i < count; i++) {
+    uint8_t* dst = s_recBlockInfoBuf + i * 20;
+    dst[0] = info[i].flagByte;
+    dst[1] = info[i].headerType;
+    memcpy(dst + 2, info[i].filename, 10);
+    dst[12] = info[i].dataLength & 0xFF;
+    dst[13] = (info[i].dataLength >> 8) & 0xFF;
+    dst[14] = info[i].param1 & 0xFF;
+    dst[15] = (info[i].param1 >> 8) & 0xFF;
+    dst[16] = info[i].param2 & 0xFF;
+    dst[17] = (info[i].param2 >> 8) & 0xFF;
+    dst[18] = 0;
+    dst[19] = 0;
+  }
+
+  return s_recBlockInfoBuf;
 }
 
 } // extern "C"

@@ -110,6 +110,8 @@ public:
     void tapePlay() override;
     void tapeStop() override;
     void tapeRewind() override;
+    void tapeRewindBlock() override;
+    void tapeForwardBlock() override;
     void tapeEject() override;
     bool tapeIsPlaying() const override { return tapePulseActive_; }
     bool tapeIsLoaded() const override { return tapeActive_; }
@@ -119,6 +121,16 @@ public:
     const TapeMetadata& tapeGetMetadata() const { return tapeMetadata_; }
     void tapeSetInstantLoad(bool instant) { tapeInstantLoad_ = instant; }
     bool tapeGetInstantLoad() const { return tapeInstantLoad_; }
+    void tapeSetBlockPause(size_t blockIndex, uint16_t pauseMs);
+
+    // Tape recording
+    void tapeRecordStart() override;
+    void tapeRecordStop() override;
+    bool tapeIsRecording() const override { return tapeRecording_; }
+    const uint8_t* tapeRecordGetData() const override;
+    uint32_t tapeRecordGetSize() const override;
+    size_t tapeRecordGetBlockCount() const { return recordedBlocks_.size(); }
+    const std::vector<TapeBlockInfo>& tapeRecordGetBlockInfo() const { return recordedBlockInfo_; }
 
     int tapeGetBlockProgress() const
     {
@@ -210,6 +222,34 @@ protected:
 
     // Instant load mode (ROM trap) vs normal speed (EAR bit pulses)
     bool tapeInstantLoad_ = false;
+
+    // Tape recording state
+    bool tapeRecording_ = false;
+    std::vector<uint32_t> recordPulses_;
+    uint64_t recordLastTransitionTs_ = 0;
+    uint8_t recordLastMicBit_ = 0;
+    uint64_t recordAbsoluteTs_ = 0;
+    std::vector<uint8_t> recordedTapData_;
+
+    // Real-time block detection during recording
+    enum RecordDecodeState { REC_IDLE, REC_PILOT, REC_SYNC1, REC_DATA };
+    RecordDecodeState recordDecodeState_ = REC_IDLE;
+    uint32_t recordPilotCount_ = 0;
+    uint32_t recordDataPulseCount_ = 0;
+    uint8_t recordCurrentByte_ = 0;
+    int recordBitCount_ = 0;
+    std::vector<uint8_t> recordCurrentBlockData_;
+
+    struct RecordedBlock {
+        std::vector<uint8_t> data;
+    };
+    std::vector<RecordedBlock> recordedBlocks_;
+    std::vector<TapeBlockInfo> recordedBlockInfo_;
+
+    void recordMicTransition(uint8_t micBit);
+    void recordFinishCurrentBlock();
+    void buildRecordedBlockInfo(const std::vector<uint8_t>& data, size_t index);
+    void decodePulsesToTap();
 
     int muteFrames_ = 0;
 

@@ -123,6 +123,8 @@ if(EMSCRIPTEN)
                 \"_tapePlay\", \
                 \"_tapeStop\", \
                 \"_tapeRewind\", \
+                \"_tapeRewindBlock\", \
+                \"_tapeForwardBlock\", \
                 \"_tapeEject\", \
                 \"_tapeIsPlaying\", \
                 \"_tapeIsLoaded\", \
@@ -133,6 +135,14 @@ if(EMSCRIPTEN)
                 \"_tapeGetBlockProgress\", \
                 \"_tapeSetInstantLoad\", \
                 \"_tapeGetInstantLoad\", \
+                \"_tapeSetBlockPause\", \
+                \"_tapeRecordStart\", \
+                \"_tapeRecordStop\", \
+                \"_tapeIsRecording\", \
+                \"_tapeRecordGetData\", \
+                \"_tapeRecordGetSize\", \
+                \"_tapeRecordGetBlockCount\", \
+                \"_tapeRecordGetBlockInfo\", \
                 \"_getAltAF\", \
                 \"_getAltBC\", \
                 \"_getAltDE\", \

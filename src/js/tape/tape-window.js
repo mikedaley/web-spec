@@ -39,6 +39,9 @@ export class TapeWindow extends BaseWindow {
     this._currentFilename = null;
     this._isTZX = false;
     this._rawTapeData = null;
+    this._lastIsRecording = false;
+    this._lastRecordedBlockCount = 0;
+    this._lastRecordedTapData = null;
 
     // Callback for when a TAP is loaded via the window's own controls
     this.onTapeLoaded = null;
@@ -142,24 +145,14 @@ export class TapeWindow extends BaseWindow {
           </div>
           <div class="tape-cassette-label" id="tape-cassette-label"></div>
         </div>
-        <div class="tape-filename-banner hidden" id="tape-filename-banner">
-          <span class="tape-format-badge" id="tape-format-badge"></span>
-          <span class="tape-filename-text" id="tape-filename-text"></span>
-        </div>
-        <div class="tape-block-list" id="tape-block-list">
-          <div class="tape-empty-state">No tape inserted</div>
-        </div>
-        <div class="tape-info-toggle" id="tape-info-toggle">
-          <svg class="tape-info-chevron" viewBox="0 0 12 12" width="10" height="10">
-            <path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5"/>
-          </svg>
-          <span>Tape Info</span>
-        </div>
-        <div class="tape-info-panel hidden" id="tape-info-panel">
-          <div class="tape-info-content" id="tape-info-content"></div>
-        </div>
         <div class="tape-transport">
-          <button class="tape-transport-btn rewind" id="tape-btn-rewind" title="Rewind">
+          <button class="tape-transport-btn rewind-all" id="tape-btn-rewind-all" title="Rewind to Start">
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+              <rect x="3" y="6" width="2.5" height="12"/>
+              <path d="M9 18V6l-3.5 6 3.5 6zm8 0V6l-8 6 8 6z"/>
+            </svg>
+          </button>
+          <button class="tape-transport-btn rewind" id="tape-btn-rewind" title="Rewind Block">
             <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
               <path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/>
             </svg>
@@ -172,6 +165,16 @@ export class TapeWindow extends BaseWindow {
           <button class="tape-transport-btn stop" id="tape-btn-stop" title="Stop">
             <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
               <rect x="6" y="6" width="12" height="12"/>
+            </svg>
+          </button>
+          <button class="tape-transport-btn record" id="tape-btn-record" title="Record">
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+              <circle cx="12" cy="12" r="7"/>
+            </svg>
+          </button>
+          <button class="tape-transport-btn fast-forward" id="tape-btn-ffwd" title="Fast Forward Block">
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+              <path d="M4 18V6l8.5 6L4 18zm9 0V6l8.5 6L13 18z"/>
             </svg>
           </button>
         </div>
@@ -200,9 +203,21 @@ export class TapeWindow extends BaseWindow {
             </span>
           </div>
         </div>
-        <div class="tape-status-bar" id="tape-status-bar">
-          <div class="tape-status-dot"></div>
-          <span class="tape-status-text" id="tape-status-text">No tape</span>
+        <div class="tape-filename-banner hidden" id="tape-filename-banner">
+          <span class="tape-format-badge" id="tape-format-badge"></span>
+          <span class="tape-filename-text" id="tape-filename-text"></span>
+        </div>
+        <div class="tape-block-list" id="tape-block-list">
+          <div class="tape-empty-state">No tape inserted</div>
+        </div>
+        <div class="tape-info-toggle" id="tape-info-toggle">
+          <svg class="tape-info-chevron" viewBox="0 0 12 12" width="10" height="10">
+            <path d="M4 2l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5"/>
+          </svg>
+          <span>Tape Info</span>
+        </div>
+        <div class="tape-info-panel hidden" id="tape-info-panel">
+          <div class="tape-info-content" id="tape-info-content"></div>
         </div>
       </div>
     `;
@@ -213,6 +228,8 @@ export class TapeWindow extends BaseWindow {
     const playBtn = this.contentElement.querySelector("#tape-btn-play");
     const stopBtn = this.contentElement.querySelector("#tape-btn-stop");
     const rewindBtn = this.contentElement.querySelector("#tape-btn-rewind");
+    const rewindAllBtn = this.contentElement.querySelector("#tape-btn-rewind-all");
+    const ffwdBtn = this.contentElement.querySelector("#tape-btn-ffwd");
 
     playBtn.addEventListener("click", () => {
       if (!this._proxy.tapeIsLoaded() && !this._blocks.length) return;
@@ -228,13 +245,116 @@ export class TapeWindow extends BaseWindow {
     });
 
     stopBtn.addEventListener("click", () => {
+      if (this._proxy.tapeIsRecording()) {
+        this._proxy.tapeRecordStop();
+        return;
+      }
       if (!this._proxy.tapeIsLoaded() && !this._blocks.length) return;
       this._proxy.tapeStop();
     });
 
+    // Record button - toggle recording
+    const recordBtn = this.contentElement.querySelector("#tape-btn-record");
+    recordBtn.addEventListener("click", () => {
+      if (this._proxy.tapeIsRecording()) {
+        this._proxy.tapeRecordStop();
+      } else {
+        if (this._proxy.tapeIsPlaying()) {
+          this._proxy.tapeStop();
+        }
+        this._lastRecordedBlockCount = 0;
+        this._originalBlockCount = this._blocks.length;
+        this._proxy.tapeRecordStart();
+      }
+    });
+
+    // Register callback for when recording completes — store data for save on eject
+    const origOnTapLoaded = this._proxy.onTapLoaded;
+    this._proxy.onTapeRecordComplete = (dataBuffer, size, finalBlocks) => {
+      this._lastRecordedBlockCount = 0;
+      if (dataBuffer && size > 0) {
+        this._lastRecordedTapData = new Uint8Array(dataBuffer);
+        // Reload the combined TAP data into WASM so the full tape is playable
+        this._rawTapeData = new Uint8Array(this._lastRecordedTapData);
+        this._isTZX = false;
+
+        // After reload, set a 5-second pause at the boundary between original and recorded blocks
+        const boundaryIndex = this._originalBlockCount;
+        if (boundaryIndex > 0) {
+          const savedOnTapLoaded = this._proxy.onTapLoaded;
+          this._proxy.onTapLoaded = (blocks, metadata) => {
+            // Restore original callback and forward
+            this._proxy.onTapLoaded = savedOnTapLoaded;
+            if (savedOnTapLoaded) savedOnTapLoaded(blocks, metadata);
+            // Set 5-second pause on the last block before the recording boundary
+            this._proxy.tapeSetBlockPause(boundaryIndex - 1, 5000);
+          };
+        }
+
+        const buffer = this._rawTapeData.buffer.slice(0);
+        this._proxy.loadTAP(buffer);
+
+        // Update the recent tapes entry in IndexedDB with the combined TAP data
+        if (this._currentFilename) {
+          addToRecentTapes(this._currentFilename, this._rawTapeData);
+        }
+      }
+      // Render the complete block list including the flushed final block
+      if (finalBlocks && finalBlocks.length > 0) {
+        this._renderRecordedBlocks(finalBlocks);
+      }
+    };
+
     rewindBtn.addEventListener("click", () => {
       if (!this._proxy.tapeIsLoaded() && !this._blocks.length) return;
       if (this._proxy.tapeIsPlaying()) return;
+
+      const currentBlock = this._proxy.tapeGetCurrentBlock();
+      if (currentBlock === 0) return;
+
+      // Rewind one block
+      this._proxy.tapeRewindBlock();
+      this._lastCurrentBlock = -1;
+
+      // Reset progress bar for the block we just rewound past
+      const bar = this.contentElement.querySelector(
+        `.tape-block-progress[data-progress-index="${currentBlock}"]`,
+      );
+      if (bar) bar.style.width = "0%";
+
+      // Also reset the previous block's progress (we're now at its start)
+      const prevBar = this.contentElement.querySelector(
+        `.tape-block-progress[data-progress-index="${currentBlock - 1}"]`,
+      );
+      if (prevBar) prevBar.style.width = "0%";
+
+      // Update active block highlight
+      const items = this.contentElement.querySelectorAll(".tape-block-item");
+      items.forEach((item) => {
+        const idx = parseInt(item.dataset.index, 10);
+        item.classList.toggle("active", idx === currentBlock - 1);
+      });
+
+      // Brief fast-reverse spindle animation
+      const spindleEls = this._getAllSpindleEls();
+      for (const el of spindleEls) {
+        el.classList.remove("spinning", "paused");
+        el.classList.add("rewinding");
+      }
+      setTimeout(() => {
+        for (const el of spindleEls) {
+          el.classList.remove("rewinding");
+        }
+      }, 800);
+    });
+
+    rewindAllBtn.addEventListener("click", () => {
+      if (!this._proxy.tapeIsLoaded() && !this._blocks.length) return;
+      if (this._proxy.tapeIsPlaying()) return;
+
+      const currentBlock = this._proxy.tapeGetCurrentBlock();
+      if (currentBlock === 0) return;
+
       this._proxy.tapeRewind();
       this._lastCurrentBlock = -1;
       this.contentElement
@@ -242,6 +362,62 @@ export class TapeWindow extends BaseWindow {
         .forEach((bar) => {
           bar.style.width = "0%";
         });
+
+      // Update active block highlight to block 0
+      const items = this.contentElement.querySelectorAll(".tape-block-item");
+      items.forEach((item) => {
+        const idx = parseInt(item.dataset.index, 10);
+        item.classList.toggle("active", idx === 0);
+      });
+
+      // Longer fast-reverse spindle animation for full rewind
+      const spindleEls = this._getAllSpindleEls();
+      for (const el of spindleEls) {
+        el.classList.remove("spinning", "paused");
+        el.classList.add("rewinding");
+      }
+      setTimeout(() => {
+        for (const el of spindleEls) {
+          el.classList.remove("rewinding");
+        }
+      }, 2000);
+    });
+
+    ffwdBtn.addEventListener("click", () => {
+      if (!this._proxy.tapeIsLoaded() && !this._blocks.length) return;
+      if (this._proxy.tapeIsPlaying()) return;
+
+      const currentBlock = this._proxy.tapeGetCurrentBlock();
+      const blockCount = this._proxy.tapeGetBlockCount();
+      if (currentBlock + 1 >= blockCount) return;
+
+      this._proxy.tapeForwardBlock();
+      this._lastCurrentBlock = -1;
+
+      // Mark the current block's progress as complete
+      const bar = this.contentElement.querySelector(
+        `.tape-block-progress[data-progress-index="${currentBlock}"]`,
+      );
+      if (bar) bar.style.width = "100%";
+
+      // Update active block highlight
+      const items = this.contentElement.querySelectorAll(".tape-block-item");
+      items.forEach((item) => {
+        const idx = parseInt(item.dataset.index, 10);
+        item.classList.toggle("active", idx === currentBlock + 1);
+      });
+
+      // Brief fast-forward spindle animation (play direction)
+      const spindleEls = this._getAllSpindleEls();
+      for (const el of spindleEls) {
+        el.classList.remove("spinning", "paused");
+        el.classList.add("fast-forwarding");
+      }
+      setTimeout(() => {
+        for (const el of spindleEls) {
+          el.classList.remove("fast-forwarding");
+        }
+      }, 800);
     });
 
     // Load button - opens file picker
@@ -418,9 +594,87 @@ export class TapeWindow extends BaseWindow {
   }
 
   /**
+   * Prompt the user to save recorded TAP data via the browser save dialog
+   */
+  async _promptSaveTap(data) {
+    const tapData = data || this._lastRecordedTapData;
+    if (!tapData || tapData.length === 0) return;
+
+    const suggestedName = this._currentFilename || "recording.tap";
+    const blob = new Blob([tapData], { type: "application/octet-stream" });
+
+    // Use the File System Access API if available for a native save dialog
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{
+            description: "TAP Tape File",
+            accept: { "application/octet-stream": [".tap"] },
+          }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        // Update IndexedDB with the saved filename
+        const savedName = handle.name || suggestedName;
+        addToRecentTapes(savedName, tapData);
+        this._lastRecordedTapData = null;
+      } catch {
+        // User cancelled - that's fine, keep the data
+      }
+    } else {
+      // Fallback: trigger a download
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = suggestedName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      addToRecentTapes(suggestedName, tapData);
+      this._lastRecordedTapData = null;
+    }
+  }
+
+  /**
+   * Insert a blank tape ready for recording
+   */
+  async _insertBlankTape() {
+    // Eject any existing tape first
+    if (this._proxy.tapeIsLoaded() || this._blocks.length) {
+      await this._ejectTape();
+    }
+
+    this._currentFilename = "blank.tap";
+    this._rawTapeData = null;
+    this._isTZX = false;
+    this._blocks = [];
+    this._metadata = null;
+
+    this._renderBlocks();
+    this._updateFilenameBanner();
+    this._showCassette(true);
+
+    const ejectBtn = this.contentElement?.querySelector("#tape-btn-eject");
+    if (ejectBtn) ejectBtn.disabled = false;
+
+    // Show a blank-tape empty state
+    const list = this.contentElement?.querySelector("#tape-block-list");
+    if (list) {
+      list.innerHTML = '<div class="tape-empty-state">Blank tape — ready to record</div>';
+    }
+  }
+
+  /**
    * Eject the current tape
    */
-  _ejectTape() {
+  async _ejectTape() {
+    // If there's unsaved recorded data, prompt save before ejecting
+    if (this._lastRecordedTapData && this._lastRecordedTapData.length > 0) {
+      await this._promptSaveTap();
+    }
     this._proxy.tapeEject();
     this._blocks = [];
     this._metadata = null;
@@ -780,6 +1034,22 @@ export class TapeWindow extends BaseWindow {
 
     // Library section
     await this._appendLibrarySection(dropdown);
+
+    // Blank tape option (always at bottom)
+    const blankSep = document.createElement("div");
+    blankSep.className = "tape-dropdown-separator";
+    dropdown.appendChild(blankSep);
+
+    const blankItem = document.createElement("div");
+    blankItem.className = "tape-dropdown-item blank";
+    blankItem.textContent = "Blank Tape";
+    blankItem.title = "Insert a blank tape for recording";
+    blankItem.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this._closeDropdown();
+      this._insertBlankTape();
+    });
+    dropdown.appendChild(blankItem);
   }
 
   /**
@@ -926,7 +1196,120 @@ export class TapeWindow extends BaseWindow {
     list.innerHTML = html;
   }
 
+  _renderRecordedBlocks(newBlocks) {
+    const list = this.contentElement?.querySelector("#tape-block-list");
+    if (!list) return;
+
+    const existingBlocks = this._blocks || [];
+    if (!existingBlocks.length && !newBlocks.length) {
+      list.innerHTML = '<div class="tape-empty-state">Recording — waiting for data...</div>';
+      return;
+    }
+
+    let html = "";
+    let idx = 0;
+
+    // Render existing loaded blocks first
+    for (const block of existingBlocks) {
+      const isHeader = block.flagByte === 0x00;
+      const badgeClass = isHeader ? "header" : "data";
+      const badgeText = isHeader ? "HDR" : "DATA";
+      let typeName = "";
+      if (isHeader) {
+        switch (block.headerType) {
+          case 0: typeName = "Program"; break;
+          case 1: typeName = "Num Array"; break;
+          case 2: typeName = "Char Array"; break;
+          case 3: typeName = "Code"; break;
+          default: typeName = "Header"; break;
+        }
+      }
+      const name =
+        isHeader && block.filename
+          ? `${typeName}: ${block.filename}`
+          : isHeader ? typeName : "Data";
+
+      html += `<div class="tape-block-item" data-index="${idx}">
+        <span class="tape-block-index">${idx}</span>
+        <span class="tape-block-badge ${badgeClass}">${badgeText}</span>
+        <span class="tape-block-name">${name}</span>
+        <span class="tape-block-size">${block.dataLength}b</span>
+      </div>`;
+      idx++;
+    }
+
+    // Then render newly recorded blocks with red accent
+    for (const block of newBlocks) {
+      const isHeader = block.flagByte === 0x00;
+      const badgeClass = isHeader ? "header" : "data";
+      const badgeText = isHeader ? "HDR" : "DATA";
+      let typeName = "";
+      if (isHeader) {
+        switch (block.headerType) {
+          case 0: typeName = "Program"; break;
+          case 1: typeName = "Num Array"; break;
+          case 2: typeName = "Char Array"; break;
+          case 3: typeName = "Code"; break;
+          default: typeName = "Header"; break;
+        }
+      }
+      const name =
+        isHeader && block.filename
+          ? `${typeName}: ${block.filename}`
+          : isHeader ? typeName : "Data";
+
+      html += `<div class="tape-block-item recording" data-index="${idx}">
+        <span class="tape-block-index">${idx}</span>
+        <span class="tape-block-badge ${badgeClass}">${badgeText}</span>
+        <span class="tape-block-name">${name}</span>
+        <span class="tape-block-size">${block.dataLength}b</span>
+      </div>`;
+      idx++;
+    }
+
+    list.innerHTML = html;
+
+    // Scroll to the latest block
+    const lastItem = list.querySelector(".tape-block-item:last-child");
+    if (lastItem) {
+      lastItem.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }
+
   update(proxy) {
+    // Update record button state
+    const isRecording = proxy.tapeIsRecording();
+    const recordBtn = this.contentElement?.querySelector("#tape-btn-record");
+    if (recordBtn) {
+      recordBtn.classList.toggle("recording", isRecording);
+    }
+
+    // Disable other transport buttons while recording
+    const playBtn = this.contentElement?.querySelector("#tape-btn-play");
+    const rewindBtn = this.contentElement?.querySelector("#tape-btn-rewind");
+    const rewindAllBtn = this.contentElement?.querySelector("#tape-btn-rewind-all");
+    const ffwdBtn = this.contentElement?.querySelector("#tape-btn-ffwd");
+    if (playBtn) playBtn.disabled = isRecording;
+    if (rewindBtn) rewindBtn.disabled = isRecording;
+    if (rewindAllBtn) rewindAllBtn.disabled = isRecording;
+    if (ffwdBtn) ffwdBtn.disabled = isRecording;
+
+    // Spindle rotation during recording
+    if (isRecording !== this._lastIsRecording) {
+      this._lastIsRecording = isRecording;
+      this._setSpindleSpinning(isRecording);
+    }
+
+    // Render recorded blocks as they are detected
+    if (isRecording) {
+      const recBlocks = proxy.tapeRecordGetBlocks();
+      if (recBlocks.length !== this._lastRecordedBlockCount) {
+        this._lastRecordedBlockCount = recBlocks.length;
+        this._renderRecordedBlocks(recBlocks);
+      }
+      return;
+    }
+
     if (!this._blocks.length) return;
 
     const currentBlock = proxy.tapeGetCurrentBlock();
@@ -979,9 +1362,13 @@ export class TapeWindow extends BaseWindow {
       // Spindle rotation — add spinning class on first play, then toggle paused
       this._setSpindleSpinning(isPlaying);
 
-      // Disable rewind while playing
+      // Disable transport buttons while playing
       const rewindBtn = this.contentElement.querySelector("#tape-btn-rewind");
+      const rewindAllBtn = this.contentElement.querySelector("#tape-btn-rewind-all");
+      const ffwdBtn = this.contentElement.querySelector("#tape-btn-ffwd");
       if (rewindBtn) rewindBtn.disabled = isPlaying;
+      if (rewindAllBtn) rewindAllBtn.disabled = isPlaying;
+      if (ffwdBtn) ffwdBtn.disabled = isPlaying;
 
       const playBtn = this.contentElement.querySelector("#tape-btn-play");
       playBtn.classList.toggle("playing", isPlaying);
@@ -1000,21 +1387,6 @@ export class TapeWindow extends BaseWindow {
       }
     }
 
-    // Update status bar
-    const statusBar = this.contentElement.querySelector("#tape-status-bar");
-    const statusText = this.contentElement.querySelector("#tape-status-text");
-    const blockCount = proxy.tapeGetBlockCount();
-
-    if (isPlaying) {
-      statusBar.className = "tape-status-bar playing";
-      statusText.textContent = `PLAYING block ${currentBlock + 1} of ${blockCount}`;
-    } else if (proxy.tapeIsLoaded() || this._blocks.length) {
-      statusBar.className = "tape-status-bar stopped";
-      statusText.textContent = `STOPPED - ${this._blocks.length} blocks`;
-    } else {
-      statusBar.className = "tape-status-bar";
-      statusText.textContent = "No tape";
-    }
   }
 
   destroy() {

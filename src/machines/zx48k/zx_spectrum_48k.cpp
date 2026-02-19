@@ -222,6 +222,9 @@ void ZXSpectrum48::coreIOWrite(uint16_t address, uint8_t data)
                 getScreenMemory(), borderColor_, frameCounter_);
         }
         audio_.setEarBit((data >> 4) & 1);
+        if (tapeRecording_) {
+            recordMicTransition((data >> 3) & 1);
+        }
         borderColor_ = data & 0x07;
     }
 }

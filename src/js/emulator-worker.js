@@ -37,6 +37,8 @@ function getState() {
     tapeCurrentBlock: wasm._tapeGetCurrentBlock(),
     tapeInstantLoad: wasm._tapeGetInstantLoad(),
     tapeBlockProgress: wasm._tapeGetBlockProgress(),
+    tapeIsRecording: wasm._tapeIsRecording(),
+    tapeRecordBlockCount: wasm._tapeRecordGetBlockCount(),
   };
 }
 
@@ -63,11 +65,34 @@ function runFrames(count) {
 
   const state = getState();
 
+  // If recording, read detected block info for the UI
+  let recordedBlocks = null;
+  if (state.tapeIsRecording && state.tapeRecordBlockCount > 0) {
+    const recBlockCount = state.tapeRecordBlockCount;
+    const recInfoPtr = wasm._tapeRecordGetBlockInfo();
+    recordedBlocks = [];
+    for (let i = 0; i < recBlockCount; i++) {
+      const base = recInfoPtr + i * 20;
+      const flagByte = wasm.HEAPU8[base];
+      const headerType = wasm.HEAPU8[base + 1];
+      let filename = "";
+      for (let c = 0; c < 10; c++) {
+        const ch = wasm.HEAPU8[base + 2 + c];
+        if (ch >= 32 && ch < 127) filename += String.fromCharCode(ch);
+      }
+      filename = filename.trimEnd();
+      const dataLength = wasm.HEAPU8[base + 12] | (wasm.HEAPU8[base + 13] << 8);
+      const param1 = wasm.HEAPU8[base + 14] | (wasm.HEAPU8[base + 15] << 8);
+      const param2 = wasm.HEAPU8[base + 16] | (wasm.HEAPU8[base + 17] << 8);
+      recordedBlocks.push({ index: i, flagByte, headerType, filename, dataLength, param1, param2 });
+    }
+  }
+
   // Transfer buffers for zero-copy
   const transfer = [framebuffer.buffer];
   if (audio) transfer.push(audio.buffer);
 
-  self.postMessage({ type: "frame", framebuffer, audio, sampleCount: sampleCount, state }, transfer);
+  self.postMessage({ type: "frame", framebuffer, audio, sampleCount: sampleCount, state, recordedBlocks }, transfer);
 }
 
 self.onmessage = async function (e) {
@@ -298,6 +323,20 @@ self.onmessage = async function (e) {
       }
       break;
 
+    case "tapeRewindBlock":
+      if (wasm) {
+        wasm._tapeRewindBlock();
+        self.postMessage({ type: "stateUpdate", state: getState() });
+      }
+      break;
+
+    case "tapeForwardBlock":
+      if (wasm) {
+        wasm._tapeForwardBlock();
+        self.postMessage({ type: "stateUpdate", state: getState() });
+      }
+      break;
+
     case "tapeEject":
       if (wasm) {
         wasm._tapeEject();
@@ -307,6 +346,56 @@ self.onmessage = async function (e) {
 
     case "tapeSetInstantLoad":
       if (wasm) wasm._tapeSetInstantLoad(msg.instant ? 1 : 0);
+      break;
+
+    case "tapeSetBlockPause":
+      if (wasm) wasm._tapeSetBlockPause(msg.blockIndex, msg.pauseMs);
+      break;
+
+    case "tapeRecordStart":
+      if (wasm) {
+        wasm._tapeRecordStart();
+        self.postMessage({ type: "stateUpdate", state: getState() });
+      }
+      break;
+
+    case "tapeRecordStop":
+      if (wasm) {
+        wasm._tapeRecordStop();
+        const tapSize = wasm._tapeRecordGetSize();
+        let tapData = null;
+        if (tapSize > 0) {
+          const tapPtr = wasm._tapeRecordGetData();
+          const tapRaw = new Uint8Array(wasm.HEAPU8.buffer, tapPtr, tapSize);
+          tapData = new Uint8Array(tapRaw);
+        }
+        // Read final block info (includes the flushed last block)
+        const recBlockCount = wasm._tapeRecordGetBlockCount();
+        let finalBlocks = null;
+        if (recBlockCount > 0) {
+          const recInfoPtr = wasm._tapeRecordGetBlockInfo();
+          finalBlocks = [];
+          for (let i = 0; i < recBlockCount; i++) {
+            const base = recInfoPtr + i * 20;
+            const flagByte = wasm.HEAPU8[base];
+            const headerType = wasm.HEAPU8[base + 1];
+            let filename = "";
+            for (let c = 0; c < 10; c++) {
+              const ch = wasm.HEAPU8[base + 2 + c];
+              if (ch >= 32 && ch < 127) filename += String.fromCharCode(ch);
+            }
+            filename = filename.trimEnd();
+            const dataLength = wasm.HEAPU8[base + 12] | (wasm.HEAPU8[base + 13] << 8);
+            const param1 = wasm.HEAPU8[base + 14] | (wasm.HEAPU8[base + 15] << 8);
+            const param2 = wasm.HEAPU8[base + 16] | (wasm.HEAPU8[base + 17] << 8);
+            finalBlocks.push({ index: i, flagByte, headerType, filename, dataLength, param1, param2 });
+          }
+        }
+        self.postMessage(
+          { type: "tapeRecordComplete", data: tapData ? tapData.buffer : null, size: tapSize, recordedBlocks: finalBlocks, state: getState() },
+          tapData ? [tapData.buffer] : []
+        );
+      }
       break;
 
     case "getState":
