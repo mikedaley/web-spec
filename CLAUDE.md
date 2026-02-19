@@ -126,9 +126,24 @@ The project uses a CSS custom property theme system with three modes: **dark** (
 - `src/js/css/base.css` - `:root` defines dark theme variables; `html[data-theme="light"]` overrides all variables for light mode
 - `public/index.html` - Theme selector buttons (sun/moon/monitor icons) in the View menu
 
+### Sinclair Spectrum Accent Palette
+
+All accent and highlight colours **must** come from the ZX Spectrum hardware palette defined in `src/core/palette.hpp`. Never use arbitrary or generic accent colours.
+
+| Token | Dark theme (bright) | Light theme (normal) | Spectrum colour |
+|---|---|---|---|
+| `--accent-blue` | `#00FFFF` | `#0000CD` | Cyan / Blue |
+| `--accent-green` | `#00FF00` | `#00CD00` | Green |
+| `--accent-red` | `#FF0000` | `#CD0000` | Red |
+| `--accent-purple` | `#FF00FF` | `#CD00CD` | Magenta |
+| `--accent-orange` | `#FFFF00` | `#8B8B00` | Yellow (darkened for light-bg legibility) |
+
+Dark theme uses the **bright** Spectrum colours (high contrast on dark backgrounds). Light theme uses the **normal** Spectrum colours (legible on white). If a new accent is needed, it must map to one of the 8 Spectrum hardware colours.
+
 ### Rules for all new CSS
 
 - **Never use hard-coded colors.** Always reference CSS custom properties from `:root` (e.g., `var(--bg-primary)`, `var(--text-secondary)`, `var(--accent-blue)`).
+- **Accent colours must be Sinclair Spectrum palette colours** — never use arbitrary hues. See the table above.
 - When adding new CSS variables, define them in **both** the `:root` (dark) and `html[data-theme="light"]` blocks in `base.css`.
 - Use the existing token categories: `--bg-*`, `--text-*`, `--accent-*-bg`, `--accent-*-border`, `--glass-*`, `--overlay-*`, `--input-*`, `--control-*`, `--shadow-*`.
 - Test UI in both themes before considering CSS work complete.

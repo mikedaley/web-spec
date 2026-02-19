@@ -12,10 +12,10 @@ import { BaseWindow } from "../windows/base-window.js";
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 // Channel badge background colors
-const CHANNEL_BADGE_COLORS = { a: "#006FA3", b: "#3D8F2B", c: "#B42D31" };
+const CHANNEL_BADGE_COLORS = { a: "#0000CD", b: "#00CD00", c: "#CD0000" };
 
-// Channel waveform / meter colors
-const CHANNEL_COLORS = { a: "#18ABEA", b: "#6EC94F", c: "#E5504F" };
+// Channel waveform / meter colors — Spectrum bright palette
+const CHANNEL_COLORS = { a: "#00FFFF", b: "#00FF00", c: "#FF0000" };
 
 // ZX Spectrum AY PSG clock
 const PSG_CLOCK = 1773400;
