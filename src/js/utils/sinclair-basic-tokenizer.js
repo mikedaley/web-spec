@@ -228,9 +228,9 @@ export class SinclairBasicTokenizer {
    * @param {Uint8Array} programBytes
    */
   async writeTo(proxy, programBytes) {
-    // Pause emulation during write
-    const wasPaused = proxy.isPaused();
-    if (!wasPaused) proxy.pause();
+    // Always send pause — proxy.isPaused() uses stale cached state and
+    // may be wrong.  Sending pause when already paused is harmless.
+    proxy.pause();
 
     try {
       // The readMemory call is async (Promise-based) — the worker will process
@@ -283,6 +283,8 @@ export class SinclairBasicTokenizer {
       writeWord(SYS.NXTLIN, progAddr);
       writeWord(SYS.DATADD, varsAddr);
       writeWord(SYS.E_LINE, eLineAddr);
+      writeWord(SYS.K_CUR, eLineAddr);
+      writeWord(SYS.CH_ADD, eLineAddr - 1);
       writeWord(SYS.WORKSP, workspAddr);
       writeWord(SYS.STKBOT, workspAddr);
       writeWord(SYS.STKEND, workspAddr);
@@ -299,9 +301,32 @@ export class SinclairBasicTokenizer {
       // Write the entire block atomically
       proxy.writeMemoryBulk(sysStart, sysData);
 
-      console.log(`BASIC writeTo: wrote ${totalLen} bytes from 0x${sysStart.toString(16)}`);
+      // Synchronization barrier: readMemory is a round-trip to the worker,
+      // so by the time it resolves the writeMemoryBulk message has been
+      // fully processed.  Without this, writeTo could return (and resume
+      // could fire) before the bytes are actually in WASM memory.
+      await proxy.readMemory(sysStart, 1);
+
+      // Verify the program was written correctly by reading back the
+      // program area and comparing line number headers
+      const verify = await proxy.readMemory(progAddr, programBytes.length);
+      let mismatch = false;
+      for (let i = 0; i < programBytes.length; i++) {
+        if (verify[i] !== programBytes[i]) {
+          console.error(`BASIC writeTo: MISMATCH at offset ${i}: wrote 0x${programBytes[i].toString(16)}, read 0x${verify[i].toString(16)}`);
+          mismatch = true;
+        }
+      }
+      if (mismatch) {
+        console.error("BASIC writeTo: memory verification FAILED — retrying write");
+        proxy.writeMemoryBulk(progAddr, programBytes);
+        await proxy.readMemory(progAddr, 1); // sync barrier for retry
+      }
+
+      console.log(`BASIC writeTo: wrote ${programBytes.length} program bytes at 0x${progAddr.toString(16)}`);
     } finally {
-      if (!wasPaused) proxy.resume();
+      // Always resume — we always paused above
+      proxy.resume();
     }
   }
 }
