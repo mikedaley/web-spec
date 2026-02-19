@@ -168,6 +168,7 @@ if(EMSCRIPTEN)
                 \"_setAYChannelMute\", \
                 \"_getAYChannelMute\", \
                 \"_getAYWaveform\", \
+                \"_getBeeperWaveform\", \
                 \"_isAYEnabled\", \
                 \"_setAYEnabled\", \
                 \"_malloc\", \

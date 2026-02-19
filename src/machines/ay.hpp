@@ -58,7 +58,7 @@ public:
 private:
     static constexpr int MAX_SAMPLES_PER_FRAME = 2048;
     static constexpr int WAVEFORM_BUFFER_SIZE = 256;
-    static constexpr float AY_VOLUME = 0.4f;
+    static constexpr float AY_VOLUME = 0.8f;
 
     // AY generators tick at PSG_CLOCK/8 relative to 3.5 MHz CPU clock
     static constexpr double AY_TICKS_PER_TSTATE = (1773400.0 / 8.0) / 3500000.0;

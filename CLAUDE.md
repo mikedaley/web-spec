@@ -155,6 +155,7 @@ All windows extend `BaseWindow` (`src/js/windows/base-window.js`) and are manage
 ### Rules for all windows
 
 - **Every window must save and restore its full state.** `BaseWindow.getState()` persists position, size, visibility, and zIndex automatically. If a window has additional state (e.g., viewport lock, mute toggles, selected tabs), override `getState()` and `restoreState()` to include it.
+- **All user-facing settings must persist across sessions.** Any toggle, slider, checkbox, or preference that a user can change must be saved (via window state or `localStorage`) and restored on page load. Never add a setting that resets to its default on refresh.
 - **All windows must be registered with the window manager before `loadState()` is called** in `main.js`. If a window is registered after `loadState()`, its saved state will not be restored on page load.
 - Include new windows in the `applyDefaultLayout` array in `main.js` so they have sensible defaults for first-time users.
 

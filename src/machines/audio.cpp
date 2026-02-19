@@ -25,6 +25,8 @@ void Audio::reset()
     sampleIndex_ = 0;
     tsCounter_ = 0.0;
     outputLevel_ = 0.0;
+    waveformWritePos_ = 0;
+    for (int i = 0; i < WAVEFORM_BUFFER_SIZE; i++) waveformBuffer_[i] = 0.0f;
 }
 
 void Audio::update(int32_t tStates)
@@ -41,8 +43,12 @@ void Audio::update(int32_t tStates)
         {
             if (sampleIndex_ < MAX_SAMPLES_PER_FRAME)
             {
-                sampleBuffer_[sampleIndex_++] =
-                    static_cast<float>(outputLevel_ / tsCounter_);
+                float sample = static_cast<float>(outputLevel_ / tsCounter_);
+                sampleBuffer_[sampleIndex_++] = sample;
+
+                // Store in waveform ring buffer for debug display
+                waveformBuffer_[waveformWritePos_] = sample;
+                waveformWritePos_ = (waveformWritePos_ + 1) % WAVEFORM_BUFFER_SIZE;
             }
             tsCounter_ -= beeperTsStep_;
             outputLevel_ = static_cast<double>(level) * tsCounter_;
@@ -53,6 +59,15 @@ void Audio::update(int32_t tStates)
 void Audio::frameEnd()
 {
     // Accumulator carries over naturally — no flush needed
+}
+
+void Audio::getWaveform(float* buf, int count) const
+{
+    // Copy the ring buffer in order: oldest → newest
+    for (int i = 0; i < count; i++) {
+        int idx = (waveformWritePos_ - count + i + WAVEFORM_BUFFER_SIZE) % WAVEFORM_BUFFER_SIZE;
+        buf[i] = waveformBuffer_[idx];
+    }
 }
 
 } // namespace zxspec

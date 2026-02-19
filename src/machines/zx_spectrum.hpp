@@ -107,6 +107,10 @@ public:
 
     void setBorderColor(uint8_t color) { borderColor_ = color & 0x07; }
 
+    // Audio (beeper)
+    Audio& getAudio() { return audio_; }
+    const Audio& getAudio() const { return audio_; }
+
     // AY-3-8912 sound chip
     AY3_8912& getAY() { return ay_; }
     const AY3_8912& getAY() const { return ay_; }

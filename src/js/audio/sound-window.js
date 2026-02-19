@@ -389,11 +389,11 @@ export class SoundWindow extends BaseWindow {
         border-radius: 50%;
         cursor: pointer;
         transition: all 0.1s;
-        box-shadow: 0 0 6px rgba(0, 255, 0, 0.3);
+        box-shadow: 0 0 6px var(--accent-green-bg-stronger);
       }
       .snd-slider::-webkit-slider-thumb:hover {
         transform: scale(1.15);
-        box-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+        box-shadow: 0 0 10px var(--accent-green-border-light);
       }
       .snd-slider::-moz-range-thumb {
         width: 10px;
@@ -458,9 +458,9 @@ export class SoundWindow extends BaseWindow {
         border-radius: 2px;
         transition: width 0.06s linear;
       }
-      .snd-ch-meter-fill-a { background: ${CHANNEL_COLORS.a}; box-shadow: 0 0 4px ${CHANNEL_COLORS.a}40; }
-      .snd-ch-meter-fill-b { background: ${CHANNEL_COLORS.b}; box-shadow: 0 0 4px ${CHANNEL_COLORS.b}40; }
-      .snd-ch-meter-fill-c { background: ${CHANNEL_COLORS.c}; box-shadow: 0 0 4px ${CHANNEL_COLORS.c}40; }
+      .snd-ch-meter-fill-a { background: var(--channel-a); box-shadow: 0 0 4px color-mix(in srgb, var(--channel-a) 25%, transparent); }
+      .snd-ch-meter-fill-b { background: var(--channel-b); box-shadow: 0 0 4px color-mix(in srgb, var(--channel-b) 25%, transparent); }
+      .snd-ch-meter-fill-c { background: var(--channel-c); box-shadow: 0 0 4px color-mix(in srgb, var(--channel-c) 25%, transparent); }
 
       /* Volume text */
       .snd-ch-vol {
@@ -642,6 +642,17 @@ export class SoundWindow extends BaseWindow {
       });
     }
 
+    // Watch for theme changes and update canvas/waveform colors
+    if (!this._themeObserver) {
+      this._themeObserver = new MutationObserver(() => {
+        this._canvasColorsInit = false;
+      });
+      this._themeObserver.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ["data-theme"],
+      });
+    }
+
     // AY mute click handler via event delegation
     if (!this.ayMuteHandlerAttached && this.contentElement) {
       this.ayMuteHandlerAttached = true;
@@ -732,6 +743,14 @@ export class SoundWindow extends BaseWindow {
     this.canvasBg = style.getPropertyValue("--canvas-bg").trim() || "#05050a";
     this.canvasLine =
       style.getPropertyValue("--canvas-line").trim() || "#1a1a2a";
+    this.channelColorA =
+      style.getPropertyValue("--channel-a").trim() || "#00FFFF";
+    this.channelColorB =
+      style.getPropertyValue("--channel-b").trim() || "#00FF00";
+    this.channelColorC =
+      style.getPropertyValue("--channel-c").trim() || "#FF0000";
+    this.beeperColor =
+      style.getPropertyValue("--beeper-color").trim() || "#00FF00";
   }
 
   drawWaveformBase(ctx, canvas, samples, color) {
@@ -917,7 +936,11 @@ export class SoundWindow extends BaseWindow {
   }
 
   updateAYWaveforms(proxy) {
-    const colors = [CHANNEL_COLORS.a, CHANNEL_COLORS.b, CHANNEL_COLORS.c];
+    const colors = [
+      this.channelColorA || CHANNEL_COLORS.a,
+      this.channelColorB || CHANNEL_COLORS.b,
+      this.channelColorC || CHANNEL_COLORS.c,
+    ];
     const ayOn = proxy.isAYEnabled();
 
     for (let ch = 0; ch < 3; ch++) {
@@ -1070,7 +1093,7 @@ export class SoundWindow extends BaseWindow {
         this.beeperCtx,
         this.beeperCanvas,
         beeperSamples,
-        BEEPER_COLOR,
+        this.beeperColor || BEEPER_COLOR,
         BEEPER_VOLUME,
       );
     }
@@ -1088,6 +1111,10 @@ export class SoundWindow extends BaseWindow {
   }
 
   destroy() {
+    if (this._themeObserver) {
+      this._themeObserver.disconnect();
+      this._themeObserver = null;
+    }
     this.beeperCanvas = null;
     this.beeperCtx = null;
     this.ayElements = null;

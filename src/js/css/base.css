@@ -92,6 +92,12 @@
   --canvas-bg: #05050a;
   --canvas-line: #1a1a2a;
 
+  /* Sound channel waveform / meter colors — Spectrum bright palette */
+  --channel-a: #00FFFF;
+  --channel-b: #00FF00;
+  --channel-c: #FF0000;
+  --beeper-color: #00FF00;
+
   /* Control tokens */
   --control-border: rgba(48, 54, 61, 0.8);
 
@@ -198,6 +204,12 @@ html[data-theme="light"] {
   /* Canvas tokens */
   --canvas-bg: #f0f2f5;
   --canvas-line: #d0d7de;
+
+  /* Sound channel waveform / meter colors — Spectrum normal palette (legible on light bg) */
+  --channel-a: #0000CD;
+  --channel-b: #008A00;
+  --channel-c: #CD0000;
+  --beeper-color: #008A00;
 
   /* Control tokens */
   --control-border: rgba(208, 215, 222, 0.8);
@@ -336,7 +348,7 @@ header {
   background: transparent;
   color: var(--accent-red);
   border-color: var(--accent-red);
-  box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+  box-shadow: 0 0 20px var(--accent-red-bg-stronger);
 }
 
 /* Compact text-only header buttons (Reset) */
@@ -863,7 +875,7 @@ main {
   border-radius: 3px;
 }
 .debug-window-content::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.25);
+  background: var(--overlay-active);
 }
 
 /* ============================================

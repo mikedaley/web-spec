@@ -695,6 +695,13 @@ void getAYWaveform(int ch, float* buf, int count) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void getBeeperWaveform(float* buf, int count) {
+  REQUIRE_MACHINE();
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  if (spec) spec->getAudio().getWaveform(buf, count);
+}
+
+EMSCRIPTEN_KEEPALIVE
 int isAYEnabled() {
   REQUIRE_MACHINE_OR(0);
   auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);

@@ -10,6 +10,7 @@ export class WindowManager {
     this.windows = new Map();
     this.highestZIndex = 1000;
     this.storageKey = 'zxspec-debug-windows';
+    this._restoring = false;
 
     // Bind and set up window resize listener to keep windows in viewport
     this.handleWindowResize = this.handleWindowResize.bind(this);
@@ -107,6 +108,7 @@ export class WindowManager {
    * Caps z-index below 2000 so header dropdown menus always render on top.
    */
   bringToFront(id) {
+    if (this._restoring) return;
     this.highestZIndex++;
     if (this.highestZIndex >= 1900) {
       this.normalizeZIndices(id);
@@ -117,6 +119,7 @@ export class WindowManager {
       }
     }
     this.setFocused(id);
+    this.saveState();
   }
 
   /**
@@ -173,6 +176,7 @@ export class WindowManager {
    * Save all window states to localStorage
    */
   saveState() {
+    if (this._restoring) return;
     try {
       const state = {};
       for (const [id, window] of this.windows) {
@@ -192,12 +196,17 @@ export class WindowManager {
       const saved = localStorage.getItem(this.storageKey);
       if (saved) {
         const state = JSON.parse(saved);
+
+        // Suppress bringToFront/saveState during restoration so
+        // show() doesn't overwrite saved z-indices
+        this._restoring = true;
         for (const [id, windowState] of Object.entries(state)) {
           const window = this.windows.get(id);
           if (window) {
             window.restoreState(windowState);
           }
         }
+        this._restoring = false;
 
         // Update highestZIndex to the max z-index across all restored windows
         let maxZ = 1000;
@@ -212,6 +221,7 @@ export class WindowManager {
         this.focusTopWindow();
       }
     } catch (e) {
+      this._restoring = false;
       console.warn('Could not load window state:', e);
     }
   }
@@ -233,6 +243,10 @@ export class WindowManager {
    */
   updateAll(wasmModule) {
     for (const window of this.windows.values()) {
+      // Apply pending restored state regardless of visibility
+      if (window.applyPendingState) {
+        window.applyPendingState();
+      }
       if (window.isVisible) {
         window.update(wasmModule);
       }

@@ -31,6 +31,7 @@ export class EmulatorProxy {
       case "frame":
         this.state = msg.state;
         if (msg.recordedBlocks) this._recordedBlocks = msg.recordedBlocks;
+        if (msg.beeperWaveform) this._beeperWaveform = msg.beeperWaveform;
         if (msg.ayRegisters) this._ayRegisters = msg.ayRegisters;
         if (msg.ayMutes) this._ayMutes = msg.ayMutes;
         if (msg.ayWaveforms) this._ayWaveforms = msg.ayWaveforms;
@@ -238,6 +239,10 @@ export class EmulatorProxy {
   _setAYChannelMute(ch, muted) {
     if (this._ayMutes) this._ayMutes[ch] = muted;
     this.worker.postMessage({ type: "setAYChannelMute", ch, muted });
+  }
+
+  getBeeperWaveform() {
+    return this._beeperWaveform ?? null;
   }
 
   getAYWaveform(ch) {
