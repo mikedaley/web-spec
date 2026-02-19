@@ -20,7 +20,9 @@ export class AudioDriver {
     this.sampleRate = SAMPLE_RATE;
     this.running = false;
     this.muted = false;
-    this.volume = DEFAULT_VOLUME;
+
+    const savedVol = localStorage.getItem("zxspec-volume");
+    this.volume = savedVol !== null ? parseFloat(savedVol) : DEFAULT_VOLUME;
 
     // Fallback timing
     this.fallbackInterval = null;
@@ -222,6 +224,7 @@ export class AudioDriver {
 
   setVolume(volume) {
     this.volume = Math.max(0, Math.min(1, volume));
+    localStorage.setItem("zxspec-volume", this.volume);
     if (this.gainNode) {
       this.gainNode.gain.value = this.muted ? 0 : this.volume;
     }

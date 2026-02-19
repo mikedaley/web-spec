@@ -9,7 +9,20 @@
 import { BaseWindow } from "../windows/base-window.js";
 
 // Note names for frequency-to-note conversion
-const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const NOTE_NAMES = [
+  "C",
+  "C#",
+  "D",
+  "D#",
+  "E",
+  "F",
+  "F#",
+  "G",
+  "G#",
+  "A",
+  "A#",
+  "B",
+];
 
 // Channel badge background colors
 const CHANNEL_BADGE_COLORS = { a: "#0000CD", b: "#00CD00", c: "#CD0000" };
@@ -19,6 +32,9 @@ const CHANNEL_COLORS = { a: "#00FFFF", b: "#00FF00", c: "#FF0000" };
 
 // Beeper color — Spectrum bright green
 const BEEPER_COLOR = "#00FF00";
+
+// Beeper max amplitude (must match BEEPER_VOLUME in audio.hpp)
+const BEEPER_VOLUME = 0.3;
 
 // ZX Spectrum AY PSG clock
 const PSG_CLOCK = 1773400;
@@ -55,10 +71,12 @@ function frequencyToNote(freq) {
 function getEnvelopeShapeSVG(value) {
   const path = ENVELOPE_SVGS[value & 0x0f];
   if (!path) return '<span class="snd-env-unknown">?</span>';
-  return `<svg class="snd-env-svg" viewBox="0 0 48 16" width="48" height="16" preserveAspectRatio="none">` +
-    `<polyline points="${path.replace(/M|L/g, '').replace(/\s+/g, ' ').trim()}" ` +
+  return (
+    `<svg class="snd-env-svg" viewBox="0 0 48 16" width="48" height="16" preserveAspectRatio="none">` +
+    `<polyline points="${path.replace(/M|L/g, "").replace(/\s+/g, " ").trim()}" ` +
     `fill="none" stroke="var(--accent-green)" stroke-width="1.5" stroke-linejoin="round"/>` +
-    `</svg>`;
+    `</svg>`
+  );
 }
 
 export class SoundWindow extends BaseWindow {
@@ -66,11 +84,12 @@ export class SoundWindow extends BaseWindow {
     super({
       id: "sound-debug",
       title: "Sound",
-      defaultWidth: 560,
-      defaultHeight: 420,
-      minWidth: 440,
-      minHeight: 200,
+      defaultWidth: 575,
+      defaultHeight: 475,
+      minWidth: 575,
+      minHeight: 475,
       defaultPosition: { x: 60, y: 300 },
+      resizeDirections: ["e", "w"],
     });
     this.audioDriver = audioDriver;
     this.proxy = proxy;
@@ -96,7 +115,9 @@ export class SoundWindow extends BaseWindow {
     const channels = ["a", "b", "c"];
     const channelLabels = ["A", "B", "C"];
 
-    const channelRows = channels.map((ch, i) => `
+    const channelRows = channels
+      .map(
+        (ch, i) => `
       <div class="snd-ch-row" data-channel="${ch}">
         <button class="snd-ch-mute" data-ch="${i}" title="Mute/Unmute Channel ${channelLabels[i]}">
           <span class="snd-ch-mute-on"><svg viewBox="0 0 12 12" width="12" height="12"><path d="M1 4.2h2l2.5-2.5v8.6L3 7.8H1z" fill="currentColor"/><path d="M8 3.5q2 2.5 0 5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg></span>
@@ -114,7 +135,9 @@ export class SoundWindow extends BaseWindow {
         <span class="snd-ch-vol" id="snd-ch${ch}-vol">0/15</span>
         <canvas class="snd-ch-wave" id="snd-ch${ch}-wave"></canvas>
       </div>
-    `).join("");
+    `,
+      )
+      .join("");
 
     return `
       <div class="snd-root">
@@ -138,7 +161,6 @@ export class SoundWindow extends BaseWindow {
           </div>
           <div class="snd-ch-list">
             <div class="snd-ch-row snd-beeper-row">
-              <div class="snd-ch-badge snd-ch-badge-beep">B</div>
               <canvas class="snd-ch-wave snd-beep-wave" id="snd-beep-wave"></canvas>
             </div>
           </div>
@@ -255,7 +277,7 @@ export class SoundWindow extends BaseWindow {
         padding: 4px 6px;
         background: var(--overlay-subtle);
         border-radius: var(--radius-sm);
-        height: 34px;
+        height: 52px;
         font-family: var(--font-mono);
         font-size: 10px;
         transition: opacity 0.15s;
@@ -387,7 +409,7 @@ export class SoundWindow extends BaseWindow {
         border-radius: 2px;
       }
 
-      /* Beeper waveform - slightly taller than AY channels */
+      /* Beeper and AY rows — taller for waveform visibility */
       .snd-beep-wave {
         min-width: 80px;
       }
@@ -550,8 +572,9 @@ export class SoundWindow extends BaseWindow {
 
   onContentRendered() {
     this.beeperCanvas = this.contentElement.querySelector("#snd-beep-wave");
-    this.beeperCtx = this.beeperCanvas ? this.beeperCanvas.getContext("2d", { alpha: false }) : null;
-
+    this.beeperCtx = this.beeperCanvas
+      ? this.beeperCanvas.getContext("2d", { alpha: false })
+      : null;
     this.volumeSlider = this.contentElement.querySelector("#snd-vol-slider");
     this.volumeLabel = this.contentElement.querySelector("#snd-vol-label");
     this.muteBtn = this.contentElement.querySelector("#snd-beep-mute");
@@ -644,8 +667,12 @@ export class SoundWindow extends BaseWindow {
 
     for (let ch = 0; ch < 3; ch++) {
       const chName = channelNames[ch];
-      this.ayElements.channels[ch] = el.querySelector(`.snd-ch-row[data-channel="${chName}"]`);
-      this.ayElements.mute[ch] = el.querySelector(`.snd-ch-mute[data-ch="${ch}"]`);
+      this.ayElements.channels[ch] = el.querySelector(
+        `.snd-ch-row[data-channel="${chName}"]`,
+      );
+      this.ayElements.mute[ch] = el.querySelector(
+        `.snd-ch-mute[data-ch="${ch}"]`,
+      );
       this.ayElements.freq[ch] = el.querySelector(`#snd-ch${chName}-freq`);
       this.ayElements.tone[ch] = el.querySelector(`#snd-ch${chName}-tone`);
       this.ayElements.noise[ch] = el.querySelector(`#snd-ch${chName}-noise`);
@@ -653,7 +680,9 @@ export class SoundWindow extends BaseWindow {
       this.ayElements.volText[ch] = el.querySelector(`#snd-ch${chName}-vol`);
       const canvas = el.querySelector(`#snd-ch${chName}-wave`);
       this.ayElements.canvases[ch] = canvas;
-      this.ayElements.canvasCtx[ch] = canvas ? canvas.getContext("2d", { alpha: false }) : null;
+      this.ayElements.canvasCtx[ch] = canvas
+        ? canvas.getContext("2d", { alpha: false })
+        : null;
     }
   }
 
@@ -662,7 +691,11 @@ export class SoundWindow extends BaseWindow {
     if (this.beeperCanvas) {
       const w = this.beeperCanvas.clientWidth;
       const h = this.beeperCanvas.clientHeight;
-      if (w > 0 && h > 0 && (this.beeperCanvas.width !== w || this.beeperCanvas.height !== h)) {
+      if (
+        w > 0 &&
+        h > 0 &&
+        (this.beeperCanvas.width !== w || this.beeperCanvas.height !== h)
+      ) {
         this.beeperCanvas.width = w;
         this.beeperCanvas.height = h;
       }
@@ -684,13 +717,14 @@ export class SoundWindow extends BaseWindow {
   updateCanvasColors() {
     const style = getComputedStyle(document.documentElement);
     this.canvasBg = style.getPropertyValue("--canvas-bg").trim() || "#05050a";
-    this.canvasLine = style.getPropertyValue("--canvas-line").trim() || "#1a1a2a";
+    this.canvasLine =
+      style.getPropertyValue("--canvas-line").trim() || "#1a1a2a";
   }
 
-  drawChannelWaveform(ctx, canvas, samples, color) {
+  drawWaveformBase(ctx, canvas, samples, color) {
     const width = canvas.width;
     const height = canvas.height;
-    if (width === 0 || height === 0) return;
+    if (width === 0 || height === 0) return false;
 
     ctx.fillStyle = this.canvasBg;
     ctx.fillRect(0, 0, width, height);
@@ -703,26 +737,61 @@ export class SoundWindow extends BaseWindow {
     ctx.lineTo(width, height / 2);
     ctx.stroke();
 
-    if (!samples || samples.length === 0) return;
+    if (!samples || samples.length === 0) return false;
 
     ctx.strokeStyle = color;
     ctx.lineWidth = 1;
     ctx.beginPath();
+    return true;
+  }
 
+  drawFixedWaveform(ctx, canvas, samples, color, maxAmplitude) {
+    if (!this.drawWaveformBase(ctx, canvas, samples, color)) return;
+
+    const width = canvas.width;
+    const height = canvas.height;
     const sampleCount = samples.length;
     const xScale = width / (sampleCount - 1);
 
-    // Find peak for normalization
-    let peak = 0;
-    for (let i = 0; i < sampleCount; i++) {
-      const abs = Math.abs(samples[i]);
-      if (abs > peak) peak = abs;
-    }
-    const scale = peak > 0.001 ? 1 / peak : 1;
+    // Fixed scale: map [-maxAmplitude, +maxAmplitude] to full canvas height
+    // Beeper is 0-to-positive so center it by subtracting half the max
+    const mid = maxAmplitude / 2;
+    const scale = 1 / maxAmplitude;
 
     for (let i = 0; i < sampleCount; i++) {
       const x = i * xScale;
-      const y = (height / 2) - samples[i] * scale * (height / 2 - 1);
+      const y = height / 2 - (samples[i] - mid) * scale * (height - 2);
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.stroke();
+  }
+
+  drawChannelWaveform(ctx, canvas, samples, color) {
+    if (!this.drawWaveformBase(ctx, canvas, samples, color)) return;
+
+    const width = canvas.width;
+    const height = canvas.height;
+    const sampleCount = samples.length;
+    const xScale = width / (sampleCount - 1);
+
+    // Find min/max for normalization and centering
+    let min = Infinity,
+      max = -Infinity;
+    for (let i = 0; i < sampleCount; i++) {
+      if (samples[i] < min) min = samples[i];
+      if (samples[i] > max) max = samples[i];
+    }
+    const mid = (min + max) / 2;
+    const range = max - min;
+    const scale = range > 0.001 ? 1 / (range / 2) : 1;
+
+    for (let i = 0; i < sampleCount; i++) {
+      const x = i * xScale;
+      const y = height / 2 - (samples[i] - mid) * scale * (height / 2 - 1);
       if (i === 0) {
         ctx.moveTo(x, y);
       } else {
@@ -736,9 +805,9 @@ export class SoundWindow extends BaseWindow {
     if (!proxy._getAYRegister) return;
 
     const channelRegs = [
-      [0, 1],  // Channel A tone fine/coarse
-      [2, 3],  // Channel B
-      [4, 5],  // Channel C
+      [0, 1], // Channel A tone fine/coarse
+      [2, 3], // Channel B
+      [4, 5], // Channel C
     ];
 
     const r7 = proxy._getAYRegister(7);
@@ -767,14 +836,16 @@ export class SoundWindow extends BaseWindow {
       const toneKey = `ch${ch}tone`;
       if (this.ayPrevValues[toneKey] !== toneEnabled) {
         this.ayPrevValues[toneKey] = toneEnabled;
-        if (this.ayElements.tone[ch]) this.ayElements.tone[ch].classList.toggle("on", toneEnabled);
+        if (this.ayElements.tone[ch])
+          this.ayElements.tone[ch].classList.toggle("on", toneEnabled);
       }
 
       const noiseEnabled = !(r7 & (1 << (ch + 3)));
       const noiseKey = `ch${ch}noise`;
       if (this.ayPrevValues[noiseKey] !== noiseEnabled) {
         this.ayPrevValues[noiseKey] = noiseEnabled;
-        if (this.ayElements.noise[ch]) this.ayElements.noise[ch].classList.toggle("on", noiseEnabled);
+        if (this.ayElements.noise[ch])
+          this.ayElements.noise[ch].classList.toggle("on", noiseEnabled);
       }
 
       const ampReg = proxy._getAYRegister(8 + ch);
@@ -811,7 +882,8 @@ export class SoundWindow extends BaseWindow {
     const envFine = proxy._getAYRegister(11);
     const envCoarse = proxy._getAYRegister(12);
     const envPeriod = envFine | (envCoarse << 8);
-    const envFreq = envPeriod > 0 ? (PSG_CLOCK / (256 * envPeriod)).toFixed(1) : 0;
+    const envFreq =
+      envPeriod > 0 ? (PSG_CLOCK / (256 * envPeriod)).toFixed(1) : 0;
     if (this.ayPrevValues.envFreq !== envFreq) {
       this.ayPrevValues.envFreq = envFreq;
       if (this.ayElements.envFreq) {
@@ -820,11 +892,13 @@ export class SoundWindow extends BaseWindow {
     }
 
     const noisePeriod = proxy._getAYRegister(6);
-    const noiseFreq = noisePeriod > 0 ? (PSG_CLOCK / (16 * noisePeriod)).toFixed(1) : 0;
+    const noiseFreq =
+      noisePeriod > 0 ? (PSG_CLOCK / (16 * noisePeriod)).toFixed(1) : 0;
     if (this.ayPrevValues.noiseFreq !== noiseFreq) {
       this.ayPrevValues.noiseFreq = noiseFreq;
       if (this.ayElements.noiseFreq) {
-        this.ayElements.noiseFreq.textContent = noiseFreq > 0 ? `${noiseFreq}Hz` : "";
+        this.ayElements.noiseFreq.textContent =
+          noiseFreq > 0 ? `${noiseFreq}Hz` : "";
       }
     }
   }
@@ -849,8 +923,10 @@ export class SoundWindow extends BaseWindow {
       const key = `mute${ch}`;
       if (this.ayPrevValues[key] !== isMuted) {
         this.ayPrevValues[key] = isMuted;
-        if (this.ayElements.mute[ch]) this.ayElements.mute[ch].classList.toggle("muted", isMuted);
-        if (this.ayElements.channels[ch]) this.ayElements.channels[ch].classList.toggle("muted", isMuted);
+        if (this.ayElements.mute[ch])
+          this.ayElements.mute[ch].classList.toggle("muted", isMuted);
+        if (this.ayElements.channels[ch])
+          this.ayElements.channels[ch].classList.toggle("muted", isMuted);
       }
     }
   }
@@ -919,10 +995,18 @@ export class SoundWindow extends BaseWindow {
     // Resize all canvases
     this.resizeCanvases();
 
-    // Draw beeper waveform (beeper-only data from C++ ring buffer)
+    // Draw beeper waveform
     if (this.beeperCtx && this.beeperCanvas && proxy) {
-      const beeperSamples = proxy.getBeeperWaveform ? proxy.getBeeperWaveform() : null;
-      this.drawChannelWaveform(this.beeperCtx, this.beeperCanvas, beeperSamples, BEEPER_COLOR);
+      const beeperSamples = proxy.getBeeperWaveform
+        ? proxy.getBeeperWaveform()
+        : null;
+      this.drawFixedWaveform(
+        this.beeperCtx,
+        this.beeperCanvas,
+        beeperSamples,
+        BEEPER_COLOR,
+        BEEPER_VOLUME,
+      );
     }
 
     // AY section updates (always shown)
