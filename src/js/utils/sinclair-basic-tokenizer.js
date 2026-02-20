@@ -59,10 +59,39 @@ export class SinclairBasicTokenizer {
     let i = 0;
     const len = text.length;
     let inRem = false;
+    let inDefFnParams = false; // Inside DEF FN parameter list
 
     while (i < len) {
       // After REM, everything is literal
       if (inRem) {
+        bytes.push(text.charCodeAt(i));
+        i++;
+        continue;
+      }
+
+      // Inside DEF FN parameter list: emit each parameter letter followed by
+      // a 5-byte number placeholder (0x0E + 5 zero bytes) that the ROM uses
+      // to store argument values at call time.
+      if (inDefFnParams) {
+        if (text[i] === ")") {
+          inDefFnParams = false;
+          bytes.push(0x29); // )
+          i++;
+          continue;
+        }
+        if (text[i] === "," || text[i] === " ") {
+          bytes.push(text.charCodeAt(i));
+          i++;
+          continue;
+        }
+        if (/[A-Za-z]/.test(text[i])) {
+          // Parameter variable letter + number placeholder
+          bytes.push(text.charCodeAt(i));
+          i++;
+          bytes.push(NUMBER_MARKER, 0x00, 0x00, 0x00, 0x00, 0x00);
+          continue;
+        }
+        // Anything else (shouldn't happen in well-formed DEF FN)
         bytes.push(text.charCodeAt(i));
         i++;
         continue;
@@ -108,6 +137,51 @@ export class SinclairBasicTokenizer {
           if (kw === "REM") {
             inRem = true;
           }
+
+          // After BIN token: consume binary digits, emit as ASCII + number
+          // marker with the binary-interpreted value
+          if (kw === "BIN") {
+            // Skip whitespace
+            while (i < len && text[i] === " ") i++;
+            // Collect binary digits
+            let binStart = i;
+            while (i < len && (text[i] === "0" || text[i] === "1")) i++;
+            const binStr = text.slice(binStart, i);
+            // Emit ASCII digits
+            for (let c = 0; c < binStr.length; c++) {
+              bytes.push(binStr.charCodeAt(c));
+            }
+            // Emit number marker + 5-byte encoding of the binary value
+            const binVal = binStr.length > 0 ? parseInt(binStr, 2) : 0;
+            bytes.push(NUMBER_MARKER);
+            bytes.push(...this._encodeNumber(binVal));
+          }
+
+          // After DEF FN token: emit function name, then enter parameter mode
+          // Format: DEF_FN_token name ( params ) = body
+          if (kw === "DEF FN") {
+            // Skip whitespace
+            while (i < len && text[i] === " ") {
+              bytes.push(0x20);
+              i++;
+            }
+            // Emit function name letter
+            if (i < len && /[A-Za-z]/.test(text[i])) {
+              bytes.push(text.charCodeAt(i));
+              i++;
+            }
+            // Look for opening parenthesis
+            while (i < len && text[i] === " ") {
+              bytes.push(0x20);
+              i++;
+            }
+            if (i < len && text[i] === "(") {
+              bytes.push(0x28); // (
+              i++;
+              inDefFnParams = true;
+            }
+          }
+
           break;
         }
       }
