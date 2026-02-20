@@ -987,6 +987,7 @@ export class BasicProgramWindow extends BaseWindow {
 
           this._updateHighlight();
           this._updateGutter();
+          this._updateToolbarState();
         }
       }).catch(() => { this._romReadyChecking = false; });
     }
