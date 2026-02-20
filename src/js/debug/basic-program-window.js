@@ -475,8 +475,10 @@ export class BasicProgramWindow extends BaseWindow {
     const hasProgram = this.proxy?.hasBasicProgram() ?? false;
     this._setButtonEnabled("run", ready && !active && hasProgram);
 
-    // Step/Stop: only when a BASIC program is in progress
-    this._setButtonEnabled("step", ready && active);
+    // Step: only when paused at a BASIC breakpoint
+    this._setButtonEnabled("step", ready && paused);
+
+    // Stop: any time a program is in progress (running or paused)
     this._setButtonEnabled("stop-debug", ready && active);
 
     // Continue: only when paused at a BASIC breakpoint
