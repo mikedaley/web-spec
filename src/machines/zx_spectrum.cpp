@@ -843,7 +843,17 @@ bool ZXSpectrum::handleTapeTrap(uint16_t address)
     }
     else
     {
-        tapePulseActive_ = true;
+        // Pause when the next block is a header so multi-program tapes
+        // stop between each program during instant load
+        if (tapeBlockIndex_ < tapeBlockInfo_.size() &&
+            tapeBlockInfo_[tapeBlockIndex_].flagByte == 0x00)
+        {
+            tapePulseActive_ = false;
+        }
+        else
+        {
+            tapePulseActive_ = true;
+        }
     }
 
     z80_->setRegister(Z80::WordReg::PC, 0x05E2);
@@ -1088,6 +1098,15 @@ void ZXSpectrum::advanceTape(uint32_t tstates)
                 tapePulseIndex_ >= tapePulseBlockStarts_[tapeBlockIndex_ + 1])
             {
                 tapeBlockIndex_++;
+
+                // During instant load, pause when a header block is reached
+                if (tapeInstantLoad_ && tapeAccelerating_ &&
+                    tapeBlockIndex_ < tapeBlockInfo_.size() &&
+                    tapeBlockInfo_[tapeBlockIndex_].flagByte == 0x00)
+                {
+                    tapePulseActive_ = false;
+                    break;
+                }
             }
         }
         else
