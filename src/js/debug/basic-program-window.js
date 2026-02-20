@@ -69,6 +69,7 @@ export class BasicProgramWindow extends BaseWindow {
     this._pendingHighlight = false;
     this._romReady = false; // true once ROM has finished startup (RAM test etc.)
     this._programRunning = false; // true when PPC > 0 (BASIC program executing)
+    this._lastExecutionTime = 0; // timestamp of last FLAGS bit 7=0 (execution mode)
     this._traceEnabled = true; // highlight current line while running (no pause)
     this._traceLastLine = null; // last line highlighted by trace (avoid redundant DOM updates)
 
@@ -947,15 +948,31 @@ export class BasicProgramWindow extends BaseWindow {
         const ppc = data[11] | (data[12] << 8);          // 0x5C45-46
         const prog = data[25] | (data[26] << 8);         // 0x5C53-54
         this._romReady = (prog >= 0x5C00 && prog < 0x8000);
-        // Program is running when ALL of:
-        //   - ERR_NR is 0xFF (no error/report has fired yet)
-        //   - FLAGS bit 7 is SET (execution mode, not editing)
-        //   - PPC holds a valid BASIC line number
-        // ERR_NR alone is insufficient (0xFF = both "running" and "0 OK").
-        // FLAGS bit 7 alone is insufficient (stays set briefly after errors).
-        // Together they reliably detect execution.
+        // Detect program execution using FLAGS bit 7:
+        //   bit 7 = 0 → execution mode (running BASIC statements)
+        //   bit 7 = 1 → syntax-checking / edit / input mode
+        // During execution the ROM alternates rapidly between syntax check
+        // (bit 7=1) and execution (bit 7=0) for each statement.  After
+        // "0 OK" the ROM stays in edit mode (bit 7=1) indefinitely.
+        // We use a grace period: once execution mode is seen, keep
+        // _programRunning true for 300ms even if subsequent polls catch
+        // syntax-check passes.  If 300ms elapses without seeing execution
+        // mode, the program has ended.
         const wasRunning = this._programRunning;
-        this._programRunning = (errNr === 0xFF && (flags & 0x80) !== 0 && ppc > 0 && ppc <= 9999);
+        const inExecution = (errNr === 0xFF && (flags & 0x80) === 0 && ppc > 0 && ppc <= 9999);
+        const now = performance.now();
+        if (inExecution) {
+          this._programRunning = true;
+          this._lastExecutionTime = now;
+        } else if (this._programRunning) {
+          if (errNr !== 0xFF) {
+            // An actual error report — program definitely ended
+            this._programRunning = false;
+          } else if (now - this._lastExecutionTime > 300) {
+            // Haven't seen execution mode in 300ms — program ended
+            this._programRunning = false;
+          }
+        }
 
         // Trace mode: highlight current line while running (no pause)
         if (this._traceEnabled && this._programRunning && !this._basicStepping) {
