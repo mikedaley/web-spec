@@ -69,7 +69,8 @@ export class BasicProgramWindow extends BaseWindow {
     this._pendingHighlight = false;
     this._romReady = false; // true once ROM has finished startup (RAM test etc.)
     this._programRunning = false; // true when PPC > 0 (BASIC program executing)
-    this._lastExecutionTime = 0; // timestamp of last FLAGS bit 7=0 (execution mode)
+    this._lastChAdd = 0; // CH_ADD value from previous poll
+    this._lastActivityTime = 0; // timestamp when CH_ADD last changed
     this._traceEnabled = true; // highlight current line while running (no pause)
     this._traceLastLine = null; // last line highlighted by trace (avoid redundant DOM updates)
 
@@ -680,6 +681,12 @@ export class BasicProgramWindow extends BaseWindow {
       this._syncBreakpointsToWorker();
     }
 
+    // Mark as running so the toolbar updates immediately and so that
+    // programs finishing before the next poll still trigger the
+    // wasRunning→!running cleanup transition.
+    this._programRunning = true;
+    this._lastChAdd = 0;
+    this._lastActivityTime = performance.now();
     this._updateToolbarState();
 
     // Type R + ENTER (48K keyword mode generates RUN)
@@ -940,38 +947,43 @@ export class BasicProgramWindow extends BaseWindow {
     // PROG (0x5C53) = program start address (valid once ROM has initialised).
     if (!this._romReadyChecking) {
       this._romReadyChecking = true;
-      // Read from 0x5C3A to 0x5C54 inclusive (27 bytes)
-      proxy.readMemory(0x5C3A, 27).then((data) => {
+      // Read from 0x5C3A to 0x5C5E inclusive (37 bytes)
+      proxy.readMemory(0x5C3A, 37).then((data) => {
         this._romReadyChecking = false;
         const errNr = data[0];                            // 0x5C3A (ERR_NR)
         const flags = data[1];                            // 0x5C3B (FLAGS)
         const ppc = data[11] | (data[12] << 8);          // 0x5C45-46
         const prog = data[25] | (data[26] << 8);         // 0x5C53-54
+        const chAdd = data[35] | (data[36] << 8);        // 0x5C5D-5E (CH_ADD)
         this._romReady = (prog >= 0x5C00 && prog < 0x8000);
-        // Detect program execution using FLAGS bit 7:
-        //   bit 7 = 0 → execution mode (running BASIC statements)
-        //   bit 7 = 1 → syntax-checking / edit / input mode
-        // During execution the ROM alternates rapidly between syntax check
-        // (bit 7=1) and execution (bit 7=0) for each statement.  After
-        // "0 OK" the ROM stays in edit mode (bit 7=1) indefinitely.
-        // We use a grace period: once execution mode is seen, keep
-        // _programRunning true for 300ms even if subsequent polls catch
-        // syntax-check passes.  If 300ms elapses without seeing execution
-        // mode, the program has ended.
+        // Detect whether a BASIC program is currently executing.
+        // The heuristic (ERR_NR=0xFF, FLAGS bit 7 set, valid PPC)
+        // matches BOTH during execution AND after "0 OK" in the editor,
+        // so it can't distinguish the two on its own.  We also track
+        // CH_ADD (the ROM's character-interpretation pointer): during
+        // execution CH_ADD advances rapidly through the program; after
+        // "0 OK" it stays fixed at the edit-line buffer.  If CH_ADD
+        // hasn't changed in 500ms the program has ended.
+        // _runProgram() sets _programRunning=true explicitly so that
+        // programs completing within one poll cycle still trigger the
+        // wasRunning→!running cleanup transition.
         const wasRunning = this._programRunning;
-        const inExecution = (errNr === 0xFF && (flags & 0x80) === 0 && ppc > 0 && ppc <= 9999);
+        const looksRunning = (errNr === 0xFF && (flags & 0x80) !== 0 && ppc > 0 && ppc <= 9999);
         const now = performance.now();
-        if (inExecution) {
-          this._programRunning = true;
-          this._lastExecutionTime = now;
-        } else if (this._programRunning) {
-          if (errNr !== 0xFF) {
-            // An actual error report — program definitely ended
-            this._programRunning = false;
-          } else if (now - this._lastExecutionTime > 300) {
-            // Haven't seen execution mode in 300ms — program ended
+
+        if (looksRunning) {
+          // Track CH_ADD changes as evidence of active execution
+          if (chAdd !== this._lastChAdd) {
+            this._lastChAdd = chAdd;
+            this._lastActivityTime = now;
+            this._programRunning = true;
+          } else if (this._programRunning && now - this._lastActivityTime > 500) {
+            // CH_ADD hasn't changed in 500ms — program has ended
             this._programRunning = false;
           }
+        } else {
+          // Heuristic doesn't match — definitely not running
+          this._programRunning = false;
         }
 
         // Trace mode: highlight current line while running (no pause)
