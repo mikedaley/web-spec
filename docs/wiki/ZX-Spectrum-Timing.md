@@ -36,7 +36,8 @@ Defined in `src/machines/machine_info.hpp`:
 | Frame duration | ~19.968 ms | 69,888 / 3,500,000 |
 | Total scanlines | 312 | Full frame including vblank |
 | Interrupt length | 32 T-states | Duration of the INT signal |
-| T-states to origin | 14,335 | T-states from frame start to first display pixel |
+| ULA T-states to display | 14,336 | T-state when ULA starts fetching display data (`ulaTsToDisplay`) |
+| CPU T-states to contention | 14,335 | Contention start, derived as `ulaTsToDisplay - 1` |
 | Audio sample rate | 48,000 Hz | Output audio sample rate |
 
 ### Display Dimensions
@@ -78,7 +79,7 @@ Scanline    T-states         Region
 264-311     59,136-69,887    Lower border / retrace (48 lines)
 ```
 
-The **T-states to origin** value (14,335) marks the exact T-state at which the first pixel of the active display area (line 40, column 0) is drawn. Everything before this is either vblank or top border.
+The **`ulaTsToDisplay`** value (14,336 for the 48K) marks the exact T-state at which the ULA begins fetching display data for the first pixel of the active display area (line 40, column 0). Everything before this is either vblank or top border. Contention starts one T-state earlier (`cpuTsToContention` = `ulaTsToDisplay - 1` = 14,335), because the CPU is held before the ULA's fetch cycle begins.
 
 ### Scanline Structure (224 T-states)
 
@@ -266,7 +267,7 @@ Contention only occurs when **all** of the following are true:
 
 1. The memory address is in the **contended range** (0x4000-0x7FFF on the 48K — page/slot 1)
 2. The current T-state falls within the **active display area** (line 0-191 of the display, column T-states 0-127)
-3. The T-state is at or after `cpuTsToContention` (14,335 for 48K, derived as `ulaTsToDisplay - 1`)
+3. The T-state is at or after `cpuTsToContention` (14,335 for 48K, derived as `ulaTsToDisplay` - 1)
 
 Outside the display area (border, retrace) or when accessing non-contended memory (ROM at 0x0000-0x3FFF, upper RAM at 0x8000-0xFFFF), no contention delay is added.
 
@@ -874,7 +875,8 @@ The `MachineInfo` struct parameterizes timing for all machine variants. Key diff
 |---|---|---|---|---|
 | T-states/frame | 69,888 | 70,908 | 70,908 | 70,908 |
 | T-states/line | 224 | 228 | 228 | 228 |
-| T-states to origin | 14,335 | 14,361 | 14,361 | 14,364 |
+| `ulaTsToDisplay` | 14,336 | 14,362 | 14,362 | 14,365 |
+| `cpuTsToContention` | 14,335 | 14,361 | 14,361 | 14,364 |
 | Interrupt length | 32 | 36 | 36 | 32 |
 | Total scanlines | 312 | 311 | 311 | 311 |
 | Vertical blank lines | 8 | 7 | 7 | 7 |
@@ -882,7 +884,6 @@ The `MachineInfo` struct parameterizes timing for all machine variants. Key diff
 | Top border T-states | 12,544 | 12,768 | 12,768 | 12,768 |
 | Has AY chip | No | Yes | Yes | Yes |
 | Has memory paging | No | Yes | Yes | Yes |
-| Floating bus adjust | -1 | +1 | +1 | +1 |
 | Alt contention | No | No | No | Yes |
 | ROM size | 16 KB | 32 KB | 32 KB | 64 KB |
 | RAM size | 64 KB | 128 KB | 128 KB | 128 KB |

@@ -702,8 +702,11 @@ export class BasicProgramWindow extends BaseWindow {
   }
 
   async _stepBasicLine() {
-    // Break on the next BASIC statement.  _basicStepping will be set
-    // when the breakpoint actually fires (in _onBasicPaused).
+    // No longer paused — we're executing.  _basicStepping will be set
+    // back to true when the breakpoint actually fires (in _onBasicPaused).
+    this._basicStepping = false;
+    this._currentBasicLine = null;
+
     this.proxy.setBasicProgramActive();
     this._installBasicBreakpointHandler();
     this.proxy.setBasicBreakpointMode("step", null);
@@ -960,9 +963,11 @@ export class BasicProgramWindow extends BaseWindow {
         const prog = data[25] | (data[26] << 8);         // 0x5C53-54
         this._romReady = (prog >= 0x5C00 && prog < 0x8000);
 
-        // Check the C++ report-fired flag (set when ROM reaches MAIN-4)
+        // Check the C++ report-fired flag (set when ROM reaches MAIN-4).
+        // This must fire regardless of _basicStepping — if C++ says the
+        // program ended, it ended (e.g. stepping on the last line).
         const wasRunning = this._programRunning;
-        if (this._programRunning && !this._basicStepping && proxy.isBasicReportFired()) {
+        if (this._programRunning && proxy.isBasicReportFired()) {
           this._programRunning = false;
           proxy.clearBasicReportFired();
         }
