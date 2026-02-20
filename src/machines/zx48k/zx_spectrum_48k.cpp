@@ -202,7 +202,7 @@ uint8_t ZXSpectrum48::coreIORead(uint16_t address)
     }
 
     // Return floating bus value
-    return display_.floatingBus(z80_->getTStates(), pageRead_[1], machineInfo_.floatBusAdjust);
+    return display_.floatingBus(z80_->getTStates(), pageRead_[1]);
 }
 
 // ============================================================================

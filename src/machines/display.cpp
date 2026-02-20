@@ -19,6 +19,8 @@ void Display::init(const MachineInfo& info)
     paperStartLine_ = info.pxVerticalBlank + info.pxVertBorder;
     borderDrawingOffset_ = info.borderDrawingOffset;
     paperDrawingOffset_ = info.paperDrawingOffset;
+    ulaTsToDisplay_ = info.ulaTsToDisplay;
+    tsPerFrame_ = info.tsPerFrame;
     buildLineAddressTable();
     buildTsTable();
     frameReset();
@@ -197,31 +199,32 @@ int Display::getFramebufferSize() const
     return FRAMEBUFFER_SIZE;
 }
 
-uint8_t Display::floatingBus(uint32_t cpuTs, const uint8_t* memory, int32_t floatBusAdjust) const
+uint8_t Display::floatingBus(uint32_t cpuTs, const uint8_t* memory) const
 {
-    const uint32_t displayStartLine = paperStartLine_;
     constexpr uint32_t bitmapSize = (SCREEN_WIDTH / 8) * SCREEN_HEIGHT;
 
-    uint32_t adjustedTs = cpuTs + static_cast<uint32_t>(floatBusAdjust);
-    uint32_t line = adjustedTs / tsPerScanline_;
-    uint32_t ts = adjustedTs % tsPerScanline_;
+    cpuTs %= tsPerFrame_;
 
-    if (line >= displayStartLine
-        && line < displayStartLine + SCREEN_HEIGHT
-        && ts < TS_HORIZONTAL_DISPLAY)
+    if (cpuTs < ulaTsToDisplay_)
+        return 0xFF;
+
+    uint32_t elapsed = cpuTs - ulaTsToDisplay_;
+    uint32_t line = elapsed / tsPerScanline_;
+    uint32_t ts = elapsed % tsPerScanline_;
+
+    if (line < SCREEN_HEIGHT && ts < TS_HORIZONTAL_DISPLAY)
     {
-        uint32_t y = line - displayStartLine;
         uint32_t x = ts >> 2;
 
         switch (ts % 8)
         {
             case 3:
             case 5:
-                return memory[bitmapSize + ((y >> 3) << 5) + x];
+                return memory[bitmapSize + ((line >> 3) << 5) + x];
 
             case 2:
             case 4:
-                return memory[lineAddrTable_[y] + x];
+                return memory[lineAddrTable_[line] + x];
 
             default:
                 return 0xFF;

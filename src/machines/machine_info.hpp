@@ -24,7 +24,7 @@ enum MachineType {
 struct MachineInfo {
     uint32_t    intLength;
     uint32_t    tsPerFrame;
-    uint32_t    tsToOrigin;
+    uint32_t    ulaTsToDisplay;
     uint32_t    tsPerLine;
     uint32_t    tsTopBorder;
     uint32_t    tsVerticalBlank;
@@ -44,18 +44,17 @@ struct MachineInfo {
     uint32_t    paperDrawingOffset;
     uint32_t    romSize;
     uint32_t    ramSize;
-    int32_t     floatBusAdjust;
     bool        altContention;
     const char* machineName;
     uint32_t    machineType;
 };
 
-//                                int  tsPF   tsOr  tsLn  tsTB   tsVB  tsVD   tsHD  tsC pVB pVBl pHD  pVD  pHT  pVT  pEB  AY     Pg     bDO pDO romSz   ramSz    fbA  altC  name                        type
+//                                int  tsPF   ulaTD tsLn  tsTB   tsVB  tsVD   tsHD  tsC pVB pVBl pHD  pVD  pHT  pVT  pEB  AY     Pg     bDO pDO romSz   ramSz  altC  name                        type
 static const MachineInfo machines[] = {
-    { 32, 69888, 14335, 224, 12544, 1792, 43008, 128, 4, 56, 8, 256, 192, 448, 312, 32, false, false, 10, 16, 16384,  65536, -1, false, "ZX Spectrum 48K",      eZXSpectrum48 },
-    { 36, 70908, 14361, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 12, 16, 32768, 131072,  1, false, "ZX Spectrum 128K",     eZXSpectrum128 },
-    { 36, 70908, 14361, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 12, 16, 32768, 131072,  1, false, "ZX Spectrum 128K +2",  eZXSpectrum128_2 },
-    { 32, 70908, 14364, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 12, 16, 65536, 131072,  1,  true, "ZX Spectrum 128K +2A", eZXSpectrum128_2A },
+    { 32, 69888, 14336, 224, 12544, 1792, 43008, 128, 4, 56, 8, 256, 192, 448, 312, 32, false, false, 10, 16, 16384,  65536, false, "ZX Spectrum 48K",      eZXSpectrum48 },
+    { 36, 70908, 14362, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 12, 16, 32768, 131072, false, "ZX Spectrum 128K",     eZXSpectrum128 },
+    { 36, 70908, 14362, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 12, 16, 32768, 131072, false, "ZX Spectrum 128K +2",  eZXSpectrum128_2 },
+    { 32, 70908, 14365, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 12, 16, 65536, 131072,  true, "ZX Spectrum 128K +2A", eZXSpectrum128_2A },
 };
 
 // Maximum sizes for shared arrays (accommodate all machine variants)
