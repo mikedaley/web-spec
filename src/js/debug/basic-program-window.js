@@ -687,8 +687,7 @@ export class BasicProgramWindow extends BaseWindow {
     // programs finishing before the next poll still trigger the
     // wasRunning→!running cleanup transition.
     this._programRunning = true;
-    this._lastChAdd = 0;
-    this._lastActivityTime = performance.now();
+    this._resetActivityTracking();
     this._updateToolbarState();
 
     // Type R + ENTER (48K keyword mode generates RUN)
@@ -707,6 +706,7 @@ export class BasicProgramWindow extends BaseWindow {
   async _stepBasicLine() {
     // Break on the next BASIC statement.  _basicStepping will be set
     // when the breakpoint actually fires (in _onBasicPaused).
+    this._resetActivityTracking();
     this._installBasicBreakpointHandler();
     this.proxy.setBasicBreakpointMode("step", null);
     this._updateToolbarState();
@@ -718,6 +718,7 @@ export class BasicProgramWindow extends BaseWindow {
     this._currentBasicLine = null;
     this._clearHighlight();
     this._updateDebugStatus("");
+    this._resetActivityTracking();
 
     if (this._basicBreakpoints.size > 0) {
       // Resume with breakpoints armed — will pause at the next matching line
@@ -767,7 +768,9 @@ export class BasicProgramWindow extends BaseWindow {
 
   _onBasicPaused(lineNumber, framebuffer) {
     this._basicStepping = true;
+    this._programRunning = true;
     this._currentBasicLine = lineNumber;
+    this._resetActivityTracking();
     this._updateDebugStatus(`Line ${lineNumber}`);
     this._highlightBasicLine(lineNumber);
     this._updateGutter();
@@ -898,6 +901,11 @@ export class BasicProgramWindow extends BaseWindow {
     return null;
   }
 
+  _resetActivityTracking() {
+    this._lastChAdd = 0;
+    this._lastActivityTime = performance.now();
+  }
+
   _delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -1013,7 +1021,9 @@ export class BasicProgramWindow extends BaseWindow {
           this._currentBasicLine = null;
           this._clearHighlight();
           this._updateDebugStatus("");
-          this.proxy.clearBasicBreakpointMode();
+          // Re-sync breakpoints rather than clearing — keeps them armed
+          // so they fire if the user types RUN directly in the emulator
+          this._syncBreakpointsToWorker();
           if (this._traceLastLine !== null) {
             this._traceLastLine = null;
           }
