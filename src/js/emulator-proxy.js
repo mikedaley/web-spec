@@ -277,6 +277,10 @@ export class EmulatorProxy {
     });
   }
 
+  setSpeed(speed) {
+    this.worker.postMessage({ type: "setSpeed", speed });
+  }
+
   requestState() {
     this.worker.postMessage({ type: "getState" });
   }

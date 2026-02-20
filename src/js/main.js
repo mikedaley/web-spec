@@ -290,6 +290,9 @@ class ZXSpectrumEmulator {
     // Sound controls
     this.setupSoundControls();
 
+    // Speed controls
+    this.setupSpeedControls();
+
     // Fullscreen button
     this.setupFullscreen();
 
@@ -339,6 +342,11 @@ class ZXSpectrumEmulator {
         }, { once: true });
       }
     });
+    // Close popups
+    const speedPopup = document.getElementById("speed-popup");
+    if (speedPopup) speedPopup.classList.add("hidden");
+    const soundPopup = document.getElementById("sound-popup");
+    if (soundPopup) soundPopup.classList.add("hidden");
   }
 
   /**
@@ -474,6 +482,9 @@ class ZXSpectrumEmulator {
     soundBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       this.closeAllMenus();
+      // Close speed popup if open
+      const speedPopup = document.getElementById("speed-popup");
+      if (speedPopup) speedPopup.classList.add("hidden");
       soundPopup.classList.toggle("hidden");
       if (!soundPopup.classList.contains("hidden")) {
         this.clampPopupToViewport(soundPopup);
@@ -534,6 +545,67 @@ class ZXSpectrumEmulator {
       iconUnmuted?.classList.remove("hidden");
       iconMuted?.classList.add("hidden");
     }
+  }
+
+  /**
+   * Set up speed button + popup (speed slider)
+   */
+  setupSpeedControls() {
+    const speedBtn = document.getElementById("btn-speed");
+    const speedPopup = document.getElementById("speed-popup");
+    const speedSlider = document.getElementById("speed-slider");
+    const speedValue = document.getElementById("speed-value");
+    if (!speedBtn || !speedPopup) return;
+
+    // Restore saved speed
+    const initialSpeed = this.audioDriver.getSpeed();
+    if (speedSlider) speedSlider.value = initialSpeed;
+    if (speedValue) speedValue.textContent = `${initialSpeed}x`;
+    this.updateSpeedButton(initialSpeed);
+
+    // Toggle popup
+    speedBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.closeAllMenus();
+      // Close sound popup if open
+      const soundPopup = document.getElementById("sound-popup");
+      if (soundPopup) soundPopup.classList.add("hidden");
+      speedPopup.classList.toggle("hidden");
+      if (!speedPopup.classList.contains("hidden")) {
+        this.clampPopupToViewport(speedPopup);
+      }
+    });
+
+    // Close popup on outside click
+    document.addEventListener("click", (e) => {
+      if (!speedPopup.contains(e.target) && e.target !== speedBtn) {
+        speedPopup.classList.add("hidden");
+      }
+    });
+
+    // Prevent popup clicks from closing it
+    speedPopup.addEventListener("click", (e) => {
+      e.stopPropagation();
+    });
+
+    // Speed slider
+    if (speedSlider && speedValue) {
+      speedSlider.addEventListener("input", (e) => {
+        const speed = parseInt(e.target.value, 10);
+        speedValue.textContent = `${speed}x`;
+        this.audioDriver.setSpeed(speed);
+        this.updateSpeedButton(speed);
+      });
+    }
+  }
+
+  /**
+   * Update speed button appearance based on current speed
+   */
+  updateSpeedButton(speed) {
+    const speedBtn = document.getElementById("btn-speed");
+    if (!speedBtn) return;
+    speedBtn.classList.toggle("speed-active", speed > 1);
   }
 
   /**

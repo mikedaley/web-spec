@@ -291,6 +291,33 @@
                                 />
                             </svg>
                         </button>
+                        <div class="speed-control-wrapper">
+                            <button
+                                id="btn-speed"
+                                class="control-btn"
+                                title="Speed"
+                                aria-label="Speed"
+                            >
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="13 17 18 12 13 7" />
+                                    <polyline points="6 17 11 12 6 7" />
+                                </svg>
+                            </button>
+                            <div id="speed-popup" class="speed-popup hidden">
+                                <div class="speed-popup-row">
+                                    <label for="speed-slider">Speed</label>
+                                    <input
+                                        type="range"
+                                        id="speed-slider"
+                                        min="1"
+                                        max="5"
+                                        step="1"
+                                        value="1"
+                                    />
+                                    <span id="speed-value" aria-live="polite">1x</span>
+                                </div>
+                            </div>
+                        </div>
                         <div class="sound-control-wrapper">
                             <button
                                 id="btn-sound"

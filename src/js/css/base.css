@@ -771,6 +771,95 @@ header {
   transform: translateX(18px);
 }
 
+/* =============================================
+   Speed Control
+   ============================================= */
+
+.speed-control-wrapper {
+  position: relative;
+}
+
+.speed-popup {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 8px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  min-width: 200px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  z-index: 10000;
+}
+
+.speed-popup.hidden {
+  display: none;
+}
+
+.speed-popup-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.speed-popup-row label:first-child {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.speed-popup-row input[type="range"] {
+  flex: 1;
+  height: 4px;
+  background: var(--overlay-white-10);
+  border-radius: 2px;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.speed-popup-row input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  background: var(--accent-blue);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.speed-popup-row input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  background: var(--accent-blue);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+#speed-value {
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  min-width: 24px;
+  text-align: right;
+}
+
+/* Active speed indicator on button */
+.control-btn.speed-active {
+  color: var(--accent-orange);
+  border-color: var(--accent-orange-border-light);
+}
+
+.control-btn.speed-active:hover {
+  background: var(--accent-orange-bg);
+  color: var(--accent-orange);
+  border-color: var(--accent-orange-border);
+}
+
 /* Mute button icon states */
 .icon-muted.hidden,
 .icon-unmuted.hidden {

@@ -6,6 +6,7 @@
  */
 
 let wasm = null;
+let speedMultiplier = 1;
 
 function getState() {
   return {
@@ -47,7 +48,8 @@ function getState() {
 }
 
 function runFrames(count) {
-  for (let i = 0; i < count; i++) {
+  const totalFrames = count * speedMultiplier;
+  for (let i = 0; i < totalFrames; i++) {
     wasm._runFrame();
 
     // Check for BASIC breakpoint hit (filtering is done in C++)
@@ -96,12 +98,27 @@ function runFrames(count) {
   const framebuffer = new Uint8Array(fbData);
 
   // Copy audio
-  const sampleCount = wasm._getAudioSampleCount();
+  let sampleCount = wasm._getAudioSampleCount();
   let audio = null;
   if (sampleCount > 0) {
     const audioPtr = wasm._getAudioBuffer();
     const audioData = new Float32Array(wasm.HEAPF32.buffer, audioPtr, sampleCount);
-    audio = new Float32Array(audioData);
+    // Downsample by speed multiplier so the buffer fits the normal playback rate
+    if (speedMultiplier > 1) {
+      const outLen = Math.ceil(sampleCount / speedMultiplier);
+      const downsampled = new Float32Array(outLen);
+      for (let i = 0; i < outLen; i++) {
+        let sum = 0;
+        const start = i * speedMultiplier;
+        const end = Math.min(start + speedMultiplier, sampleCount);
+        for (let j = start; j < end; j++) sum += audioData[j];
+        downsampled[i] = sum / (end - start);
+      }
+      audio = downsampled;
+      sampleCount = outLen;
+    } else {
+      audio = new Float32Array(audioData);
+    }
   }
   wasm._resetAudioBuffer();
 
@@ -498,6 +515,10 @@ self.onmessage = async function (e) {
           tapData ? [tapData.buffer] : []
         );
       }
+      break;
+
+    case "setSpeed":
+      speedMultiplier = Math.max(1, Math.min(5, msg.speed));
       break;
 
     case "setAYChannelMute":

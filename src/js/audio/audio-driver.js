@@ -24,6 +24,10 @@ export class AudioDriver {
     const savedVol = localStorage.getItem("zxspec-volume");
     this.volume = savedVol !== null ? parseFloat(savedVol) : DEFAULT_VOLUME;
 
+    const savedSpeed = localStorage.getItem("zxspec-speed");
+    this.speed = savedSpeed !== null ? parseInt(savedSpeed, 10) : 1;
+    this.proxy.setSpeed(this.speed);
+
     // Fallback timing
     this.fallbackInterval = null;
 
@@ -228,5 +232,15 @@ export class AudioDriver {
     if (this.gainNode) {
       this.gainNode.gain.value = this.muted ? 0 : this.volume;
     }
+  }
+
+  getSpeed() {
+    return this.speed;
+  }
+
+  setSpeed(speed) {
+    this.speed = Math.max(1, Math.min(5, speed));
+    localStorage.setItem("zxspec-speed", this.speed);
+    this.proxy.setSpeed(this.speed);
   }
 }
