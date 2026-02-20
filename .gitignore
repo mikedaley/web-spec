@@ -18,8 +18,9 @@ emsdk/
 *.swp
 *.swo
 
-# Claude Code
-.claude/
+# Claude Code (keep skills tracked, ignore local settings/worktrees)
+.claude/settings.local.json
+.claude/worktrees/
 
 # OS
 .DS_Store
