@@ -22,6 +22,7 @@ import { BasicProgramWindow } from "./debug/basic-program-window.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
+import { VERSION } from "./config/version.js";
 
 class ZXSpectrumEmulator {
   constructor() {
@@ -142,9 +143,13 @@ class ZXSpectrumEmulator {
         this.windowManager.saveState();
       });
 
+      // Set version chip from version.js
+      const versionChip = document.querySelector(".version-chip");
+      if (versionChip) versionChip.textContent = `v${VERSION}`;
+
       this.showLoading(false);
 
-      console.log("ZX Spectrum Emulator initialized");
+      console.log(`ZX Spectrum Emulator v${VERSION} initialized`);
     } catch (error) {
       console.error("Failed to initialize emulator:", error);
       this.showLoading(false);
