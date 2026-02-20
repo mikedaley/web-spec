@@ -979,8 +979,9 @@ export class BasicProgramWindow extends BaseWindow {
             this._lastChAdd = chAdd;
             this._lastActivityTime = now;
             this._programRunning = true;
-          } else if (this._programRunning && now - this._lastActivityTime > 500) {
-            // CH_ADD hasn't changed in 500ms — program has ended
+          } else if (this._programRunning && !this._basicStepping && now - this._lastActivityTime > 500) {
+            // CH_ADD hasn't changed in 500ms and we're not paused at a
+            // breakpoint — program has ended
             this._programRunning = false;
           }
         } else {
