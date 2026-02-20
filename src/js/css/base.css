@@ -302,6 +302,10 @@ header {
   color: var(--accent-red);
   text-shadow: 0 0 4px var(--accent-red), 0 0 10px var(--accent-red-bg-stronger), 0 0 20px var(--accent-red-bg);
 }
+.logo-w {
+  color: var(--text-primary);
+  text-shadow: 0 0 4px var(--overlay-white-10), 0 0 10px var(--overlay-white-10);
+}
 .logo-y {
   color: var(--accent-orange);
   text-shadow: 0 0 4px var(--accent-orange), 0 0 10px var(--accent-orange-bg-stronger), 0 0 20px var(--accent-orange-bg);
@@ -316,8 +320,10 @@ header {
 }
 
 @keyframes logo-shimmer {
-  0%   { transform: translateX(-100%) skewX(-20deg); }
-  100% { transform: translateX(250%) skewX(-20deg); }
+  0%   { transform: translateX(-150%) skewX(-20deg); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateX(300%) skewX(-20deg); opacity: 0; }
 }
 
 .header-logo::after {
