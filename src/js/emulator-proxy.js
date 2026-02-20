@@ -109,6 +109,43 @@ export class EmulatorProxy {
         }
         break;
       }
+
+      case "displayDimensionsResult": {
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve({ width: msg.width, height: msg.height });
+        }
+        break;
+      }
+
+      case "breakpointListResult": {
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve(msg.json);
+        }
+        break;
+      }
+
+      case "basicRenumberProgramResult":
+      case "basicAutoRenumberResult": {
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve(msg.text);
+        }
+        break;
+      }
+
+      case "disassembleResult": {
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve(msg.data);
+        }
+        break;
+      }
     }
   }
 
@@ -145,6 +182,14 @@ export class EmulatorProxy {
 
   step() {
     this.worker.postMessage({ type: "step" });
+  }
+
+  stepOver() {
+    this.worker.postMessage({ type: "stepOver" });
+  }
+
+  stepOut() {
+    this.worker.postMessage({ type: "stepOut" });
   }
 
   addBreakpoint(addr) {
@@ -349,6 +394,46 @@ export class EmulatorProxy {
     return new Promise((resolve) => {
       this._pendingRequests.set(id, resolve);
       this.worker.postMessage({ type: "basicParseVariables", id });
+    });
+  }
+
+  disassemble(addr, count) {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "disassemble", addr, count, id });
+    });
+  }
+
+  getDisplayDimensions() {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "getDisplayDimensions", id });
+    });
+  }
+
+  getBreakpointList() {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "getBreakpointList", id });
+    });
+  }
+
+  basicRenumberProgram(text, startNum = 10, step = 10) {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "basicRenumberProgram", text, startNum, step, id });
+    });
+  }
+
+  basicAutoRenumber(text) {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "basicAutoRenumber", text, id });
     });
   }
 

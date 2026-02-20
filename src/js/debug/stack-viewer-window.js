@@ -6,7 +6,6 @@
  */
 
 import { BaseWindow } from "../windows/base-window.js";
-import { z80Disassemble } from "./z80-disassembler.js";
 import "../css/stack-viewer.css";
 
 export class StackViewerWindow extends BaseWindow {

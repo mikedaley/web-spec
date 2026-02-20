@@ -5,12 +5,13 @@
  *  Mike Daley <michael_daley@icloud.com>
  */
 
-// ZX Spectrum display dimensions (from types.hpp)
-const TOTAL_WIDTH = 320; // 32 + 256 + 32
-const TOTAL_HEIGHT = 256; // 32 + 192 + 32
-
 export class WebGLRenderer {
-  constructor(canvas) {
+  /**
+   * @param {HTMLCanvasElement} canvas
+   * @param {number} width  - Display width from C++ (TOTAL_WIDTH)
+   * @param {number} height - Display height from C++ (TOTAL_HEIGHT)
+   */
+  constructor(canvas, width, height) {
     this.canvas = canvas;
     this.gl = null;
     this.program = null;
@@ -25,9 +26,9 @@ export class WebGLRenderer {
     // Edge overlay program (second pass)
     this.edgeProgram = null;
 
-    // Texture dimensions match the full ZX Spectrum display including borders
-    this.width = TOTAL_WIDTH;
-    this.height = TOTAL_HEIGHT;
+    // Texture dimensions from C++ (machine_info.hpp TOTAL_WIDTH / TOTAL_HEIGHT)
+    this.width = width;
+    this.height = height;
 
     // CRT effect parameters (0.0 to 1.0 unless noted)
     this.crtParams = {

@@ -7,6 +7,7 @@
 
 #include "zx_spectrum.hpp"
 #include "loaders/tzx_loader.hpp"
+#include "basic/sinclair_basic.hpp"
 #include <cstring>
 #include <random>
 
@@ -405,6 +406,158 @@ void ZXSpectrum::clearBreakpointHit()
     breakpointHit_ = false;
 }
 
+int ZXSpectrum::getBreakpointCount() const
+{
+    return static_cast<int>(breakpoints_.size());
+}
+
+std::string ZXSpectrum::getBreakpointListJson() const
+{
+    std::string json = "[";
+    bool first = true;
+    for (uint16_t addr : breakpoints_) {
+        if (!first) json += ",";
+        first = false;
+        bool enabled = (disabledBreakpoints_.find(addr) == disabledBreakpoints_.end());
+        json += "{\"addr\":";
+        json += std::to_string(addr);
+        json += ",\"enabled\":";
+        json += enabled ? "true" : "false";
+        json += "}";
+    }
+    json += "]";
+    return json;
+}
+
+// ============================================================================
+// Step-over / Step-out
+// ============================================================================
+
+static uint8_t stepReadByte(uint16_t addr, void* ctx)
+{
+    return static_cast<ZXSpectrum*>(ctx)->readMemory(addr);
+}
+
+void ZXSpectrum::stepOver()
+{
+    uint16_t pc = getPC();
+    uint8_t opcode = readMemory(pc);
+
+    // Check for CALL instructions (unconditional and conditional)
+    bool isCall = (opcode == 0xCD) || (opcode == 0xC4) || (opcode == 0xCC) ||
+                  (opcode == 0xD4) || (opcode == 0xDC) || (opcode == 0xE4) ||
+                  (opcode == 0xEC) || (opcode == 0xF4) || (opcode == 0xFC);
+    // Check for RST instructions (0xC7, 0xCF, 0xD7, 0xDF, 0xE7, 0xEF, 0xF7, 0xFF)
+    bool isRst = (opcode & 0xC7) == 0xC7 && opcode != 0xC7;
+
+    if (isCall || isRst) {
+        uint8_t instrLen = z80InstructionLength(pc, stepReadByte, this);
+        uint16_t nextAddr = (pc + instrLen) & 0xFFFF;
+
+        // Set temp breakpoint at the instruction after the CALL/RST
+        tempBreakpointActive_ = true;
+        tempBreakpointAddr_ = nextAddr;
+        addBreakpoint(nextAddr);
+
+        // Resume execution
+        clearBreakpointHit();
+        paused_ = false;
+    } else {
+        // Not a CALL/RST - just single-step
+        clearBreakpointHit();
+        stepInstruction();
+    }
+}
+
+void ZXSpectrum::stepOut()
+{
+    uint16_t sp = getSP();
+    // Read return address from stack (little-endian)
+    uint8_t lo = readMemory(sp);
+    uint8_t hi = readMemory((sp + 1) & 0xFFFF);
+    uint16_t retAddr = (hi << 8) | lo;
+
+    // Set temp breakpoint at the return address
+    tempBreakpointActive_ = true;
+    tempBreakpointAddr_ = retAddr;
+    addBreakpoint(retAddr);
+
+    // Resume execution
+    clearBreakpointHit();
+    paused_ = false;
+}
+
+void ZXSpectrum::clearTempBreakpoint()
+{
+    if (tempBreakpointActive_) {
+        removeBreakpoint(tempBreakpointAddr_);
+        tempBreakpointActive_ = false;
+    }
+}
+
+// ============================================================================
+// BASIC Breakpoint Support
+// ============================================================================
+
+// EACH_S_2 (0x1B29): fires before each BASIC statement executes
+static constexpr uint16_t EACH_S_2_ADDR = 0x1B29;
+
+void ZXSpectrum::setBasicBreakpointStep()
+{
+    basicBpMode_ = BasicBpMode::STEP;
+    basicBpHit_ = false;
+
+    // If currently stopped at EACH_S_2, step past it first
+    if (breakpointHit_ && breakpointAddress_ == EACH_S_2_ADDR) {
+        removeBreakpoint(EACH_S_2_ADDR);
+        breakpointHit_ = false;
+        paused_ = false;
+        stepInstruction();
+    } else {
+        breakpointHit_ = false;
+    }
+
+    addBreakpoint(EACH_S_2_ADDR);
+    paused_ = false;
+}
+
+void ZXSpectrum::setBasicBreakpointRun()
+{
+    basicBpMode_ = BasicBpMode::RUN;
+    basicBpHit_ = false;
+
+    // If currently stopped at EACH_S_2, step past it first
+    if (breakpointHit_ && breakpointAddress_ == EACH_S_2_ADDR) {
+        removeBreakpoint(EACH_S_2_ADDR);
+        breakpointHit_ = false;
+        paused_ = false;
+        stepInstruction();
+    } else {
+        breakpointHit_ = false;
+    }
+
+    addBreakpoint(EACH_S_2_ADDR);
+    paused_ = false;
+}
+
+void ZXSpectrum::addBasicBreakpointLine(uint16_t lineNumber)
+{
+    basicBreakpointLines_.insert(lineNumber);
+}
+
+void ZXSpectrum::clearBasicBreakpointLines()
+{
+    basicBreakpointLines_.clear();
+}
+
+void ZXSpectrum::clearBasicBreakpointMode()
+{
+    basicBpMode_ = BasicBpMode::OFF;
+    basicBpHit_ = false;
+    basicBreakpointLines_.clear();
+    removeBreakpoint(EACH_S_2_ADDR);
+}
+
 void ZXSpectrum::installOpcodeCallback()
 {
     z80_->registerOpcodeCallback(
@@ -423,6 +576,48 @@ void ZXSpectrum::installOpcodeCallback()
                     return false;
                 }
                 if (breakpoints_.count(address) && !disabledBreakpoints_.count(address)) {
+                    // BASIC breakpoint filtering at EACH_S_2 (0x1B29)
+                    if (address == EACH_S_2_ADDR && basicBpMode_ != BasicBpMode::OFF) {
+                        uint8_t lo = coreDebugRead(basic::sys::PPC);
+                        uint8_t hi = coreDebugRead(basic::sys::PPC + 1);
+                        uint16_t ppc = lo | (hi << 8);
+
+                        bool validLine = ppc > 0 && ppc <= 9999;
+                        bool shouldStop = validLine && (
+                            basicBpMode_ == BasicBpMode::STEP ||
+                            (basicBpMode_ == BasicBpMode::RUN && basicBreakpointLines_.count(ppc))
+                        );
+
+                        if (shouldStop) {
+                            // Hit! Remove the 0x1B29 breakpoint and notify
+                            removeBreakpoint(EACH_S_2_ADDR);
+                            basicBpMode_ = BasicBpMode::OFF;
+                            basicBpHit_ = true;
+                            basicBpLine_ = ppc;
+                            breakpointHit_ = true;
+                            breakpointAddress_ = address;
+                            paused_ = true;
+                            z80_->setRegister(Z80::WordReg::PC, address);
+
+                            // Render display so PRINT output is visible
+                            renderDisplay();
+                            return true;
+                        } else {
+                            // Not our target line - step past and re-arm
+                            removeBreakpoint(EACH_S_2_ADDR);
+                            breakpointHit_ = false;
+                            paused_ = false;
+                            z80_->execute(1, machineInfo_.intLength);
+                            addBreakpoint(EACH_S_2_ADDR);
+                            return false;
+                        }
+                    }
+
+                    // Auto-clear temp breakpoint on hit
+                    if (tempBreakpointActive_ && address == tempBreakpointAddr_) {
+                        removeBreakpoint(tempBreakpointAddr_);
+                        tempBreakpointActive_ = false;
+                    }
                     breakpointHit_ = true;
                     breakpointAddress_ = address;
                     paused_ = true;

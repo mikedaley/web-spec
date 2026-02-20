@@ -53,9 +53,12 @@ class ZXSpectrumEmulator {
       this.proxy = new EmulatorProxy();
       await this.proxy.init(0); // 0 = ZX Spectrum 48K
 
+      // Query display dimensions from C++ (machine_info.hpp constants)
+      const displayDims = await this.proxy.getDisplayDimensions();
+
       // Set up renderer (async - loads external shaders)
       const canvas = document.getElementById("screen");
-      this.renderer = new WebGLRenderer(canvas);
+      this.renderer = new WebGLRenderer(canvas, displayDims.width, displayDims.height);
       await this.renderer.init();
 
       // Set up window manager

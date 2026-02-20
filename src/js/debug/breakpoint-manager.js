@@ -1,6 +1,10 @@
 /*
  * breakpoint-manager.js - Breakpoint management for Z80 CPU debugger
  *
+ * C++ is the single source of truth for breakpoint state at runtime.
+ * localStorage provides persistence across page reloads.
+ * On startup, saved breakpoints are synced to C++ via syncToProxy().
+ *
  * Written by
  *  Mike Daley <michael_daley@icloud.com>
  */
@@ -9,19 +13,21 @@ const STORAGE_KEY = "zxspec-breakpoints";
 
 export class BreakpointManager {
   constructor() {
-    this.breakpoints = new Map(); // addr -> { enabled: bool }
-    this.tempBreakpoint = null;
+    this.breakpoints = new Map(); // addr -> { enabled: bool } - localStorage cache
+    this._proxy = null;
     this.load();
   }
 
   add(addr) {
     if (this.breakpoints.has(addr)) return;
     this.breakpoints.set(addr, { enabled: true });
+    if (this._proxy) this._proxy.addBreakpoint(addr);
     this.save();
   }
 
   remove(addr) {
     this.breakpoints.delete(addr);
+    if (this._proxy) this._proxy.removeBreakpoint(addr);
     this.save();
   }
 
@@ -37,6 +43,7 @@ export class BreakpointManager {
     const bp = this.breakpoints.get(addr);
     if (bp) {
       bp.enabled = enabled;
+      if (this._proxy) this._proxy.enableBreakpoint(addr, enabled);
       this.save();
     }
   }
@@ -57,39 +64,33 @@ export class BreakpointManager {
     }));
   }
 
-  setTempBreakpoint(addr) {
-    this.tempBreakpoint = addr;
-  }
-
-  clearTempBreakpoint() {
-    this.tempBreakpoint = null;
-  }
-
-  getTempBreakpoint() {
-    return this.tempBreakpoint;
+  /**
+   * Query C++ for the canonical breakpoint list and update the local cache.
+   * Returns a Promise that resolves to the breakpoint array.
+   */
+  async refreshFromCpp() {
+    if (!this._proxy) return this.getAll();
+    try {
+      const json = await this._proxy.getBreakpointList();
+      const list = JSON.parse(json);
+      this.breakpoints.clear();
+      for (const bp of list) {
+        this.breakpoints.set(bp.addr, { enabled: bp.enabled });
+      }
+      this.save();
+      return this.getAll();
+    } catch (e) {
+      return this.getAll();
+    }
   }
 
   syncToProxy(proxy) {
+    this._proxy = proxy;
     if (!proxy) return;
     for (const [addr, bp] of this.breakpoints) {
       proxy.addBreakpoint(addr);
       proxy.enableBreakpoint(addr, bp.enabled);
     }
-  }
-
-  addToProxy(proxy, addr) {
-    if (!proxy) return;
-    proxy.addBreakpoint(addr);
-  }
-
-  removeFromProxy(proxy, addr) {
-    if (!proxy) return;
-    proxy.removeBreakpoint(addr);
-  }
-
-  enableInProxy(proxy, addr, enabled) {
-    if (!proxy) return;
-    proxy.enableBreakpoint(addr, enabled);
   }
 
   save() {

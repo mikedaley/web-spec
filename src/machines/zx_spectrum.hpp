@@ -20,10 +20,12 @@
 #include "tape_block.hpp"
 #include "loaders/tap_loader.hpp"
 #include "../core/z80/z80.hpp"
+#include "../core/z80/z80_disassembler.hpp"
 #include <array>
 #include <cstdint>
 #include <memory>
 #include <set>
+#include <string>
 #include <vector>
 
 namespace zxspec {
@@ -73,6 +75,27 @@ public:
     uint16_t getBreakpointAddress() const override { return breakpointAddress_; }
     void clearBreakpointHit() override;
     void resetBreakpointHit() override { breakpointHit_ = false; }
+
+    // Breakpoint query
+    int getBreakpointCount() const;
+    std::string getBreakpointListJson() const;
+
+    // Step-over / step-out support
+    void stepOver();
+    void stepOut();
+    bool hasTempBreakpoint() const { return tempBreakpointActive_; }
+    void clearTempBreakpoint();
+
+    // BASIC breakpoint support
+    enum class BasicBpMode { OFF, STEP, RUN };
+    void setBasicBreakpointStep();
+    void setBasicBreakpointRun();
+    void addBasicBreakpointLine(uint16_t lineNumber);
+    void clearBasicBreakpointLines();
+    void clearBasicBreakpointMode();
+    bool isBasicBreakpointHit() const { return basicBpHit_; }
+    uint16_t getBasicBreakpointLine() const { return basicBpLine_; }
+    void clearBasicBreakpointHit() { basicBpHit_ = false; }
 
     const char* getName() const override { return machineInfo_.machineName; }
     int getId() const override { return static_cast<int>(machineInfo_.machineType); }
@@ -219,6 +242,16 @@ protected:
     uint16_t breakpointAddress_ = 0;
     bool skipBreakpointOnce_ = false;
     uint16_t skipBreakpointAddr_ = 0;
+
+    // Temp breakpoint for step-over / step-out
+    bool tempBreakpointActive_ = false;
+    uint16_t tempBreakpointAddr_ = 0;
+
+    // BASIC breakpoint state
+    BasicBpMode basicBpMode_ = BasicBpMode::OFF;
+    std::set<uint16_t> basicBreakpointLines_;
+    bool basicBpHit_ = false;
+    uint16_t basicBpLine_ = 0;
 
     // Tape loading support (ROM trap + pulse playback)
     std::vector<TapeBlock> tapeBlocks_;

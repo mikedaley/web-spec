@@ -266,10 +266,22 @@ header {
 }
 
 .header-logo {
-  display: block;
+  display: flex;
+  align-items: center;
   height: 44px;
-  width: auto;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  line-height: 1;
+  user-select: none;
+}
+
+.logo-spect {
   color: var(--text-primary);
+}
+
+.logo-rem {
+  color: var(--accent-blue);
 }
 
 .version-chip {

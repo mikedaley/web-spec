@@ -7,9 +7,6 @@
 
 import { BaseWindow } from "../windows/base-window.js";
 
-// ZX Spectrum aspect ratio: 320x256 (5:4)
-const ASPECT = 320 / 256;
-
 export class ScreenWindow extends BaseWindow {
   constructor(renderer) {
     super({
@@ -24,6 +21,8 @@ export class ScreenWindow extends BaseWindow {
     });
 
     this.renderer = renderer;
+    // Aspect ratio derived from C++ display dimensions via the renderer
+    this._aspect = renderer.width / renderer.height;
     this._viewportLocked = false;
   }
 
@@ -208,22 +207,22 @@ export class ScreenWindow extends BaseWindow {
     if (dir === "n" || dir === "s") {
       // Pure vertical drag: width follows height
       const contentHeight = this.currentHeight - headerHeight;
-      newWidth = Math.round(contentHeight * ASPECT);
+      newWidth = Math.round(contentHeight * this._aspect);
       newHeight = this.currentHeight;
     } else {
       // Has horizontal component: height follows width
-      const targetContentHeight = Math.round(this.currentWidth / ASPECT);
+      const targetContentHeight = Math.round(this.currentWidth / this._aspect);
       newHeight = targetContentHeight + headerHeight;
     }
 
     // Enforce minimums while maintaining ratio
     if (newWidth < this.minWidth) {
       newWidth = this.minWidth;
-      newHeight = Math.round(newWidth / ASPECT) + headerHeight;
+      newHeight = Math.round(newWidth / this._aspect) + headerHeight;
     }
     if (newHeight < this.minHeight) {
       newHeight = this.minHeight;
-      newWidth = Math.round((newHeight - headerHeight) * ASPECT);
+      newWidth = Math.round((newHeight - headerHeight) * this._aspect);
     }
 
     // Adjust position so the anchored edge stays fixed
@@ -277,12 +276,12 @@ export class ScreenWindow extends BaseWindow {
     if (cw <= 0 || ch <= 0) return;
 
     let w, h;
-    if (cw / ASPECT <= ch) {
+    if (cw / this._aspect <= ch) {
       w = cw;
-      h = cw / ASPECT;
+      h = cw / this._aspect;
     } else {
       h = ch;
-      w = ch * ASPECT;
+      w = ch * this._aspect;
     }
     w = Math.floor(w);
     h = Math.floor(h);

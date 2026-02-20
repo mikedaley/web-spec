@@ -19,6 +19,7 @@ set(Z80_SOURCES
     src/core/z80/z80_opcodes_ddcb.cpp
     src/core/z80/z80_opcodes_fdcb.cpp
     src/core/z80/z80_opcode_tables.cpp
+    src/core/z80/z80_disassembler.cpp
 )
 
 # Source files - ZX Spectrum base class (shared display/audio/contention)
@@ -37,6 +38,7 @@ set(ZXSPECTRUM_BASE_SOURCES
     src/machines/basic/sinclair_basic_parser.cpp
     src/machines/basic/sinclair_basic_variables.cpp
     src/machines/basic/sinclair_basic_writer.cpp
+    src/machines/basic/sinclair_basic_renumber.cpp
 )
 
 # Source files - ZX Spectrum 48K variant
@@ -172,6 +174,10 @@ if(EMSCRIPTEN)
                 \"_getBreakpointAddress\", \
                 \"_clearBreakpointHit\", \
                 \"_resetBreakpointHit\", \
+                \"_getDisplayWidth\", \
+                \"_getDisplayHeight\", \
+                \"_getBreakpointCount\", \
+                \"_getBreakpointList\", \
                 \"_getAYRegister\", \
                 \"_setAYChannelMute\", \
                 \"_getAYChannelMute\", \
@@ -184,6 +190,25 @@ if(EMSCRIPTEN)
                 \"_basicParseProgram\", \
                 \"_basicParseVariables\", \
                 \"_basicWriteProgram\", \
+                \"_setBasicBreakpointStep\", \
+                \"_setBasicBreakpointRun\", \
+                \"_addBasicBreakpointLine\", \
+                \"_clearBasicBreakpointLines\", \
+                \"_clearBasicBreakpointMode\", \
+                \"_isBasicBreakpointHit\", \
+                \"_getBasicBreakpointLine\", \
+                \"_clearBasicBreakpointHit\", \
+                \"_stepOver\", \
+                \"_stepOut\", \
+                \"_hasTempBreakpoint\", \
+                \"_clearTempBreakpoint\", \
+                \"_disassembleAt\", \
+                \"_disassembleGetSize\", \
+                \"_getInstructionLength\", \
+                \"_basicRenumberProgram\", \
+                \"_basicRenumberGetResult\", \
+                \"_basicAutoRenumber\", \
+                \"_basicAutoRenumberGetResult\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \

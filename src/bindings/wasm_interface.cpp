@@ -12,6 +12,8 @@
 #include "../machines/basic/sinclair_basic_parser.hpp"
 #include "../machines/basic/sinclair_basic_variables.hpp"
 #include "../machines/basic/sinclair_basic_writer.hpp"
+#include "../machines/basic/sinclair_basic_renumber.hpp"
+#include "../core/z80/z80_disassembler.hpp"
 #include <cstring>
 #include <string>
 #include <emscripten.h>
@@ -70,6 +72,20 @@ EMSCRIPTEN_KEEPALIVE
 void runCycles(int cycles) {
   REQUIRE_MACHINE();
   g_machine->runCycles(cycles);
+}
+
+// ============================================================================
+// Display Constants
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+int getDisplayWidth() {
+  return static_cast<int>(zxspec::TOTAL_WIDTH);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int getDisplayHeight() {
+  return static_cast<int>(zxspec::TOTAL_HEIGHT);
 }
 
 // ============================================================================
@@ -774,6 +790,217 @@ void basicWriteProgram(const uint8_t* data, int length) {
     REQUIRE_MACHINE();
     auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
     if (spec) zxspec::basic::writeProgramToMemory(*spec, data, static_cast<size_t>(length));
+}
+
+// ============================================================================
+// Breakpoint Query
+// ============================================================================
+
+static std::string s_breakpointListJson;
+
+EMSCRIPTEN_KEEPALIVE
+int getBreakpointCount() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? spec->getBreakpointCount() : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* getBreakpointList() {
+    REQUIRE_MACHINE_OR("[]");
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (!spec) return "[]";
+    s_breakpointListJson = spec->getBreakpointListJson();
+    return s_breakpointListJson.c_str();
+}
+
+// ============================================================================
+// BASIC Breakpoint Support
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+void setBasicBreakpointStep() {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->setBasicBreakpointStep();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void setBasicBreakpointRun() {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->setBasicBreakpointRun();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void addBasicBreakpointLine(uint16_t lineNumber) {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->addBasicBreakpointLine(lineNumber);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void clearBasicBreakpointLines() {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->clearBasicBreakpointLines();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void clearBasicBreakpointMode() {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->clearBasicBreakpointMode();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int isBasicBreakpointHit() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? (spec->isBasicBreakpointHit() ? 1 : 0) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int getBasicBreakpointLine() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? spec->getBasicBreakpointLine() : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void clearBasicBreakpointHit() {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->clearBasicBreakpointHit();
+}
+
+// ============================================================================
+// Step-Over / Step-Out
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+void stepOver() {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->stepOver();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void stepOut() {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->stepOut();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int hasTempBreakpoint() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? (spec->hasTempBreakpoint() ? 1 : 0) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void clearTempBreakpoint() {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->clearTempBreakpoint();
+}
+
+// ============================================================================
+// BASIC Renumbering
+// ============================================================================
+
+static std::string s_renumberResult;
+static std::string s_autoRenumberResult;
+
+EMSCRIPTEN_KEEPALIVE
+const char* basicRenumberProgram(const char* text, int startNum, int step) {
+    s_renumberResult = zxspec::basic::renumberProgram(std::string(text), startNum, step);
+    return s_renumberResult.c_str();
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* basicRenumberGetResult() {
+    return s_renumberResult.c_str();
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* basicAutoRenumber(const char* text) {
+    s_autoRenumberResult = zxspec::basic::autoRenumber(std::string(text));
+    return s_autoRenumberResult.c_str();
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* basicAutoRenumberGetResult() {
+    return s_autoRenumberResult.c_str();
+}
+
+// ============================================================================
+// Z80 Disassembler
+// ============================================================================
+
+// Packed disassembly buffer: per instruction:
+//   uint16_t addr (2 bytes LE)
+//   uint8_t  length (1 byte)
+//   uint8_t  bytes[4] (4 bytes)
+//   uint8_t  mnemonicLen (1 byte)
+//   char     mnemonic[32] (32 bytes, null-padded)
+// Total: 40 bytes per instruction, max 64 instructions = 2560 bytes
+static uint8_t s_disasmBuf[64 * 40];
+static int s_disasmBufSize = 0;
+
+static uint8_t disasmReadByte(uint16_t addr, void* ctx)
+{
+    auto* machine = static_cast<zxspec::Machine*>(ctx);
+    return machine->readMemory(addr);
+}
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* disassembleAt(uint16_t addr, int count) {
+    REQUIRE_MACHINE_OR(nullptr);
+    if (count < 1) count = 1;
+    if (count > 64) count = 64;
+
+    int offset = 0;
+    uint16_t pc = addr;
+
+    for (int i = 0; i < count; i++) {
+        auto result = zxspec::z80Disassemble(pc, disasmReadByte, g_machine);
+
+        // addr (2 bytes LE)
+        s_disasmBuf[offset++] = pc & 0xFF;
+        s_disasmBuf[offset++] = (pc >> 8) & 0xFF;
+        // length (1 byte)
+        s_disasmBuf[offset++] = result.length;
+        // bytes (4 bytes)
+        for (int j = 0; j < 4; j++) {
+            s_disasmBuf[offset++] = result.bytes[j];
+        }
+        // mnemonicLen (1 byte)
+        int mnLen = static_cast<int>(result.mnemonic.size());
+        if (mnLen > 31) mnLen = 31;
+        s_disasmBuf[offset++] = static_cast<uint8_t>(mnLen);
+        // mnemonic (32 bytes, null-padded)
+        memcpy(s_disasmBuf + offset, result.mnemonic.c_str(), mnLen);
+        memset(s_disasmBuf + offset + mnLen, 0, 32 - mnLen);
+        offset += 32;
+
+        pc = (pc + result.length) & 0xFFFF;
+    }
+
+    s_disasmBufSize = offset;
+    return s_disasmBuf;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int disassembleGetSize() {
+    return s_disasmBufSize;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int getInstructionLength(uint16_t addr) {
+    REQUIRE_MACHINE_OR(1);
+    return zxspec::z80InstructionLength(addr, disasmReadByte, g_machine);
 }
 
 } // extern "C"

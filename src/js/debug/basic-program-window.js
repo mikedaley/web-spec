@@ -330,80 +330,22 @@ export class BasicProgramWindow extends BaseWindow {
    * When the cursor moves off a line, check if line numbers are in ascending
    * order. If a newly inserted line causes overlap, bump all lines below it
    * by 10 and update GO TO / GO SUB / RESTORE / RUN references.
+   * Uses the C++ tokenizer-based renumbering via WASM for robust reference updating.
    */
-  _autoRenumberIfNeeded() {
+  async _autoRenumberIfNeeded() {
     const text = this._textarea.value;
-    const rawLines = text.split("\n");
     const cursorStart = this._textarea.selectionStart;
     const cursorEnd = this._textarea.selectionEnd;
 
-    // Parse line numbers in editor order, keeping track of raw line index
-    const parsed = [];
-    for (let idx = 0; idx < rawLines.length; idx++) {
-      const trimmed = rawLines[idx].trim();
-      if (!trimmed) continue;
-      const match = trimmed.match(/^(\d+)\s*(.*)/);
-      if (match) {
-        parsed.push({ idx, lineNumber: parseInt(match[1], 10), body: match[2] });
-      }
+    const result = await this.proxy.basicAutoRenumber(text);
+    if (result !== text) {
+      this._textarea.value = result;
+      this._textarea.selectionStart = cursorStart;
+      this._textarea.selectionEnd = cursorEnd;
+      this._updateHighlight();
+      this._updateGutter();
+      this._saveEditorContent();
     }
-
-    if (parsed.length < 2) return;
-
-    // Find first conflict: a line number <= the previous one
-    let conflictIdx = -1;
-    for (let i = 1; i < parsed.length; i++) {
-      if (parsed[i].lineNumber <= parsed[i - 1].lineNumber) {
-        conflictIdx = i;
-        break;
-      }
-    }
-
-    if (conflictIdx < 0) return;
-
-    // The inserted line is the one before the conflict (the new line the user typed).
-    // All lines from conflictIdx onward need to be bumped by 10.
-    const insertedLineNum = parsed[conflictIdx - 1].lineNumber;
-    const mapping = {};
-    let nextNum = insertedLineNum + 10;
-
-    for (let i = conflictIdx; i < parsed.length; i++) {
-      const oldNum = parsed[i].lineNumber;
-      // Only remap if the line would conflict; once we're past the conflict, keep originals if they fit
-      if (oldNum < nextNum) {
-        mapping[oldNum] = nextNum;
-        parsed[i].lineNumber = nextNum;
-      } else {
-        // No more conflicts
-        break;
-      }
-      nextNum = parsed[i].lineNumber + 10;
-    }
-
-    // Nothing changed
-    if (Object.keys(mapping).length === 0) return;
-
-    // Update references in GO TO, GO SUB, RESTORE, RUN across ALL lines
-    const refPattern = /\b(GO\s*TO|GO\s*SUB|RESTORE|RUN)\s+(\d+)/gi;
-    for (const p of parsed) {
-      p.body = p.body.replace(refPattern, (match, keyword, num) => {
-        const oldNum = parseInt(num, 10);
-        const newTarget = mapping[oldNum];
-        return newTarget !== undefined ? `${keyword} ${newTarget}` : match;
-      });
-    }
-
-    // Rebuild the raw lines array with updated line numbers and bodies
-    for (const p of parsed) {
-      rawLines[p.idx] = `${p.lineNumber} ${p.body}`;
-    }
-
-    this._textarea.value = rawLines.join("\n");
-    this._textarea.selectionStart = cursorStart;
-    this._textarea.selectionEnd = cursorEnd;
-    this._updateHighlight();
-    this._updateGutter();
-    this._saveEditorContent();
   }
 
   _syncScroll() {
@@ -593,34 +535,12 @@ export class BasicProgramWindow extends BaseWindow {
     this._onInput();
   }
 
-  _renumberProgram() {
+  async _renumberProgram() {
     const text = this._textarea.value;
-    const lines = this._parseEditorLines(text);
-    if (lines.length === 0) return;
+    if (!text.trim()) return;
 
-    // Sort by current line number
-    lines.sort((a, b) => a.lineNumber - b.lineNumber);
-
-    // Build old->new mapping
-    const mapping = {};
-    lines.forEach((line, idx) => {
-      mapping[line.lineNumber] = (idx + 1) * 10;
-    });
-
-    // Update references in GO TO, GO SUB, RESTORE, RUN
-    const refPattern = /\b(GO\s*TO|GO\s*SUB|RESTORE|RUN)\s+(\d+)/gi;
-    const result = [];
-    for (const line of lines) {
-      const newNum = mapping[line.lineNumber];
-      const updatedBody = line.body.replace(refPattern, (match, keyword, num) => {
-        const oldNum = parseInt(num, 10);
-        const newTarget = mapping[oldNum];
-        return newTarget !== undefined ? `${keyword} ${newTarget}` : match;
-      });
-      result.push(`${newNum} ${updatedBody}`);
-    }
-
-    this._textarea.value = result.join("\n");
+    const result = await this.proxy.basicRenumberProgram(text, 10, 10);
+    this._textarea.value = result;
     this._onInput();
   }
 
@@ -693,6 +613,30 @@ export class BasicProgramWindow extends BaseWindow {
   }
 
   async _runProgram() {
+    // If paused mid-execution (e.g. at a BASIC breakpoint), we must return
+    // to the command prompt before writing a new program.  Writing to the
+    // PROG area while the ROM is mid-execution corrupts its internal state
+    // (NXTLIN, CH_ADD, stack) and causes a crash/reset.
+    if (this._basicStepping || this.proxy.isPaused()) {
+      this.proxy.clearBasicBreakpointMode();
+      if (this.proxy.isPaused()) {
+        this.proxy.resume();
+      }
+      // Send BREAK (CAPS SHIFT + SPACE) to stop the running program
+      this.proxy.keyDown(0, 0);
+      this.proxy.keyDown(7, 0);
+      await this._delay(150);
+      this.proxy.keyUp(0, 0);
+      this.proxy.keyUp(7, 0);
+      // Wait for the ROM to process BREAK and return to the command prompt
+      await this._delay(200);
+      this._basicStepping = false;
+      this._currentBasicLine = null;
+      this._clearHighlight();
+      this._updateDebugStatus("");
+      this._updateGutter();
+    }
+
     await this._writeToMemory();
 
     // On the 48K, pressing R in keyword mode generates RUN automatically.
@@ -707,12 +651,7 @@ export class BasicProgramWindow extends BaseWindow {
     if (this._basicBreakpoints.size > 0) {
       this._basicStepping = true;
       this._updateDebugStatus("Running...");
-      // Re-sync in case we were paused at a previous breakpoint
       this._syncBreakpointsToWorker();
-    } else {
-      if (this.proxy.isPaused()) {
-        this.proxy.resume();
-      }
     }
 
     this._updateToolbarState();

@@ -8,7 +8,6 @@
 import { BaseWindow } from "../windows/base-window.js";
 import { BreakpointManager } from "./breakpoint-manager.js";
 import "../css/cpu-debugger.css";
-import { z80Disassemble } from "./z80-disassembler.js";
 
 const DISASM_LINES = 48;
 
@@ -34,7 +33,7 @@ export class CPUDebuggerWindow extends BaseWindow {
     this.lastUpdateTime = 0;
     this.updateInterval = 1000 / 5; // 5 updates per second
     this._proxy = null;
-    this._memoryCache = null;
+    this._disasmCache = null;
     this._memoryPending = false;
   }
 
@@ -229,15 +228,8 @@ export class CPUDebuggerWindow extends BaseWindow {
         e.preventDefault();
         e.stopPropagation();
         this.breakpointManager.toggle(addr);
-        if (this._proxy) {
-          if (this.breakpointManager.has(addr)) {
-            this.breakpointManager.addToProxy(this._proxy, addr);
-          } else {
-            this.breakpointManager.removeFromProxy(this._proxy, addr);
-          }
-        }
         this.renderBreakpointList();
-        if (this._memoryCache) {
+        if (this._disasmCache) {
           this.renderDisassemblyFromCache();
         }
       }
@@ -366,36 +358,43 @@ export class CPUDebuggerWindow extends BaseWindow {
     this._disasmStartAddr = addr;
     this._memoryPending = true;
 
-    // Request enough memory for disassembly (DISASM_LINES * max 4 bytes per instruction)
-    const length = Math.min(DISASM_LINES * 4, 0x10000);
-    this._proxy.readMemory(addr, length).then((data) => {
-      this._memoryCache = { addr, data };
+    this._proxy.disassemble(addr, DISASM_LINES).then((data) => {
+      this._disasmCache = data;
       this._memoryPending = false;
       this.renderDisassemblyFromCache();
     });
   }
 
   renderDisassemblyFromCache() {
-    if (!this._memoryCache || !this._proxy) return;
+    if (!this._disasmCache || !this._proxy) return;
 
-    const { addr: baseAddr, data } = this._memoryCache;
+    const data = this._disasmCache;
     const pc = this._proxy.getPC();
 
-    const readByte = (a) => {
-      const offset = (a - baseAddr) & 0xFFFF;
-      if (offset < data.length) return data[offset];
-      return 0;
-    };
-
-    let addr = baseAddr;
+    // Unpack binary buffer: 40 bytes per instruction
+    // [0-1] addr LE, [2] length, [3-6] bytes[4], [7] mnemonicLen, [8-39] mnemonic[32]
     let html = "";
-    for (let i = 0; i < DISASM_LINES; i++) {
-      const result = z80Disassemble(addr, readByte);
-      const isCurrent = addr === pc;
-      const hasBp = this.breakpointManager.has(addr);
+    let offset = 0;
 
-      const addrStr = addr.toString(16).toUpperCase().padStart(4, "0");
-      const bytesStr = result.bytes.map((b) => b.toString(16).toUpperCase().padStart(2, "0")).join(" ");
+    for (let i = 0; i < DISASM_LINES && offset + 40 <= data.length; i++) {
+      const instrAddr = data[offset] | (data[offset + 1] << 8);
+      const instrLen = data[offset + 2];
+      const instrBytes = [];
+      for (let j = 0; j < instrLen && j < 4; j++) {
+        instrBytes.push(data[offset + 3 + j]);
+      }
+      const mnLen = data[offset + 7];
+      let mnemonic = "";
+      for (let j = 0; j < mnLen; j++) {
+        mnemonic += String.fromCharCode(data[offset + 8 + j]);
+      }
+      offset += 40;
+
+      const isCurrent = instrAddr === pc;
+      const hasBp = this.breakpointManager.has(instrAddr);
+
+      const addrStr = instrAddr.toString(16).toUpperCase().padStart(4, "0");
+      const bytesStr = instrBytes.map((b) => b.toString(16).toUpperCase().padStart(2, "0")).join(" ");
 
       const lineClasses = ["cpu-disasm-line"];
       if (isCurrent) lineClasses.push("current");
@@ -411,10 +410,8 @@ export class CPUDebuggerWindow extends BaseWindow {
       html += `</div>`;
       html += `<div class="cpu-disasm-addr">${addrStr}</div>`;
       html += `<div class="cpu-disasm-bytes">${bytesStr}</div>`;
-      html += `<div class="cpu-disasm-mnemonic">${this.colorizeMnemonic(result.mnemonic)}</div>`;
+      html += `<div class="cpu-disasm-mnemonic">${this.colorizeMnemonic(mnemonic)}</div>`;
       html += `</div>`;
-
-      addr = (addr + result.length) & 0xFFFF;
     }
 
     this.elements.disasmView.innerHTML = html;
@@ -450,9 +447,8 @@ export class CPUDebuggerWindow extends BaseWindow {
         const item = e.target.closest(".cpu-bp-item");
         const addr = parseInt(item.dataset.addr);
         this.breakpointManager.remove(addr);
-        this.breakpointManager.removeFromProxy(this._proxy, addr);
         this.renderBreakpointList();
-        if (this._memoryCache) this.renderDisassemblyFromCache();
+        if (this._disasmCache) this.renderDisassemblyFromCache();
       });
     });
   }
@@ -494,50 +490,8 @@ export class CPUDebuggerWindow extends BaseWindow {
       this._proxy.pause();
       return;
     }
-
-    // For step-over we need memory at PC to determine instruction type
-    const pc = this._proxy.getPC();
-
-    // Use cached memory if available
-    if (this._memoryCache) {
-      const offset = (pc - this._memoryCache.addr) & 0xFFFF;
-      if (offset < this._memoryCache.data.length) {
-        const opcode = this._memoryCache.data[offset];
-        this._doStepOver(pc, opcode);
-        return;
-      }
-    }
-
-    // Otherwise request memory
-    this._proxy.readMemory(pc, 4).then((data) => {
-      this._doStepOver(pc, data[0]);
-    });
-  }
-
-  _doStepOver(pc, opcode) {
-    const isCall = opcode === 0xCD || opcode === 0xC4 || opcode === 0xCC ||
-                   opcode === 0xD4 || opcode === 0xDC || opcode === 0xE4 ||
-                   opcode === 0xEC || opcode === 0xF4 || opcode === 0xFC;
-    const isRst = (opcode & 0xC7) === 0xC7 && opcode !== 0xC7;
-
-    if (isCall || isRst) {
-      // Need to figure out instruction length to set breakpoint after the CALL
-      const readByte = (a) => {
-        if (this._memoryCache) {
-          const offset = (a - this._memoryCache.addr) & 0xFFFF;
-          if (offset < this._memoryCache.data.length) return this._memoryCache.data[offset];
-        }
-        return 0;
-      };
-      const result = z80Disassemble(pc, readByte);
-      const nextAddr = (pc + result.length) & 0xFFFF;
-      this._proxy.addBreakpoint(nextAddr);
-      this.breakpointManager.setTempBreakpoint(nextAddr);
-      this._proxy.resume();
-    } else {
-      this._proxy.step();
-      this.followPC = true;
-    }
+    this._proxy.stepOver();
+    this.followPC = true;
   }
 
   handleStepOut() {
@@ -546,15 +500,8 @@ export class CPUDebuggerWindow extends BaseWindow {
       this._proxy.pause();
       return;
     }
-
-    const sp = this._proxy.getSP();
-    // Read return address from stack
-    this._proxy.readMemory(sp, 2).then((data) => {
-      const retAddr = (data[1] << 8) | data[0];
-      this._proxy.addBreakpoint(retAddr);
-      this.breakpointManager.setTempBreakpoint(retAddr);
-      this._proxy.resume();
-    });
+    this._proxy.stepOut();
+    this.followPC = true;
   }
 
   handleAddBreakpoint() {
@@ -564,10 +511,9 @@ export class CPUDebuggerWindow extends BaseWindow {
     if (isNaN(addr) || addr < 0 || addr > 0xFFFF) return;
 
     this.breakpointManager.add(addr);
-    this.breakpointManager.addToProxy(this._proxy, addr);
     input.value = "";
     this.renderBreakpointList();
-    if (this._memoryCache) this.renderDisassemblyFromCache();
+    if (this._disasmCache) this.renderDisassemblyFromCache();
   }
 
   startRegisterEdit(el) {
@@ -623,13 +569,6 @@ export class CPUDebuggerWindow extends BaseWindow {
     if (!this.proxySynced) {
       this.proxySynced = true;
       this.breakpointManager.syncToProxy(proxy);
-    }
-
-    // Check for temp breakpoint hit
-    if (this.breakpointManager.getTempBreakpoint() !== null && proxy.isBreakpointHit()) {
-      const tempAddr = this.breakpointManager.getTempBreakpoint();
-      proxy.removeBreakpoint(tempAddr);
-      this.breakpointManager.clearTempBreakpoint();
     }
 
     const emulator = window.zxspec;
