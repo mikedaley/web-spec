@@ -100,7 +100,7 @@ public:
 
     // Program-end detection: set when the ROM reaches MAIN-4 (0x1303)
     // after a report is issued.  JS polls and clears this flag.
-    void setBasicProgramActive() { basicProgramActive_ = true; basicReportFired_ = false; }
+    void setBasicProgramActive();
     bool isBasicReportFired() const { return basicReportFired_; }
     void clearBasicReportFired() { basicReportFired_ = false; }
 

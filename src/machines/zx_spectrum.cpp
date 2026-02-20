@@ -383,7 +383,7 @@ void ZXSpectrum::removeBreakpoint(uint16_t addr)
     breakpoints_.erase(addr);
     disabledBreakpoints_.erase(addr);
 
-    if (breakpoints_.empty() && !tapeActive_) {
+    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_) {
         z80_->registerOpcodeCallback(nullptr);
     } else {
         installOpcodeCallback();
@@ -561,6 +561,14 @@ void ZXSpectrum::clearBasicBreakpointMode()
     basicBpHit_ = false;
     basicBreakpointLines_.clear();
     removeBreakpoint(EACH_S_2_ADDR);
+}
+
+void ZXSpectrum::setBasicProgramActive()
+{
+    basicProgramActive_ = true;
+    basicReportFired_ = false;
+    // Ensure the opcode callback is installed so we can detect MAIN-4
+    installOpcodeCallback();
 }
 
 bool ZXSpectrum::hasBasicProgram() const
