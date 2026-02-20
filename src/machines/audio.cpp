@@ -21,6 +21,7 @@ void Audio::setup(int sampleRate, double framesPerSecond, int tStatesPerFrame)
 void Audio::reset()
 {
     earBit_ = 0;
+    micBit_ = 0;
     tapeEarBit_ = 0;
     sampleIndex_ = 0;
     tsCounter_ = 0.0;

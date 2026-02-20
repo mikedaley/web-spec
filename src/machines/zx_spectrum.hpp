@@ -149,6 +149,10 @@ public:
     bool isAYEnabled() const { return ayEnabled_; }
     void setAYEnabled(bool enabled) { ayEnabled_ = enabled; }
 
+    // Issue number (2 or 3) — affects EAR/MIC feedback in IO reads
+    uint8_t getIssueNumber() const { return issueNumber_; }
+    void setIssueNumber(uint8_t issue) { issueNumber_ = issue; }
+
     // Tape transport controls
     void tapePlay() override;
     void tapeStop() override;
@@ -222,6 +226,9 @@ protected:
     AY3_8912 ay_;
     Display display_;
     ULAContention contention_;
+
+    // Machine configuration
+    uint8_t issueNumber_ = 3;  // Issue 2 or 3 (affects EAR/MIC bit feedback)
 
     // AY sound chip state
     bool ayEnabled_ = false;

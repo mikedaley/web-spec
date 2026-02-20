@@ -543,6 +543,24 @@ header {
   background: var(--overlay-hover);
 }
 
+/* Menu checkmark items */
+.menu-check-item {
+  justify-content: flex-start;
+  gap: 6px;
+}
+.menu-check {
+  display: inline-block;
+  width: 14px;
+  font-size: 12px;
+  text-align: center;
+  color: var(--accent-green);
+  visibility: hidden;
+  flex-shrink: 0;
+}
+.menu-check-item.active .menu-check {
+  visibility: visible;
+}
+
 /* Menu toggle row */
 .header-menu .toggle-row {
   cursor: default;
@@ -594,6 +612,16 @@ header {
   height: 1px;
   background: var(--glass-border);
   margin: 4px 8px;
+}
+
+.header-menu-section-label {
+  padding: 6px 12px 2px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  cursor: default;
 }
 
 /* =============================================

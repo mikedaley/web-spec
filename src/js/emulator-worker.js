@@ -40,6 +40,7 @@ function getState() {
     tapeIsRecording: wasm._tapeIsRecording(),
     tapeRecordBlockCount: wasm._tapeRecordGetBlockCount(),
     ayEnabled: wasm._isAYEnabled(),
+    issueNumber: wasm._getIssueNumber(),
     hasBasicProgram: wasm._hasBasicProgram() !== 0,
     basicReportFired: wasm._isBasicReportFired() !== 0,
   };
@@ -505,6 +506,10 @@ self.onmessage = async function (e) {
 
     case "setAYEnabled":
       if (wasm) wasm._setAYEnabled(msg.enabled ? 1 : 0);
+      break;
+
+    case "setIssueNumber":
+      if (wasm) wasm._setIssueNumber(msg.issue);
       break;
 
     case "setBasicBreakpointMode": {

@@ -196,7 +196,12 @@ uint8_t ZXSpectrum48::coreIORead(uint16_t address)
         }
         else
         {
-            result = (result & 0xBF) | (audio_.getEarBit() << 6);
+            // Issue 2: EAR OR MIC pulls bit 6 high (pin 28 voltage crosses 0.70V threshold)
+            // Issue 3: only EAR (bit 4) controls bit 6; MIC (bit 3) alone stays below threshold
+            uint8_t feedbackBit = (issueNumber_ == 2)
+                ? (audio_.getEarBit() | audio_.getMicBit())
+                : audio_.getEarBit();
+            result = (result & 0xBF) | (feedbackBit << 6);
         }
         return result;
     }
@@ -239,6 +244,7 @@ void ZXSpectrum48::coreIOWrite(uint16_t address, uint8_t data)
                 getScreenMemory(), borderColor_, frameCounter_);
         }
         audio_.setEarBit((data >> 4) & 1);
+        audio_.setMicBit((data >> 3) & 1);
         if (tapeRecording_) {
             recordMicTransition((data >> 3) & 1);
         }

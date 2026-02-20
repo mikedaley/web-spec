@@ -24,6 +24,9 @@ public:
     void setEarBit(uint8_t bit) { earBit_ = bit; }
     uint8_t getEarBit() const { return earBit_; }
 
+    void setMicBit(uint8_t bit) { micBit_ = bit; }
+    uint8_t getMicBit() const { return micBit_; }
+
     void setTapeEarBit(uint8_t bit) { tapeEarBit_ = bit; }
 
     const float* getBuffer() const { return sampleBuffer_; }
@@ -41,6 +44,7 @@ private:
     static constexpr float TAPE_VOLUME = 0.3f;
 
     uint8_t earBit_ = 0;
+    uint8_t micBit_ = 0;
     uint8_t tapeEarBit_ = 0;
 
     float sampleBuffer_[MAX_SAMPLES_PER_FRAME]{};

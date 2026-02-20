@@ -185,6 +185,8 @@ if(EMSCRIPTEN)
                 \"_getBeeperWaveform\", \
                 \"_isAYEnabled\", \
                 \"_setAYEnabled\", \
+                \"_getIssueNumber\", \
+                \"_setIssueNumber\", \
                 \"_basicTokenize\", \
                 \"_basicTokenizeGetLength\", \
                 \"_basicParseProgram\", \

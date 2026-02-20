@@ -185,16 +185,6 @@ export class SoundWindow extends BaseWindow {
           </div>
         </div>
 
-        <!-- Options Section -->
-        <div class="snd-card snd-card-opts">
-          <div class="snd-opt-row">
-            <span class="snd-opt-label">AY Chip (48K)</span>
-            <label class="snd-toggle">
-              <input type="checkbox" id="snd-ay-toggle" ${localStorage.getItem("zxspec-ay-enabled") === "true" ? "checked" : ""} />
-              <span class="snd-toggle-track"></span>
-            </label>
-          </div>
-        </div>
       </div>
       ${this.renderStyles()}
     `;
@@ -509,60 +499,6 @@ export class SoundWindow extends BaseWindow {
         margin: 0 4px;
       }
 
-      /* =============================================
-         Options card
-         ============================================= */
-      .snd-card-opts {
-        padding: 8px 10px;
-      }
-      .snd-opt-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-      }
-      .snd-opt-label {
-        font-size: 11px;
-        color: var(--text-secondary);
-      }
-
-      /* Toggle switch */
-      .snd-toggle {
-        position: relative;
-        display: inline-block;
-        width: 40px;
-        height: 22px;
-        flex-shrink: 0;
-      }
-      .snd-toggle input {
-        opacity: 0;
-        width: 0;
-        height: 0;
-      }
-      .snd-toggle-track {
-        position: absolute;
-        cursor: pointer;
-        inset: 0;
-        background: var(--overlay-active);
-        border-radius: 22px;
-        transition: all 0.2s;
-      }
-      .snd-toggle-track::before {
-        content: "";
-        position: absolute;
-        width: 16px;
-        height: 16px;
-        left: 3px;
-        bottom: 3px;
-        background: white;
-        border-radius: 50%;
-        transition: all 0.2s;
-      }
-      .snd-toggle input:checked + .snd-toggle-track {
-        background: var(--accent-blue);
-      }
-      .snd-toggle input:checked + .snd-toggle-track::before {
-        transform: translateX(18px);
-      }
     </style>`;
   }
 
@@ -586,32 +522,6 @@ export class SoundWindow extends BaseWindow {
         const headerLabel = document.getElementById("volume-value");
         if (headerSlider) headerSlider.value = vol;
         if (headerLabel) headerLabel.textContent = `${vol}%`;
-      });
-    }
-
-    this.ayToggle = this.contentElement.querySelector("#snd-ay-toggle");
-    this._ayTogglePending = false;
-    if (this.ayToggle) {
-      // Restore AY enabled from localStorage immediately (proxy may not
-      // be available yet since super() calls onContentRendered before
-      // subclass fields are assigned — applyPendingState handles the
-      // proxy side later).
-      const savedAY = localStorage.getItem("zxspec-ay-enabled");
-      if (savedAY !== null) {
-        const enabled = savedAY === "true";
-        this.ayToggle.checked = enabled;
-        if (this.proxy) {
-          this.proxy.setAYEnabled(enabled);
-        } else {
-          this._pendingAYEnabled = enabled;
-        }
-      }
-
-      this.ayToggle.addEventListener("change", () => {
-        this._ayTogglePending = true;
-        if (this.proxy) this.proxy.setAYEnabled(this.ayToggle.checked);
-        localStorage.setItem("zxspec-ay-enabled", this.ayToggle.checked);
-        if (this.onStateChange) this.onStateChange();
       });
     }
 
@@ -979,22 +889,12 @@ export class SoundWindow extends BaseWindow {
       }
       base.ayChannelMutes = muteState;
     }
-    // Use pending state if it hasn't been applied yet (proxy may not
-    // have received it), otherwise read live state from the proxy.
-    if (this._pendingAYEnabled !== undefined) {
-      base.ayEnabled = this._pendingAYEnabled;
-    } else if (this.proxy) {
-      base.ayEnabled = this.proxy.isAYEnabled();
-    }
     return base;
   }
 
   restoreState(state) {
     if (state.ayChannelMutes) {
       this._pendingMuteState = state.ayChannelMutes;
-    }
-    if (state.ayEnabled !== undefined) {
-      this._pendingAYEnabled = state.ayEnabled;
     }
     super.restoreState(state);
   }
@@ -1006,20 +906,6 @@ export class SoundWindow extends BaseWindow {
   applyPendingState() {
     const proxy = this.proxy;
     if (!proxy) return;
-
-    // Keep retrying until the proxy confirms the state matches,
-    // since the worker may drop messages before WASM is loaded.
-    if (this._pendingAYEnabled !== undefined) {
-      if (proxy.isAYEnabled() === this._pendingAYEnabled) {
-        // Sync the checkbox UI before clearing pending state
-        if (this.ayToggle) {
-          this.ayToggle.checked = this._pendingAYEnabled;
-        }
-        this._pendingAYEnabled = undefined;
-      } else {
-        proxy.setAYEnabled(this._pendingAYEnabled);
-      }
-    }
 
     if (this._pendingMuteState && proxy._setAYChannelMute) {
       let allApplied = true;
@@ -1050,19 +936,6 @@ export class SoundWindow extends BaseWindow {
       if (parseInt(this.volumeSlider.value, 10) !== currentVol) {
         this.volumeSlider.value = currentVol;
         if (this.volumeLabel) this.volumeLabel.textContent = `${currentVol}%`;
-      }
-    }
-
-    // Sync AY toggle (skip if user just toggled — wait for worker to catch up,
-    // and skip if there's a pending state not yet applied to the proxy)
-    if (this.ayToggle && proxy && this._pendingAYEnabled === undefined) {
-      const ayEnabled = proxy.isAYEnabled();
-      if (this._ayTogglePending) {
-        if (this.ayToggle.checked === ayEnabled) {
-          this._ayTogglePending = false;
-        }
-      } else if (this.ayToggle.checked !== ayEnabled) {
-        this.ayToggle.checked = ayEnabled;
       }
     }
 
@@ -1098,15 +971,22 @@ export class SoundWindow extends BaseWindow {
       );
     }
 
-    // AY section updates (always shown)
+    // AY section: show/hide based on AY enabled state
     if (proxy) {
       if (!this.ayElements) {
         this.cacheAYElements();
       }
 
-      this.updateAYChannels(proxy);
-      this.updateAYWaveforms(proxy);
-      this.updateAYMuteState(proxy);
+      const ayEnabled = proxy.isAYEnabled();
+      if (this.ayElements.section) {
+        this.ayElements.section.style.display = ayEnabled ? "" : "none";
+      }
+
+      if (ayEnabled) {
+        this.updateAYChannels(proxy);
+        this.updateAYWaveforms(proxy);
+        this.updateAYMuteState(proxy);
+      }
     }
   }
 

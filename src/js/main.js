@@ -281,6 +281,9 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // Machine menu
+    this.setupMachineMenu();
+
     // Menus
     this.setupMenus();
 
@@ -572,6 +575,55 @@ class ZXSpectrumEmulator {
     });
 
     updateActive();
+  }
+
+  setupMachineMenu() {
+    const issue2Btn = document.getElementById("btn-issue2");
+    const issue3Btn = document.getElementById("btn-issue3");
+    const ayToggleBtn = document.getElementById("btn-ay-toggle");
+
+    const updateIssueChecks = (issue) => {
+      if (issue2Btn) issue2Btn.classList.toggle("active", issue === 2);
+      if (issue3Btn) issue3Btn.classList.toggle("active", issue === 3);
+    };
+
+    // Restore Issue number from localStorage
+    const savedIssue = localStorage.getItem("zxspec-issue-number");
+    const issueNumber = savedIssue === "2" ? 2 : 3;
+    this.proxy.setIssueNumber(issueNumber);
+    updateIssueChecks(issueNumber);
+
+    // Restore AY enabled from localStorage
+    const savedAY = localStorage.getItem("zxspec-ay-enabled");
+    const ayEnabled = savedAY === "true";
+    this.proxy.setAYEnabled(ayEnabled);
+    if (ayToggleBtn) {
+      ayToggleBtn.classList.toggle("active", ayEnabled);
+    }
+
+    // Issue 2/3 radio selection
+    const issueHandler = (issue) => {
+      this.proxy.setIssueNumber(issue);
+      updateIssueChecks(issue);
+      localStorage.setItem("zxspec-issue-number", String(issue));
+      this.closeAllMenus();
+      this.refocusCanvas();
+    };
+    if (issue2Btn) issue2Btn.addEventListener("click", () => issueHandler(2));
+    if (issue3Btn) issue3Btn.addEventListener("click", () => issueHandler(3));
+
+    // AY toggle
+    if (ayToggleBtn) {
+      ayToggleBtn.addEventListener("click", () => {
+        const isEnabled = ayToggleBtn.classList.contains("active");
+        const newEnabled = !isEnabled;
+        this.proxy.setAYEnabled(newEnabled);
+        ayToggleBtn.classList.toggle("active", newEnabled);
+        localStorage.setItem("zxspec-ay-enabled", String(newEnabled));
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
   }
 
   isRunning() {

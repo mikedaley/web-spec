@@ -352,6 +352,14 @@ export class EmulatorProxy {
     this.worker.postMessage({ type: "setAYEnabled", enabled });
   }
 
+  getIssueNumber() {
+    return this.state.issueNumber ?? 3;
+  }
+
+  setIssueNumber(issue) {
+    this.worker.postMessage({ type: "setIssueNumber", issue });
+  }
+
   tapeRecordStart() {
     this._recordedBlocks = null;
     this.worker.postMessage({ type: "tapeRecordStart" });

@@ -748,6 +748,24 @@ void setAYEnabled(int enabled) {
 }
 
 // ============================================================================
+// Machine Configuration (Issue Number)
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+int getIssueNumber() {
+  REQUIRE_MACHINE_OR(3);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec ? spec->getIssueNumber() : 3;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void setIssueNumber(int issue) {
+  REQUIRE_MACHINE();
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  if (spec) spec->setIssueNumber(static_cast<uint8_t>(issue));
+}
+
+// ============================================================================
 // BASIC Support
 // ============================================================================
 
