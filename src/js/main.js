@@ -51,7 +51,8 @@ class ZXSpectrumEmulator {
     try {
       // Create proxy and initialize WASM in worker
       this.proxy = new EmulatorProxy();
-      await this.proxy.init(0); // 0 = ZX Spectrum 48K
+      const savedMachineId = parseInt(localStorage.getItem("zxspec-machine-id") || "0", 10);
+      await this.proxy.init(savedMachineId);
 
       // Query display dimensions from C++ (machine_info.hpp constants)
       const displayDims = await this.proxy.getDisplayDimensions();
@@ -653,11 +654,69 @@ class ZXSpectrumEmulator {
     const issue2Btn = document.getElementById("btn-issue2");
     const issue3Btn = document.getElementById("btn-issue3");
     const ayToggleBtn = document.getElementById("btn-ay-toggle");
+    const optionsLabel = document.getElementById("options-48k-label");
+    const options48k = document.querySelectorAll(".option-48k");
+    const machineItems = document.querySelectorAll("[data-machine]");
 
     const updateIssueChecks = (issue) => {
       if (issue2Btn) issue2Btn.classList.toggle("active", issue === 2);
       if (issue3Btn) issue3Btn.classList.toggle("active", issue === 3);
     };
+
+    const updateMachineChecks = (machineId) => {
+      machineItems.forEach((item) => {
+        item.classList.toggle("active", parseInt(item.dataset.machine, 10) === machineId);
+      });
+    };
+
+    const update48kOptionsVisibility = (machineId) => {
+      const is48k = machineId === 0;
+      if (optionsLabel) optionsLabel.style.display = is48k ? "" : "none";
+      options48k.forEach((el) => {
+        el.style.display = is48k ? "" : "none";
+      });
+      // Also hide the separator before 48K options when on 128K
+      const separators = document.querySelectorAll("#machine-menu .header-menu-separator");
+      if (separators.length > 0) {
+        separators[0].style.display = is48k ? "" : "none";
+      }
+    };
+
+    // Restore saved machine ID and update UI
+    const currentMachineId = parseInt(localStorage.getItem("zxspec-machine-id") || "0", 10);
+    updateMachineChecks(currentMachineId);
+    update48kOptionsVisibility(currentMachineId);
+
+    // Machine model selection
+    machineItems.forEach((item) => {
+      item.addEventListener("click", async () => {
+        const machineId = parseInt(item.dataset.machine, 10);
+        const currentId = parseInt(localStorage.getItem("zxspec-machine-id") || "0", 10);
+        if (machineId === currentId) {
+          this.closeAllMenus();
+          return;
+        }
+
+        localStorage.setItem("zxspec-machine-id", String(machineId));
+        updateMachineChecks(machineId);
+        update48kOptionsVisibility(machineId);
+
+        await this.proxy.switchMachine(machineId);
+
+        // If running, reset and continue; otherwise just switch
+        if (this.running) {
+          this.audioDriver.latestSamples = null;
+        } else {
+          this.running = true;
+          this.renderer.setNoSignal(false);
+          this.audioDriver.start();
+          this.updatePowerButton();
+        }
+
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    });
 
     // Restore Issue number from localStorage
     const savedIssue = localStorage.getItem("zxspec-issue-number");
@@ -665,12 +724,14 @@ class ZXSpectrumEmulator {
     this.proxy.setIssueNumber(issueNumber);
     updateIssueChecks(issueNumber);
 
-    // Restore AY enabled from localStorage
+    // Restore AY enabled from localStorage (only applies to 48K)
     const savedAY = localStorage.getItem("zxspec-ay-enabled");
     const ayEnabled = savedAY === "true";
-    this.proxy.setAYEnabled(ayEnabled);
+    if (currentMachineId === 0) {
+      this.proxy.setAYEnabled(ayEnabled);
+    }
     if (ayToggleBtn) {
-      ayToggleBtn.classList.toggle("active", ayEnabled);
+      ayToggleBtn.classList.toggle("active", currentMachineId === 0 ? ayEnabled : true);
     }
 
     // Issue 2/3 radio selection

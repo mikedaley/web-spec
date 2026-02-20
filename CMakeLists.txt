@@ -46,10 +46,16 @@ set(ZX48K_SOURCES
     src/machines/zx48k/zx_spectrum_48k.cpp
 )
 
+# Source files - ZX Spectrum 128K variant
+set(ZX128K_SOURCES
+    src/machines/zx128k/zx_spectrum_128k.cpp
+)
+
 set(CORE_SOURCES
     ${Z80_SOURCES}
     ${ZXSPECTRUM_BASE_SOURCES}
     ${ZX48K_SOURCES}
+    ${ZX128K_SOURCES}
     src/bindings/wasm_interface.cpp
 )
 
@@ -60,6 +66,8 @@ add_custom_command(
     COMMAND ${CMAKE_SOURCE_DIR}/scripts/generate_roms.sh ${CMAKE_SOURCE_DIR}/roms ${CMAKE_BINARY_DIR}/generated/roms.cpp
     DEPENDS ${CMAKE_SOURCE_DIR}/scripts/generate_roms.sh
             ${CMAKE_SOURCE_DIR}/roms/48.rom
+            ${CMAKE_SOURCE_DIR}/roms/128-0.rom
+            ${CMAKE_SOURCE_DIR}/roms/128-1.rom
     COMMENT "Generating ROM data arrays"
 )
 
@@ -78,6 +86,7 @@ if(EMSCRIPTEN)
         ${CMAKE_SOURCE_DIR}/src/machines
         ${CMAKE_SOURCE_DIR}/src/machines/loaders
         ${CMAKE_SOURCE_DIR}/src/machines/zx48k
+        ${CMAKE_SOURCE_DIR}/src/machines/zx128k
         ${CMAKE_SOURCE_DIR}/src/machines/basic
         ${CMAKE_BINARY_DIR}/generated
     )
@@ -215,6 +224,7 @@ if(EMSCRIPTEN)
                 \"_basicRenumberGetResult\", \
                 \"_basicAutoRenumber\", \
                 \"_basicAutoRenumberGetResult\", \
+                \"_getPagingRegister\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \
@@ -224,6 +234,7 @@ if(EMSCRIPTEN)
             -s MAXIMUM_MEMORY=268435456 \
             -s NO_EXIT_RUNTIME=1 \
             -s ASYNCIFY=0 \
+            -s STACK_SIZE=131072 \
             --no-entry \
             -O3 \
             -flto \

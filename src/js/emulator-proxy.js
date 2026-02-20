@@ -360,6 +360,10 @@ export class EmulatorProxy {
     return this.state.issueNumber ?? 3;
   }
 
+  getPagingRegister() {
+    return this.state.pagingRegister ?? 0;
+  }
+
   setIssueNumber(issue) {
     this.worker.postMessage({ type: "setIssueNumber", issue });
   }

@@ -8,6 +8,7 @@
 #include "../machines/machine.hpp"
 #include "../machines/zx_spectrum.hpp"
 #include "../machines/zx48k/zx_spectrum_48k.hpp"
+#include "../machines/zx128k/zx_spectrum_128k.hpp"
 #include "../machines/basic/sinclair_basic_tokenizer.hpp"
 #include "../machines/basic/sinclair_basic_parser.hpp"
 #include "../machines/basic/sinclair_basic_variables.hpp"
@@ -33,6 +34,9 @@ void initMachine(int machineId) {
   g_machine = nullptr;
 
   switch (machineId) {
+    case 1:
+      g_machine = new zxspec::zx128k::ZXSpectrum128();
+      break;
     case 0:
     default:
       g_machine = new zxspec::zx48k::ZXSpectrum48();
@@ -763,6 +767,17 @@ void setIssueNumber(int issue) {
   REQUIRE_MACHINE();
   auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
   if (spec) spec->setIssueNumber(static_cast<uint8_t>(issue));
+}
+
+// ============================================================================
+// 128K Paging Register
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t getPagingRegister() {
+  REQUIRE_MACHINE_OR(0);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec ? spec->getPagingRegister() : 0;
 }
 
 // ============================================================================

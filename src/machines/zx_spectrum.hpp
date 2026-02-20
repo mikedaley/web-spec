@@ -208,6 +208,11 @@ public:
     virtual uint8_t* getScreenMemory() = 0;
     virtual const uint8_t* getScreenMemory() const = 0;
 
+    // 128K paging support (base returns defaults for 48K)
+    virtual uint8_t getPagingRegister() const { return 0; }
+    virtual void setPagingRegister(uint8_t /*value*/) {}
+    virtual void writeRamBank(uint8_t /*bank*/, uint16_t /*offset*/, uint8_t /*data*/) {}
+
 protected:
     // Called by variant's init() after setting machineInfo_
     void baseInit();

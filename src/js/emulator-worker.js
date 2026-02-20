@@ -42,6 +42,7 @@ function getState() {
     tapeRecordBlockCount: wasm._tapeRecordGetBlockCount(),
     ayEnabled: wasm._isAYEnabled(),
     issueNumber: wasm._getIssueNumber(),
+    pagingRegister: wasm._getPagingRegister(),
     hasBasicProgram: wasm._hasBasicProgram() !== 0,
     basicReportFired: wasm._isBasicReportFired() !== 0,
   };

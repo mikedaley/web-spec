@@ -106,16 +106,27 @@ bool Z80Loader::load(ZXSpectrum& machine, const uint8_t* data, uint32_t size)
         uint8_t hardwareType = data[34];
 
         bool is48K = false;
+        bool is128K = false;
         if (version == 2)
         {
             is48K = (hardwareType == V2_HW_48K || hardwareType == V2_HW_48K_IF1);
+            is128K = (hardwareType == V2_HW_128K || hardwareType == V2_HW_128K_IF1);
         }
         else
         {
             is48K = (hardwareType == V3_HW_48K || hardwareType == V3_HW_48K_IF1 || hardwareType == V3_HW_48K_MGT);
+            is128K = (hardwareType == V3_HW_128K || hardwareType == V3_HW_128K_IF1 || hardwareType == V3_HW_128K_MGT
+                    || hardwareType == V3_HW_PLUS3 || hardwareType == V3_HW_PLUS3_ALT
+                    || hardwareType == V3_HW_PLUS2 || hardwareType == V3_HW_PLUS2A);
         }
 
-        if (!is48K) return false;
+        if (!is48K && !is128K) return false;
+
+        // Restore port 0x7FFD for 128K snapshots (byte 35 in header)
+        if (is128K && size > 35)
+        {
+            machine.setPagingRegister(data[35]);
+        }
 
         uint32_t offset = 32 + additionalHeaderLength;
 
@@ -134,23 +145,40 @@ bool Z80Loader::load(ZXSpectrum& machine, const uint8_t* data, uint32_t size)
 
             uint8_t pageId = data[offset + 2];
 
-            // Decompress each page to temp buffer, then write via writeMemory
-            uint16_t baseAddr = 0;
-            switch (pageId)
+            if (is48K)
             {
-            case 8: baseAddr = 0x4000; break;
-            case 4: baseAddr = 0x8000; break;
-            case 5: baseAddr = 0xC000; break;
-            default: break;
-            }
-
-            if (baseAddr != 0)
-            {
-                uint8_t pageBuf[MEM_PAGE_SIZE];
-                extractMemoryBlock(data, size, pageBuf, offset + 3, isCompressed, MEM_PAGE_SIZE);
-                for (uint32_t i = 0; i < MEM_PAGE_SIZE; i++)
+                // 48K: page IDs map to fixed addresses
+                uint16_t baseAddr = 0;
+                switch (pageId)
                 {
-                    machine.writeMemory(baseAddr + i, pageBuf[i]);
+                case 8: baseAddr = 0x4000; break;
+                case 4: baseAddr = 0x8000; break;
+                case 5: baseAddr = 0xC000; break;
+                default: break;
+                }
+
+                if (baseAddr != 0)
+                {
+                    uint8_t pageBuf[MEM_PAGE_SIZE];
+                    extractMemoryBlock(data, size, pageBuf, offset + 3, isCompressed, MEM_PAGE_SIZE);
+                    for (uint32_t i = 0; i < MEM_PAGE_SIZE; i++)
+                    {
+                        machine.writeMemory(baseAddr + i, pageBuf[i]);
+                    }
+                }
+            }
+            else
+            {
+                // 128K: page IDs 3-10 map to RAM banks 0-7
+                if (pageId >= 3 && pageId <= 10)
+                {
+                    uint8_t bank = pageId - 3;
+                    uint8_t pageBuf[MEM_PAGE_SIZE];
+                    extractMemoryBlock(data, size, pageBuf, offset + 3, isCompressed, MEM_PAGE_SIZE);
+                    for (uint32_t i = 0; i < MEM_PAGE_SIZE; i++)
+                    {
+                        machine.writeRamBank(bank, static_cast<uint16_t>(i), pageBuf[i]);
+                    }
                 }
             }
 

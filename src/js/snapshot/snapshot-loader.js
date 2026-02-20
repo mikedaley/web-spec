@@ -8,6 +8,7 @@
 import { addToRecentTapes } from "../tape/tape-persistence.js";
 
 const SNA_48K_SIZE = 49179;
+const SNA_128K_SIZE = 131103;
 
 export class SnapshotLoader {
   constructor(proxy) {
@@ -53,8 +54,8 @@ export class SnapshotLoader {
       const ext = file.name.split(".").pop().toLowerCase();
 
       if (ext === "sna") {
-        if (data.length !== SNA_48K_SIZE) {
-          console.error(`Invalid SNA file: expected ${SNA_48K_SIZE} bytes, got ${data.length}`);
+        if (data.length !== SNA_48K_SIZE && data.length !== SNA_128K_SIZE) {
+          console.error(`Invalid SNA file: expected ${SNA_48K_SIZE} or ${SNA_128K_SIZE} bytes, got ${data.length}`);
           return;
         }
         this._pendingFileName = file.name;
