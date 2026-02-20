@@ -81,6 +81,34 @@ export class EmulatorProxy {
         }
         break;
       }
+
+      case "basicTokenizeResult": {
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve(msg.data);
+        }
+        break;
+      }
+
+      case "basicParseProgramResult":
+      case "basicParseVariablesResult": {
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve(msg.json);
+        }
+        break;
+      }
+
+      case "basicWriteProgramResult": {
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve();
+        }
+        break;
+      }
     }
   }
 
@@ -298,6 +326,39 @@ export class EmulatorProxy {
 
   clearBasicBreakpointMode() {
     this.worker.postMessage({ type: "clearBasicBreakpointMode" });
+  }
+
+  basicTokenize(text) {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "basicTokenize", text, id });
+    });
+  }
+
+  basicParseProgram() {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "basicParseProgram", id });
+    });
+  }
+
+  basicParseVariables() {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "basicParseVariables", id });
+    });
+  }
+
+  basicWriteProgram(programBytes) {
+    const id = this._nextId++;
+    const buffer = new Uint8Array(programBytes).buffer;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "basicWriteProgram", data: buffer, id }, [buffer]);
+    });
   }
 
   destroy() {

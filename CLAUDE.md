@@ -40,6 +40,8 @@ ctest --verbose
 - `src/machines/zx_spectrum.cpp` - Core coordinator
 - `src/machines/zx48k/` - ZX Spectrum 48K-specific configuration
 
+**JavaScript should only contain UI/presentation logic.** All core emulation logic (tokenization, parsing, number encoding, memory layout) belongs in C++.
+
 **JavaScript Layer (src/js/)** - Browser integration:
 
 - `main.js` - ZXSpectrumEmulator class orchestrating all subsystems
@@ -91,6 +93,7 @@ src/
 │   ├── display.cpp     # ULA display / framebuffer generation
 │   ├── contention.cpp  # ULA contention timing
 │   ├── loaders/        # Snapshot loaders (SNA, Z80)
+│   ├── basic/          # Sinclair BASIC support (tokenizer, parser, variables, float codec)
 │   └── zx48k/          # 48K-specific config
 ├── bindings/           # wasm_interface.cpp - WASM export glue
 └── js/                 # ES6 modules, no framework

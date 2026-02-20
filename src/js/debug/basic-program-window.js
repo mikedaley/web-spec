@@ -556,7 +556,7 @@ export class BasicProgramWindow extends BaseWindow {
     try {
       const text = this._textarea.value;
       if (!text.trim()) return;
-      const programBytes = this.tokenizer.tokenize(text);
+      const programBytes = await this.tokenizer.tokenize(this.proxy, text);
       if (programBytes.length === 0) return;
       await this.tokenizer.writeTo(this.proxy, programBytes);
     } catch (err) {

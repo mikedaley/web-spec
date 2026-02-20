@@ -1,11 +1,11 @@
 /*
  * basic-variable-inspector.js - Variable display sidebar for BASIC window
  *
+ * Thin wrapper around C++/WASM variable parser. DOM rendering stays in JS.
+ *
  * Written by
  *  Mike Daley <michael_daley@icloud.com>
  */
-
-import { SYS } from "../utils/sinclair-basic-tokens.js";
 
 /**
  * Reads and displays Sinclair BASIC variables from Spectrum memory.
@@ -22,225 +22,13 @@ export class BasicVariableInspector {
    * @returns {Promise<Array<{name: string, type: string, value: any, dimensions?: number[]}>>}
    */
   async readVariables(proxy) {
-    // Read PROG, VARS and E_LINE pointers
-    const progPtrs = await proxy.readMemory(SYS.PROG, 2);
-    const progAddr = progPtrs[0] | (progPtrs[1] << 8);
-
-    const varsPtrs = await proxy.readMemory(SYS.VARS, 2);
-    const varsAddr = varsPtrs[0] | (varsPtrs[1] << 8);
-
-    const eLinePtrs = await proxy.readMemory(SYS.E_LINE, 2);
-    const eLineAddr = eLinePtrs[0] | (eLinePtrs[1] << 8);
-
-    // Sanity: all pointers must be in RAM and in the correct order
-    if (progAddr < 0x5B00 || varsAddr < 0x5B00 || eLineAddr < 0x5B00) return [];
-    if (varsAddr <= progAddr) return [];
-    if (eLineAddr <= varsAddr) return [];
-
-    // No program in memory if VARS is just the end marker after PROG
-    // (PROG + 1 byte 0x80 end marker = VARS means empty program)
-    if (varsAddr - progAddr <= 1) return [];
-
-    const size = eLineAddr - varsAddr;
-    if (size <= 0 || size > 0xFFFF) return [];
-
-    const data = await proxy.readMemory(varsAddr, size);
-    return this._parseVariables(data);
-  }
-
-  /**
-   * Parse variable entries from raw memory.
-   * @param {Uint8Array} data
-   * @returns {Array<{name: string, type: string, value: any}>}
-   */
-  _parseVariables(data) {
-    const vars = [];
-    let i = 0;
-
-    while (i < data.length) {
-      const byte = data[i];
-
-      // End marker
-      if (byte === 0x80) break;
-
-      const topBits = byte & 0xE0; // Top 3 bits
-      const letterCode = byte & 0x1F; // Lower 5 bits -> 1-26 = a-z
-
-      // Valid variable names must be a-z (1-26). Anything else is garbage data.
-      if (letterCode < 1 || letterCode > 26) break;
-
-      const letter = String.fromCharCode(letterCode + 0x60);
-
-      switch (topBits) {
-        case 0x60: {
-          // 011xxxxx: Single-letter numeric variable
-          if (i + 6 > data.length) return vars;
-          const value = this._decodeFloat(data, i + 1);
-          i += 6;
-          vars.push({ name: letter, type: "number", value });
-          break;
-        }
-
-        case 0x40: {
-          // 010xxxxx: Single-letter string variable
-          if (i + 3 > data.length) return vars;
-          const strLen = data[i + 1] | (data[i + 2] << 8);
-          i += 3;
-          let str = "";
-          for (let c = 0; c < strLen && i < data.length; c++, i++) {
-            str += String.fromCharCode(data[i]);
-          }
-          vars.push({ name: letter + "$", type: "string", value: str });
-          break;
-        }
-
-        case 0xA0: {
-          // 101xxxxx: Multi-letter numeric variable
-          let name = letter;
-          i++;
-          // Read additional letters until one with bit 7 set
-          while (i < data.length) {
-            const ch = data[i];
-            if (ch & 0x80) {
-              name += String.fromCharCode((ch & 0x7F));
-              i++;
-              break;
-            }
-            name += String.fromCharCode(ch);
-            i++;
-          }
-          if (i + 5 > data.length) return vars;
-          const val = this._decodeFloat(data, i);
-          i += 5;
-          vars.push({ name, type: "number", value: val });
-          break;
-        }
-
-        case 0x80: {
-          // 100xxxxx: Numeric array
-          if (i + 3 > data.length) return vars;
-          const totalLen = data[i + 1] | (data[i + 2] << 8);
-          i += 3;
-          const startOffset = i;
-          if (i >= data.length) return vars;
-          const numDims = data[i];
-          i++;
-          const dims = [];
-          for (let d = 0; d < numDims && i + 1 < data.length; d++) {
-            dims.push(data[i] | (data[i + 1] << 8));
-            i += 2;
-          }
-          // Read element values (5 bytes each)
-          const totalElements = dims.reduce((a, b) => a * b, 1);
-          const elements = [];
-          for (let e = 0; e < totalElements && i + 4 < data.length; e++) {
-            elements.push(this._decodeFloat(data, i));
-            i += 5;
-          }
-          i = startOffset + totalLen;
-          vars.push({ name: letter + "()", type: "numArray", dimensions: dims, elements });
-          break;
-        }
-
-        case 0xC0: {
-          // 110xxxxx: String array
-          if (i + 3 > data.length) return vars;
-          const totalLen2 = data[i + 1] | (data[i + 2] << 8);
-          i += 3;
-          const startOffset2 = i;
-          if (i >= data.length) return vars;
-          const numDims2 = data[i];
-          i++;
-          const dims2 = [];
-          for (let d = 0; d < numDims2 && i + 1 < data.length; d++) {
-            dims2.push(data[i] | (data[i + 1] << 8));
-            i += 2;
-          }
-          // Last dimension is string length for each element
-          const strLen = dims2.length > 0 ? dims2[dims2.length - 1] : 0;
-          const outerDims = dims2.slice(0, -1);
-          const totalStrings = outerDims.length > 0 ? outerDims.reduce((a, b) => a * b, 1) : 1;
-          const strElements = [];
-          for (let e = 0; e < totalStrings && i + strLen - 1 < data.length; e++) {
-            let s = "";
-            for (let c = 0; c < strLen && i < data.length; c++, i++) {
-              s += String.fromCharCode(data[i]);
-            }
-            strElements.push(s.trimEnd());
-          }
-          i = startOffset2 + totalLen2;
-          vars.push({ name: letter + "$()", type: "strArray", dimensions: outerDims, strLen, elements: strElements });
-          break;
-        }
-
-        case 0xE0: {
-          // 111xxxxx: FOR loop control variable
-          if (i + 19 > data.length) return vars;
-          const forVal = this._decodeFloat(data, i + 1);
-          const limit = this._decodeFloat(data, i + 6);
-          const step = this._decodeFloat(data, i + 11);
-          const loopLine = data[i + 16] | (data[i + 17] << 8);
-          const loopStmt = data[i + 18];
-          i += 19;
-          vars.push({
-            name: letter,
-            type: "for",
-            value: forVal,
-            limit,
-            step,
-            loopLine,
-            loopStmt,
-          });
-          break;
-        }
-
-        default:
-          // Unknown - bail out
-          return vars;
-      }
+    const json = await proxy.basicParseVariables();
+    try {
+      this.variables = JSON.parse(json);
+    } catch {
+      this.variables = [];
     }
-
-    this.variables = vars;
-    return vars;
-  }
-
-  /**
-   * Decode a 5-byte Spectrum floating point number.
-   * @param {Uint8Array} data
-   * @param {number} offset
-   * @returns {number}
-   */
-  _decodeFloat(data, offset) {
-    const exp = data[offset];
-
-    // Integer shorthand: exponent = 0
-    if (exp === 0) {
-      const sign = data[offset + 1];
-      const low = data[offset + 2];
-      const high = data[offset + 3];
-      const intVal = low | (high << 8);
-      if (sign === 0xFF) {
-        // Negative: low/high are two's complement
-        return intVal >= 0x8000 ? intVal - 0x10000 : -intVal;
-      }
-      return intVal;
-    }
-
-    // Full floating point
-    const signBit = data[offset + 1] & 0x80;
-    // Restore implied leading 1
-    const b1 = (data[offset + 1] & 0x7F) | 0x80;
-    const b2 = data[offset + 2];
-    const b3 = data[offset + 3];
-    const b4 = data[offset + 4];
-
-    // Mantissa as fraction in [0.5, 1)
-    const mantissa = (b1 * 0x1000000 + b2 * 0x10000 + b3 * 0x100 + b4) / 0x100000000;
-
-    // Value = mantissa * 2^(exp - 128)
-    const value = mantissa * Math.pow(2, exp - 128);
-
-    return signBit ? -value : value;
+    return this.variables;
   }
 
   /**
@@ -250,21 +38,12 @@ export class BasicVariableInspector {
    */
   _formatNumber(value) {
     if (Number.isInteger(value)) return value.toString();
-    // Show up to 8 significant digits
     const str = value.toPrecision(8);
-    // Remove trailing zeros after decimal
     return str.replace(/\.?0+$/, "");
   }
 
   /**
-   * Render variables into a container element.
-   * @param {Array} variables
-   * @param {HTMLElement} container
-   */
-  /**
    * Render an array variable as an HTML table.
-   * 1D: rows with index and value.
-   * 2D: grid with row/column headers.
    */
   _renderArray(v) {
     const dims = v.dimensions;
@@ -280,7 +59,7 @@ export class BasicVariableInspector {
       return this._formatNumber(val);
     };
 
-    // 1D array: index headers across the top, single data row
+    // 1D array
     if (dims.length <= 1) {
       const count = dims.length === 1 ? dims[0] : elements.length;
       let html = '<table class="bas-array-table">';
@@ -297,7 +76,7 @@ export class BasicVariableInspector {
       return html;
     }
 
-    // 2D array: column indices across top, row indices down left
+    // 2D array
     if (dims.length === 2) {
       const rows = dims[0];
       const cols = dims[1];
@@ -320,7 +99,7 @@ export class BasicVariableInspector {
       return html;
     }
 
-    // Higher dimensions: flat table with index headers across top
+    // Higher dimensions: flat table
     let html = '<table class="bas-array-table">';
     html += '<thead><tr>';
     for (let i = 1; i <= elements.length; i++) {
@@ -342,7 +121,6 @@ export class BasicVariableInspector {
       return;
     }
 
-    // Separate scalars from arrays
     const scalars = variables.filter((v) => v.type !== "numArray" && v.type !== "strArray");
     const arrays = variables.filter((v) => v.type === "numArray" || v.type === "strArray");
 
@@ -350,7 +128,6 @@ export class BasicVariableInspector {
     html += '<thead><tr><th>Name</th><th>Type</th><th>Value</th></tr></thead>';
     html += '<tbody>';
 
-    // Scalars first
     for (const v of scalars) {
       const name = escHtml(v.name);
       let type = "";
@@ -374,12 +151,10 @@ export class BasicVariableInspector {
       html += `<tr><td class="bas-var-name">${name}</td><td class="bas-var-type">${type}</td><td class="bas-var-value">${value}</td></tr>`;
     }
 
-    // Arrays at the bottom
     for (const v of arrays) {
       const name = escHtml(v.name);
       const type = v.type === "numArray" ? "Num()" : "Str()";
       const dims = v.dimensions;
-      // For string arrays, show the string length alongside the dimensions
       let dimsLabel = dims.join("x");
       if (v.type === "strArray" && v.strLen) {
         dimsLabel = dims.length > 0 ? `${dims.join("x")} x${v.strLen}chr` : `${v.strLen}chr`;

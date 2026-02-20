@@ -32,6 +32,11 @@ set(ZXSPECTRUM_BASE_SOURCES
     src/machines/loaders/z80_loader.cpp
     src/machines/loaders/tzx_loader.cpp
     src/machines/loaders/tap_loader.cpp
+    src/machines/basic/sinclair_basic_float.cpp
+    src/machines/basic/sinclair_basic_tokenizer.cpp
+    src/machines/basic/sinclair_basic_parser.cpp
+    src/machines/basic/sinclair_basic_variables.cpp
+    src/machines/basic/sinclair_basic_writer.cpp
 )
 
 # Source files - ZX Spectrum 48K variant
@@ -71,6 +76,7 @@ if(EMSCRIPTEN)
         ${CMAKE_SOURCE_DIR}/src/machines
         ${CMAKE_SOURCE_DIR}/src/machines/loaders
         ${CMAKE_SOURCE_DIR}/src/machines/zx48k
+        ${CMAKE_SOURCE_DIR}/src/machines/basic
         ${CMAKE_BINARY_DIR}/generated
     )
 
@@ -173,10 +179,15 @@ if(EMSCRIPTEN)
                 \"_getBeeperWaveform\", \
                 \"_isAYEnabled\", \
                 \"_setAYEnabled\", \
+                \"_basicTokenize\", \
+                \"_basicTokenizeGetLength\", \
+                \"_basicParseProgram\", \
+                \"_basicParseVariables\", \
+                \"_basicWriteProgram\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \
-            -s EXPORTED_RUNTIME_METHODS='[\"ccall\", \"cwrap\", \"UTF8ToString\", \"stringToUTF8\", \"HEAPU8\", \"HEAPF32\"]' \
+            -s EXPORTED_RUNTIME_METHODS='[\"ccall\", \"cwrap\", \"UTF8ToString\", \"stringToUTF8\", \"lengthBytesUTF8\", \"HEAPU8\", \"HEAPF32\"]' \
             -s ALLOW_MEMORY_GROWTH=1 \
             -s INITIAL_MEMORY=33554432 \
             -s MAXIMUM_MEMORY=268435456 \

@@ -551,6 +551,46 @@ self.onmessage = async function (e) {
       break;
     }
 
+    case "basicTokenize": {
+      if (!wasm) break;
+      const encLen = wasm.lengthBytesUTF8(msg.text) + 1;
+      const encPtr = wasm._malloc(encLen);
+      wasm.stringToUTF8(msg.text, encPtr, encLen);
+      const bufPtr = wasm._basicTokenize(encPtr);
+      wasm._free(encPtr);
+      const bufLen = wasm._basicTokenizeGetLength();
+      const result = new Uint8Array(wasm.HEAPU8.buffer, bufPtr, bufLen).slice();
+      self.postMessage({ type: "basicTokenizeResult", id: msg.id, data: result }, [result.buffer]);
+      break;
+    }
+
+    case "basicParseProgram": {
+      if (!wasm) break;
+      const jsonPtr = wasm._basicParseProgram();
+      const jsonStr = wasm.UTF8ToString(jsonPtr);
+      self.postMessage({ type: "basicParseProgramResult", id: msg.id, json: jsonStr });
+      break;
+    }
+
+    case "basicParseVariables": {
+      if (!wasm) break;
+      const varsJsonPtr = wasm._basicParseVariables();
+      const varsJsonStr = wasm.UTF8ToString(varsJsonPtr);
+      self.postMessage({ type: "basicParseVariablesResult", id: msg.id, json: varsJsonStr });
+      break;
+    }
+
+    case "basicWriteProgram": {
+      if (!wasm) break;
+      const progData = new Uint8Array(msg.data);
+      const progPtr = wasm._malloc(progData.length);
+      wasm.HEAPU8.set(progData, progPtr);
+      wasm._basicWriteProgram(progPtr, progData.length);
+      wasm._free(progPtr);
+      self.postMessage({ type: "basicWriteProgramResult", id: msg.id });
+      break;
+    }
+
     case "getState":
       if (wasm) {
         self.postMessage({ type: "stateUpdate", state: getState() });

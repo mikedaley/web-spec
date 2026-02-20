@@ -8,6 +8,10 @@
 #include "../machines/machine.hpp"
 #include "../machines/zx_spectrum.hpp"
 #include "../machines/zx48k/zx_spectrum_48k.hpp"
+#include "../machines/basic/sinclair_basic_tokenizer.hpp"
+#include "../machines/basic/sinclair_basic_parser.hpp"
+#include "../machines/basic/sinclair_basic_variables.hpp"
+#include "../machines/basic/sinclair_basic_writer.hpp"
 #include <cstring>
 #include <string>
 #include <emscripten.h>
@@ -725,6 +729,51 @@ void setAYEnabled(int enabled) {
   REQUIRE_MACHINE();
   auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
   if (spec) spec->setAYEnabled(enabled != 0);
+}
+
+// ============================================================================
+// BASIC Support
+// ============================================================================
+
+// Static buffers for BASIC results
+static std::vector<uint8_t> s_basicTokenized;
+static std::string s_basicProgramJson;
+static std::string s_basicVariablesJson;
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* basicTokenize(const char* text) {
+    s_basicTokenized = zxspec::basic::tokenize(std::string(text));
+    return s_basicTokenized.data();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int basicTokenizeGetLength() {
+    return static_cast<int>(s_basicTokenized.size());
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* basicParseProgram() {
+    REQUIRE_MACHINE_OR("");
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (!spec) return "[]";
+    s_basicProgramJson = zxspec::basic::parseProgramFromMemory(*spec);
+    return s_basicProgramJson.c_str();
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* basicParseVariables() {
+    REQUIRE_MACHINE_OR("");
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (!spec) return "[]";
+    s_basicVariablesJson = zxspec::basic::parseVariablesFromMemory(*spec);
+    return s_basicVariablesJson.c_str();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void basicWriteProgram(const uint8_t* data, int length) {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) zxspec::basic::writeProgramToMemory(*spec, data, static_cast<size_t>(length));
 }
 
 } // extern "C"
