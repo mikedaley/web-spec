@@ -984,9 +984,17 @@ export class BasicProgramWindow extends BaseWindow {
             // breakpoint — program has ended
             this._programRunning = false;
           }
-        } else {
-          // Heuristic doesn't match — definitely not running
-          this._programRunning = false;
+        } else if (this._programRunning) {
+          // Heuristic doesn't match but we think we're running —
+          // use the same grace period (the ROM may still be processing
+          // the RUN command before execution begins, or an error just
+          // set ERR_NR).
+          if (errNr !== 0xFF) {
+            // Actual error report — program definitely ended
+            this._programRunning = false;
+          } else if (!this._basicStepping && now - this._lastActivityTime > 500) {
+            this._programRunning = false;
+          }
         }
 
         // Trace mode: highlight current line while running (no pause)
