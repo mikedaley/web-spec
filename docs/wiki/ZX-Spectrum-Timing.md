@@ -225,10 +225,10 @@ void ULAContention::buildContentionTable()
     {
         memoryContentionTable_[i] = 0;
 
-        if (i >= tsToOrigin_)
+        if (i >= cpuTsToContention_)
         {
-            uint32_t line = (i - tsToOrigin_) / tsPerScanline_;
-            uint32_t ts = (i - tsToOrigin_) % tsPerScanline_;
+            uint32_t line = (i - cpuTsToContention_) / tsPerScanline_;
+            uint32_t ts = (i - cpuTsToContention_) % tsPerScanline_;
 
             if (line < 192 && ts < 128)
             {
@@ -266,7 +266,7 @@ Contention only occurs when **all** of the following are true:
 
 1. The memory address is in the **contended range** (0x4000-0x7FFF on the 48K — page/slot 1)
 2. The current T-state falls within the **active display area** (line 0-191 of the display, column T-states 0-127)
-3. The T-state is at or after `tsToOrigin` (14,335)
+3. The T-state is at or after `cpuTsToContention` (14,335 for 48K, derived as `ulaTsToDisplay - 1`)
 
 Outside the display area (border, retrace) or when accessing non-contended memory (ROM at 0x0000-0x3FFF, upper RAM at 0x8000-0xFFFF), no contention delay is added.
 
@@ -445,16 +445,16 @@ These account for the ULA's internal pipeline delay between fetching data and ou
 The `floatingBus()` method returns the byte currently on the ULA's data bus during display fetch:
 
 ```cpp
-uint8_t Display::floatingBus(uint32_t cpuTStates, const uint8_t* memory, int32_t floatBusAdjust) const
+uint8_t Display::floatingBus(uint32_t cpuTStates, const uint8_t* memory) const
 ```
 
-This is used when software reads from a non-decoded I/O port (odd port with no hardware attached). The returned value depends on the current display fetch phase:
+This is used when software reads from a non-decoded I/O port (odd port with no hardware attached). The method uses `ulaTsToDisplay` (the T-state when the ULA starts fetching display data) to convert CPU T-states into display-relative coordinates. The returned value depends on the current display fetch phase:
 
 - During bitmap fetch: returns the screen bitmap byte
 - During attribute fetch: returns the attribute byte
 - During border/retrace: returns 0xFF
 
-The `floatBusAdjust` parameter (-1 for 48K) fine-tunes the alignment between CPU T-states and the ULA's read cycle. Some software (and copy protection schemes) rely on reading the floating bus to detect the current scanline position.
+Some software (and copy protection schemes) rely on reading the floating bus to detect the current scanline position.
 
 ---
 

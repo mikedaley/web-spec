@@ -29,7 +29,7 @@ public:
 
     uint32_t getCurrentDisplayTs() const { return currentDisplayTs_; }
 
-    uint8_t floatingBus(uint32_t cpuTStates, const uint8_t* memory, int32_t floatBusAdjust) const;
+    uint8_t floatingBus(uint32_t cpuTStates, const uint8_t* memory) const;
 
 private:
     void buildTsTable();
@@ -47,6 +47,8 @@ private:
     uint32_t paperStartLine_ = 0;
     uint32_t borderDrawingOffset_ = 0;
     uint32_t paperDrawingOffset_ = 0;
+    uint32_t ulaTsToDisplay_ = 0;
+    uint32_t tsPerFrame_ = 0;
 
     // Display lookup tables (sized for max machine variant)
     uint32_t tstateTable_[MAX_SCANLINES][MAX_TS_PER_LINE]{};

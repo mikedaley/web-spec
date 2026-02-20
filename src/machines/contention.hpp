@@ -28,7 +28,7 @@ private:
 
     uint32_t tsPerFrame_ = 0;
     uint32_t tsPerScanline_ = 0;
-    uint32_t tsToOrigin_ = 0;
+    uint32_t cpuTsToContention_ = 0;
     bool altContention_ = false;
 
     uint32_t memoryContentionTable_[MAX_TSTATES_PER_FRAME + 1]{};

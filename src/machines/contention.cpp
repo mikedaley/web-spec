@@ -14,7 +14,7 @@ void ULAContention::init(const MachineInfo& info)
 {
     tsPerFrame_ = info.tsPerFrame;
     tsPerScanline_ = info.tsPerLine;
-    tsToOrigin_ = info.tsToOrigin;
+    cpuTsToContention_ = info.ulaTsToDisplay - 1;  // contention starts 1 T-state before ULA fetch
     altContention_ = info.altContention;
     buildContentionTable();
 }
@@ -26,10 +26,10 @@ void ULAContention::buildContentionTable()
         memoryContentionTable_[i] = 0;
         ioContentionTable_[i] = 0;
 
-        if (i >= tsToOrigin_)
+        if (i >= cpuTsToContention_)
         {
-            uint32_t line = (i - tsToOrigin_) / tsPerScanline_;
-            uint32_t ts = (i - tsToOrigin_) % tsPerScanline_;
+            uint32_t line = (i - cpuTsToContention_) / tsPerScanline_;
+            uint32_t ts = (i - cpuTsToContention_) % tsPerScanline_;
 
             if (line < SCREEN_HEIGHT && ts < TS_HORIZONTAL_DISPLAY)
             {
