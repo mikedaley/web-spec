@@ -101,7 +101,11 @@ void ZXSpectrum48::coreMemoryWrite(uint16_t address, uint8_t data)
     int slot = address >> 14;
     if (!pageWrite_[slot]) return;  // ROM protection
 
-    // Trigger display update if writing to screen memory area (skip during tape acceleration)
+    // If the CPU is writing to the screen memory area (bitmap: 0x4000-0x57FF,
+    // attributes: 0x5800-0x5AFF — total 6912 bytes), catch up the display
+    // rendering to the current T-state before the write lands. This ensures
+    // the old pixel data is rendered for all scanlines up to this point, and
+    // the new data only takes effect from here forward.
     if (!tapeAccelerating_)
     {
         uint16_t offset = address & 0x3FFF;
@@ -137,17 +141,26 @@ void ZXSpectrum48::coreDebugWrite(uint16_t address, uint8_t data)
 
 // ============================================================================
 // Memory contention (only slot 1 / 0x4000-0x7FFF is contended on 48K)
+//
+// On the 48K Spectrum, only the 16K RAM bank at 0x4000-0x7FFF shares the bus
+// with the ULA. Accesses to ROM (0x0000-0x3FFF) or upper RAM (0x8000-0xFFFF)
+// are never contended. During tape acceleration, contention is skipped entirely
+// for speed.
 // ============================================================================
 
 void ZXSpectrum48::coreMemoryContention(uint16_t address, uint32_t /*tstates*/)
 {
     if (tapeAccelerating_) return;
+    // Slot 1 (address bits 15:14 == 01) is the contended 16K bank
     if ((address >> 14) == 1)
     {
         z80_->addContentionTStates(contention_.memoryContention(z80_->getTStates()));
     }
 }
 
+// Called for non-MREQ bus cycles (e.g. internal Z80 operations that put an
+// address on the bus without asserting MREQ). If the address is in contended
+// RAM, the ULA still holds the CPU off the bus.
 void ZXSpectrum48::coreNoMreqContention(uint16_t address, uint32_t /*tstates*/)
 {
     if (tapeAccelerating_) return;

@@ -79,7 +79,9 @@ void ZXSpectrum::baseInit()
         this
     );
 
-    // Compute frames per second from timing
+    // Derive the exact frames-per-second from the CPU clock and T-states per frame.
+    // For the 48K: 3,500,000 / 69,888 ≈ 50.08 Hz (not exactly 50 Hz).
+    // For 128K:    3,500,000 / 70,908 ≈ 49.36 Hz.
     double fps = CPU_CLOCK_HZ / static_cast<double>(machineInfo_.tsPerFrame);
 
     audio_.setup(AUDIO_SAMPLE_RATE, fps, machineInfo_.tsPerFrame);
@@ -199,14 +201,18 @@ void ZXSpectrum::runFrame()
         return;
     }
 
-    // Normal speed frame
+    // Normal speed frame — execute one instruction at a time, updating audio
+    // after each instruction to capture beeper bit-banging at full resolution.
+    // Display is updated lazily (by the machine variant's I/O write handler)
+    // only when the border colour or screen memory changes.
     while (z80_->getTStates() < machineInfo_.tsPerFrame && !paused_)
     {
         uint32_t before = z80_->getTStates();
         z80_->execute(1, machineInfo_.intLength);
         int32_t delta = static_cast<int32_t>(z80_->getTStates() - before);
 
-        // Advance tape
+        // Advance tape playback by the elapsed T-states so the EAR bit
+        // reflects the correct pulse level when the CPU reads port 0xFE
         if (tapePulseActive_ && tapePulseIndex_ < tapePulses_.size())
         {
             uint32_t curTs = z80_->getTStates();
@@ -222,13 +228,15 @@ void ZXSpectrum::runFrame()
             audio_.setTapeEarBit(0);
         }
 
+        // Feed the instruction's T-states into the audio accumulator
         audio_.update(delta);
         if (ayEnabled_) ay_.update(delta);
     }
 
     if (paused_) return;
 
-    // Advance tape playback to end of frame before T-state reset
+    // Advance tape playback to the exact end of frame before the T-state
+    // counter is reset, so no tape pulses are lost at the frame boundary
     if (tapePulseActive_ && tapePulseIndex_ < tapePulses_.size())
     {
         uint32_t curTs = z80_->getTStates();
@@ -238,7 +246,15 @@ void ZXSpectrum::runFrame()
     }
 
     if (tapeRecording_) recordAbsoluteTs_ += machineInfo_.tsPerFrame;
+
+    // Reset the T-state counter for the next frame. Any T-states that overshot
+    // the frame boundary (because the last instruction straddled it) are preserved
+    // as a negative offset, so the next frame starts at the correct position.
     z80_->resetTStates(machineInfo_.tsPerFrame);
+
+    // Signal the maskable interrupt, which the ULA generates at the start of
+    // each frame (during vertical blank). The interrupt lasts for intLength
+    // T-states (32 for 48K, 36 for 128K).
     z80_->signalInterrupt();
 
     audio_.frameEnd();
@@ -265,6 +281,9 @@ void ZXSpectrum::runFrame()
         muteFrames_--;
     }
 
+    // Catch up display rendering to the end of the frame. Any scanlines not yet
+    // rendered (because no border/screen writes occurred during them) are drawn
+    // now with the final border colour and current screen memory contents.
     display_.updateWithTs(
         static_cast<int32_t>(machineInfo_.tsPerFrame - display_.getCurrentDisplayTs()),
         getScreenMemory(), borderColor_, frameCounter_);
