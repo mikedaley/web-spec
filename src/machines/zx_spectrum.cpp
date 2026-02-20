@@ -502,6 +502,11 @@ void ZXSpectrum::clearTempBreakpoint()
 // EACH_S_2 (0x1B29): fires before each BASIC statement executes
 static constexpr uint16_t EACH_S_2_ADDR = 0x1B29;
 
+// MAIN_4 (0x1303): ROM entry point reached after every report/error.
+// When a BASIC program ends (0 OK, errors, STOP, BREAK) the ROM always
+// arrives here.  It is NOT reached during scroll?, INPUT, or PAUSE waits.
+static constexpr uint16_t MAIN_4_ADDR = 0x1303;
+
 void ZXSpectrum::setBasicBreakpointStep()
 {
     basicBpMode_ = BasicBpMode::STEP;
@@ -576,6 +581,14 @@ void ZXSpectrum::installOpcodeCallback()
             if (tapeActive_ && handleTapeTrap(address))
             {
                 return true;
+            }
+
+            // Detect BASIC program end: MAIN-4 (0x1303) is reached after
+            // every ROM report (0 OK, errors, STOP, BREAK).  It is NOT
+            // reached during scroll?, INPUT, or PAUSE waits.
+            if (basicProgramActive_ && address == MAIN_4_ADDR) {
+                basicProgramActive_ = false;
+                basicReportFired_ = true;
             }
 
             // Breakpoint handling

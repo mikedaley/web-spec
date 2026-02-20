@@ -199,6 +199,9 @@ if(EMSCRIPTEN)
                 \"_getBasicBreakpointLine\", \
                 \"_clearBasicBreakpointHit\", \
                 \"_hasBasicProgram\", \
+                \"_setBasicProgramActive\", \
+                \"_isBasicReportFired\", \
+                \"_clearBasicReportFired\", \
                 \"_stepOver\", \
                 \"_stepOut\", \
                 \"_hasTempBreakpoint\", \

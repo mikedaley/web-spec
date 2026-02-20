@@ -41,6 +41,7 @@ function getState() {
     tapeRecordBlockCount: wasm._tapeRecordGetBlockCount(),
     ayEnabled: wasm._isAYEnabled(),
     hasBasicProgram: wasm._hasBasicProgram() !== 0,
+    basicReportFired: wasm._isBasicReportFired() !== 0,
   };
 }
 
@@ -524,6 +525,18 @@ self.onmessage = async function (e) {
     case "clearBasicBreakpointMode": {
       if (!wasm) break;
       wasm._clearBasicBreakpointMode();
+      break;
+    }
+
+    case "setBasicProgramActive": {
+      if (!wasm) break;
+      wasm._setBasicProgramActive();
+      break;
+    }
+
+    case "clearBasicReportFired": {
+      if (!wasm) break;
+      wasm._clearBasicReportFired();
       break;
     }
 

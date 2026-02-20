@@ -98,6 +98,12 @@ public:
     void clearBasicBreakpointHit() { basicBpHit_ = false; }
     bool hasBasicProgram() const;
 
+    // Program-end detection: set when the ROM reaches MAIN-4 (0x1303)
+    // after a report is issued.  JS polls and clears this flag.
+    void setBasicProgramActive() { basicProgramActive_ = true; basicReportFired_ = false; }
+    bool isBasicReportFired() const { return basicReportFired_; }
+    void clearBasicReportFired() { basicReportFired_ = false; }
+
     const char* getName() const override { return machineInfo_.machineName; }
     int getId() const override { return static_cast<int>(machineInfo_.machineType); }
 
@@ -253,6 +259,8 @@ protected:
     std::set<uint16_t> basicBreakpointLines_;
     bool basicBpHit_ = false;
     uint16_t basicBpLine_ = 0;
+    bool basicProgramActive_ = false;  // JS told us a program is running
+    bool basicReportFired_ = false;    // ROM reached MAIN-4 (report issued)
 
     // Tape loading support (ROM trap + pulse playback)
     std::vector<TapeBlock> tapeBlocks_;

@@ -68,9 +68,7 @@ export class BasicProgramWindow extends BaseWindow {
     this._variableUpdateInterval = 100; // ms between variable refreshes
     this._pendingHighlight = false;
     this._romReady = false; // true once ROM has finished startup (RAM test etc.)
-    this._programRunning = false; // true when PPC > 0 (BASIC program executing)
-    this._lastChAdd = 0; // CH_ADD value from previous poll
-    this._lastActivityTime = 0; // timestamp when CH_ADD last changed
+    this._programRunning = false; // true when a BASIC program is executing
     this._traceEnabled = true; // highlight current line while running (no pause)
     this._traceLastLine = null; // last line highlighted by trace (avoid redundant DOM updates)
 
@@ -683,11 +681,11 @@ export class BasicProgramWindow extends BaseWindow {
       this._syncBreakpointsToWorker();
     }
 
-    // Mark as running so the toolbar updates immediately and so that
-    // programs finishing before the next poll still trigger the
-    // wasRunning→!running cleanup transition.
+    // Tell C++ to watch for MAIN-4 (0x1303) — the ROM entry point
+    // reached after every report.  This is the definitive "program ended"
+    // signal and works correctly during scroll?, INPUT, and PAUSE.
+    this.proxy.setBasicProgramActive();
     this._programRunning = true;
-    this._resetActivityTracking();
     this._updateToolbarState();
 
     // Type R + ENTER (48K keyword mode generates RUN)
@@ -706,7 +704,7 @@ export class BasicProgramWindow extends BaseWindow {
   async _stepBasicLine() {
     // Break on the next BASIC statement.  _basicStepping will be set
     // when the breakpoint actually fires (in _onBasicPaused).
-    this._resetActivityTracking();
+    this.proxy.setBasicProgramActive();
     this._installBasicBreakpointHandler();
     this.proxy.setBasicBreakpointMode("step", null);
     this._updateToolbarState();
@@ -718,7 +716,9 @@ export class BasicProgramWindow extends BaseWindow {
     this._currentBasicLine = null;
     this._clearHighlight();
     this._updateDebugStatus("");
-    this._resetActivityTracking();
+
+    // Re-arm C++ program-end detection
+    this.proxy.setBasicProgramActive();
 
     if (this._basicBreakpoints.size > 0) {
       // Resume with breakpoints armed — will pause at the next matching line
@@ -770,7 +770,7 @@ export class BasicProgramWindow extends BaseWindow {
     this._basicStepping = true;
     this._programRunning = true;
     this._currentBasicLine = lineNumber;
-    this._resetActivityTracking();
+
     this._updateDebugStatus(`Line ${lineNumber}`);
     this._highlightBasicLine(lineNumber);
     this._updateGutter();
@@ -901,11 +901,6 @@ export class BasicProgramWindow extends BaseWindow {
     return null;
   }
 
-  _resetActivityTracking() {
-    this._lastChAdd = 0;
-    this._lastActivityTime = performance.now();
-  }
-
   _delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -950,59 +945,26 @@ export class BasicProgramWindow extends BaseWindow {
     // Keep toolbar state in sync with emulator state every frame
     this._updateToolbarState();
 
-    // Check ROM readiness (PROG at 0x5C53) and whether a BASIC program
-    // is currently executing.  Read FLAGS, PPC, and PROG in one call.
-    // FLAGS (0x5C3B) bit 7: clear = run mode, set = edit/input mode.
-    // PPC (0x5C45) = current line number (> 0 during execution).
-    // PROG (0x5C53) = program start address (valid once ROM has initialised).
+    // Check ROM readiness and whether a BASIC program report has fired.
+    // Program-end detection is handled in C++: the opcode callback watches
+    // for address 0x1303 (MAIN-4), which the ROM reaches after every report
+    // (0 OK, errors, STOP, BREAK).  This is NOT reached during scroll?,
+    // INPUT, or PAUSE waits — making it a definitive "program ended" signal.
     if (!this._romReadyChecking) {
       this._romReadyChecking = true;
-      // Read from 0x5C3A to 0x5C5E inclusive (37 bytes)
-      proxy.readMemory(0x5C3A, 37).then((data) => {
+      // Read from 0x5C3A to 0x5C54 inclusive (27 bytes)
+      proxy.readMemory(0x5C3A, 27).then((data) => {
         this._romReadyChecking = false;
         const errNr = data[0];                            // 0x5C3A (ERR_NR)
-        const flags = data[1];                            // 0x5C3B (FLAGS)
         const ppc = data[11] | (data[12] << 8);          // 0x5C45-46
         const prog = data[25] | (data[26] << 8);         // 0x5C53-54
-        const chAdd = data[35] | (data[36] << 8);        // 0x5C5D-5E (CH_ADD)
         this._romReady = (prog >= 0x5C00 && prog < 0x8000);
-        // Detect whether a BASIC program is currently executing.
-        // The heuristic (ERR_NR=0xFF, FLAGS bit 7 set, valid PPC)
-        // matches BOTH during execution AND after "0 OK" in the editor,
-        // so it can't distinguish the two on its own.  We also track
-        // CH_ADD (the ROM's character-interpretation pointer): during
-        // execution CH_ADD advances rapidly through the program; after
-        // "0 OK" it stays fixed at the edit-line buffer.  If CH_ADD
-        // hasn't changed in 500ms the program has ended.
-        // _runProgram() sets _programRunning=true explicitly so that
-        // programs completing within one poll cycle still trigger the
-        // wasRunning→!running cleanup transition.
-        const wasRunning = this._programRunning;
-        const looksRunning = (errNr === 0xFF && (flags & 0x80) !== 0 && ppc > 0 && ppc <= 9999);
-        const now = performance.now();
 
-        if (looksRunning) {
-          // Track CH_ADD changes as evidence of active execution
-          if (chAdd !== this._lastChAdd) {
-            this._lastChAdd = chAdd;
-            this._lastActivityTime = now;
-            this._programRunning = true;
-          } else if (this._programRunning && !this._basicStepping && now - this._lastActivityTime > 500) {
-            // CH_ADD hasn't changed in 500ms and we're not paused at a
-            // breakpoint — program has ended
-            this._programRunning = false;
-          }
-        } else if (this._programRunning) {
-          // Heuristic doesn't match but we think we're running —
-          // use the same grace period (the ROM may still be processing
-          // the RUN command before execution begins, or an error just
-          // set ERR_NR).
-          if (errNr !== 0xFF) {
-            // Actual error report — program definitely ended
-            this._programRunning = false;
-          } else if (!this._basicStepping && now - this._lastActivityTime > 500) {
-            this._programRunning = false;
-          }
+        // Check the C++ report-fired flag (set when ROM reaches MAIN-4)
+        const wasRunning = this._programRunning;
+        if (this._programRunning && !this._basicStepping && proxy.isBasicReportFired()) {
+          this._programRunning = false;
+          proxy.clearBasicReportFired();
         }
 
         // Trace mode: highlight current line while running (no pause)

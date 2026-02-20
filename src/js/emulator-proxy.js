@@ -305,6 +305,13 @@ export class EmulatorProxy {
   getBreakpointAddress() { return this.state.breakpointAddr ?? 0; }
   getMachineId() { return this.state.machineId ?? 0; }
   hasBasicProgram() { return this.state.hasBasicProgram ?? false; }
+  isBasicReportFired() { return this.state.basicReportFired ?? false; }
+  setBasicProgramActive() {
+    this.worker.postMessage({ type: "setBasicProgramActive" });
+  }
+  clearBasicReportFired() {
+    this.worker.postMessage({ type: "clearBasicReportFired" });
+  }
   tapeIsPlaying() { return this.state.tapeIsPlaying ?? false; }
   tapeIsLoaded() { return this.state.tapeIsLoaded ?? false; }
   tapeGetBlockCount() { return this.state.tapeBlockCount ?? 0; }

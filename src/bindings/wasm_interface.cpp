@@ -881,6 +881,27 @@ int hasBasicProgram() {
     return spec ? (spec->hasBasicProgram() ? 1 : 0) : 0;
 }
 
+EMSCRIPTEN_KEEPALIVE
+void setBasicProgramActive() {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->setBasicProgramActive();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int isBasicReportFired() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? (spec->isBasicReportFired() ? 1 : 0) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void clearBasicReportFired() {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->clearBasicReportFired();
+}
+
 // ============================================================================
 // Step-Over / Step-Out
 // ============================================================================
