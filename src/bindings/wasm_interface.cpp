@@ -874,6 +874,13 @@ void clearBasicBreakpointHit() {
     if (spec) spec->clearBasicBreakpointHit();
 }
 
+EMSCRIPTEN_KEEPALIVE
+int hasBasicProgram() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? (spec->hasBasicProgram() ? 1 : 0) : 0;
+}
+
 // ============================================================================
 // Step-Over / Step-Out
 // ============================================================================

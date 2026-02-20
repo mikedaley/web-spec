@@ -42,7 +42,7 @@ export class BasicProgramWindow extends BaseWindow {
 
     // BASIC debugging state
     this._basicBreakpoints = new Set();
-    this._basicStepping = false;
+    this._basicStepping = false; // true ONLY when paused at a BASIC breakpoint
     this._currentBasicLine = null;
     this.onRenderFrame = null; // callback to push framebuffer to display
 
@@ -410,26 +410,25 @@ export class BasicProgramWindow extends BaseWindow {
 
   _updateToolbarState() {
     if (!this._actionButtons) return;
-    const paused = this.proxy?.isPaused() ?? false;
-    const stepping = this._basicStepping;
+    const paused = this._basicStepping;     // paused at a BASIC breakpoint
+    const running = this._programRunning;   // program actively executing
+    const active = running || paused;       // program in progress (running or paused)
     const ready = this._romReady;
 
-    // Read/Write: ROM must be ready (past startup) and not in debug/stepping mode
-    const canReadWrite = ready && !stepping;
-    this._setButtonEnabled("read", canReadWrite);
-    this._setButtonEnabled("write", canReadWrite);
+    // Read/Write: ROM must be ready and program not in progress
+    this._setButtonEnabled("read", ready && !active);
+    this._setButtonEnabled("write", ready && !active);
 
-    // Run: ROM must be ready, and not currently stepping/debugging
-    this._setButtonEnabled("run", ready && !stepping);
+    // Run: program must exist in memory and not be in progress
+    const hasProgram = this.proxy?.hasBasicProgram() ?? false;
+    this._setButtonEnabled("run", ready && !active && hasProgram);
 
-    // Step: available when a BASIC program is executing
-    this._setButtonEnabled("step", ready && (stepping || this._programRunning));
+    // Step/Stop: only when a BASIC program is in progress
+    this._setButtonEnabled("step", ready && active);
+    this._setButtonEnabled("stop-debug", ready && active);
 
-    // Continue: available when paused during debugging (resume execution)
-    this._setButtonEnabled("continue", stepping);
-
-    // Stop: available when a BASIC program is executing (sends BREAK)
-    this._setButtonEnabled("stop-debug", ready && (stepping || this._programRunning));
+    // Continue: only when paused at a BASIC breakpoint
+    this._setButtonEnabled("continue", paused);
   }
 
   _setButtonEnabled(action, enabled) {
@@ -613,49 +612,25 @@ export class BasicProgramWindow extends BaseWindow {
   }
 
   async _runProgram() {
-    // If paused mid-execution (e.g. at a BASIC breakpoint), we must return
-    // to the command prompt before writing a new program.  Writing to the
-    // PROG area while the ROM is mid-execution corrupts its internal state
-    // (NXTLIN, CH_ADD, stack) and causes a crash/reset.
+    // If paused at a breakpoint, stop first so the ROM returns to the
+    // command prompt before we type RUN.
     if (this._basicStepping || this.proxy.isPaused()) {
-      this.proxy.clearBasicBreakpointMode();
-      if (this.proxy.isPaused()) {
-        this.proxy.resume();
-      }
-      // Send BREAK (CAPS SHIFT + SPACE) to stop the running program
-      this.proxy.keyDown(0, 0);
-      this.proxy.keyDown(7, 0);
-      await this._delay(150);
-      this.proxy.keyUp(0, 0);
-      this.proxy.keyUp(7, 0);
-      // Wait for the ROM to process BREAK and return to the command prompt
-      await this._delay(200);
-      this._basicStepping = false;
-      this._currentBasicLine = null;
-      this._clearHighlight();
-      this._updateDebugStatus("");
-      this._updateGutter();
+      await this._stopDebugging();
+      await this._delay(300);
     }
 
-    await this._writeToMemory();
-
-    // On the 48K, pressing R in keyword mode generates RUN automatically.
-    // So we just need R + ENTER.
-    const keys = [
-      [2, 3], // R (produces RUN in 48K keyword mode)
-      [6, 0], // ENTER
-    ];
-
-    // Breakpoints are already active in the worker (synced on toggle).
-    // If breakpoints exist, mark that we're in stepping/debug mode.
+    // Arm breakpoints if any exist (they'll fire once the program starts)
     if (this._basicBreakpoints.size > 0) {
-      this._basicStepping = true;
-      this._updateDebugStatus("Running...");
       this._syncBreakpointsToWorker();
     }
 
     this._updateToolbarState();
 
+    // Type R + ENTER (48K keyword mode generates RUN)
+    const keys = [
+      [2, 3], // R
+      [6, 0], // ENTER
+    ];
     for (const [row, bit] of keys) {
       this.proxy.keyDown(row, bit);
       await this._delay(50);
@@ -665,29 +640,26 @@ export class BasicProgramWindow extends BaseWindow {
   }
 
   async _stepBasicLine() {
-    // Always break on the next BASIC statement — whether a program is
-    // already running, we're mid-step, or nothing is happening yet.
-    this._basicStepping = true;
-    this._updateDebugStatus("Stepping...");
+    // Break on the next BASIC statement.  _basicStepping will be set
+    // when the breakpoint actually fires (in _onBasicPaused).
     this._installBasicBreakpointHandler();
     this.proxy.setBasicBreakpointMode("step", null);
     this._updateToolbarState();
   }
 
   _continueToBreakpoint() {
+    // We're resuming — no longer paused at a breakpoint
+    this._basicStepping = false;
     this._currentBasicLine = null;
     this._clearHighlight();
+    this._updateDebugStatus("");
 
     if (this._basicBreakpoints.size > 0) {
       // Resume with breakpoints armed — will pause at the next matching line
-      this._basicStepping = true;
-      this._updateDebugStatus("Running...");
       this._installBasicBreakpointHandler();
       this.proxy.setBasicBreakpointMode("run", this._basicBreakpoints);
     } else {
       // No breakpoints — just resume freely
-      this._basicStepping = false;
-      this._updateDebugStatus("");
       this.proxy.clearBasicBreakpointMode();
       this.proxy.resume();
     }
@@ -859,8 +831,8 @@ export class BasicProgramWindow extends BaseWindow {
     this._updateToolbarState();
 
     // Check ROM readiness (PROG at 0x5C53) and whether a BASIC program
-    // is currently executing.  Read ERR_NR, PPC, and PROG in one call.
-    // ERR_NR (0x5C3A) = 0xFF while running; changes on error/OK/BREAK.
+    // is currently executing.  Read FLAGS, PPC, and PROG in one call.
+    // FLAGS (0x5C3B) bit 7: clear = run mode, set = edit/input mode.
     // PPC (0x5C45) = current line number (> 0 during execution).
     // PROG (0x5C53) = program start address (valid once ROM has initialised).
     if (!this._romReadyChecking) {
@@ -868,13 +840,21 @@ export class BasicProgramWindow extends BaseWindow {
       // Read from 0x5C3A to 0x5C54 inclusive (27 bytes)
       proxy.readMemory(0x5C3A, 27).then((data) => {
         this._romReadyChecking = false;
-        const errNr = data[0];                            // 0x5C3A
+        const errNr = data[0];                            // 0x5C3A (ERR_NR)
+        const flags = data[1];                            // 0x5C3B (FLAGS)
         const ppc = data[11] | (data[12] << 8);          // 0x5C45-46
         const prog = data[25] | (data[26] << 8);         // 0x5C53-54
         this._romReady = (prog >= 0x5C00 && prog < 0x8000);
-        // Program is running when ERR_NR is 0xFF (no error/report yet)
-        // AND PPC holds a valid line number
-        this._programRunning = (errNr === 0xFF && ppc > 0 && ppc <= 9999);
+        // Program is running when ALL of:
+        //   - ERR_NR is 0xFF (no error/report has fired yet)
+        //   - FLAGS bit 7 is SET (execution mode, not editing)
+        //   - PPC holds a valid BASIC line number
+        // ERR_NR alone is insufficient (0xFF = both "running" and "0 OK").
+        // FLAGS bit 7 alone is insufficient (stays set briefly after errors).
+        // Together they reliably detect execution.
+        const wasRunning = this._programRunning;
+        this._programRunning = (errNr === 0xFF && (flags & 0x80) !== 0 && ppc > 0 && ppc <= 9999);
+
         // Trace mode: highlight current line while running (no pause)
         if (this._traceEnabled && this._programRunning && !this._basicStepping) {
           if (ppc !== this._traceLastLine) {
@@ -884,21 +864,18 @@ export class BasicProgramWindow extends BaseWindow {
             this._updateGutter();
           }
         }
-        // Program ended naturally — clear debug state
-        if (!this._programRunning && this._basicStepping) {
+
+        // Program just ended — clean up debug/trace state
+        if (wasRunning && !this._programRunning) {
           this._basicStepping = false;
           this._currentBasicLine = null;
           this._clearHighlight();
           this._updateDebugStatus("");
           this._updateGutter();
           this.proxy.clearBasicBreakpointMode();
-        }
-        // Program ended — clear trace highlight
-        if (!this._programRunning && this._traceLastLine !== null) {
-          this._traceLastLine = null;
-          this._currentBasicLine = null;
-          this._clearHighlight();
-          this._updateGutter();
+          if (this._traceLastLine !== null) {
+            this._traceLastLine = null;
+          }
         }
       }).catch(() => { this._romReadyChecking = false; });
     }

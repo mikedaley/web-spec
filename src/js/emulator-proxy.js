@@ -304,6 +304,7 @@ export class EmulatorProxy {
   isBreakpointHit() { return this.state.breakpointHit ?? false; }
   getBreakpointAddress() { return this.state.breakpointAddr ?? 0; }
   getMachineId() { return this.state.machineId ?? 0; }
+  hasBasicProgram() { return this.state.hasBasicProgram ?? false; }
   tapeIsPlaying() { return this.state.tapeIsPlaying ?? false; }
   tapeIsLoaded() { return this.state.tapeIsLoaded ?? false; }
   tapeGetBlockCount() { return this.state.tapeBlockCount ?? 0; }

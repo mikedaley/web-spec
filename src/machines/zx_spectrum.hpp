@@ -96,6 +96,7 @@ public:
     bool isBasicBreakpointHit() const { return basicBpHit_; }
     uint16_t getBasicBreakpointLine() const { return basicBpLine_; }
     void clearBasicBreakpointHit() { basicBpHit_ = false; }
+    bool hasBasicProgram() const;
 
     const char* getName() const override { return machineInfo_.machineName; }
     int getId() const override { return static_cast<int>(machineInfo_.machineType); }

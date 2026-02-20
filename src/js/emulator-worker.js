@@ -40,6 +40,7 @@ function getState() {
     tapeIsRecording: wasm._tapeIsRecording(),
     tapeRecordBlockCount: wasm._tapeRecordGetBlockCount(),
     ayEnabled: wasm._isAYEnabled(),
+    hasBasicProgram: wasm._hasBasicProgram() !== 0,
   };
 }
 

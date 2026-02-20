@@ -558,6 +558,16 @@ void ZXSpectrum::clearBasicBreakpointMode()
     removeBreakpoint(EACH_S_2_ADDR);
 }
 
+bool ZXSpectrum::hasBasicProgram() const
+{
+    // PROG (0x5C53) points to the start of the BASIC program area.
+    // If the first byte there is 0x80 (end-of-variables marker),
+    // there is no program loaded.
+    uint16_t prog = readMemory(basic::sys::PROG) |
+                    (static_cast<uint16_t>(readMemory(basic::sys::PROG + 1)) << 8);
+    return readMemory(prog) != 0x80;
+}
+
 void ZXSpectrum::installOpcodeCallback()
 {
     z80_->registerOpcodeCallback(
@@ -603,12 +613,9 @@ void ZXSpectrum::installOpcodeCallback()
                             renderDisplay();
                             return true;
                         } else {
-                            // Not our target line - step past and re-arm
-                            removeBreakpoint(EACH_S_2_ADDR);
-                            breakpointHit_ = false;
-                            paused_ = false;
-                            z80_->execute(1, machineInfo_.intLength);
-                            addBreakpoint(EACH_S_2_ADDR);
+                            // Not our target line — let the instruction execute
+                            // normally.  The breakpoint stays armed and will fire
+                            // again for the next BASIC statement.
                             return false;
                         }
                     }

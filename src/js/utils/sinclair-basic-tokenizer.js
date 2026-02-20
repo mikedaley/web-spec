@@ -27,11 +27,6 @@ export class SinclairBasicTokenizer {
    * @param {Uint8Array} programBytes
    */
   async writeTo(proxy, programBytes) {
-    proxy.pause();
-    try {
-      await proxy.basicWriteProgram(programBytes);
-    } finally {
-      proxy.resume();
-    }
+    await proxy.basicWriteProgram(programBytes);
   }
 }
