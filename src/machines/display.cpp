@@ -205,10 +205,16 @@ uint8_t Display::floatingBus(uint32_t cpuTs, const uint8_t* memory) const
 
     cpuTs %= tsPerFrame_;
 
-    if (cpuTs < ulaTsToDisplay_)
+    // The CPU reads the floating bus value 1 T-state before the ULA latches it,
+    // so we offset by -1 (matching the original floatBusAdjust = -1 for 48K).
+    if (cpuTs == 0)
+        return 0xFF;
+    uint32_t adjustedTs = cpuTs - 1;
+
+    if (adjustedTs < ulaTsToDisplay_)
         return 0xFF;
 
-    uint32_t elapsed = cpuTs - ulaTsToDisplay_;
+    uint32_t elapsed = adjustedTs - ulaTsToDisplay_;
     uint32_t line = elapsed / tsPerScanline_;
     uint32_t ts = elapsed % tsPerScanline_;
 
