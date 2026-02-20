@@ -13,6 +13,38 @@ import { highlightLine } from "../utils/sinclair-basic-highlighting.js";
 import { KEYWORDS_BY_LENGTH } from "../utils/sinclair-basic-tokens.js";
 import { BasicVariableInspector } from "./basic-variable-inspector.js";
 
+// ERR_NR (0x5C3A) stores the report code MINUS 1.
+// Report codes: 0=OK, 1..9 use digits, 10+ use letters A..R.
+// We exclude 0xFF (report 0 = OK) and 0x08 (report 9 = STOP statement).
+const SPECTRUM_ERRORS = {
+  0x00: ["1", "NEXT without FOR"],
+  0x01: ["2", "Variable not found"],
+  0x02: ["3", "Subscript wrong"],
+  0x03: ["4", "Out of memory"],
+  0x04: ["5", "Out of screen"],
+  0x05: ["6", "Number too big"],
+  0x06: ["7", "RETURN without GOSUB"],
+  0x07: ["8", "End of file"],
+  0x09: ["A", "Invalid argument"],
+  0x0A: ["B", "Integer out of range"],
+  0x0B: ["C", "Nonsense in BASIC"],
+  0x0C: ["D", "BREAK - CONT repeats"],
+  0x0D: ["E", "Out of DATA"],
+  0x0E: ["F", "Invalid file name"],
+  0x0F: ["G", "No room for line"],
+  0x10: ["H", "STOP in INPUT"],
+  0x11: ["I", "FOR without NEXT"],
+  0x12: ["J", "Invalid I/O device"],
+  0x13: ["K", "Invalid colour"],
+  0x14: ["L", "BREAK into program"],
+  0x15: ["M", "RAMTOP no good"],
+  0x16: ["N", "Statement lost"],
+  0x17: ["O", "Invalid stream"],
+  0x18: ["P", "FN without DEF"],
+  0x19: ["Q", "Parameter error"],
+  0x1A: ["R", "Tape loading error"],
+};
+
 export class BasicProgramWindow extends BaseWindow {
   constructor(proxy) {
     super({
@@ -37,8 +69,13 @@ export class BasicProgramWindow extends BaseWindow {
     this._pendingHighlight = false;
     this._romReady = false; // true once ROM has finished startup (RAM test etc.)
     this._programRunning = false; // true when PPC > 0 (BASIC program executing)
-    this._traceEnabled = false; // highlight current line while running (no pause)
+    this._traceEnabled = true; // highlight current line while running (no pause)
     this._traceLastLine = null; // last line highlighted by trace (avoid redundant DOM updates)
+
+    // Error overlay state
+    this._errorLineNumber = null;
+    this._errorMessage = null;
+    this._errorLineContent = null;
 
     // BASIC debugging state
     this._basicBreakpoints = new Set();
@@ -204,6 +241,7 @@ export class BasicProgramWindow extends BaseWindow {
   }
 
   _onInput() {
+    this._trackErrorLine();
     this._updateHighlight();
     this._updateGutter();
     this._updateStatus();
@@ -358,7 +396,17 @@ export class BasicProgramWindow extends BaseWindow {
   _updateHighlight() {
     const text = this._textarea.value;
     const lines = text.split("\n");
-    const highlighted = lines.map((line) => highlightLine(line)).join("\n");
+    const highlighted = lines.map((line) => {
+      let html = highlightLine(line);
+      if (this._errorLineNumber !== null) {
+        const match = line.trim().match(/^(\d+)\s/);
+        if (match && parseInt(match[1], 10) === this._errorLineNumber) {
+          const escapedMsg = this._errorMessage.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          html = `<span class="bas-error-line">${html}<span class="bas-error-msg">${escapedMsg}</span></span>`;
+        }
+      }
+      return html;
+    }).join("\n");
     this._highlight.innerHTML = highlighted;
   }
 
@@ -372,11 +420,13 @@ export class BasicProgramWindow extends BaseWindow {
       const basicLineNum = match ? parseInt(match[1], 10) : null;
       const hasBp = basicLineNum !== null && this._basicBreakpoints.has(basicLineNum);
       const isCurrentLine = basicLineNum !== null && basicLineNum === this._currentBasicLine;
+      const isError = basicLineNum !== null && basicLineNum === this._errorLineNumber;
       let cls = "bas-gutter-line";
       if (hasBp) cls += " breakpoint";
       if (isCurrentLine) cls += " current-line";
+      if (isError) cls += " has-error";
       const dataAttr = basicLineNum !== null ? ` data-basic-line="${basicLineNum}"` : "";
-      html += `<div class="${cls}"${dataAttr}>${i + 1}</div>`;
+      html += `<div class="${cls}"${dataAttr}></div>`;
     }
     this._gutter.innerHTML = html;
 
@@ -619,6 +669,11 @@ export class BasicProgramWindow extends BaseWindow {
       await this._delay(300);
     }
 
+    // Clear any previous error highlighting
+    this._clearError();
+    this._updateHighlight();
+    this._updateGutter();
+
     // Arm breakpoints if any exist (they'll fire once the program starts)
     if (this._basicBreakpoints.size > 0) {
       this._syncBreakpointsToWorker();
@@ -786,6 +841,53 @@ export class BasicProgramWindow extends BaseWindow {
     }
   }
 
+  _setError(lineNumber, errNr) {
+    const [reportCode, message] = SPECTRUM_ERRORS[errNr];
+    this._errorLineNumber = lineNumber;
+    this._errorMessage = `${reportCode} ${message}`;
+    this._errorLineContent = this._getLineContent(lineNumber);
+  }
+
+  _clearError() {
+    this._errorLineNumber = null;
+    this._errorMessage = null;
+    this._errorLineContent = null;
+  }
+
+  _trackErrorLine() {
+    if (this._errorLineNumber === null) return;
+
+    const currentContent = this._getLineContent(this._errorLineNumber);
+
+    if (currentContent !== null && currentContent === this._errorLineContent) {
+      return; // Line still exists with same content — keep error
+    }
+
+    // Check if line was renumbered (same content, different number)
+    const lines = this._textarea.value.split("\n");
+    for (const line of lines) {
+      const match = line.trim().match(/^(\d+)\s+(.*)/);
+      if (match && match[2] === this._errorLineContent) {
+        this._errorLineNumber = parseInt(match[1], 10);
+        return;
+      }
+    }
+
+    // Line content changed or removed — clear error
+    this._clearError();
+  }
+
+  _getLineContent(lineNumber) {
+    const lines = this._textarea.value.split("\n");
+    for (const line of lines) {
+      const match = line.trim().match(/^(\d+)\s+(.*)/);
+      if (match && parseInt(match[1], 10) === lineNumber) {
+        return match[2];
+      }
+    }
+    return null;
+  }
+
   _delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -871,11 +973,20 @@ export class BasicProgramWindow extends BaseWindow {
           this._currentBasicLine = null;
           this._clearHighlight();
           this._updateDebugStatus("");
-          this._updateGutter();
           this.proxy.clearBasicBreakpointMode();
           if (this._traceLastLine !== null) {
             this._traceLastLine = null;
           }
+
+          // Check for runtime errors (ignore L BREAK into program — normal stop)
+          if (errNr !== 0xFF && errNr !== 0x14 && SPECTRUM_ERRORS[errNr] !== undefined) {
+            this._setError(ppc, errNr);
+          } else {
+            this._clearError();
+          }
+
+          this._updateHighlight();
+          this._updateGutter();
         }
       }).catch(() => { this._romReadyChecking = false; });
     }
@@ -905,6 +1016,9 @@ export class BasicProgramWindow extends BaseWindow {
     state.sidebarWidth = this._sidebarWidth;
     state.basicBreakpoints = [...this._basicBreakpoints];
     state.traceEnabled = this._traceEnabled;
+    state.errorLineNumber = this._errorLineNumber;
+    state.errorMessage = this._errorMessage;
+    state.errorLineContent = this._errorLineContent;
     return state;
   }
 
@@ -921,6 +1035,11 @@ export class BasicProgramWindow extends BaseWindow {
     if (state.traceEnabled !== undefined) {
       this._traceEnabled = state.traceEnabled;
     }
+    if (state.errorLineNumber !== undefined) {
+      this._errorLineNumber = state.errorLineNumber;
+      this._errorMessage = state.errorMessage;
+      this._errorLineContent = state.errorLineContent;
+    }
     super.restoreState(state);
 
     // Apply sidebar state after DOM exists
@@ -934,6 +1053,9 @@ export class BasicProgramWindow extends BaseWindow {
       }
       this._sidebar.style.width = `${this._sidebarWidth}px`;
     }
+
+    // Redraw gutter so restored breakpoints are visible
+    this._updateGutter();
   }
 
   destroy() {
