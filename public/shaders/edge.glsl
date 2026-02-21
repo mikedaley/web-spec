@@ -15,12 +15,17 @@ varying vec2 v_texCoord;
 
 // Screen curvature (must match crt.glsl)
 vec2 curveUV(vec2 uv) {
-    if (u_curvatureX < 0.001 && u_curvatureY < 0.001) return uv;
+    float maxCurve = max(u_curvatureX, u_curvatureY);
+    if (maxCurve < 0.001) return uv;
 
     vec2 cc = uv - 0.5;
     float dist = dot(cc, cc);
-    vec2 distortion = dist * vec2(u_curvatureX, u_curvatureY) * 0.5;
-    return uv + cc * distortion;
+
+    vec2 barrelDisp = cc * dist * vec2(u_curvatureX, u_curvatureY) * 0.5;
+    vec2 deficit = vec2(maxCurve - u_curvatureX, maxCurve - u_curvatureY);
+    vec2 linearInset = cc * deficit * 0.125;
+
+    return uv + barrelDisp + linearInset;
 }
 
 // Rounded rectangle alpha (must match crt.glsl)

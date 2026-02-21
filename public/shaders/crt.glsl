@@ -87,12 +87,21 @@ vec2 applyOverscan(vec2 uv) {
 // ============================================
 
 vec2 curveUV(vec2 uv) {
-    if (u_curvatureX < 0.001 && u_curvatureY < 0.001) return uv;
+    float maxCurve = max(u_curvatureX, u_curvatureY);
+    if (maxCurve < 0.001) return uv;
 
     vec2 cc = uv - 0.5;
     float dist = dot(cc, cc);
-    vec2 distortion = dist * vec2(u_curvatureX, u_curvatureY) * 0.5;
-    return uv + cc * distortion;
+
+    // Per-axis barrel distortion
+    vec2 barrelDisp = cc * dist * vec2(u_curvatureX, u_curvatureY) * 0.5;
+
+    // Linear inset compensates for the less-curved axis so that
+    // border width at all four edge midpoints is equal
+    vec2 deficit = vec2(maxCurve - u_curvatureX, maxCurve - u_curvatureY);
+    vec2 linearInset = cc * deficit * 0.125;
+
+    return uv + barrelDisp + linearInset;
 }
 
 // ============================================
@@ -448,7 +457,10 @@ vec3 bezelShade(vec2 uv, vec2 curvedUV) {
 
     // Spill reach and intensity controlled by uniforms (0-1 range from sliders)
     float reach = u_bezelSpillReach * 0.1;
-    float spillStrength = smoothstep(reach, 0.0, distFromScreen) * spillLuma * u_bezelSpillIntensity;
+    // Outer bezel rim is perpendicular to the screen and receives no light
+    float outerRimMask = smoothstep(0.0, 0.04, min(edgeDist.x, edgeDist.y));
+
+    float spillStrength = smoothstep(reach, 0.0, distFromScreen) * spillLuma * u_bezelSpillIntensity * outerRimMask;
     bezel += spill * spillStrength;
 
     return clamp(bezel, 0.0, 1.0);
