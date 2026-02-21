@@ -46,10 +46,11 @@ Defined in `src/machines/machine_info.hpp`:
 |---|---|---|
 | Screen width | 256 pixels | Active display area |
 | Screen height | 192 pixels | Active display area |
-| Border (all sides) | 32 pixels | Emulated border width |
-| Total width | 320 pixels | 32 + 256 + 32 |
-| Total height | 256 pixels | 32 + 192 + 32 |
-| Framebuffer size | 327,680 bytes | 320 x 256 x 4 (RGBA) |
+| Border (horizontal) | 48 pixels | Emulated border width (each side) |
+| Border (vertical) | 56 pixels | Emulated border height (top and bottom) |
+| Total width | 352 pixels | 48 + 256 + 48 |
+| Total height | 304 pixels | 56 + 192 + 56 |
+| Framebuffer size | 428,032 bytes | 352 x 304 x 4 (RGBA) |
 
 ### Display Timing
 
@@ -73,10 +74,9 @@ A single 48K frame spans 312 scanlines at 224 T-states each, totalling 69,888 T-
 Scanline    T-states         Region
 ────────    ────────         ──────
   0-7       0-1,791          Vertical blank (8 lines)
-  8-39      1,792-8,959      Top border (32 lines)
- 40-231     8,960-51,967     Active display (192 lines)
-232-263     51,968-59,135    Bottom border (32 lines)
-264-311     59,136-69,887    Lower border / retrace (48 lines)
+  8-63      1,792-14,335     Top border (56 lines)
+ 64-255     14,336-57,343    Active display (192 lines)
+256-311     57,344-69,887    Bottom border (56 lines)
 ```
 
 The **`ulaTsToDisplay`** value (14,336 for the 48K) marks the exact T-state at which the ULA begins fetching display data for the first pixel of the active display area (line 40, column 0). Everything before this is either vblank or top border. Contention starts one T-state earlier (`cpuTsToContention` = `ulaTsToDisplay - 1` = 14,335), because the CPU is held before the ULA's fetch cycle begins.
@@ -88,13 +88,13 @@ Each scanline breaks down as follows:
 ```
 T-state     Pixels     Region
 ────────    ──────     ──────
-  0-15      0-31       Left border (32 pixels)
- 16-143     32-287     Active display (256 pixels = 32 characters × 4 T-states)
-144-175     288-319    Right border (32 pixels)
+  0-23      0-47       Left border (48 pixels)
+ 24-151     48-303     Active display (256 pixels = 32 characters × 4 T-states)
+152-175     304-351    Right border (48 pixels)
 176-223     ---        Horizontal retrace (not visible)
 ```
 
-The display area occupies exactly 128 T-states (16 to 143 within the scanline), rendering 32 character cells at 4 T-states per character (8 pixels per character).
+The display area occupies exactly 128 T-states (24 to 151 within the scanline), rendering 32 character cells at 4 T-states per character (8 pixels per character).
 
 ---
 
@@ -890,4 +890,4 @@ The `MachineInfo` struct parameterizes timing for all machine variants. Key diff
 
 The 128K machines have 4 extra T-states per scanline (228 vs 224), resulting in 1,020 more T-states per frame. Their interrupt window is slightly longer (36 vs 32 T-states). The +2A uses an alternative contention pattern (`altContention = true`).
 
-All machines share the same active display dimensions (256x192), border size (32 pixels), and audio sample rate (48kHz). The timing differences are parameterized through `MachineInfo` so the same code handles all variants.
+All machines share the same active display dimensions (256x192), border sizes (48 pixels horizontal, 56 pixels vertical), and audio sample rate (48kHz). The timing differences are parameterized through `MachineInfo` so the same code handles all variants.

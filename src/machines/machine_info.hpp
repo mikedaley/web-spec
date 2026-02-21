@@ -92,10 +92,10 @@ struct MachineInfo {
 //
 //    int tsPF   ulaTD  tsLn tsTB   tsVB  tsVD   tsHD tsC pVB pVBl pHD  pVD  pHT  pVT  pEB  AY     Pg     bDO pDO romSz   ramSz  altC  name                        type
 static const MachineInfo machines[] = {
-    { 32, 69888, 14335, 224, 12544, 1792, 43008, 128, 4, 56, 8, 256, 192, 448, 312, 32,  true, true, 10, 16, 16384,  65536, false, "ZX Spectrum 48K",      eZXSpectrum48 },
-    { 36, 70908, 14362, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 12, 16, 32768, 131072, false, "ZX Spectrum 128K",     eZXSpectrum128 },
-    { 36, 70908, 14362, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 12, 16, 32768, 131072, false, "ZX Spectrum 128K +2",  eZXSpectrum128_2 },
-    { 32, 70908, 14365, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 12, 16, 65536, 131072,  true, "ZX Spectrum 128K +2A", eZXSpectrum128_2A },
+    { 32, 69888, 14335, 224, 12544, 1792, 43008, 128, 4, 56, 8, 256, 192, 448, 312, 32,  true, true, 18, 24, 16384,  65536, false, "ZX Spectrum 48K",      eZXSpectrum48 },
+    { 36, 70908, 14362, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 20, 24, 32768, 131072, false, "ZX Spectrum 128K",     eZXSpectrum128 },
+    { 36, 70908, 14362, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 20, 24, 32768, 131072, false, "ZX Spectrum 128K +2",  eZXSpectrum128_2 },
+    { 32, 70908, 14365, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 20, 24, 65536, 131072,  true, "ZX Spectrum 128K +2A", eZXSpectrum128_2A },
 };
 
 // Maximum sizes for shared arrays (accommodate all machine variants)
@@ -106,12 +106,12 @@ constexpr uint32_t MAX_TSTATES_PER_FRAME = 71000;
 // Display constants (same for all machines)
 constexpr uint32_t SCREEN_WIDTH         = 256;
 constexpr uint32_t SCREEN_HEIGHT        = 192;
-constexpr uint32_t BORDER_TOP           = 32;
-constexpr uint32_t BORDER_BOTTOM        = 32;
-constexpr uint32_t BORDER_LEFT          = 32;
-constexpr uint32_t BORDER_RIGHT         = 32;
-constexpr uint32_t TOTAL_WIDTH          = BORDER_LEFT + SCREEN_WIDTH + BORDER_RIGHT;   // 320
-constexpr uint32_t TOTAL_HEIGHT         = BORDER_TOP + SCREEN_HEIGHT + BORDER_BOTTOM;  // 256
+constexpr uint32_t BORDER_TOP           = 56;
+constexpr uint32_t BORDER_BOTTOM        = 56;
+constexpr uint32_t BORDER_LEFT          = 48;
+constexpr uint32_t BORDER_RIGHT         = 48;
+constexpr uint32_t TOTAL_WIDTH          = BORDER_LEFT + SCREEN_WIDTH + BORDER_RIGHT;   // 352
+constexpr uint32_t TOTAL_HEIGHT         = BORDER_TOP + SCREEN_HEIGHT + BORDER_BOTTOM;  // 304
 constexpr uint32_t FRAMEBUFFER_SIZE     = TOTAL_WIDTH * TOTAL_HEIGHT * 4;
 
 // Audio constants
@@ -130,9 +130,9 @@ constexpr uint32_t DISPLAY_PAPER        = 2;
 constexpr uint32_t TS_HORIZONTAL_DISPLAY = 128;    // T-states for the 256-pixel paper width (2 pixels per T-state)
 constexpr uint32_t TSTATES_PER_CHAR     = 4;       // T-states per 8-pixel character cell (the ULA fetches 1 bitmap
                                                     // byte + 1 attribute byte every 4 T-states)
-constexpr uint32_t PX_EMU_BORDER_H      = 32;      // Emulated horizontal border width (pixels, each side)
-constexpr uint32_t PX_EMU_BORDER_TOP    = 32;       // Emulated top border height (scanlines)
-constexpr uint32_t PX_EMU_BORDER_BOTTOM = 32;       // Emulated bottom border height (scanlines)
+constexpr uint32_t PX_EMU_BORDER_H      = 48;      // Emulated horizontal border width (pixels, each side)
+constexpr uint32_t PX_EMU_BORDER_TOP    = 56;       // Emulated top border height (scanlines)
+constexpr uint32_t PX_EMU_BORDER_BOTTOM = 56;       // Emulated bottom border height (scanlines)
 
 // ULA contention delay values indexed by (tstate % 8).
 //

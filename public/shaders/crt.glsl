@@ -72,9 +72,9 @@ float rgb2grey(vec3 v) {
 vec2 applyOverscan(vec2 uv) {
     if (u_overscan > 0.999) return uv;
 
-    // ZX Spectrum: 256x192 display centered in 320x256 framebuffer
-    // Border is 32px on each side
-    const vec2 borderUV = vec2(32.0 / 320.0, 32.0 / 256.0);
+    // ZX Spectrum: 256x192 display centered in 352x304 framebuffer
+    // Border is 48px horizontal (each side) and 56px vertical (top/bottom)
+    const vec2 borderUV = vec2(48.0 / 352.0, 56.0 / 304.0);
 
     // u_overscan 1.0 = full border, 0.0 = no border (display area only)
     vec2 margin = borderUV * (1.0 - u_overscan);

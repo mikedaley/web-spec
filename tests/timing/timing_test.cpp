@@ -92,16 +92,16 @@ static void test_display_constants()
     TEST_BEGIN("Display constants - screen dimensions");
         EXPECT_EQ(SCREEN_WIDTH, 256u);
         EXPECT_EQ(SCREEN_HEIGHT, 192u);
-        EXPECT_EQ(TOTAL_WIDTH, 320u);
-        EXPECT_EQ(TOTAL_HEIGHT, 256u);
-        EXPECT_EQ(BORDER_TOP, 32u);
-        EXPECT_EQ(BORDER_BOTTOM, 32u);
-        EXPECT_EQ(BORDER_LEFT, 32u);
-        EXPECT_EQ(BORDER_RIGHT, 32u);
+        EXPECT_EQ(TOTAL_WIDTH, 352u);
+        EXPECT_EQ(TOTAL_HEIGHT, 304u);
+        EXPECT_EQ(BORDER_TOP, 56u);
+        EXPECT_EQ(BORDER_BOTTOM, 56u);
+        EXPECT_EQ(BORDER_LEFT, 48u);
+        EXPECT_EQ(BORDER_RIGHT, 48u);
     TEST_END();
 
     TEST_BEGIN("Display constants - framebuffer size");
-        EXPECT_EQ(FRAMEBUFFER_SIZE, 320u * 256u * 4u);
+        EXPECT_EQ(FRAMEBUFFER_SIZE, 352u * 304u * 4u);
     TEST_END();
 
     TEST_BEGIN("Display constants - timing invariants");
