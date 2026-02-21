@@ -134,6 +134,7 @@ if(EMSCRIPTEN)
                 \"_getAudioBuffer\", \
                 \"_getAudioSampleCount\", \
                 \"_resetAudioBuffer\", \
+                \"_detectSnapshotMachine\", \
                 \"_loadSNA\", \
                 \"_loadZ80\", \
                 \"_loadTZX\", \

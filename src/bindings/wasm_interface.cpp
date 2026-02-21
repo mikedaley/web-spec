@@ -403,6 +403,47 @@ uint8_t getKeyboardRow(int row) {
 // ============================================================================
 
 EMSCRIPTEN_KEEPALIVE
+int detectSnapshotMachine(const uint8_t* data, int size, const char* format) {
+  if (!data || size < 1 || !format) return -1;
+
+  if (format[0] == 's') {
+    // SNA: 49179 bytes = 48K, 131103 bytes = 128K
+    if (size == 49179) return 0;
+    if (size == 131103) return 1;
+    return -1;
+  }
+
+  if (format[0] == 'z') {
+    // Z80: detect version then hardware type
+    if (size < 30) return -1;
+
+    uint16_t pcFromHeader = data[6] | (data[7] << 8);
+    if (pcFromHeader != 0) {
+      // v1 is always 48K
+      return 0;
+    }
+
+    if (size < 35) return -1;
+    uint16_t additionalHeaderLength = data[30] | (data[31] << 8);
+    uint8_t hardwareType = data[34];
+
+    if (additionalHeaderLength == 23) {
+      // v2
+      if (hardwareType == 0 || hardwareType == 1) return 0; // 48K
+      if (hardwareType == 3 || hardwareType == 4) return 1; // 128K
+    } else if (additionalHeaderLength == 54 || additionalHeaderLength == 55) {
+      // v3
+      if (hardwareType == 0 || hardwareType == 1 || hardwareType == 3) return 0; // 48K
+      if (hardwareType >= 4 && hardwareType <= 8) return 1; // 128K variants
+      if (hardwareType == 12 || hardwareType == 13) return 1; // +2, +2A
+    }
+    return -1;
+  }
+
+  return -1;
+}
+
+EMSCRIPTEN_KEEPALIVE
 void loadSNA(const uint8_t* data, int size) {
   REQUIRE_MACHINE();
   g_machine->loadSNA(data, static_cast<uint32_t>(size));

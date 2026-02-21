@@ -802,6 +802,13 @@ class ZXSpectrumEmulator {
       });
     });
 
+    // Handle automatic machine switch when loading snapshots
+    this.proxy.onMachineSwitched = (machineId) => {
+      localStorage.setItem("zxspec-machine-id", String(machineId));
+      updateMachineChecks(machineId);
+      update48kOptionsVisibility(machineId);
+    };
+
     // Restore Issue number from localStorage
     const savedIssue = localStorage.getItem("zxspec-issue-number");
     const issueNumber = savedIssue === "2" ? 2 : 3;

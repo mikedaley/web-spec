@@ -234,12 +234,36 @@ self.onmessage = async function (e) {
       const data = new Uint8Array(msg.data);
       const ptr = wasm._malloc(data.length);
       wasm.HEAPU8.set(data, ptr);
+
+      // Detect required machine and switch if needed
+      const fmtPtr = wasm._malloc(msg.format.length + 1);
+      for (let i = 0; i < msg.format.length; i++) {
+        wasm.HEAPU8[fmtPtr + i] = msg.format.charCodeAt(i);
+      }
+      wasm.HEAPU8[fmtPtr + msg.format.length] = 0;
+
+      const requiredMachine = wasm._detectSnapshotMachine(ptr, data.length, fmtPtr);
+      wasm._free(fmtPtr);
+
+      let machineSwitched = false;
+      if (requiredMachine >= 0) {
+        const currentMachine = wasm._getMachineId();
+        if (requiredMachine !== currentMachine) {
+          wasm._initMachine(requiredMachine);
+          machineSwitched = true;
+        }
+      }
+
       switch (msg.format) {
         case "sna": wasm._loadSNA(ptr, data.length); break;
         case "z80": wasm._loadZ80(ptr, data.length); break;
         case "tzx": wasm._loadTZX(ptr, data.length); break;
       }
       wasm._free(ptr);
+
+      if (machineSwitched) {
+        self.postMessage({ type: "machineSwitched", machineId: requiredMachine });
+      }
       self.postMessage({ type: "snapshotLoaded", state: getState() });
       break;
     }

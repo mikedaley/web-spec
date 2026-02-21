@@ -12,6 +12,7 @@ export class EmulatorProxy {
     this.onFrame = null;
     this.onReady = null;
     this.onSnapshotLoaded = null;
+    this.onMachineSwitched = null;
     this.onTapLoaded = null;
     this.onTapLoadError = null;
     this.onTapeRecordComplete = null;
@@ -37,6 +38,10 @@ export class EmulatorProxy {
         if (msg.ayMutes) this._ayMutes = msg.ayMutes;
         if (msg.ayWaveforms) this._ayWaveforms = msg.ayWaveforms;
         if (this.onFrame) this.onFrame(msg.framebuffer, msg.audio, msg.sampleCount);
+        break;
+
+      case "machineSwitched":
+        if (this.onMachineSwitched) this.onMachineSwitched(msg.machineId);
         break;
 
       case "snapshotLoaded":
