@@ -4,7 +4,8 @@
 
 precision highp float;
 
-uniform float u_curvature;
+uniform float u_curvatureX;
+uniform float u_curvatureY;
 uniform float u_cornerRadius;
 uniform float u_edgeHighlight;
 uniform vec2 u_textureSize;
@@ -14,11 +15,11 @@ varying vec2 v_texCoord;
 
 // Screen curvature (must match crt.glsl)
 vec2 curveUV(vec2 uv) {
-    if (u_curvature < 0.001) return uv;
+    if (u_curvatureX < 0.001 && u_curvatureY < 0.001) return uv;
 
     vec2 cc = uv - 0.5;
     float dist = dot(cc, cc);
-    float distortion = dist * u_curvature * 0.5;
+    vec2 distortion = dist * vec2(u_curvatureX, u_curvatureY) * 0.5;
     return uv + cc * distortion;
 }
 

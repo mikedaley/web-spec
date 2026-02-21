@@ -26,7 +26,8 @@ export class DisplaySettingsWindow extends BaseWindow {
 
     // Default values (percentages 0-100 for UI, converted to shader values)
     this.defaults = {
-      curvature: 0,
+      curvatureX: 0,
+      curvatureY: 0,
       scanlines: 0,
       shadowMask: 0,
       phosphorGlow: 0,
@@ -55,7 +56,8 @@ export class DisplaySettingsWindow extends BaseWindow {
       {
         section: "CRT Effects",
         sliders: [
-          { id: "curvature", label: "Screen Curvature", param: "curvature" },
+          { id: "curvatureX", label: "Curvature Horizontal", param: "curvatureX" },
+          { id: "curvatureY", label: "Curvature Vertical", param: "curvatureY" },
           { id: "overscan", label: "Screen Border", param: "overscan" },
           { id: "scanlines", label: "Scanlines", param: "scanlineIntensity" },
           { id: "shadowMask", label: "Shadow Mask", param: "shadowMask" },

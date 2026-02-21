@@ -32,7 +32,8 @@ export class WebGLRenderer {
 
     // CRT effect parameters (0.0 to 1.0 unless noted)
     this.crtParams = {
-      curvature: 0.0,
+      curvatureX: 0.0,
+      curvatureY: 0.0,
       scanlineIntensity: 0.0,
       scanlineWidth: 0.25,
       shadowMask: 0.0,
@@ -148,7 +149,8 @@ export class WebGLRenderer {
       resolution: gl.getUniformLocation(this.program, "u_resolution"),
       textureSize: gl.getUniformLocation(this.program, "u_textureSize"),
       time: gl.getUniformLocation(this.program, "u_time"),
-      curvature: gl.getUniformLocation(this.program, "u_curvature"),
+      curvatureX: gl.getUniformLocation(this.program, "u_curvatureX"),
+      curvatureY: gl.getUniformLocation(this.program, "u_curvatureY"),
       scanlineIntensity: gl.getUniformLocation(this.program, "u_scanlineIntensity"),
       scanlineWidth: gl.getUniformLocation(this.program, "u_scanlineWidth"),
       shadowMask: gl.getUniformLocation(this.program, "u_shadowMask"),
@@ -184,7 +186,8 @@ export class WebGLRenderer {
 
     // Get edge overlay program uniform locations
     this.edgeUniforms = {
-      curvature: gl.getUniformLocation(this.edgeProgram, "u_curvature"),
+      curvatureX: gl.getUniformLocation(this.edgeProgram, "u_curvatureX"),
+      curvatureY: gl.getUniformLocation(this.edgeProgram, "u_curvatureY"),
       cornerRadius: gl.getUniformLocation(this.edgeProgram, "u_cornerRadius"),
       edgeHighlight: gl.getUniformLocation(this.edgeProgram, "u_edgeHighlight"),
       textureSize: gl.getUniformLocation(this.edgeProgram, "u_textureSize"),
@@ -367,7 +370,8 @@ export class WebGLRenderer {
     gl.uniform2f(this.uniforms.resolution, this.canvas.width, this.canvas.height);
     gl.uniform2f(this.uniforms.textureSize, this.width, this.height);
     gl.uniform1f(this.uniforms.time, this.time);
-    gl.uniform1f(this.uniforms.curvature, this.crtParams.curvature);
+    gl.uniform1f(this.uniforms.curvatureX, this.crtParams.curvatureX);
+    gl.uniform1f(this.uniforms.curvatureY, this.crtParams.curvatureY);
     gl.uniform1f(this.uniforms.scanlineIntensity, this.crtParams.scanlineIntensity);
     gl.uniform1f(this.uniforms.scanlineWidth, this.crtParams.scanlineWidth);
     gl.uniform1f(this.uniforms.shadowMask, this.crtParams.shadowMask);
@@ -406,7 +410,8 @@ export class WebGLRenderer {
       gl.enableVertexAttribArray(this.edgeTexCoordLoc);
       gl.vertexAttribPointer(this.edgeTexCoordLoc, 2, gl.FLOAT, false, 16, 8);
 
-      gl.uniform1f(this.edgeUniforms.curvature, this.crtParams.curvature);
+      gl.uniform1f(this.edgeUniforms.curvatureX, this.crtParams.curvatureX);
+      gl.uniform1f(this.edgeUniforms.curvatureY, this.crtParams.curvatureY);
       gl.uniform1f(this.edgeUniforms.cornerRadius, this.crtParams.cornerRadius);
       gl.uniform1f(this.edgeUniforms.edgeHighlight, this.crtParams.edgeHighlight);
       gl.uniform2f(this.edgeUniforms.textureSize, this.width, this.height);

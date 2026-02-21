@@ -10,7 +10,8 @@ uniform vec2 u_textureSize;
 uniform float u_time;
 
 // CRT effect uniforms
-uniform float u_curvature;
+uniform float u_curvatureX;
+uniform float u_curvatureY;
 uniform float u_scanlineIntensity;
 uniform float u_scanlineWidth;
 uniform float u_shadowMask;
@@ -86,11 +87,11 @@ vec2 applyOverscan(vec2 uv) {
 // ============================================
 
 vec2 curveUV(vec2 uv) {
-    if (u_curvature < 0.001) return uv;
+    if (u_curvatureX < 0.001 && u_curvatureY < 0.001) return uv;
 
     vec2 cc = uv - 0.5;
     float dist = dot(cc, cc);
-    float distortion = dist * u_curvature * 0.5;
+    vec2 distortion = dist * vec2(u_curvatureX, u_curvatureY) * 0.5;
     return uv + cc * distortion;
 }
 
@@ -337,10 +338,11 @@ float edgeFade(vec2 uv) {
 }
 
 float smoothEdge(vec2 uv) {
-    if (u_curvature < 0.001 && u_cornerRadius < 0.001) return 1.0;
+    float maxCurve = max(u_curvatureX, u_curvatureY);
+    if (maxCurve < 0.001 && u_cornerRadius < 0.001) return 1.0;
 
     vec2 centered = uv - 0.5;
-    float cornerRadius = u_cornerRadius > 0.001 ? u_cornerRadius : u_curvature * 0.03;
+    float cornerRadius = u_cornerRadius > 0.001 ? u_cornerRadius : maxCurve * 0.03;
     vec2 cornerDist = abs(centered) - (0.5 - cornerRadius);
     cornerDist = max(cornerDist, 0.0);
     float corner = length(cornerDist) / cornerRadius;
@@ -500,7 +502,7 @@ void main() {
         staticColor *= scanlines(curvedUV);
         staticColor *= vignette(curvedUV);
 
-        if (u_curvature > 0.001) {
+        if (max(u_curvatureX, u_curvatureY) > 0.001) {
             staticColor *= edgeFade(curvedUV);
         }
 
@@ -544,7 +546,7 @@ void main() {
     color *= vignette(curvedUV);
 
     // Apply edge fade for curved screens
-    if (u_curvature > 0.001) {
+    if (max(u_curvatureX, u_curvatureY) > 0.001) {
         color *= edgeFade(stableCurvedUV);
     }
 
