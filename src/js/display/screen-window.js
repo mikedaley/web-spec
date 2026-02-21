@@ -35,21 +35,22 @@ export class ScreenWindow extends BaseWindow {
    * set up a ResizeObserver so the canvas tracks container size.
    */
   onContentRendered() {
-    // Viewport lock button
+    // Viewport lock button (expand/compress arrows)
     this._lockBtn = document.createElement("button");
     this._lockBtn.className = "screen-window-lock";
     this._lockBtn.title = "Fit to viewport";
     this._lockBtn.innerHTML = `
-      <svg class="lock-icon-unlocked" viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
-        <path d="M4 7V5a4 4 0 0 1 8 0v1h-2V5a2 2 0 0 0-4 0v2H3a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1H4z"/>
+      <svg class="lock-icon-expand" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
       </svg>
-      <svg class="lock-icon-locked" viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
-        <path d="M4 7V5a4 4 0 0 1 8 0v2h1a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V8a1 1 0 0 1 1-1h1zm2-2v2h4V5a2 2 0 0 0-4 0z"/>
+      <svg class="lock-icon-compress" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/>
       </svg>
     `;
 
-    // Insert lock button into header
-    this.headerElement.appendChild(this._lockBtn);
+    // Insert lock button into the window element itself (not the header)
+    // so it remains accessible in chromeless mode
+    this.element.appendChild(this._lockBtn);
 
     // Prevent clicks from starting a window drag
     this._lockBtn.addEventListener("mousedown", (e) => {
@@ -79,9 +80,38 @@ export class ScreenWindow extends BaseWindow {
       this._lockBtn.classList.toggle("active", locked);
       this._lockBtn.title = locked ? "Unlock from viewport" : "Fit to viewport";
     }
+
+    // Hide/show window furniture (header, border, radius, resize handles)
+    if (this.element) {
+      this.element.classList.toggle("chromeless", locked);
+    }
+
     if (locked) {
       this.constrainToViewport();
+    } else {
+      // Exiting chromeless: the header is now visible again and takes up space.
+      // Adjust window height so the content area + header fits the aspect ratio.
+      requestAnimationFrame(() => {
+        const headerH = this.headerElement ? this.headerElement.offsetHeight : 0;
+        const contentW = this.currentWidth;
+        const contentH = Math.round(contentW / this._aspect);
+        const newHeight = contentH + headerH;
+
+        this.element.style.height = `${newHeight}px`;
+        this.currentHeight = newHeight;
+
+        // Re-centre vertically
+        const headerEl = document.querySelector("header");
+        const minTop = headerEl ? headerEl.offsetHeight : 0;
+        const vpH = window.innerHeight;
+        const y = Math.round(minTop + (vpH - minTop - newHeight) / 2);
+        this.element.style.top = `${y}px`;
+        this.currentY = y;
+
+        this._fitCanvas();
+      });
     }
+
     if (this.onStateChange) this.onStateChange();
   }
 
@@ -158,14 +188,34 @@ export class ScreenWindow extends BaseWindow {
     if (this._viewportLocked) {
       const vpW = window.innerWidth;
       const vpH = window.innerHeight;
-      const header = document.querySelector("header");
-      const minTop = header ? header.offsetHeight : 0;
+      const headerEl = document.querySelector("header");
+      const minTop = headerEl ? headerEl.offsetHeight : 0;
       const margin = 24;
 
-      const w = vpW - margin * 2;
-      const h = vpH - minTop - margin * 2;
-      const x = margin;
-      const y = minTop + margin;
+      // Available space below the header bar
+      const availW = vpW - margin * 2;
+      const availH = vpH - minTop - margin * 2;
+
+      // Window header height for aspect ratio calculation (0 when chromeless)
+      const windowHeaderH = this._viewportLocked ? 0 : (this.headerElement ? this.headerElement.offsetHeight : 0);
+      const availContentH = availH - windowHeaderH;
+
+      // Fit the largest content rectangle that maintains aspect ratio
+      let contentW, contentH;
+      if (availW / this._aspect <= availContentH) {
+        contentW = availW;
+        contentH = Math.round(availW / this._aspect);
+      } else {
+        contentH = availContentH;
+        contentW = Math.round(availContentH * this._aspect);
+      }
+
+      const w = contentW;
+      const h = contentH + windowHeaderH;
+
+      // Centre in the available space
+      const x = Math.round((vpW - w) / 2);
+      const y = Math.round(minTop + (vpH - minTop - h) / 2);
 
       this.element.style.width = `${w}px`;
       this.element.style.height = `${h}px`;

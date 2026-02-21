@@ -14,7 +14,7 @@
 }
 
 :root {
-  --bg-primary: #0a0a0b;
+  --bg-primary: #141416;
   --bg-secondary: #1a1a1d;
   --text-primary: #e0e0e0;
   --text-secondary: #999;
@@ -110,6 +110,8 @@
   --control-border: rgba(48, 54, 61, 0.8);
 
   /* Shadows */
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.6);
   --shadow-window: 0 2px 12px rgba(0, 0, 0, 0.4);
   --shadow-window-focused: 0 16px 64px rgba(0, 0, 0, 1), 0 6px 24px rgba(0, 0, 0, 0.9), 0 0 0 1px rgba(0, 255, 255, 0.6);
 
@@ -231,6 +233,8 @@ html[data-theme="light"] {
   --shimmer-edge: rgba(255, 255, 255, 0.4);
 
   /* Shadows */
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.15);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.25);
   --shadow-window: 0 2px 12px rgba(0, 0, 0, 0.12);
   --shadow-window-focused: 0 16px 64px rgba(0, 0, 0, 0.5), 0 6px 24px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(0, 0, 205, 0.6);
 }
@@ -273,6 +277,21 @@ header {
   flex-shrink: 0;
   z-index: 2000;
   position: relative;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+
+/* In browser fullscreen, header slides up and hides */
+:fullscreen header {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* When mouse is near the top, header slides back in */
+:fullscreen header.header-visible {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .header-left {
@@ -432,11 +451,15 @@ header {
   box-shadow: 0 0 20px var(--accent-red-bg-stronger);
 }
 
-/* Compact text-only header buttons (Reset) */
+/* Compact text-only header buttons (Load, Reset) — always look like buttons */
 .header-text-btn {
-  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  padding: 0 12px;
   background: transparent;
-  border: 1px solid transparent;
+  border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   font-family: var(--font-sans);
@@ -449,11 +472,27 @@ header {
 .header-text-btn:hover {
   background: var(--overlay-hover);
   color: var(--text-primary);
-  border-color: var(--border-color);
+  border-color: var(--text-muted);
 }
 
 .header-text-btn:active {
   transform: scale(0.95);
+}
+
+.header-text-btn.disabled,
+.control-btn.disabled {
+  opacity: 0.35;
+  pointer-events: none;
+  cursor: default;
+}
+
+/* Vertical divider between menu zone and toolbar zone */
+.header-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 4px;
+  flex-shrink: 0;
 }
 
 /* =============================================
@@ -468,23 +507,22 @@ header {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 10px;
+  padding: 6px 8px;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   font-family: var(--font-sans);
   font-size: 0.8125rem;
-  font-weight: 500;
+  font-weight: 400;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: color 0.15s, background 0.15s;
 }
 
 .header-menu-trigger:hover,
 .header-menu-container.open .header-menu-trigger {
   background: var(--overlay-hover);
   color: var(--text-primary);
-  border-color: var(--border-color);
 }
 
 .header-menu-trigger svg.menu-chevron {
@@ -507,7 +545,7 @@ header {
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  box-shadow: var(--shadow-md);
   opacity: 0;
   visibility: hidden;
   transform: translateY(-8px);
@@ -636,6 +674,59 @@ header {
 }
 
 /* =============================================
+   Panel Trigger Group (Speed, Sound — icon + chevron, flat)
+   ============================================= */
+
+.panel-trigger-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Icon-based menu trigger (matches .header-menu-trigger visual language) */
+.icon-menu-trigger {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 6px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.icon-menu-trigger:hover {
+  background: var(--overlay-hover);
+  color: var(--text-primary);
+}
+
+.icon-menu-trigger:active {
+  transform: scale(0.95);
+}
+
+.icon-menu-trigger svg:not(.menu-chevron) {
+  width: 18px;
+  height: 18px;
+}
+
+.icon-menu-trigger .menu-chevron {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* Active speed indicator on icon trigger */
+.icon-menu-trigger.speed-active {
+  color: var(--accent-orange);
+}
+
+.icon-menu-trigger.speed-active:hover {
+  background: var(--accent-orange-bg);
+  color: var(--accent-orange);
+}
+
+/* =============================================
    Sound Control
    ============================================= */
 
@@ -649,16 +740,24 @@ header {
   right: 0;
   margin-top: 8px;
   background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   padding: 12px;
   min-width: 200px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-lg);
   z-index: 10000;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
 }
 
-.sound-popup.hidden {
-  display: none;
+.sound-popup.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
 }
 
 .sound-popup-row {
@@ -785,16 +884,24 @@ header {
   right: 0;
   margin-top: 8px;
   background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   padding: 12px;
   min-width: 200px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-lg);
   z-index: 10000;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
 }
 
-.speed-popup.hidden {
-  display: none;
+.speed-popup.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
 }
 
 .speed-popup-row {
@@ -848,22 +955,27 @@ header {
   text-align: right;
 }
 
-/* Active speed indicator on button */
-.control-btn.speed-active {
-  color: var(--accent-orange);
-  border-color: var(--accent-orange-border-light);
-}
-
-.control-btn.speed-active:hover {
-  background: var(--accent-orange-bg);
-  color: var(--accent-orange);
-  border-color: var(--accent-orange-border);
-}
-
 /* Mute button icon states */
 .icon-muted.hidden,
 .icon-unmuted.hidden {
   display: none;
+}
+
+/* Fullscreen button icon states */
+.icon-expand.hidden,
+.icon-compress.hidden {
+  display: none;
+}
+
+.control-btn.fullscreen-active {
+  color: var(--accent-blue);
+  border-color: var(--accent-blue-border-light);
+}
+
+.control-btn.fullscreen-active:hover {
+  background: var(--accent-blue-bg);
+  color: var(--accent-blue);
+  border-color: var(--accent-blue-border);
 }
 
 main {
@@ -953,27 +1065,29 @@ main {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 10px;
+  padding: 3px 8px;
   background: var(--glass-bg-header);
   border-bottom: 1px solid var(--control-border);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   cursor: move;
+  min-height: 24px;
 }
 
 .debug-window-title {
   font-family: var(--font-sans);
-  font-size: 0.75rem;
+  font-size: 0.6875rem;
   font-weight: 600;
   color: var(--text-primary);
+  line-height: 1;
 }
 
 .debug-window-close {
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 1rem;
+  font-size: 0.8125rem;
   cursor: pointer;
-  padding: 2px 6px;
+  padding: 1px 4px;
   line-height: 1;
   border-radius: var(--radius-sm);
   opacity: 0.6;
@@ -1080,6 +1194,38 @@ main {
    SCREEN WINDOW (Monitor)
    ============================================ */
 
+/* Chromeless mode: hide all window furniture */
+.debug-window.chromeless {
+  border: none;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  overflow: hidden;
+}
+
+.debug-window.chromeless .debug-window-header {
+  display: none;
+}
+
+.debug-window.chromeless .debug-resize-handle {
+  display: none;
+}
+
+/* In chromeless mode, lock button floats over content and fades in on hover */
+.debug-window.chromeless .screen-window-lock {
+  opacity: 0;
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  transition: opacity 0.2s;
+}
+
+.debug-window.chromeless:hover .screen-window-lock {
+  opacity: 0.7;
+}
+
+.debug-window.chromeless .screen-window-lock:hover {
+  opacity: 1;
+}
+
 /* Screen window canvas fills content area */
 #screen-window .debug-window-content {
   padding: 0;
@@ -1100,19 +1246,20 @@ main {
   display: block;
 }
 
-/* Viewport lock button in screen window header */
+/* Viewport lock button — floats in top-right of screen window */
 .screen-window-lock {
-  position: relative;
+  position: absolute;
+  top: 3px;
+  right: 4px;
+  z-index: 10;
   display: grid;
   place-items: center;
-  width: 22px;
-  height: 22px;
+  width: 18px;
+  height: 18px;
   background: transparent;
   border: 1px solid transparent;
   color: var(--text-muted);
   cursor: pointer;
-  margin-left: auto;
-  margin-right: 6px;
   border-radius: var(--radius-sm);
   opacity: 0.5;
   transition: opacity 0.15s, color 0.15s, background 0.15s, border-color 0.15s;
@@ -1143,19 +1290,19 @@ main {
   transition: opacity 0.15s;
 }
 
-.screen-window-lock .lock-icon-locked {
-  opacity: 0;
-}
-
-.screen-window-lock .lock-icon-unlocked {
+.screen-window-lock .lock-icon-expand {
   opacity: 1;
 }
 
-.screen-window-lock.active .lock-icon-unlocked {
+.screen-window-lock .lock-icon-compress {
   opacity: 0;
 }
 
-.screen-window-lock.active .lock-icon-locked {
+.screen-window-lock.active .lock-icon-expand {
+  opacity: 0;
+}
+
+.screen-window-lock.active .lock-icon-compress {
   opacity: 1;
 }
 

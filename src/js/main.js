@@ -234,6 +234,15 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // File menu > Save State
+    const saveStateBtn = document.getElementById("btn-save-state");
+    if (saveStateBtn) {
+      saveStateBtn.addEventListener("click", () => {
+        this.closeAllMenus();
+        console.log("Save State not yet implemented");
+      });
+    }
+
     // View menu > Display (opens display settings window)
     const displayBtn = document.getElementById("btn-display");
     if (displayBtn) {
@@ -318,13 +327,19 @@ class ZXSpectrumEmulator {
    */
   updatePowerButton() {
     const powerBtn = document.getElementById("btn-power");
-    if (!powerBtn) return;
-    if (this.running) {
-      powerBtn.classList.remove("off");
-      powerBtn.title = "Power Off";
-    } else {
-      powerBtn.classList.add("off");
-      powerBtn.title = "Power On";
+    if (powerBtn) {
+      if (this.running) {
+        powerBtn.classList.remove("off");
+        powerBtn.title = "Power Off";
+      } else {
+        powerBtn.classList.add("off");
+        powerBtn.title = "Power On";
+      }
+    }
+
+    const resetBtn = document.getElementById("btn-reset");
+    if (resetBtn) {
+      resetBtn.classList.toggle("disabled", !this.running);
     }
   }
 
@@ -357,9 +372,31 @@ class ZXSpectrumEmulator {
     });
     // Close popups
     const speedPopup = document.getElementById("speed-popup");
-    if (speedPopup) speedPopup.classList.add("hidden");
+    if (speedPopup) speedPopup.classList.remove("open");
     const soundPopup = document.getElementById("sound-popup");
-    if (soundPopup) soundPopup.classList.add("hidden");
+    if (soundPopup) soundPopup.classList.remove("open");
+  }
+
+  /**
+   * Update checkmark states on View/Dev menu items based on window visibility
+   */
+  updateMenuCheckmarks() {
+    const windowMap = {
+      "btn-display": "display-settings",
+      "btn-tape-player": "tape-window",
+      "btn-sound-debug": "sound-debug",
+      "btn-z80-debug": "cpu-debugger",
+      "btn-stack-viewer": "stack-viewer",
+      "btn-basic-editor": "basic-program",
+    };
+
+    for (const [btnId, windowId] of Object.entries(windowMap)) {
+      const btn = document.getElementById(btnId);
+      if (!btn) continue;
+      const win = this.windowManager.getWindow(windowId);
+      const isVisible = win && win.isVisible;
+      btn.classList.toggle("active", isVisible);
+    }
   }
 
   /**
@@ -377,6 +414,7 @@ class ZXSpectrumEmulator {
         const wasOpen = container.classList.contains("open");
         this.closeAllMenus();
         if (!wasOpen) {
+          this.updateMenuCheckmarks();
           container.classList.add("open");
           this.clampMenuToViewport(container);
         }
@@ -387,6 +425,7 @@ class ZXSpectrumEmulator {
         const anyOpen = document.querySelector(".header-menu-container.open");
         if (anyOpen && anyOpen !== container) {
           this.closeAllMenus();
+          this.updateMenuCheckmarks();
           container.classList.add("open");
           this.clampMenuToViewport(container);
         }
@@ -497,17 +536,17 @@ class ZXSpectrumEmulator {
       this.closeAllMenus();
       // Close speed popup if open
       const speedPopup = document.getElementById("speed-popup");
-      if (speedPopup) speedPopup.classList.add("hidden");
-      soundPopup.classList.toggle("hidden");
-      if (!soundPopup.classList.contains("hidden")) {
+      if (speedPopup) speedPopup.classList.remove("open");
+      soundPopup.classList.toggle("open");
+      if (soundPopup.classList.contains("open")) {
         this.clampPopupToViewport(soundPopup);
       }
     });
 
     // Close popup on outside click
     document.addEventListener("click", (e) => {
-      if (!soundPopup.contains(e.target) && e.target !== soundBtn) {
-        soundPopup.classList.add("hidden");
+      if (!soundPopup.contains(e.target) && !e.target.closest("#btn-sound")) {
+        soundPopup.classList.remove("open");
       }
     });
 
@@ -582,17 +621,17 @@ class ZXSpectrumEmulator {
       this.closeAllMenus();
       // Close sound popup if open
       const soundPopup = document.getElementById("sound-popup");
-      if (soundPopup) soundPopup.classList.add("hidden");
-      speedPopup.classList.toggle("hidden");
-      if (!speedPopup.classList.contains("hidden")) {
+      if (soundPopup) soundPopup.classList.remove("open");
+      speedPopup.classList.toggle("open");
+      if (speedPopup.classList.contains("open")) {
         this.clampPopupToViewport(speedPopup);
       }
     });
 
     // Close popup on outside click
     document.addEventListener("click", (e) => {
-      if (!speedPopup.contains(e.target) && e.target !== speedBtn) {
-        speedPopup.classList.add("hidden");
+      if (!speedPopup.contains(e.target) && !e.target.closest("#btn-speed")) {
+        speedPopup.classList.remove("open");
       }
     });
 
@@ -628,6 +667,23 @@ class ZXSpectrumEmulator {
     const fullscreenBtn = document.getElementById("btn-fullscreen");
     if (!fullscreenBtn) return;
 
+    const iconExpand = fullscreenBtn.querySelector(".icon-expand");
+    const iconCompress = fullscreenBtn.querySelector(".icon-compress");
+    const headerEl = document.querySelector("header");
+    const triggerZone = 48; // pixels from top to trigger header reveal
+
+    const updateFullscreenIcon = () => {
+      const isFullscreen = !!document.fullscreenElement;
+      if (iconExpand) iconExpand.classList.toggle("hidden", isFullscreen);
+      if (iconCompress) iconCompress.classList.toggle("hidden", !isFullscreen);
+      fullscreenBtn.classList.toggle("fullscreen-active", isFullscreen);
+
+      // Remove visible class when exiting fullscreen
+      if (!isFullscreen && headerEl) {
+        headerEl.classList.remove("header-visible");
+      }
+    };
+
     fullscreenBtn.addEventListener("click", () => {
       if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen().catch((err) => {
@@ -637,6 +693,22 @@ class ZXSpectrumEmulator {
         document.exitFullscreen();
       }
       this.refocusCanvas();
+    });
+
+    document.addEventListener("fullscreenchange", updateFullscreenIcon);
+
+    // Show/hide header based on mouse proximity to top edge in fullscreen
+    document.addEventListener("mousemove", (e) => {
+      if (!document.fullscreenElement || !headerEl) return;
+
+      if (e.clientY <= triggerZone) {
+        headerEl.classList.add("header-visible");
+      } else {
+        // Only hide if mouse isn't over the header itself
+        if (!headerEl.contains(e.target)) {
+          headerEl.classList.remove("header-visible");
+        }
+      }
     });
   }
 

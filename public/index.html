@@ -18,30 +18,69 @@
                     <span class="version-chip"></span>
                 </div>
                 <nav class="header-controls">
-                    <!-- Power button with SVG icon -->
-                    <button
-                        id="btn-power"
-                        class="control-btn power-btn off"
-                        title="Power On"
-                    >
-                        <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="2"
+                    <!-- Action buttons: immediate actions with borders -->
+                    <div class="control-group">
+                        <button
+                            id="btn-power"
+                            class="control-btn power-btn off"
+                            title="Power On"
                         >
-                            <path d="M12 2v10M18.4 6.6a9 9 0 1 1-12.8 0" />
-                        </svg>
-                    </button>
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path d="M12 2v10M18.4 6.6a9 9 0 1 1-12.8 0" />
+                            </svg>
+                        </button>
 
-                    <!-- Reset text button -->
-                    <button
-                        id="btn-reset"
-                        class="header-text-btn"
-                        title="Reset"
-                    >
-                        Reset
-                    </button>
+                        <button
+                            id="btn-reset"
+                            class="control-btn disabled"
+                            title="Reset"
+                            aria-label="Reset"
+                        >
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path d="M1 4v6h6" />
+                                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                            </svg>
+                        </button>
+
+                        <button
+                            id="btn-fullscreen"
+                            class="control-btn"
+                            title="Fullscreen"
+                            aria-label="Fullscreen"
+                        >
+                            <svg
+                                class="icon-expand"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                            </svg>
+                            <svg
+                                class="icon-compress hidden"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <!-- Divider between action buttons and menus -->
+                    <div class="header-divider"></div>
 
                     <!-- File menu -->
                     <div class="header-menu-container" id="file-menu-container">
@@ -68,6 +107,12 @@
                             >
                                 <span>Load Snapshot...</span>
                             </button>
+                            <button
+                                class="header-menu-item"
+                                id="btn-save-state"
+                            >
+                                <span>Save State</span>
+                            </button>
                         </div>
                     </div>
 
@@ -91,20 +136,20 @@
                         </button>
                         <div class="header-menu" id="machine-menu">
                             <div class="header-menu-section-label">Model</div>
-                            <div
+                            <button
                                 class="header-menu-item menu-check-item active"
                                 data-machine="0"
                             >
                                 <span class="menu-check">&#10003;</span>
                                 <span>ZX Spectrum 48K</span>
-                            </div>
-                            <div
+                            </button>
+                            <button
                                 class="header-menu-item menu-check-item"
                                 data-machine="1"
                             >
                                 <span class="menu-check">&#10003;</span>
                                 <span>ZX Spectrum 128K</span>
-                            </div>
+                            </button>
                             <div class="header-menu-separator"></div>
                             <div class="header-menu-section-label" id="options-48k-label">48K Options</div>
                             <button
@@ -224,19 +269,22 @@
                                 </div>
                             </div>
                             <div class="header-menu-separator"></div>
-                            <button class="header-menu-item" id="btn-display">
+                            <button class="header-menu-item menu-check-item" id="btn-display">
+                                <span class="menu-check">&#10003;</span>
                                 <span>Display</span>
                             </button>
                             <button
-                                class="header-menu-item"
+                                class="header-menu-item menu-check-item"
                                 id="btn-tape-player"
                             >
+                                <span class="menu-check">&#10003;</span>
                                 <span>Tape Player</span>
                             </button>
                             <button
-                                class="header-menu-item"
+                                class="header-menu-item menu-check-item"
                                 id="btn-sound-debug"
                             >
+                                <span class="menu-check">&#10003;</span>
                                 <span>Sound</span>
                             </button>
                         </div>
@@ -261,47 +309,36 @@
                             </svg>
                         </button>
                         <div class="header-menu" id="dev-menu">
-                            <button class="header-menu-item" id="btn-z80-debug">
+                            <button class="header-menu-item menu-check-item" id="btn-z80-debug">
+                                <span class="menu-check">&#10003;</span>
                                 <span>Z80 Debugger</span>
                             </button>
                             <button
-                                class="header-menu-item"
+                                class="header-menu-item menu-check-item"
                                 id="btn-stack-viewer"
                             >
+                                <span class="menu-check">&#10003;</span>
                                 <span>Stack Viewer</span>
                             </button>
                             <button
-                                class="header-menu-item"
+                                class="header-menu-item menu-check-item"
                                 id="btn-basic-editor"
                             >
+                                <span class="menu-check">&#10003;</span>
                                 <span>BASIC Editor</span>
                             </button>
                         </div>
                     </div>
 
-                    <!-- Control group: fullscreen + sound -->
-                    <div class="control-group">
-                        <button
-                            id="btn-fullscreen"
-                            class="control-btn"
-                            title="Fullscreen"
-                            aria-label="Fullscreen"
-                        >
-                            <svg
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-width="2"
-                            >
-                                <path
-                                    d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"
-                                />
-                            </svg>
-                        </button>
+                    <!-- Divider between menu zone and panel triggers -->
+                    <div class="header-divider"></div>
+
+                    <!-- Panel triggers: open popups, styled like menu triggers -->
+                    <div class="panel-trigger-group">
                         <div class="speed-control-wrapper">
                             <button
                                 id="btn-speed"
-                                class="control-btn"
+                                class="icon-menu-trigger"
                                 title="Speed"
                                 aria-label="Speed"
                             >
@@ -309,8 +346,21 @@
                                     <polyline points="13 17 18 12 13 7" />
                                     <polyline points="6 17 11 12 6 7" />
                                 </svg>
+                                <svg
+                                    class="menu-chevron"
+                                    viewBox="0 0 12 12"
+                                    width="8"
+                                    height="8"
+                                >
+                                    <path
+                                        d="M3 5l3 3 3-3"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="1.5"
+                                    />
+                                </svg>
                             </button>
-                            <div id="speed-popup" class="speed-popup hidden">
+                            <div id="speed-popup" class="speed-popup">
                                 <div class="speed-popup-row">
                                     <label for="speed-slider">Speed</label>
                                     <input
@@ -328,7 +378,7 @@
                         <div class="sound-control-wrapper">
                             <button
                                 id="btn-sound"
-                                class="control-btn"
+                                class="icon-menu-trigger"
                                 title="Sound Settings"
                                 aria-label="Sound Settings"
                             >
@@ -355,8 +405,21 @@
                                     <line x1="23" y1="9" x2="17" y2="15" />
                                     <line x1="17" y1="9" x2="23" y2="15" />
                                 </svg>
+                                <svg
+                                    class="menu-chevron"
+                                    viewBox="0 0 12 12"
+                                    width="8"
+                                    height="8"
+                                >
+                                    <path
+                                        d="M3 5l3 3 3-3"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        stroke-width="1.5"
+                                    />
+                                </svg>
                             </button>
-                            <div id="sound-popup" class="sound-popup hidden">
+                            <div id="sound-popup" class="sound-popup">
                                 <div class="sound-popup-row">
                                     <label for="volume-slider">Volume</label>
                                     <input
