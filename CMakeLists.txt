@@ -267,4 +267,21 @@ else()
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     )
 
+    # Timing Test (CPU & ULA timing validation)
+    add_executable(timing_test
+        tests/timing/timing_test.cpp
+        ${Z80_SOURCES}
+        src/machines/contention.cpp
+    )
+    target_include_directories(timing_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/core
+        ${CMAKE_SOURCE_DIR}/src/core/z80
+        ${CMAKE_SOURCE_DIR}/src/machines
+    )
+    target_compile_options(timing_test PRIVATE -O3 -Wall -Wextra)
+    add_test(NAME timing_test
+        COMMAND timing_test
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
+
 endif()
