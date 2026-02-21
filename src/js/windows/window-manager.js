@@ -365,16 +365,43 @@ export class WindowManager {
         win.currentHeight = viewportH;
       } else if (entry.position === 'viewport-left-of') {
         const ref = positioned[entry.leftOf];
+        const maxW = ref ? ref.x - margin - gap : totalW;
+        const maxH = viewportH;
+        const aspect = entry.aspectRatio || null;
+
+        let w, h;
+        if (aspect) {
+          // Account for window chrome (title bar + borders) so the content area is the correct ratio
+          const winHeader = win.element.querySelector('.debug-window-header');
+          const chromeH = winHeader ? winHeader.offsetHeight : 0;
+          const style = getComputedStyle(win.element);
+          const borderH = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+          const borderW = parseFloat(style.borderLeftWidth) + parseFloat(style.borderRightWidth);
+          const contentMaxW = maxW - borderW;
+          const contentMaxH = maxH - chromeH - borderH;
+
+          // Fit largest content rectangle with given aspect ratio, then add chrome/borders back.
+          // Always derive width from height so _fitCanvas gets a container whose
+          // width/height exactly matches the aspect ratio with no sub-pixel remainder.
+          let contentH = Math.floor(Math.min(contentMaxH, contentMaxW / aspect));
+          let contentW = Math.round(contentH * aspect);
+          w = contentW + borderW;
+          h = contentH + chromeH + borderH;
+        } else {
+          w = maxW;
+          h = maxH;
+        }
+
         const x = margin;
-        const w = ref ? ref.x - margin - gap : totalW;
+        const y = viewportY;
         win.element.style.left = `${x}px`;
-        win.element.style.top = `${viewportY}px`;
+        win.element.style.top = `${y}px`;
         win.element.style.width = `${w}px`;
-        win.element.style.height = `${viewportH}px`;
+        win.element.style.height = `${h}px`;
         win.currentX = x;
-        win.currentY = viewportY;
+        win.currentY = y;
         win.currentWidth = w;
-        win.currentHeight = viewportH;
+        win.currentHeight = h;
       } else {
         if (entry.x !== undefined) {
           win.element.style.left = `${entry.x}px`;

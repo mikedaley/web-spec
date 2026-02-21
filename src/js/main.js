@@ -109,7 +109,7 @@ class ZXSpectrumEmulator {
 
       // Apply default layout (screen left, tape right for first-time users)
       this.windowManager.applyDefaultLayout([
-        { id: "screen-window", position: "viewport-left-of", leftOf: "tape-window", visible: true, viewportLocked: false },
+        { id: "screen-window", position: "viewport-left-of", leftOf: "tape-window", aspectRatio: 5 / 4, visible: true, viewportLocked: false },
         { id: "tape-window", position: "viewport-right", visible: true },
         { id: "display-settings", visible: false },
         { id: "cpu-debugger", visible: false },
@@ -120,6 +120,18 @@ class ZXSpectrumEmulator {
 
       // Load saved window state (overrides defaults if present)
       this.windowManager.loadState();
+
+      // Snap screen window to its exact aspect ratio and fit canvas.
+      // Defer to next frame so the browser has applied the new dimensions.
+      requestAnimationFrame(() => {
+        const sw = this.screenWindow;
+        const headerHeight = sw.headerElement ? sw.headerElement.offsetHeight : 0;
+        const contentHeight = sw.currentHeight - headerHeight;
+        const newWidth = Math.round(contentHeight * sw._aspect);
+        sw.element.style.width = `${newWidth}px`;
+        sw.currentWidth = newWidth;
+        sw._fitCanvas();
+      });
 
       // Apply saved display settings to renderer
       this.displaySettingsWindow.applyAllSettings();
