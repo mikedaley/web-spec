@@ -14,7 +14,7 @@ const THEME_META_COLORS = {
 
 export class ThemeManager {
   constructor() {
-    this._preference = localStorage.getItem(STORAGE_KEY) || "system";
+    this._preference = localStorage.getItem(STORAGE_KEY) || "dark";
     this._mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
     this._onSystemChange = () => {
       if (this._preference === "system") {
