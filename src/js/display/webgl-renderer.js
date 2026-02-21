@@ -56,8 +56,8 @@ export class WebGLRenderer {
       screenMargin: 0.0,
       edgeHighlight: 0.0,
       surroundColor: [0.784, 0.722, 0.604],
-      bezelSpillReach: 0.35,
-      bezelSpillIntensity: 0.25,
+      bezelSpillReach: 0.66,
+      bezelSpillIntensity: 0.31,
     };
 
     // Time for animated effects

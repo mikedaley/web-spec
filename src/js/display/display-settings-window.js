@@ -43,8 +43,9 @@ export class DisplaySettingsWindow extends BaseWindow {
       ambientLight: 0,
       burnIn: 0,
       overscan: 100,
-      bezelSpillReach: 35,
-      bezelSpillIntensity: 25,
+      bezelSpillReach: 66,
+      bezelSpillIntensity: 31,
+      bezelColor: "#c8b89a",
       sharpPixels: false,
     };
 
@@ -109,6 +110,15 @@ export class DisplaySettingsWindow extends BaseWindow {
           </div>`;
       }
 
+      // Add color picker to the Bezel section
+      if (section.section === "Bezel") {
+        html += `
+          <div class="setting-row">
+            <label title="Bezel Color">Bezel Color</label>
+            <input type="color" id="ds-bezelColor" value="${this.settings.bezelColor}">
+          </div>`;
+      }
+
       html += "</div>";
     }
 
@@ -154,6 +164,16 @@ export class DisplaySettingsWindow extends BaseWindow {
       }
     }
 
+    // Bezel color picker
+    const colorPicker = this.contentElement.querySelector("#ds-bezelColor");
+    if (colorPicker) {
+      colorPicker.addEventListener("input", (e) => {
+        this.settings.bezelColor = e.target.value;
+        this.applyBezelColor(e.target.value);
+        this.saveSettings();
+      });
+    }
+
     // Sharp pixels toggle
     const sharpToggle = this.contentElement.querySelector("#ds-sharpPixels");
     if (sharpToggle) {
@@ -185,6 +205,14 @@ export class DisplaySettingsWindow extends BaseWindow {
     }
   }
 
+  applyBezelColor(hex) {
+    if (!this.renderer) return;
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    this.renderer.setParam("surroundColor", [r, g, b]);
+  }
+
   applyAllSettings() {
     for (const section of this.sliderConfigs) {
       for (const slider of section.sliders) {
@@ -196,6 +224,11 @@ export class DisplaySettingsWindow extends BaseWindow {
         this.applyToRenderer(slider.param, this.settings[slider.id] / 100);
       }
     }
+
+    // Apply bezel color
+    const colorPicker = this.contentElement.querySelector("#ds-bezelColor");
+    if (colorPicker) colorPicker.value = this.settings.bezelColor;
+    this.applyBezelColor(this.settings.bezelColor);
 
     // Apply sharp pixels
     const sharpToggle = this.contentElement.querySelector("#ds-sharpPixels");
