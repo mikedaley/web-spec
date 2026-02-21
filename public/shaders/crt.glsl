@@ -33,11 +33,18 @@ uniform float u_burnIn;
 uniform float u_overscan;
 uniform float u_noSignal;
 
+// Bezel spill controls
+uniform float u_bezelSpillReach;
+uniform float u_bezelSpillIntensity;
+
 // Corner radius for rounded screen corners
 uniform float u_cornerRadius;
 
 // Screen margin/padding for rounded corners
 uniform float u_screenMargin;
+
+// Background colour for pixels outside the curved screen area
+uniform vec3 u_surroundColor;
 
 varying vec2 v_texCoord;
 
@@ -364,6 +371,88 @@ vec2 applyScreenMargin(vec2 uv) {
 }
 
 // ============================================
+// Bezel shading (inner TV surround)
+// ============================================
+
+vec3 bezelShade(vec2 uv, vec2 curvedUV) {
+    vec3 bezel = u_surroundColor;
+
+    // Distance from screen centre (0 at centre, ~0.7 at corners)
+    vec2 centered = uv - 0.5;
+    float dist = length(centered);
+
+    // 1. Inner shadow — darken where bezel meets the glass edge
+    //    Uses distance from the [0,1] rect boundary
+    vec2 edgeDist = min(uv, 1.0 - uv);           // 0 at edge, 0.5 at centre
+    float innerShadow = smoothstep(0.0, 0.12, min(edgeDist.x, edgeDist.y));
+    bezel *= mix(0.45, 1.0, innerShadow);
+
+    // 2. Corner vignette — additional darkening in corners
+    float cornerDark = 1.0 - dist * dist * 0.6;
+    bezel *= clamp(cornerDark, 0.5, 1.0);
+
+    // 3. Subtle warm-to-cool color shift toward edges (simulates age/wear)
+    float edgeFactor = smoothstep(0.2, 0.7, dist);
+    bezel = mix(bezel, bezel * vec3(0.92, 0.90, 0.88), edgeFactor * 0.5);
+
+    // 4. Fine grain noise — breaks up flat color for a matte plastic feel
+    vec2 grainCoord = uv * u_resolution * 0.5;
+    float grain = hash12(grainCoord + vec2(floor(u_time * 0.5))) * 2.0 - 1.0;
+    bezel += grain * 0.015;
+
+    // 5. Thin highlight line at the inner lip (glass-to-bezel ridge)
+    float lipDist = min(edgeDist.x, edgeDist.y);
+    float lip = smoothstep(0.008, 0.004, lipDist) * smoothstep(0.0, 0.002, lipDist);
+    bezel += vec3(lip * 0.2);
+
+    // 6. Screen color spill — physically-motivated bezel reflection
+    //
+    //    The bezel is a raised wall around a recessed screen. Light from
+    //    the screen hits the inner wall at an angle, so:
+    //    - Points on the bezel near the screen see the edge pixels
+    //    - Points further up the wall see pixels deeper INTO the screen
+    //      (parallax: the wall looks down at the screen at a steeper angle)
+    //    - The reflection is softer/more diffuse further from the screen
+
+    // Distance from the screen content boundary in curved space
+    vec2 screenDist = max(vec2(0.0) - curvedUV, curvedUV - vec2(1.0));
+    screenDist = max(screenDist, 0.0);
+    float distFromScreen = max(screenDist.x, screenDist.y);
+
+    // Parallax offset: further from screen edge → sample deeper into screen
+    // This simulates the viewing angle off the bezel wall
+    float parallax = distFromScreen * 3.0;
+    vec2 inwardDir = normalize(vec2(0.5) - curvedUV);
+    vec2 sampleBase = clamp(curvedUV + inwardDir * parallax, 0.005, 0.995);
+
+    // Blur neighbourhood — wider blur further from screen (more diffuse reflection)
+    vec2 texelSize = 1.0 / u_textureSize;
+    float blurScale = 3.0 + distFromScreen * 40.0;
+    vec3 spill = vec3(0.0);
+    for (int x = -2; x <= 2; x++) {
+        for (int y = -2; y <= 2; y++) {
+            vec2 sampleUV = sampleBase + vec2(float(x), float(y)) * texelSize * blurScale;
+            sampleUV = clamp(sampleUV, 0.0, 1.0);
+            spill += texture2D(u_texture, sampleUV).rgb;
+        }
+    }
+    spill /= 25.0;
+
+    // Apply the same brightness/contrast/saturation as the screen content
+    spill = adjustColor(spill);
+
+    // Scale spill by luminance — bright edges bleed more, dark edges don't
+    float spillLuma = rgb2grey(spill);
+
+    // Spill reach and intensity controlled by uniforms (0-1 range from sliders)
+    float reach = u_bezelSpillReach * 0.1;
+    float spillStrength = smoothstep(reach, 0.0, distFromScreen) * spillLuma * u_bezelSpillIntensity;
+    bezel += spill * spillStrength;
+
+    return clamp(bezel, 0.0, 1.0);
+}
+
+// ============================================
 // Main fragment shader
 // ============================================
 
@@ -373,20 +462,23 @@ void main() {
     // Stable screen boundary from undistorted coordinates
     vec2 stableCurvedUV = curveUV(uv);
 
+    // Compute bezel color once (with shading effects applied)
+    vec3 bezel = bezelShade(uv, stableCurvedUV);
+
     float cornerAlpha = roundedRectAlpha(stableCurvedUV, u_cornerRadius);
     if (cornerAlpha < 0.001) {
-        gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+        gl_FragColor = vec4(bezel, 1.0);
         return;
     }
 
     float edgeFactor = smoothEdge(stableCurvedUV);
     if (edgeFactor < 0.001) {
-        gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+        gl_FragColor = vec4(bezel, 1.0);
         return;
     }
 
     if (stableCurvedUV.x < 0.0 || stableCurvedUV.x > 1.0 || stableCurvedUV.y < 0.0 || stableCurvedUV.y > 1.0) {
-        gl_FragColor = vec4(0.0, 0.0, 0.0, 0.0);
+        gl_FragColor = vec4(bezel, 1.0);
         return;
     }
 
@@ -413,7 +505,8 @@ void main() {
         }
 
         float staticAlpha = cornerAlpha * edgeFactor;
-        gl_FragColor = vec4(staticColor, staticAlpha);
+        staticColor = mix(bezel, staticColor, staticAlpha);
+        gl_FragColor = vec4(staticColor, 1.0);
         return;
     }
 
@@ -472,5 +565,8 @@ void main() {
 
     float alpha = cornerAlpha * edgeFactor;
 
-    gl_FragColor = vec4(color, alpha);
+    // Blend screen content with bezel at curved edges
+    color = mix(bezel, color, alpha);
+
+    gl_FragColor = vec4(color, 1.0);
 }

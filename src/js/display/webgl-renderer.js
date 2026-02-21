@@ -55,6 +55,9 @@ export class WebGLRenderer {
       cornerRadius: 0.0,
       screenMargin: 0.0,
       edgeHighlight: 0.0,
+      surroundColor: [0.784, 0.722, 0.604],
+      bezelSpillReach: 0.35,
+      bezelSpillIntensity: 0.25,
     };
 
     // Time for animated effects
@@ -167,6 +170,9 @@ export class WebGLRenderer {
       noSignal: gl.getUniformLocation(this.program, "u_noSignal"),
       cornerRadius: gl.getUniformLocation(this.program, "u_cornerRadius"),
       screenMargin: gl.getUniformLocation(this.program, "u_screenMargin"),
+      surroundColor: gl.getUniformLocation(this.program, "u_surroundColor"),
+      bezelSpillReach: gl.getUniformLocation(this.program, "u_bezelSpillReach"),
+      bezelSpillIntensity: gl.getUniformLocation(this.program, "u_bezelSpillIntensity"),
     };
 
     // Get burn-in program uniform locations
@@ -383,6 +389,9 @@ export class WebGLRenderer {
     gl.uniform1f(this.uniforms.noSignal, this.crtParams.noSignal);
     gl.uniform1f(this.uniforms.cornerRadius, this.crtParams.cornerRadius);
     gl.uniform1f(this.uniforms.screenMargin, this.crtParams.screenMargin);
+    gl.uniform3fv(this.uniforms.surroundColor, this.crtParams.surroundColor);
+    gl.uniform1f(this.uniforms.bezelSpillReach, this.crtParams.bezelSpillReach);
+    gl.uniform1f(this.uniforms.bezelSpillIntensity, this.crtParams.bezelSpillIntensity);
 
     // Draw main CRT pass
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

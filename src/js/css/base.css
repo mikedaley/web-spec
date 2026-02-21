@@ -99,6 +99,7 @@
   /* Canvas tokens */
   --canvas-bg: #05050a;
   --canvas-line: #1a1a2a;
+  --screen-surround: #c8b89a;
 
   /* Sound channel waveform / meter colors — Spectrum bright palette */
   --channel-a: #00FFFF;
@@ -218,6 +219,7 @@ html[data-theme="light"] {
   /* Canvas tokens */
   --canvas-bg: #f0f2f5;
   --canvas-line: #d0d7de;
+  --screen-surround: #c8b89a;
 
   /* Sound channel waveform / meter colors — Spectrum normal palette (legible on light bg) */
   --channel-a: #0000CD;

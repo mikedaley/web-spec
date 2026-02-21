@@ -43,6 +43,8 @@ export class DisplaySettingsWindow extends BaseWindow {
       ambientLight: 0,
       burnIn: 0,
       overscan: 100,
+      bezelSpillReach: 35,
+      bezelSpillIntensity: 25,
       sharpPixels: false,
     };
 
@@ -71,6 +73,13 @@ export class DisplaySettingsWindow extends BaseWindow {
           { id: "glowingLine", label: "Glowing Line", param: "glowingLine" },
           { id: "ambientLight", label: "Ambient Light", param: "ambientLight" },
           { id: "burnIn", label: "Burn In", param: "burnIn" },
+        ],
+      },
+      {
+        section: "Bezel",
+        sliders: [
+          { id: "bezelSpillReach", label: "Spill Reach", param: "bezelSpillReach" },
+          { id: "bezelSpillIntensity", label: "Spill Intensity", param: "bezelSpillIntensity" },
         ],
       },
       {
