@@ -15,10 +15,10 @@ void ULAContention::init(const MachineInfo& info)
     tsPerFrame_ = info.tsPerFrame;
     tsPerScanline_ = info.tsPerLine;
 
-    // Contention begins 1 T-state before the ULA starts its screen data fetch.
-    // This is because the ULA must arbitrate bus access before the fetch cycle
-    // begins, so the CPU sees the delay one T-state early.
-    cpuTsToContention_ = info.ulaTsToDisplay - 1;
+    // Contention begins at the T-state the ULA starts its screen data fetch.
+    // This matches the documented contention pattern where a delay of 6 first
+    // appears at tsToOrigin (14335 for 48K).
+    cpuTsToContention_ = info.ulaTsToDisplay;
 
     altContention_ = info.altContention;
     buildContentionTable();

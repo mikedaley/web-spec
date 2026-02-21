@@ -90,9 +90,9 @@ struct MachineInfo {
 // The 128K machines have slightly different timing (228 T-states/line, 70,908/frame)
 // because the 128K ULA generates an extra 4 T-states per scanline for memory paging.
 //
-//                                int  tsPF   ulaTD tsLn  tsTB   tsVB  tsVD   tsHD  tsC pVB pVBl pHD  pVD  pHT  pVT  pEB  AY     Pg     bDO pDO romSz   ramSz  altC  name                        type
+//    int tsPF   ulaTD  tsLn tsTB   tsVB  tsVD   tsHD tsC pVB pVBl pHD  pVD  pHT  pVT  pEB  AY     Pg     bDO pDO romSz   ramSz  altC  name                        type
 static const MachineInfo machines[] = {
-    { 32, 69888, 14336, 224, 12544, 1792, 43008, 128, 4, 56, 8, 256, 192, 448, 312, 32, false, false, 10, 16, 16384,  65536, false, "ZX Spectrum 48K",      eZXSpectrum48 },
+    { 32, 69888, 14335, 224, 12544, 1792, 43008, 128, 4, 56, 8, 256, 192, 448, 312, 32,  true, true, 10, 16, 16384,  65536, false, "ZX Spectrum 48K",      eZXSpectrum48 },
     { 36, 70908, 14362, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 12, 16, 32768, 131072, false, "ZX Spectrum 128K",     eZXSpectrum128 },
     { 36, 70908, 14362, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 12, 16, 32768, 131072, false, "ZX Spectrum 128K +2",  eZXSpectrum128_2 },
     { 32, 70908, 14365, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 12, 16, 65536, 131072,  true, "ZX Spectrum 128K +2A", eZXSpectrum128_2A },

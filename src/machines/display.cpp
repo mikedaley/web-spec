@@ -322,7 +322,7 @@ uint8_t Display::floatingBus(uint32_t cpuTs, const uint8_t* memory) const
     // so we offset by -1 (matching the original floatBusAdjust = -1 for 48K).
     if (cpuTs == 0)
         return 0xFF;
-    uint32_t adjustedTs = cpuTs - 1;
+    uint32_t adjustedTs = cpuTs - 2;
 
     // Before the ULA starts fetching screen data, the bus is idle
     if (adjustedTs < ulaTsToDisplay_)
