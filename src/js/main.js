@@ -107,13 +107,13 @@ class ZXSpectrumEmulator {
       // Attach canvas to screen window
       this.screenWindow.attachCanvas();
 
-      // Apply default layout (viewport-fill for first-time users)
+      // Apply default layout (screen left, tape right for first-time users)
       this.windowManager.applyDefaultLayout([
-        { id: "screen-window", position: "viewport-fill", visible: true, viewportLocked: false },
+        { id: "screen-window", position: "viewport-left-of", leftOf: "tape-window", visible: true, viewportLocked: false },
+        { id: "tape-window", position: "viewport-right", visible: true },
         { id: "display-settings", visible: false },
         { id: "cpu-debugger", visible: false },
         { id: "stack-viewer", visible: false },
-        { id: "tape-window", visible: false },
         { id: "sound-debug", visible: false },
         { id: "basic-program", visible: false },
       ]);

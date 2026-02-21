@@ -313,19 +313,26 @@ export class WindowManager {
       } catch (e) { /* proceed with defaults */ }
     }
 
+    const header = document.querySelector('header');
+    const headerH = header ? header.offsetHeight : 0;
+    const margin = 8;
+    const gap = 8;
+    const viewportH = window.innerHeight - headerH - margin * 2;
+    const viewportY = headerH + margin;
+    const totalW = window.innerWidth - margin * 2;
+
+    // First pass: position windows with fixed/default sizes (viewport-right)
+    // so that dependent windows (viewport-left-of) can reference them.
+    const positioned = {};
     for (const entry of layout) {
       const win = this.windows.get(entry.id);
       if (!win) continue;
 
-      if (entry.position === 'viewport-fill') {
-        const header = document.querySelector('header');
-        const headerH = header ? header.offsetHeight : 0;
-        const margin = 8;
-
-        const w = window.innerWidth - margin * 2;
-        const h = window.innerHeight - headerH - margin * 2;
-        const x = margin;
-        const y = headerH + margin;
+      if (entry.position === 'viewport-right') {
+        const w = win.defaultWidth;
+        const h = viewportH;
+        const x = margin + totalW - w;
+        const y = viewportY;
 
         win.element.style.left = `${x}px`;
         win.element.style.top = `${y}px`;
@@ -335,6 +342,39 @@ export class WindowManager {
         win.currentY = y;
         win.currentWidth = w;
         win.currentHeight = h;
+        positioned[entry.id] = { x, y, w, h };
+      }
+    }
+
+    // Second pass: position remaining windows
+    for (const entry of layout) {
+      const win = this.windows.get(entry.id);
+      if (!win) continue;
+      if (positioned[entry.id]) {
+        // Already positioned in first pass, just handle visibility
+      } else if (entry.position === 'viewport-fill') {
+        const x = margin;
+        const w = totalW;
+        win.element.style.left = `${x}px`;
+        win.element.style.top = `${viewportY}px`;
+        win.element.style.width = `${w}px`;
+        win.element.style.height = `${viewportH}px`;
+        win.currentX = x;
+        win.currentY = viewportY;
+        win.currentWidth = w;
+        win.currentHeight = viewportH;
+      } else if (entry.position === 'viewport-left-of') {
+        const ref = positioned[entry.leftOf];
+        const x = margin;
+        const w = ref ? ref.x - margin - gap : totalW;
+        win.element.style.left = `${x}px`;
+        win.element.style.top = `${viewportY}px`;
+        win.element.style.width = `${w}px`;
+        win.element.style.height = `${viewportH}px`;
+        win.currentX = x;
+        win.currentY = viewportY;
+        win.currentWidth = w;
+        win.currentHeight = viewportH;
       } else {
         if (entry.x !== undefined) {
           win.element.style.left = `${entry.x}px`;
