@@ -137,8 +137,8 @@ class ZXSpectrumEmulator {
       this.displaySettingsWindow.applyAllSettings();
 
       // Connect audio-driven frame sync to rendering
-      this.audioDriver.onFrameReady = (framebuffer) => {
-        this.renderFrame(framebuffer);
+      this.audioDriver.onFrameReady = (framebuffer, signalBuffer) => {
+        this.renderFrame(framebuffer, signalBuffer);
       };
 
       // Set up input handler
@@ -874,9 +874,10 @@ class ZXSpectrumEmulator {
     console.log("Emulator powered off");
   }
 
-  renderFrame(framebuffer) {
+  renderFrame(framebuffer, signalBuffer) {
     if (framebuffer) {
       this.renderer.updateTexture(framebuffer);
+      if (signalBuffer) this.renderer.updateSignalTexture(signalBuffer);
       this.renderer.draw();
     }
     this.windowManager.updateAll(this.proxy);

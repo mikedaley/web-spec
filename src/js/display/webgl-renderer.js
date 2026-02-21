@@ -23,6 +23,14 @@ export class WebGLRenderer {
     this.burnInTextures = [null, null];
     this.currentBurnInIndex = 0;
 
+    // Composite decode resources
+    this.compositeDecodeProgram = null;
+    this.signalTexture = null;
+    this.compositeDecodeFBO = null;
+    this.compositeDecodeTexture = null;
+    this.compositeDecodeUniforms = {};
+    this.supportsComposite = false;
+
     // Edge overlay program (second pass)
     this.edgeProgram = null;
 
@@ -59,6 +67,7 @@ export class WebGLRenderer {
       surroundColor: [0.784, 0.722, 0.604],
       bezelSpillReach: 0.66,
       bezelSpillIntensity: 0.31,
+      compositeBlend: 0.0,
     };
 
     // Time for animated effects
@@ -85,12 +94,13 @@ export class WebGLRenderer {
     const gl = this.gl;
 
     // Load shader sources from files
-    const [vertexSource, fragmentSource, burnInSource, edgeSource] =
+    const [vertexSource, fragmentSource, burnInSource, edgeSource, compositeDecodeSource] =
       await Promise.all([
         this.loadShader("shaders/vertex.glsl"),
         this.loadShader("shaders/crt.glsl"),
         this.loadShader("shaders/burnin.glsl"),
         this.loadShader("shaders/edge.glsl"),
+        this.loadShader("shaders/composite-decode.glsl"),
       ]);
 
     // Create main program
@@ -132,6 +142,23 @@ export class WebGLRenderer {
       throw new Error("Edge shader failed to link: " + gl.getProgramInfoLog(this.edgeProgram));
     }
 
+    // Create composite decode program (requires WebGL2 for R8 texture format)
+    this.supportsComposite = (gl instanceof WebGL2RenderingContext);
+    if (this.supportsComposite) {
+      const compositeVertexShader = this.compileShader(gl.VERTEX_SHADER, vertexSource);
+      const compositeFragmentShader = this.compileShader(gl.FRAGMENT_SHADER, compositeDecodeSource);
+
+      this.compositeDecodeProgram = gl.createProgram();
+      gl.attachShader(this.compositeDecodeProgram, compositeVertexShader);
+      gl.attachShader(this.compositeDecodeProgram, compositeFragmentShader);
+      gl.linkProgram(this.compositeDecodeProgram);
+
+      if (!gl.getProgramParameter(this.compositeDecodeProgram, gl.LINK_STATUS)) {
+        console.warn("Composite decode shader failed to link: " + gl.getProgramInfoLog(this.compositeDecodeProgram));
+        this.supportsComposite = false;
+      }
+    }
+
     // Get attribute locations
     this.positionLoc = gl.getAttribLocation(this.program, "a_position");
     this.texCoordLoc = gl.getAttribLocation(this.program, "a_texCoord");
@@ -141,6 +168,11 @@ export class WebGLRenderer {
 
     this.edgePositionLoc = gl.getAttribLocation(this.edgeProgram, "a_position");
     this.edgeTexCoordLoc = gl.getAttribLocation(this.edgeProgram, "a_texCoord");
+
+    if (this.supportsComposite) {
+      this.compositePositionLoc = gl.getAttribLocation(this.compositeDecodeProgram, "a_position");
+      this.compositeTexCoordLoc = gl.getAttribLocation(this.compositeDecodeProgram, "a_texCoord");
+    }
 
     // Get all uniform locations for main program
     this.uniforms = {
@@ -175,6 +207,8 @@ export class WebGLRenderer {
       surroundColor: gl.getUniformLocation(this.program, "u_surroundColor"),
       bezelSpillReach: gl.getUniformLocation(this.program, "u_bezelSpillReach"),
       bezelSpillIntensity: gl.getUniformLocation(this.program, "u_bezelSpillIntensity"),
+      compositeTexture: gl.getUniformLocation(this.program, "u_compositeTexture"),
+      compositeBlend: gl.getUniformLocation(this.program, "u_compositeBlend"),
     };
 
     // Get burn-in program uniform locations
@@ -193,6 +227,14 @@ export class WebGLRenderer {
       textureSize: gl.getUniformLocation(this.edgeProgram, "u_textureSize"),
       resolution: gl.getUniformLocation(this.edgeProgram, "u_resolution"),
     };
+
+    // Get composite decode program uniform locations
+    if (this.supportsComposite) {
+      this.compositeDecodeUniforms = {
+        signalTexture: gl.getUniformLocation(this.compositeDecodeProgram, "u_signalTexture"),
+        textureSize: gl.getUniformLocation(this.compositeDecodeProgram, "u_textureSize"),
+      };
+    }
 
     // Create vertex buffer (full-screen quad) - texture coords flipped for screen rendering
     const positions = new Float32Array([
@@ -243,6 +285,34 @@ export class WebGLRenderer {
 
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
+    // Create signal texture and composite decode FBO (WebGL2 only)
+    if (this.supportsComposite) {
+      // Signal texture (R8 format — single channel, nearest filtering)
+      this.signalTexture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, this.signalTexture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      const emptySignal = new Uint8Array(this.width * this.height);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, this.width, this.height, 0, gl.RED, gl.UNSIGNED_BYTE, emptySignal);
+
+      // Composite decode output texture (RGBA, linear filtering for smooth CRT sampling)
+      this.compositeDecodeTexture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, this.compositeDecodeTexture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.width, this.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, emptyData);
+
+      // Composite decode FBO
+      this.compositeDecodeFBO = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.compositeDecodeFBO);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.compositeDecodeTexture, 0);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
+
     // Set initial canvas size
     if (!this.canvas.width || !this.canvas.height) {
       this.canvas.width = this.width;
@@ -279,6 +349,51 @@ export class WebGLRenderer {
       gl.bindTexture(gl.TEXTURE_2D, this.texture);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, this.width, this.height, gl.RGBA, gl.UNSIGNED_BYTE, framebuffer);
     }
+  }
+
+  /**
+   * Update the signal texture with new PAL composite data.
+   * @param {Uint8Array} signalBuffer - Single-channel signal data (TOTAL_WIDTH x TOTAL_HEIGHT)
+   */
+  updateSignalTexture(signalBuffer) {
+    if (!this.supportsComposite || !this.signalTexture) return;
+    const gl = this.gl;
+    gl.bindTexture(gl.TEXTURE_2D, this.signalTexture);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, this.width, this.height, gl.RED, gl.UNSIGNED_BYTE, signalBuffer);
+  }
+
+  /**
+   * Decode the PAL composite signal into an RGBA texture via the decode shader.
+   * Only runs when composite blend is active and WebGL2 is available.
+   */
+  decodeComposite() {
+    if (!this.supportsComposite || this.crtParams.compositeBlend < 0.001) return;
+
+    const gl = this.gl;
+
+    // Render signal texture → composite decode FBO
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.compositeDecodeFBO);
+    gl.viewport(0, 0, this.width, this.height);
+
+    gl.useProgram(this.compositeDecodeProgram);
+
+    // Use non-flipped tex coords for FBO rendering
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.fbVertexBuffer);
+    gl.enableVertexAttribArray(this.compositePositionLoc);
+    gl.vertexAttribPointer(this.compositePositionLoc, 2, gl.FLOAT, false, 16, 0);
+    gl.enableVertexAttribArray(this.compositeTexCoordLoc);
+    gl.vertexAttribPointer(this.compositeTexCoordLoc, 2, gl.FLOAT, false, 16, 8);
+
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.signalTexture);
+    gl.uniform1i(this.compositeDecodeUniforms.signalTexture, 0);
+    gl.uniform2f(this.compositeDecodeUniforms.textureSize, this.width, this.height);
+
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    // Restore default framebuffer and viewport
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, this.canvas.width, this.canvas.height);
   }
 
   updateBurnIn() {
@@ -344,6 +459,9 @@ export class WebGLRenderer {
     // Update burn-in accumulation
     this.updateBurnIn();
 
+    // Decode composite signal (fills compositeDecodeFBO)
+    this.decodeComposite();
+
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
@@ -365,6 +483,11 @@ export class WebGLRenderer {
     gl.activeTexture(gl.TEXTURE1);
     gl.bindTexture(gl.TEXTURE_2D, this.burnInTextures[this.currentBurnInIndex]);
     gl.uniform1i(this.uniforms.burnInTexture, 1);
+
+    // Bind composite decoded texture
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, this.supportsComposite ? this.compositeDecodeTexture : this.texture);
+    gl.uniform1i(this.uniforms.compositeTexture, 2);
 
     // Set all uniforms
     gl.uniform2f(this.uniforms.resolution, this.canvas.width, this.canvas.height);
@@ -396,6 +519,7 @@ export class WebGLRenderer {
     gl.uniform3fv(this.uniforms.surroundColor, this.crtParams.surroundColor);
     gl.uniform1f(this.uniforms.bezelSpillReach, this.crtParams.bezelSpillReach);
     gl.uniform1f(this.uniforms.bezelSpillIntensity, this.crtParams.bezelSpillIntensity);
+    gl.uniform1f(this.uniforms.compositeBlend, this.crtParams.compositeBlend);
 
     // Draw main CRT pass
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

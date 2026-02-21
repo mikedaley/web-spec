@@ -113,6 +113,7 @@ constexpr uint32_t BORDER_RIGHT         = 48;
 constexpr uint32_t TOTAL_WIDTH          = BORDER_LEFT + SCREEN_WIDTH + BORDER_RIGHT;   // 352
 constexpr uint32_t TOTAL_HEIGHT         = BORDER_TOP + SCREEN_HEIGHT + BORDER_BOTTOM;  // 304
 constexpr uint32_t FRAMEBUFFER_SIZE     = TOTAL_WIDTH * TOTAL_HEIGHT * 4;
+constexpr uint32_t SIGNAL_BUFFER_SIZE   = TOTAL_WIDTH * TOTAL_HEIGHT;    // PAL composite signal (1 byte per pixel)
 
 // Audio constants
 constexpr uint32_t AUDIO_SAMPLE_RATE    = 48000;

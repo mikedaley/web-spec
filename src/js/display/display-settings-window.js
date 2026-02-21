@@ -43,6 +43,7 @@ export class DisplaySettingsWindow extends BaseWindow {
       glowingLine: 0,
       ambientLight: 0,
       burnIn: 0,
+      compositeBlend: 0,
       overscan: 100,
       bezelSpillReach: 66,
       bezelSpillIntensity: 31,
@@ -76,6 +77,7 @@ export class DisplaySettingsWindow extends BaseWindow {
           { id: "glowingLine", label: "Glowing Line", param: "glowingLine" },
           { id: "ambientLight", label: "Ambient Light", param: "ambientLight" },
           { id: "burnIn", label: "Burn In", param: "burnIn" },
+          { id: "compositeBlend", label: "Composite", param: "compositeBlend", scale: 0.41 },
         ],
       },
       {
@@ -159,7 +161,7 @@ export class DisplaySettingsWindow extends BaseWindow {
             const value = parseInt(e.target.value, 10);
             this.settings[slider.id] = value;
             if (valueSpan) valueSpan.textContent = `${value}%`;
-            this.applyToRenderer(slider.param, value / 100);
+            this.applyToRenderer(slider.param, (value / 100) * (slider.scale || 1.0));
             this.saveSettings();
           });
         }
@@ -223,7 +225,7 @@ export class DisplaySettingsWindow extends BaseWindow {
 
         if (input) input.value = this.settings[slider.id];
         if (valueSpan) valueSpan.textContent = `${this.settings[slider.id]}%`;
-        this.applyToRenderer(slider.param, this.settings[slider.id] / 100);
+        this.applyToRenderer(slider.param, (this.settings[slider.id] / 100) * (slider.scale || 1.0));
       }
     }
 

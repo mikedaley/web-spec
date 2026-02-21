@@ -7,6 +7,7 @@
 
 #include "display.hpp"
 #include "../core/palette.hpp"
+#include <cmath>
 #include <cstring>
 
 namespace zxspec {
@@ -26,6 +27,7 @@ void Display::init(const MachineInfo& info)
     tsPerFrame_ = info.tsPerFrame;
     buildLineAddressTable();
     buildTsTable();
+    buildYUVTable();
     frameReset();
 }
 
@@ -33,6 +35,25 @@ void Display::frameReset()
 {
     currentDisplayTs_ = 0;
     bufferIndex_ = 0;
+    currentLine_ = 0;
+    sinPhase_ = 0.0f;
+    cosPhase_ = 1.0f;
+}
+
+void Display::buildYUVTable()
+{
+    for (int i = 0; i < 16; i++)
+    {
+        uint32_t color = SPECTRUM_COLORS[i];
+        // SPECTRUM_COLORS are in ABGR format: byte 0 = R, byte 1 = G, byte 2 = B
+        float r = static_cast<float>(color & 0xFF) / 255.0f;
+        float g = static_cast<float>((color >> 8) & 0xFF) / 255.0f;
+        float b = static_cast<float>((color >> 16) & 0xFF) / 255.0f;
+
+        yuvTable_[i][0] = 0.299f * r + 0.587f * g + 0.114f * b;         // Y
+        yuvTable_[i][1] = -0.147f * r - 0.289f * g + 0.436f * b;        // U
+        yuvTable_[i][2] = 0.615f * r - 0.515f * g - 0.100f * b;         // V
+    }
 }
 
 // Build a lookup table mapping each screen line (0-191) to its byte offset
@@ -189,6 +210,17 @@ void Display::updateWithTs(int32_t tStates, const uint8_t* memory,
     const uint32_t yAdjust = paperStartLine_;
     constexpr uint32_t tsLeftBorderEnd = PX_EMU_BORDER_H / 2;
 
+    // PAL subcarrier phase increment per pixel:
+    // PAL subcarrier = 4.43361875 MHz, pixel clock = 7 MHz (2 pixels per T-state)
+    // phase_inc = 2π × 4433618.75 / 7000000 ≈ 3.9793 rad/pixel
+    static constexpr float PHASE_INC = 2.0f * 3.14159265f * 4433618.75f / 7000000.0f;
+    static const float COS_INC = cosf(PHASE_INC);
+    static const float SIN_INC = sinf(PHASE_INC);
+
+    // Signal encoding range: maps analog signal to 0-255 byte
+    static constexpr float SIGNAL_OFFSET = 0.4f;
+    static constexpr float SIGNAL_SCALE = 170.0f;
+
     while (tStates > 0)
     {
         // Convert the current display T-state into a scanline and horizontal position
@@ -198,6 +230,14 @@ void Display::updateWithTs(int32_t tStates, const uint8_t* memory,
         if (line >= scanlines_)
         {
             break;
+        }
+
+        // Reset phase at each new scanline
+        if (line != currentLine_)
+        {
+            currentLine_ = line;
+            sinPhase_ = 0.0f;
+            cosPhase_ = 1.0f;
         }
 
         // Look up the pre-calculated action for this beam position
@@ -218,6 +258,27 @@ void Display::updateWithTs(int32_t tStates, const uint8_t* memory,
                 pixels[idx + 5] = color;
                 pixels[idx + 6] = color;
                 pixels[idx + 7] = color;
+
+                // Encode PAL composite signal for border pixels
+                {
+                    const float* yuv = yuvTable_[borderColor & 0x07];
+                    float Y = yuv[0], U = yuv[1], V = yuv[2];
+                    bool palFlip = (line & 1) != 0;
+
+                    for (int p = 0; p < 8; p++)
+                    {
+                        float signal = Y + U * sinPhase_ + (palFlip ? -V : V) * cosPhase_;
+                        int encoded = static_cast<int>((signal + SIGNAL_OFFSET) * SIGNAL_SCALE);
+                        signalBuffer_[idx + p] = static_cast<uint8_t>(
+                            encoded < 0 ? 0 : (encoded > 255 ? 255 : encoded));
+
+                        float newSin = sinPhase_ * COS_INC + cosPhase_ * SIN_INC;
+                        float newCos = cosPhase_ * COS_INC - sinPhase_ * SIN_INC;
+                        sinPhase_ = newSin;
+                        cosPhase_ = newCos;
+                    }
+                }
+
                 bufferIndex_ += 8;
                 break;
             }
@@ -238,11 +299,7 @@ void Display::updateWithTs(int32_t tStates, const uint8_t* memory,
                 uint8_t pixelByte = memory[pixelAddr];
                 uint8_t attrByte = memory[attrAddr];
 
-                // Decode the attribute byte:
-                //   Bit 7: FLASH (swap ink/paper every 16 frames)
-                //   Bit 6: BRIGHT (use bright colour variants)
-                //   Bits 5-3: PAPER colour (0-7)
-                //   Bits 2-0: INK colour (0-7)
+                // Decode the attribute byte
                 bool flash = (attrByte & 0x80) != 0;
                 bool bright = (attrByte & 0x40) != 0;
                 uint8_t ink = attrByte & 0x07;
@@ -256,14 +313,33 @@ void Display::updateWithTs(int32_t tStates, const uint8_t* memory,
                 }
 
                 // Look up RGBA colours (bright variants are at indices 8-15)
-                uint32_t inkRGBA = SPECTRUM_COLORS[ink + (bright ? 8 : 0)];
-                uint32_t paperRGBA = SPECTRUM_COLORS[paper + (bright ? 8 : 0)];
+                uint8_t inkIdx = ink + (bright ? 8 : 0);
+                uint8_t paperIdx = paper + (bright ? 8 : 0);
+                uint32_t inkRGBA = SPECTRUM_COLORS[inkIdx];
+                uint32_t paperRGBA = SPECTRUM_COLORS[paperIdx];
 
-                // Render 8 pixels from the bitmap byte, MSB first (left to right)
+                // Render 8 pixels and encode PAL composite signal
                 uint32_t idx = bufferIndex_;
+                bool palFlip = (line & 1) != 0;
+
                 for (int bit = 7; bit >= 0; bit--)
                 {
-                    pixels[idx++] = (pixelByte & (1 << bit)) ? inkRGBA : paperRGBA;
+                    bool isInk = (pixelByte & (1 << bit)) != 0;
+                    pixels[idx] = isInk ? inkRGBA : paperRGBA;
+
+                    uint8_t palIdx = isInk ? inkIdx : paperIdx;
+                    const float* yuv = yuvTable_[palIdx];
+                    float signal = yuv[0] + yuv[1] * sinPhase_ + (palFlip ? -yuv[2] : yuv[2]) * cosPhase_;
+                    int encoded = static_cast<int>((signal + SIGNAL_OFFSET) * SIGNAL_SCALE);
+                    signalBuffer_[idx] = static_cast<uint8_t>(
+                        encoded < 0 ? 0 : (encoded > 255 ? 255 : encoded));
+
+                    float newSin = sinPhase_ * COS_INC + cosPhase_ * SIN_INC;
+                    float newCos = cosPhase_ * COS_INC - sinPhase_ * SIN_INC;
+                    sinPhase_ = newSin;
+                    cosPhase_ = newCos;
+
+                    idx++;
                 }
                 bufferIndex_ += 8;
                 break;
@@ -288,6 +364,16 @@ const uint8_t* Display::getFramebuffer() const
 int Display::getFramebufferSize() const
 {
     return FRAMEBUFFER_SIZE;
+}
+
+const uint8_t* Display::getSignalBuffer() const
+{
+    return signalBuffer_.data();
+}
+
+int Display::getSignalBufferSize() const
+{
+    return SIGNAL_BUFFER_SIZE;
 }
 
 // Return the "floating bus" value — the byte that would appear on the data bus

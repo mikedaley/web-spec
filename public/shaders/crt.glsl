@@ -38,6 +38,10 @@ uniform float u_noSignal;
 uniform float u_bezelSpillReach;
 uniform float u_bezelSpillIntensity;
 
+// Composite video blend
+uniform sampler2D u_compositeTexture;
+uniform float u_compositeBlend;
+
 // Corner radius for rounded screen corners
 uniform float u_cornerRadius;
 
@@ -529,7 +533,13 @@ void main() {
     if (inMargin) {
         color = darkBezelColor;
     } else {
-        color = rgbShift(u_texture, contentUV);
+        vec3 cleanColor = rgbShift(u_texture, contentUV);
+        if (u_compositeBlend > 0.001) {
+            vec3 compositeColor = texture2D(u_compositeTexture, contentUV).rgb;
+            color = mix(cleanColor, compositeColor, u_compositeBlend);
+        } else {
+            color = cleanColor;
+        }
     }
 
     // Apply texture-based effects only for content area
@@ -542,7 +552,11 @@ void main() {
         }
 
         // Add phosphor glow
-        color += glow(u_texture, contentUV);
+        if (u_compositeBlend > 0.001) {
+            color += mix(glow(u_texture, contentUV), glow(u_compositeTexture, contentUV), u_compositeBlend);
+        } else {
+            color += glow(u_texture, contentUV);
+        }
     }
 
     // Apply scanlines

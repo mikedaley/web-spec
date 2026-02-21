@@ -15,13 +15,13 @@ namespace zxspec {
 // ZX Spectrum color palette (RGBA - 16 colors: 8 normal + 8 bright)
 constexpr std::array<uint32_t, 16> SPECTRUM_COLORS = {{
     0xFF000000,  // 0: Black
-    0xFFCD0000,  // 1: Blue
-    0xFF0000CD,  // 2: Red
-    0xFFCD00CD,  // 3: Magenta
-    0xFF00CD00,  // 4: Green
-    0xFFCDCD00,  // 5: Cyan
-    0xFF00CDCD,  // 6: Yellow
-    0xFFCDCDCD,  // 7: White
+    0xFFC20000,  // 1: Blue
+    0xFF0000C2,  // 2: Red
+    0xFFC200C2,  // 3: Magenta
+    0xFF00C200,  // 4: Green
+    0xFFC2C200,  // 5: Cyan
+    0xFF00C2C2,  // 6: Yellow
+    0xFFC2C2C2,  // 7: White
     0xFF000000,  // 8: Black (bright)
     0xFFFF0000,  // 9: Bright Blue
     0xFF0000FF,  // 10: Bright Red

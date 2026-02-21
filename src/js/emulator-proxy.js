@@ -37,7 +37,7 @@ export class EmulatorProxy {
         if (msg.ayRegisters) this._ayRegisters = msg.ayRegisters;
         if (msg.ayMutes) this._ayMutes = msg.ayMutes;
         if (msg.ayWaveforms) this._ayWaveforms = msg.ayWaveforms;
-        if (this.onFrame) this.onFrame(msg.framebuffer, msg.audio, msg.sampleCount);
+        if (this.onFrame) this.onFrame(msg.framebuffer, msg.signalBuffer, msg.audio, msg.sampleCount);
         break;
 
       case "machineSwitched":

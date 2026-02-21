@@ -40,9 +40,13 @@ export class AudioDriver {
     // Latest audio samples for waveform visualization
     this.latestSamples = null;
 
+    // Latest signal buffer received from worker
+    this._latestSignalBuffer = null;
+
     // Set up frame callback from proxy
-    this.proxy.onFrame = (framebuffer, audio, sampleCount) => {
+    this.proxy.onFrame = (framebuffer, signalBuffer, audio, sampleCount) => {
       this._latestFramebuffer = framebuffer;
+      this._latestSignalBuffer = signalBuffer;
 
       // Store a copy of the audio samples for visualization
       if (audio && sampleCount > 0) {
@@ -66,7 +70,7 @@ export class AudioDriver {
 
       // Notify main thread to render
       if (this.onFrameReady) {
-        this.onFrameReady(this._latestFramebuffer);
+        this.onFrameReady(this._latestFramebuffer, this._latestSignalBuffer);
       }
     };
   }

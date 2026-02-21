@@ -50,6 +50,8 @@ public:
 
     const uint8_t* getFramebuffer() const override;
     int getFramebufferSize() const override;
+    const uint8_t* getSignalBuffer() const override;
+    int getSignalBufferSize() const override;
     const float* getAudioBuffer() const override;
     int getAudioSampleCount() const override;
     void resetAudioBuffer() override;

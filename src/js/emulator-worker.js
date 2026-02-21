@@ -62,15 +62,22 @@ function runFrames(count) {
       const fbSize = wasm._getFramebufferSize();
       const fb = new Uint8Array(wasm.HEAPU8.buffer, fbPtr, fbSize).slice();
 
+      // Copy signal buffer
+      const sigPtr = wasm._getSignalBuffer();
+      const sigSize = wasm._getSignalBufferSize();
+      const signalBuf = new Uint8Array(wasm.HEAPU8.buffer, sigPtr, sigSize).slice();
+
       // Send a silent frame so the audio worklet stays alive
       const silenceCount = 960;
       const silence = new Float32Array(silenceCount);
       wasm._resetAudioBuffer();
       const frameState = getState();
       const frameFb = new Uint8Array(wasm.HEAPU8.buffer, fbPtr, fbSize).slice();
+      const frameSig = new Uint8Array(wasm.HEAPU8.buffer, sigPtr, sigSize).slice();
       self.postMessage({
         type: "frame",
         framebuffer: frameFb,
+        signalBuffer: frameSig,
         audio: silence,
         sampleCount: silenceCount,
         state: frameState,
@@ -79,15 +86,16 @@ function runFrames(count) {
         ayRegisters: null,
         ayMutes: null,
         ayWaveforms: null
-      }, [frameFb.buffer, silence.buffer]);
+      }, [frameFb.buffer, frameSig.buffer, silence.buffer]);
 
       self.postMessage({
         type: "basicBreakpointHit",
         framebuffer: fb,
+        signalBuffer: signalBuf,
         lineNumber: ppc,
         hit: true,
         state: frameState
-      }, [fb.buffer]);
+      }, [fb.buffer, signalBuf.buffer]);
       return;
     }
   }
@@ -97,6 +105,11 @@ function runFrames(count) {
   const fbSize = wasm._getFramebufferSize();
   const fbData = new Uint8Array(wasm.HEAPU8.buffer, fbPtr, fbSize);
   const framebuffer = new Uint8Array(fbData);
+
+  // Copy signal buffer (PAL composite)
+  const sigPtr = wasm._getSignalBuffer();
+  const sigSize = wasm._getSignalBufferSize();
+  const signalBuffer = new Uint8Array(wasm.HEAPU8.buffer, sigPtr, sigSize).slice();
 
   // Copy audio
   let sampleCount = wasm._getAudioSampleCount();
@@ -183,13 +196,13 @@ function runFrames(count) {
   wasm._free(wavePtr);
 
   // Transfer buffers for zero-copy
-  const transfer = [framebuffer.buffer, beeperWaveform.buffer];
+  const transfer = [framebuffer.buffer, signalBuffer.buffer, beeperWaveform.buffer];
   if (audio) transfer.push(audio.buffer);
   if (ayWaveforms) {
     for (const wf of ayWaveforms) transfer.push(wf.buffer);
   }
 
-  self.postMessage({ type: "frame", framebuffer, audio, sampleCount: sampleCount, state, recordedBlocks, beeperWaveform, ayRegisters, ayMutes, ayWaveforms }, transfer);
+  self.postMessage({ type: "frame", framebuffer, signalBuffer, audio, sampleCount: sampleCount, state, recordedBlocks, beeperWaveform, ayRegisters, ayMutes, ayWaveforms }, transfer);
 }
 
 self.onmessage = async function (e) {

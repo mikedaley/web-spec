@@ -37,6 +37,9 @@ public:
     const uint8_t* getFramebuffer() const;
     int getFramebufferSize() const;
 
+    const uint8_t* getSignalBuffer() const;
+    int getSignalBufferSize() const;
+
     // Returns the T-state position the display has been rendered up to so far
     // in the current frame. Used by the machine to calculate how many T-states
     // of display need catching up after a CPU instruction.
@@ -51,10 +54,24 @@ public:
 private:
     void buildTsTable();
     void buildLineAddressTable();
+    void buildYUVTable();
 
-    // The RGBA framebuffer: 320×256 pixels × 4 bytes per pixel.
+    // The RGBA framebuffer: 352×304 pixels × 4 bytes per pixel.
     // Written to progressively during each frame and read by the WebGL renderer.
     std::array<uint8_t, FRAMEBUFFER_SIZE> framebuffer_{};
+
+    // PAL composite signal buffer: 352×304 pixels × 1 byte per pixel.
+    // Encodes Y + modulated UV subcarrier into a single byte per pixel.
+    // The GPU decode shader demodulates and separates luma/chroma.
+    std::array<uint8_t, SIGNAL_BUFFER_SIZE> signalBuffer_{};
+
+    // Pre-computed YUV values for each of the 16 Spectrum palette colours
+    float yuvTable_[16][3]{};
+
+    // Phase state for PAL subcarrier oscillator (sin/cos recurrence)
+    uint32_t currentLine_ = 0;
+    float sinPhase_ = 0.0f;
+    float cosPhase_ = 1.0f;
 
     // How far through the frame the display has been rendered (in T-states).
     // Advances in steps of TSTATES_PER_CHAR (4) as each 8-pixel block is drawn.

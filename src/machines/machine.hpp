@@ -26,6 +26,8 @@ public:
 
     virtual const uint8_t* getFramebuffer() const = 0;
     virtual int getFramebufferSize() const = 0;
+    virtual const uint8_t* getSignalBuffer() const = 0;
+    virtual int getSignalBufferSize() const = 0;
     virtual const float* getAudioBuffer() const = 0;
     virtual int getAudioSampleCount() const = 0;
     virtual void resetAudioBuffer() = 0;

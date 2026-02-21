@@ -354,6 +354,18 @@ int getFramebufferSize() {
   return g_machine->getFramebufferSize();
 }
 
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* getSignalBuffer() {
+  REQUIRE_MACHINE_OR(nullptr);
+  return g_machine->getSignalBuffer();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int getSignalBufferSize() {
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getSignalBufferSize();
+}
+
 // ============================================================================
 // Audio
 // ============================================================================

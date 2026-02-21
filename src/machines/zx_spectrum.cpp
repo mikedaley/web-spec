@@ -329,6 +329,16 @@ int ZXSpectrum::getFramebufferSize() const
     return display_.getFramebufferSize();
 }
 
+const uint8_t* ZXSpectrum::getSignalBuffer() const
+{
+    return display_.getSignalBuffer();
+}
+
+int ZXSpectrum::getSignalBufferSize() const
+{
+    return display_.getSignalBufferSize();
+}
+
 const float* ZXSpectrum::getAudioBuffer() const
 {
     return audio_.getBuffer();

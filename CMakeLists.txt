@@ -128,6 +128,8 @@ if(EMSCRIPTEN)
                 \"_runFrame\", \
                 \"_getFramebuffer\", \
                 \"_getFramebufferSize\", \
+                \"_getSignalBuffer\", \
+                \"_getSignalBufferSize\", \
                 \"_keyDown\", \
                 \"_keyUp\", \
                 \"_getKeyboardRow\", \
