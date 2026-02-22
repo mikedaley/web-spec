@@ -328,6 +328,50 @@
   width: 100%;
 }
 
+/* Error line highlight */
+.bas-error-line {
+  display: inline-block;
+  width: 100%;
+  background: var(--accent-red-bg);
+  position: relative;
+}
+
+.bas-error-msg {
+  position: absolute;
+  right: 8px;
+  top: 0;
+  color: var(--accent-red);
+  font-weight: 600;
+  font-size: 11px;
+  line-height: 18px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+/* Gutter error indicator */
+.bas-gutter-line.has-error {
+  background: var(--accent-red-bg);
+}
+
+.bas-gutter-line.has-error::after {
+  content: "!";
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent-red);
+  color: var(--bg-primary);
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
 /* Debug status in status bar */
 .bas-debug-status {
   color: var(--accent-green);
