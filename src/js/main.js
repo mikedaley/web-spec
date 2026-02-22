@@ -71,7 +71,7 @@ class ZXSpectrumEmulator {
       this.windowManager.register(this.screenWindow);
 
       // Create display settings window
-      this.displaySettingsWindow = new DisplaySettingsWindow(this.renderer);
+      this.displaySettingsWindow = new DisplaySettingsWindow(this.renderer, this.screenWindow);
       this.displaySettingsWindow.create();
       this.windowManager.register(this.displaySettingsWindow);
 
@@ -109,7 +109,7 @@ class ZXSpectrumEmulator {
 
       // Apply default layout (screen left, tape right for first-time users)
       this.windowManager.applyDefaultLayout([
-        { id: "screen-window", position: "viewport-left-of", leftOf: "tape-window", aspectRatio: 5 / 4, visible: true, viewportLocked: false },
+        { id: "screen-window", position: "viewport-left-of", leftOf: "tape-window", aspectRatio: 352 / 288, visible: true, viewportLocked: false },
         { id: "tape-window", position: "viewport-right", visible: true },
         { id: "display-settings", visible: false },
         { id: "cpu-debugger", visible: false },
@@ -980,5 +980,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Make emulator accessible globally for debugging
   window.zxspec = emulator;
+
+
 
 });

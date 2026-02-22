@@ -106,12 +106,12 @@ constexpr uint32_t MAX_TSTATES_PER_FRAME = 71000;
 // Display constants (same for all machines)
 constexpr uint32_t SCREEN_WIDTH         = 256;
 constexpr uint32_t SCREEN_HEIGHT        = 192;
-constexpr uint32_t BORDER_TOP           = 56;
-constexpr uint32_t BORDER_BOTTOM        = 56;
+constexpr uint32_t BORDER_TOP           = 48;
+constexpr uint32_t BORDER_BOTTOM        = 48;
 constexpr uint32_t BORDER_LEFT          = 48;
 constexpr uint32_t BORDER_RIGHT         = 48;
 constexpr uint32_t TOTAL_WIDTH          = BORDER_LEFT + SCREEN_WIDTH + BORDER_RIGHT;   // 352
-constexpr uint32_t TOTAL_HEIGHT         = BORDER_TOP + SCREEN_HEIGHT + BORDER_BOTTOM;  // 304
+constexpr uint32_t TOTAL_HEIGHT         = BORDER_TOP + SCREEN_HEIGHT + BORDER_BOTTOM;  // 288
 constexpr uint32_t FRAMEBUFFER_SIZE     = TOTAL_WIDTH * TOTAL_HEIGHT * 4;
 constexpr uint32_t SIGNAL_BUFFER_SIZE   = TOTAL_WIDTH * TOTAL_HEIGHT;    // PAL composite signal (1 byte per pixel)
 
@@ -132,8 +132,8 @@ constexpr uint32_t TS_HORIZONTAL_DISPLAY = 128;    // T-states for the 256-pixel
 constexpr uint32_t TSTATES_PER_CHAR     = 4;       // T-states per 8-pixel character cell (the ULA fetches 1 bitmap
                                                     // byte + 1 attribute byte every 4 T-states)
 constexpr uint32_t PX_EMU_BORDER_H      = 48;      // Emulated horizontal border width (pixels, each side)
-constexpr uint32_t PX_EMU_BORDER_TOP    = 56;       // Emulated top border height (scanlines)
-constexpr uint32_t PX_EMU_BORDER_BOTTOM = 56;       // Emulated bottom border height (scanlines)
+constexpr uint32_t PX_EMU_BORDER_TOP    = 48;       // Emulated top border height (scanlines)
+constexpr uint32_t PX_EMU_BORDER_BOTTOM = 48;       // Emulated bottom border height (scanlines)
 
 // ULA contention delay values indexed by (tstate % 8).
 //

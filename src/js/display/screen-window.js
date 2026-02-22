@@ -22,6 +22,7 @@ export class ScreenWindow extends BaseWindow {
 
     this.renderer = renderer;
     // Aspect ratio derived from C++ display dimensions via the renderer
+    // 352x288 = 48px border on all four sides around 256x192 paper
     this._aspect = renderer.width / renderer.height;
     this._viewportLocked = false;
   }
@@ -342,6 +343,25 @@ export class ScreenWindow extends BaseWindow {
     if (this.renderer) {
       this.renderer.resize(w, h);
     }
+  }
+
+  /**
+   * Update aspect ratio when overscan changes.
+   * @param {number} overscan - 0.0 (paper only) to 1.0 (full border)
+   */
+  setOverscan(overscan) {
+    // Visible area: 48px border scaled by overscan on each side
+    const visW = 256 + 96 * overscan;  // 256 (paper) + 2*48*overscan
+    const visH = 192 + 96 * overscan;  // 192 (paper) + 2*48*overscan
+    this._aspect = visW / visH;
+
+    // Re-fit the window to the new aspect ratio
+    const headerHeight = this.headerElement ? this.headerElement.offsetHeight : 0;
+    const contentHeight = this.currentHeight - headerHeight;
+    const newWidth = Math.round(contentHeight * this._aspect);
+    this.element.style.width = `${newWidth}px`;
+    this.currentWidth = newWidth;
+    this._fitCanvas();
   }
 
   /**

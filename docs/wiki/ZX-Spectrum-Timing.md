@@ -1,6 +1,6 @@
 # ZX Spectrum Timing
 
-This page documents every aspect of how timing is handled in the SpectREM Web emulator. The ZX Spectrum's architecture is tightly coupled around the ULA (Uncommitted Logic Array), which arbitrates access to shared RAM between the Z80 CPU and the video/audio circuitry. Accurate emulation of this timing is essential for correct display, audio, tape loading, and software compatibility.
+This page documents every aspect of how timing is handled in the SpectrEM Web emulator. The ZX Spectrum's architecture is tightly coupled around the ULA (Uncommitted Logic Array), which arbitrates access to shared RAM between the Z80 CPU and the video/audio circuitry. Accurate emulation of this timing is essential for correct display, audio, tape loading, and software compatibility.
 
 All timing values referenced here are taken from `src/machines/machine_info.hpp` and the corresponding implementation files.
 

@@ -11,7 +11,7 @@ import { BaseWindow } from "../windows/base-window.js";
  * DisplaySettingsWindow - CRT display effects and settings
  */
 export class DisplaySettingsWindow extends BaseWindow {
-  constructor(renderer) {
+  constructor(renderer, screenWindow) {
     super({
       id: "display-settings",
       title: "Display Settings",
@@ -23,6 +23,7 @@ export class DisplaySettingsWindow extends BaseWindow {
     });
 
     this.renderer = renderer;
+    this.screenWindow = screenWindow;
 
     // Default values (percentages 0-100 for UI, converted to shader values)
     this.defaults = {
@@ -206,6 +207,9 @@ export class DisplaySettingsWindow extends BaseWindow {
   applyToRenderer(param, value) {
     if (this.renderer) {
       this.renderer.setParam(param, value);
+    }
+    if (param === "overscan" && this.screenWindow) {
+      this.screenWindow.setOverscan(value);
     }
   }
 

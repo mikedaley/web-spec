@@ -121,8 +121,21 @@
   --radius-md: 8px;
 
   /* Shimmer */
-  --shimmer-peak: rgba(255, 255, 255, 0.6);
-  --shimmer-edge: rgba(255, 255, 255, 0.3);
+  --shimmer-peak: rgba(255, 255, 255, 0.85);
+  --shimmer-edge: rgba(255, 255, 255, 0.35);
+
+  /* Spectrum stripes */
+  --stripe-red: #FF0000;
+  --stripe-yellow: #FFFF00;
+  --stripe-green: #00FF00;
+  --stripe-cyan: #00FFFF;
+  --stripe-opacity: 0.2;
+
+  /* Logo colours */
+  --logo-red: var(--accent-red);
+  --logo-yellow: var(--accent-orange);
+  --logo-green: var(--accent-green);
+  --logo-blue: var(--accent-blue);
 
   /* Fonts */
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
@@ -231,8 +244,21 @@ html[data-theme="light"] {
   --control-border: rgba(208, 215, 222, 0.8);
 
   /* Shimmer */
-  --shimmer-peak: rgba(255, 255, 255, 0.8);
-  --shimmer-edge: rgba(255, 255, 255, 0.4);
+  --shimmer-peak: rgba(255, 255, 255, 1);
+  --shimmer-edge: rgba(255, 255, 255, 0.5);
+
+  /* Spectrum stripes */
+  --stripe-red: #CD0000;
+  --stripe-yellow: #C2C200;
+  --stripe-green: #00CD00;
+  --stripe-cyan: #00C2C2;
+  --stripe-opacity: 0.15;
+
+  /* Logo colours — brighter than general accents for visibility on light header */
+  --logo-red: #E00000;
+  --logo-yellow: #B8860B;
+  --logo-green: #008A00;
+  --logo-blue: #0055CC;
 
   /* Shadows */
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.15);
@@ -259,6 +285,26 @@ body {
   font-family: var(--font-sans);
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 50vw;
+  height: 50vw;
+  pointer-events: none;
+  z-index: 0;
+  background: linear-gradient(
+    to top left,
+    var(--stripe-red) 0%,    var(--stripe-red) 6%,
+    var(--stripe-yellow) 6%,  var(--stripe-yellow) 12%,
+    var(--stripe-green) 12%, var(--stripe-green) 18%,
+    var(--stripe-cyan) 18%,  var(--stripe-cyan) 24%,
+    transparent 24%
+  );
+  opacity: var(--stripe-opacity);
 }
 
 #app {
@@ -315,64 +361,14 @@ header {
   -webkit-font-smoothing: none;
   -moz-osx-font-smoothing: unset;
   position: relative;
-  overflow: hidden;
   padding-top: 10px;
 }
 
-.logo-r {
-  color: var(--accent-red);
-  text-shadow: 0 0 4px var(--accent-red), 0 0 10px var(--accent-red-bg-stronger), 0 0 20px var(--accent-red-bg);
-}
-.logo-w {
-  color: var(--text-primary);
-  text-shadow: 0 0 4px var(--overlay-white-10), 0 0 10px var(--overlay-white-10);
-}
-.logo-y {
-  color: var(--accent-orange);
-  text-shadow: 0 0 4px var(--accent-orange), 0 0 10px var(--accent-orange-bg-stronger), 0 0 20px var(--accent-orange-bg);
-}
-.logo-g {
-  color: var(--accent-green);
-  text-shadow: 0 0 4px var(--accent-green), 0 0 10px var(--accent-green-bg-stronger), 0 0 20px var(--accent-green-bg);
-}
-.logo-c {
-  color: var(--accent-blue);
-  text-shadow: 0 0 4px var(--accent-blue), 0 0 10px var(--accent-blue-bg-stronger), 0 0 20px var(--accent-blue-bg);
-}
-
-@keyframes logo-shimmer {
-  0%   { transform: translateX(-150%) skewX(-20deg); opacity: 0; }
-  10%  { opacity: 1; }
-  90%  { opacity: 1; }
-  100% { transform: translateX(300%) skewX(-20deg); opacity: 0; }
-}
-
-.header-logo::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: 40%;
-  height: 24px;
-  margin-top: -12px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    var(--shimmer-edge) 35%,
-    var(--shimmer-peak) 50%,
-    var(--shimmer-edge) 65%,
-    transparent 100%
-  );
-  animation: logo-shimmer 4s ease-in-out infinite;
-  animation-delay: 2s;
-  pointer-events: none;
-  mix-blend-mode: overlay;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .header-logo::after {
-    animation: none;
-  }
-}
+.logo-r { color: var(--logo-red); }
+.logo-w { color: var(--text-primary); }
+.logo-y { color: var(--logo-yellow); }
+.logo-g { color: var(--logo-green); }
+.logo-c { color: var(--logo-blue); }
 
 .version-chip {
   font-family: var(--font-mono);

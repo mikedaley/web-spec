@@ -1,6 +1,6 @@
-# SpectREM Web Wiki
+# SpectrEM Web Wiki
 
-Welcome to the SpectREM Web wiki — a ZX Spectrum emulator running in the browser using C++/WebAssembly and vanilla JavaScript.
+Welcome to the SpectrEM Web wiki — a ZX Spectrum emulator running in the browser using C++/WebAssembly and vanilla JavaScript.
 
 ## Pages
 

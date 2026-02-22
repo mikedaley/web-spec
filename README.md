@@ -1,4 +1,4 @@
-# SpectREM Web
+# SpectrEM Web
 
 A ZX Spectrum emulator running in the browser, built with C++/WebAssembly and vanilla JavaScript. Features a full Z80 CPU emulation, ULA display with contention timing, AY-3-8912 sound chip, tape loading, Sinclair BASIC editor, and a suite of debug tools — all rendered with WebGL.
 

@@ -76,9 +76,9 @@ float rgb2grey(vec3 v) {
 vec2 applyOverscan(vec2 uv) {
     if (u_overscan > 0.999) return uv;
 
-    // ZX Spectrum: 256x192 display centered in 352x304 framebuffer
-    // Border is 48px horizontal (each side) and 56px vertical (top/bottom)
-    const vec2 borderUV = vec2(48.0 / 352.0, 56.0 / 304.0);
+    // ZX Spectrum: 256x192 display centered in 352x288 framebuffer
+    // Border is 48px on all four sides
+    const vec2 borderUV = vec2(48.0 / 352.0, 48.0 / 288.0);
 
     // u_overscan 1.0 = full border, 0.0 = no border (display area only)
     vec2 margin = borderUV * (1.0 - u_overscan);
@@ -420,35 +420,32 @@ vec3 bezelShade(vec2 uv, vec2 curvedUV) {
     float lip = smoothstep(0.008, 0.004, lipDist) * smoothstep(0.0, 0.002, lipDist);
     bezel += vec3(lip * 0.2);
 
-    // 6. Screen color spill — physically-motivated bezel reflection
+    // 6. Screen color spill — diffuse bezel reflection
     //
-    //    The bezel is a raised wall around a recessed screen. Light from
-    //    the screen hits the inner wall at an angle, so:
-    //    - Points on the bezel near the screen see the edge pixels
-    //    - Points further up the wall see pixels deeper INTO the screen
-    //      (parallax: the wall looks down at the screen at a steeper angle)
-    //    - The reflection is softer/more diffuse further from the screen
+    //    A matte bezel scatters light widely, producing a soft color wash
+    //    from the nearest screen edge. We sample the closest edge point
+    //    with a large blur radius that increases with distance from the
+    //    screen, simulating the increasingly diffuse reflection.
 
     // Distance from the screen content boundary in curved space
     vec2 screenDist = max(vec2(0.0) - curvedUV, curvedUV - vec2(1.0));
     screenDist = max(screenDist, 0.0);
     float distFromScreen = max(screenDist.x, screenDist.y);
 
-    // Parallax offset: further from screen edge → sample deeper into screen
-    // This simulates the viewing angle off the bezel wall
-    float parallax = distFromScreen * 3.0;
-    vec2 inwardDir = normalize(vec2(0.5) - curvedUV);
-    vec2 sampleBase = clamp(curvedUV + inwardDir * parallax, 0.005, 0.995);
+    // Sample from the nearest point on the screen edge
+    vec2 nearestEdge = clamp(curvedUV, 0.005, 0.995);
 
-    // Blur neighbourhood — wider blur further from screen (more diffuse reflection)
+    // Wide blur along the screen edge — matte surfaces scatter light broadly.
+    // The blur is elongated along the edge (tangent) and narrower perpendicular
+    // to it, with both growing as we move further from the screen.
     vec2 texelSize = 1.0 / u_textureSize;
-    float blurScale = 3.0 + distFromScreen * 40.0;
+    float blurRadius = 8.0 + distFromScreen * 80.0;
     vec3 spill = vec3(0.0);
     for (int x = -2; x <= 2; x++) {
         for (int y = -2; y <= 2; y++) {
-            vec2 sampleUV = sampleBase + vec2(float(x), float(y)) * texelSize * blurScale;
+            vec2 sampleUV = nearestEdge + vec2(float(x), float(y)) * texelSize * blurRadius;
             sampleUV = clamp(sampleUV, 0.0, 1.0);
-            spill += texture2D(u_texture, sampleUV).rgb;
+            spill += texture2D(u_texture, applyOverscan(sampleUV)).rgb;
         }
     }
     spill /= 25.0;
