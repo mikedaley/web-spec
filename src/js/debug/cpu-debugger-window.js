@@ -8,6 +8,7 @@
 import { BaseWindow } from "../windows/base-window.js";
 import { BreakpointManager } from "./breakpoint-manager.js";
 import "../css/cpu-debugger.css";
+import "../css/rule-builder.css";
 
 const DISASM_LINES = 48;
 
@@ -35,6 +36,10 @@ export class CPUDebuggerWindow extends BaseWindow {
     this._proxy = null;
     this._disasmCache = null;
     this._memoryPending = false;
+    this.ruleBuilderWindow = null; // set by main.js
+    // condition/conditionRules per address: Map<addr, {condition, conditionRules}>
+    this._bpConditions = new Map();
+    this._loadConditions();
   }
 
   renderContent() {
@@ -232,6 +237,16 @@ export class CPUDebuggerWindow extends BaseWindow {
         if (this._disasmCache) {
           this.renderDisassemblyFromCache();
         }
+      }
+    });
+
+    // Right-click on disassembly gutter for condition editing
+    this.elements.disasmView.addEventListener("contextmenu", (e) => {
+      const line = e.target.closest(".cpu-disasm-line");
+      if (line && line.dataset.addr && this.breakpointManager.has(parseInt(line.dataset.addr, 16))) {
+        e.preventDefault();
+        const addr = parseInt(line.dataset.addr, 16);
+        this._showCpuBreakpointContextMenu(e.clientX, e.clientY, addr);
       }
     });
 
@@ -436,8 +451,10 @@ export class CPUDebuggerWindow extends BaseWindow {
     }
     this.elements.bpList.innerHTML = bps.map((bp) => {
       const addrStr = bp.addr.toString(16).toUpperCase().padStart(4, "0");
+      const cond = this._getBpCondition(bp.addr);
+      const condBadge = cond.condition ? `<span class="bp-condition-badge" title="${cond.condition}">?</span>` : "";
       return `<div class="cpu-bp-item" data-addr="${bp.addr}">
-        <span class="bp-addr">$${addrStr}</span>
+        <span class="bp-addr">$${addrStr}</span>${condBadge}
         <span class="bp-remove" data-action="remove" title="Remove">&times;</span>
       </div>`;
     }).join("");
@@ -447,8 +464,19 @@ export class CPUDebuggerWindow extends BaseWindow {
         const item = e.target.closest(".cpu-bp-item");
         const addr = parseInt(item.dataset.addr);
         this.breakpointManager.remove(addr);
+        this._bpConditions.delete(addr);
+        this._saveConditions();
         this.renderBreakpointList();
         if (this._disasmCache) this.renderDisassemblyFromCache();
+      });
+    });
+
+    // Right-click context menu on breakpoint items
+    this.elements.bpList.querySelectorAll(".cpu-bp-item").forEach((el) => {
+      el.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        const addr = parseInt(el.dataset.addr);
+        this._showCpuBreakpointContextMenu(e.clientX, e.clientY, addr);
       });
     });
   }
@@ -555,6 +583,132 @@ export class CPUDebuggerWindow extends BaseWindow {
       if (e.key === "Enter") { commit(); e.preventDefault(); }
       if (e.key === "Escape") { el.removeChild(input); el.textContent = currentValue; }
     });
+  }
+
+  // ============================================================================
+  // CPU breakpoint conditions
+  // ============================================================================
+
+  _loadConditions() {
+    try {
+      const saved = localStorage.getItem("zxspec-bp-conditions");
+      if (saved) {
+        const data = JSON.parse(saved);
+        for (const item of data) {
+          this._bpConditions.set(item.addr, {
+            condition: item.condition || null,
+            conditionRules: item.conditionRules || null,
+          });
+        }
+      }
+    } catch (e) { /* ignore */ }
+  }
+
+  _saveConditions() {
+    try {
+      const data = [];
+      for (const [addr, cond] of this._bpConditions) {
+        if (cond.condition) {
+          data.push({ addr, ...cond });
+        }
+      }
+      localStorage.setItem("zxspec-bp-conditions", JSON.stringify(data));
+    } catch (e) { /* ignore */ }
+  }
+
+  _getBpCondition(addr) {
+    return this._bpConditions.get(addr) || { condition: null, conditionRules: null };
+  }
+
+  _setBpCondition(addr, condition, conditionRules) {
+    if (condition) {
+      this._bpConditions.set(addr, { condition, conditionRules });
+    } else {
+      this._bpConditions.delete(addr);
+    }
+    this._saveConditions();
+    this.renderBreakpointList();
+  }
+
+  _showCpuBreakpointContextMenu(x, y, addr) {
+    this._dismissCpuContextMenu();
+
+    const menu = document.createElement("div");
+    menu.className = "rule-context-menu";
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+
+    const cond = this._getBpCondition(addr);
+    const hasCond = !!cond.condition;
+
+    const editItem = document.createElement("div");
+    editItem.className = "rule-context-menu-item";
+    editItem.textContent = hasCond ? "Edit Condition..." : "Add Condition...";
+    editItem.addEventListener("click", () => {
+      this._dismissCpuContextMenu();
+      this._editCpuBreakpointCondition(addr);
+    });
+    menu.appendChild(editItem);
+
+    if (hasCond) {
+      const clearItem = document.createElement("div");
+      clearItem.className = "rule-context-menu-item";
+      clearItem.textContent = "Clear Condition";
+      clearItem.addEventListener("click", () => {
+        this._dismissCpuContextMenu();
+        this._setBpCondition(addr, null, null);
+      });
+      menu.appendChild(clearItem);
+    }
+
+    const sep = document.createElement("div");
+    sep.className = "rule-context-menu-separator";
+    menu.appendChild(sep);
+
+    const removeItem = document.createElement("div");
+    removeItem.className = "rule-context-menu-item danger";
+    removeItem.textContent = "Remove Breakpoint";
+    removeItem.addEventListener("click", () => {
+      this._dismissCpuContextMenu();
+      this.breakpointManager.remove(addr);
+      this._bpConditions.delete(addr);
+      this._saveConditions();
+      this.renderBreakpointList();
+      if (this._disasmCache) this.renderDisassemblyFromCache();
+    });
+    menu.appendChild(removeItem);
+
+    document.body.appendChild(menu);
+    this._cpuContextMenu = menu;
+    this._cpuContextMenuDismiss = (e) => {
+      if (!menu.contains(e.target)) this._dismissCpuContextMenu();
+    };
+    setTimeout(() => document.addEventListener("click", this._cpuContextMenuDismiss), 0);
+  }
+
+  _dismissCpuContextMenu() {
+    if (this._cpuContextMenu) {
+      this._cpuContextMenu.remove();
+      this._cpuContextMenu = null;
+    }
+    if (this._cpuContextMenuDismiss) {
+      document.removeEventListener("click", this._cpuContextMenuDismiss);
+      this._cpuContextMenuDismiss = null;
+    }
+  }
+
+  _editCpuBreakpointCondition(addr) {
+    if (!this.ruleBuilderWindow) return;
+    const addrStr = "$" + addr.toString(16).toUpperCase().padStart(4, "0");
+    const key = `cpu:${addr}`;
+    const entry = this._getBpCondition(addr);
+    this.ruleBuilderWindow.editBreakpoint(
+      key, entry, addrStr,
+      (k, condition, conditionRules) => {
+        const a = parseInt(k.replace("cpu:", ""), 10);
+        this._setBpCondition(a, condition, conditionRules);
+      }
+    );
   }
 
   update(proxy) {

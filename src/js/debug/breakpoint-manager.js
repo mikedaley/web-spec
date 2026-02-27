@@ -61,7 +61,28 @@ export class BreakpointManager {
     return Array.from(this.breakpoints.entries()).map(([addr, bp]) => ({
       addr,
       enabled: bp.enabled,
+      condition: bp.condition || null,
+      conditionRules: bp.conditionRules || null,
     }));
+  }
+
+  setCondition(addr, condition, conditionRules) {
+    const bp = this.breakpoints.get(addr);
+    if (bp) {
+      bp.condition = condition || null;
+      bp.conditionRules = conditionRules || null;
+      this.save();
+    }
+  }
+
+  getCondition(addr) {
+    const bp = this.breakpoints.get(addr);
+    return bp ? bp.condition : null;
+  }
+
+  hasCondition(addr) {
+    const bp = this.breakpoints.get(addr);
+    return bp ? !!bp.condition : false;
   }
 
   /**

@@ -555,6 +555,196 @@
 }
 
 /* ============================================
+   BREAKPOINT PANEL
+   ============================================ */
+
+.bas-bp-panel {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--glass-border);
+  max-height: 120px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.bas-bp-panel.hidden {
+  display: none;
+}
+
+.bas-bp-panel-header {
+  display: flex;
+  align-items: center;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--glass-border-subtle);
+  background: var(--glass-bg-header);
+  flex-shrink: 0;
+}
+
+.bas-bp-panel-header-label {
+  flex: 1;
+}
+
+.bas-bp-panel-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.bas-bp-panel-btn {
+  cursor: pointer;
+  color: var(--text-muted);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--control-bg);
+  font-size: 10px;
+  font-family: var(--font-sans);
+  padding: 1px 6px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.bas-bp-panel-btn:hover {
+  background: var(--overlay-hover);
+  color: var(--text-primary);
+}
+
+.bas-bp-panel-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.bas-bp-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 20px;
+  color: var(--text-secondary);
+  cursor: default;
+}
+
+.bas-bp-item:hover {
+  background: var(--overlay-hover);
+}
+
+.bas-bp-item.disabled {
+  opacity: 0.4;
+}
+
+.bas-bp-item input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--glass-border);
+  border-radius: 2px;
+  background: var(--control-bg);
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.bas-bp-item input[type="checkbox"]:checked {
+  background: var(--accent-blue-bg-stronger);
+  border-color: var(--accent-blue);
+}
+
+.bas-bp-item input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0;
+  width: 5px;
+  height: 8px;
+  border: solid var(--accent-blue);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.bas-bp-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-red);
+  flex-shrink: 0;
+}
+
+.bas-bp-diamond {
+  width: 8px;
+  height: 8px;
+  background: var(--accent-purple);
+  transform: rotate(45deg);
+  flex-shrink: 0;
+}
+
+.bas-bp-label {
+  color: var(--text-primary);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.bas-bp-condition {
+  color: var(--text-muted);
+  font-size: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.bas-bp-spacer {
+  flex: 1;
+}
+
+.bas-bp-action-btn {
+  cursor: pointer;
+  color: var(--text-muted);
+  border: none;
+  background: none;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  padding: 0 2px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.bas-bp-item:hover .bas-bp-action-btn {
+  opacity: 1;
+}
+
+.bas-bp-action-btn:hover {
+  color: var(--text-primary);
+}
+
+.bas-bp-action-btn.danger:hover {
+  color: var(--accent-red);
+}
+
+.bas-bp-empty {
+  padding: 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  text-align: center;
+  font-style: italic;
+}
+
+.bas-bp-item.fired {
+  animation: bas-bp-fire 1s ease-in-out infinite;
+}
+
+@keyframes bas-bp-fire {
+  0%, 100% { background: transparent; }
+  50%      { background: var(--accent-red-bg-stronger); }
+}
+
+/* ============================================
    STATUS BAR
    ============================================ */
 

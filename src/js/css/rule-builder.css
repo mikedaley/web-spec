@@ -1,0 +1,327 @@
+/*
+ * rule-builder.css - Styles for the rule-based conditional breakpoint builder
+ *
+ * Written by
+ *  Mike Daley <michael_daley@icloud.com>
+ */
+
+/* Main container */
+.rule-builder-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  font-size: 12px;
+}
+
+/* Header / label area */
+.rule-builder-header {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.rule-builder-header .rule-label {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Scrollable rule tree */
+.rule-builder-tree {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+/* Preview panel */
+.rule-builder-preview {
+  padding: 8px 12px;
+  border-top: 1px solid var(--glass-border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.rule-builder-preview-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+}
+
+.rule-builder-preview-expr {
+  font-family: monospace;
+  font-size: 11px;
+  color: var(--accent-blue);
+  word-break: break-all;
+  min-height: 16px;
+  padding: 4px 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--glass-border);
+  border-radius: 3px;
+}
+
+/* Footer buttons */
+.rule-builder-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--glass-border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.rule-builder-footer button {
+  padding: 4px 12px;
+  font-size: 11px;
+  border: 1px solid var(--glass-border);
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.rule-builder-footer button:hover {
+  background: var(--overlay-hover);
+}
+
+.rule-builder-footer button.primary {
+  background: var(--accent-blue-bg);
+  border-color: var(--accent-blue-border);
+  color: var(--text-primary);
+}
+
+.rule-builder-footer button.primary:hover {
+  background: var(--accent-blue-bg-strong);
+}
+
+/* ============================================================================
+   Rule Groups (AND/OR containers)
+   ============================================================================ */
+
+.rule-group {
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+  padding: 6px;
+  margin: 4px 0;
+  background: var(--bg-primary);
+}
+
+/* Depth-based border colours using Spectrum palette */
+.rule-group[data-depth="0"] {
+  border-left: 3px solid var(--accent-blue);
+}
+
+.rule-group[data-depth="1"] {
+  border-left: 3px solid var(--accent-purple);
+}
+
+.rule-group[data-depth="2"] {
+  border-left: 3px solid var(--accent-orange);
+}
+
+.rule-group[data-depth="3"] {
+  border-left: 3px solid var(--accent-green);
+}
+
+.rule-group[data-depth="4"] {
+  border-left: 3px solid var(--accent-red);
+}
+
+/* Group header with logic toggle */
+.rule-group-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.rule-group-logic {
+  display: inline-flex;
+  border: 1px solid var(--glass-border);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.rule-group-logic button {
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  border: none;
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.rule-group-logic button.active {
+  background: var(--accent-blue-bg);
+  color: var(--text-primary);
+}
+
+.rule-group-logic button:hover:not(.active) {
+  background: var(--overlay-hover);
+}
+
+.rule-group-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+
+.rule-group-actions button {
+  padding: 2px 6px;
+  font-size: 10px;
+  border: 1px solid var(--glass-border);
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.rule-group-actions button:hover {
+  background: var(--overlay-hover);
+  color: var(--text-primary);
+}
+
+.rule-group-actions button.remove {
+  color: var(--accent-red);
+}
+
+.rule-group-actions button.remove:hover {
+  background: var(--accent-red-bg);
+}
+
+/* ============================================================================
+   Individual Rules
+   ============================================================================ */
+
+.rule-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 4px;
+  margin: 2px 0;
+  border-radius: 3px;
+}
+
+.rule-row:hover {
+  background: var(--overlay-hover);
+}
+
+.rule-row select,
+.rule-row input {
+  padding: 2px 4px;
+  font-size: 11px;
+  border: 1px solid var(--glass-border);
+  border-radius: 3px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+}
+
+.rule-row select {
+  min-width: 80px;
+}
+
+.rule-row input {
+  width: 70px;
+  font-family: monospace;
+}
+
+.rule-row input.wide {
+  width: 120px;
+}
+
+.rule-row .rule-remove {
+  padding: 2px 6px;
+  font-size: 10px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.rule-row .rule-remove:hover {
+  color: var(--accent-red);
+  background: var(--accent-red-bg);
+  border-color: var(--accent-red-border);
+}
+
+/* Subject type labels */
+.rule-subject-label {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  min-width: 24px;
+  text-align: right;
+}
+
+/* ============================================================================
+   Condition badge in breakpoint gutter
+   ============================================================================ */
+
+.bas-gutter-line.has-condition::after {
+  content: "?";
+  position: absolute;
+  right: 2px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--accent-orange);
+  pointer-events: none;
+}
+
+.cpu-bp-item .bp-condition-badge {
+  font-size: 9px;
+  color: var(--accent-orange);
+  margin-left: 4px;
+}
+
+/* ============================================================================
+   Context menu
+   ============================================================================ */
+
+.rule-context-menu {
+  position: fixed;
+  z-index: 10000;
+  min-width: 160px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+  box-shadow: var(--shadow-window);
+  padding: 4px 0;
+  font-size: 12px;
+}
+
+.rule-context-menu-item {
+  padding: 6px 12px;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rule-context-menu-item:hover {
+  background: var(--overlay-hover);
+}
+
+.rule-context-menu-item.danger {
+  color: var(--accent-red);
+}
+
+.rule-context-menu-item.danger:hover {
+  background: var(--accent-red-bg);
+}
+
+.rule-context-menu-separator {
+  height: 1px;
+  background: var(--glass-border);
+  margin: 4px 0;
+}

@@ -151,6 +151,16 @@ export class EmulatorProxy {
         }
         break;
       }
+
+      case "evaluateConditionResult":
+      case "evaluateExpressionResult": {
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve({ result: msg.result, error: msg.error });
+        }
+        break;
+      }
     }
   }
 
@@ -472,6 +482,22 @@ export class EmulatorProxy {
     return new Promise((resolve) => {
       this._pendingRequests.set(id, resolve);
       this.worker.postMessage({ type: "basicWriteProgram", data: buffer, id }, [buffer]);
+    });
+  }
+
+  evaluateCondition(expr) {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "evaluateCondition", expr, id });
+    });
+  }
+
+  evaluateExpression(expr) {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "evaluateExpression", expr, id });
     });
   }
 

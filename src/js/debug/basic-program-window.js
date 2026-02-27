@@ -12,6 +12,7 @@ import { SinclairBasicTokenizer } from "../utils/sinclair-basic-tokenizer.js";
 import { highlightLine } from "../utils/sinclair-basic-highlighting.js";
 import { KEYWORDS_BY_LENGTH } from "../utils/sinclair-basic-tokens.js";
 import { BasicVariableInspector } from "./basic-variable-inspector.js";
+import { BasicBreakpointManager } from "./basic-breakpoint-manager.js";
 
 // ERR_NR (0x5C3A) stores the report code MINUS 1.
 // Report codes: 0=OK, 1..9 use digits, 10+ use letters A..R.
@@ -62,6 +63,7 @@ export class BasicProgramWindow extends BaseWindow {
     this.variableInspector = new BasicVariableInspector();
 
     // State
+    this._bpPanelVisible = true;
     this._sidebarVisible = true;
     this._sidebarWidth = 180;
     this._lastVariableUpdate = 0;
@@ -81,10 +83,14 @@ export class BasicProgramWindow extends BaseWindow {
     this._lastSeenErrNr = 0xFF; // 0xFF = OK (no error)
 
     // BASIC debugging state
-    this._basicBreakpoints = new Set();
+    this._basicBreakpoints = new BasicBreakpointManager();
+    this._basicBreakpoints.setProxy(proxy);
     this._basicStepping = false; // true ONLY when paused at a BASIC breakpoint
+    this._singleStepping = false; // true when executing exactly one BASIC step
+    this._skipConditionRuleChecks = 0; // countdown to skip stale-variable evaluations after RUN
     this._currentBasicLine = null;
     this.onRenderFrame = null; // callback to push framebuffer to display
+    this.ruleBuilderWindow = null; // set by main.js
 
     // Track which editor line the cursor is on for auto-renumber on line change
     this._lastCursorLine = -1;
@@ -141,11 +147,22 @@ export class BasicProgramWindow extends BaseWindow {
           <div class="bas-sidebar-content"></div>
         </div>
       </div>
+      <div class="bas-bp-panel">
+        <div class="bas-bp-panel-header">
+          <span class="bas-bp-panel-header-label">Breakpoints</span>
+          <div class="bas-bp-panel-actions">
+            <button class="bas-bp-panel-btn" data-action="add-bp-line" title="Add line breakpoint">+ Line</button>
+            <button class="bas-bp-panel-btn" data-action="add-bp-rule" title="Add condition-only rule">+ Rule</button>
+          </div>
+        </div>
+        <div class="bas-bp-panel-list"></div>
+      </div>
       <div class="bas-statusbar">
         <span class="bas-status-item bas-debug-status" data-status="debug"></span>
         <span class="bas-status-item" data-status="lines">0 lines</span>
         <span class="bas-status-item" data-status="cursor">Ln 1, Col 1</span>
         <div class="bas-status-right">
+          <button class="bas-sidebar-toggle" data-action="toggle-bp-panel">Breakpoints</button>
           <button class="bas-sidebar-toggle" data-action="toggle-sidebar">Variables</button>
         </div>
       </div>
@@ -162,6 +179,13 @@ export class BasicProgramWindow extends BaseWindow {
     this._statusLines = this.contentElement.querySelector('[data-status="lines"]');
     this._statusCursor = this.contentElement.querySelector('[data-status="cursor"]');
     this._debugStatus = this.contentElement.querySelector('[data-status="debug"]');
+    this._bpPanel = this.contentElement.querySelector(".bas-bp-panel");
+    this._bpPanelList = this.contentElement.querySelector(".bas-bp-panel-list");
+
+    // Apply saved breakpoint panel state
+    if (!this._bpPanelVisible) {
+      this._bpPanel.classList.add("hidden");
+    }
 
     // Apply saved sidebar state
     if (!this._sidebarVisible) {
@@ -222,6 +246,7 @@ export class BasicProgramWindow extends BaseWindow {
     this._updateHighlight();
     this._updateGutter();
     this._updateStatus();
+    this._renderBreakpointPanel();
 
     // If breakpoints were restored from saved state, activate them in the worker
     this._syncBreakpointsToWorker();
@@ -428,10 +453,12 @@ export class BasicProgramWindow extends BaseWindow {
       const match = lines[i].trim().match(/^(\d+)\s/);
       const basicLineNum = match ? parseInt(match[1], 10) : null;
       const hasBp = basicLineNum !== null && this._basicBreakpoints.has(basicLineNum);
+      const hasCond = basicLineNum !== null && this._basicBreakpoints.hasCondition(basicLineNum);
       const isCurrentLine = basicLineNum !== null && basicLineNum === this._currentBasicLine;
       const isError = basicLineNum !== null && basicLineNum === this._errorLineNumber;
       let cls = "bas-gutter-line";
       if (hasBp) cls += " breakpoint";
+      if (hasCond) cls += " has-condition";
       if (isCurrentLine) cls += " current-line";
       if (isError) cls += " has-error";
       const dataAttr = basicLineNum !== null ? ` data-basic-line="${basicLineNum}"` : "";
@@ -439,11 +466,18 @@ export class BasicProgramWindow extends BaseWindow {
     }
     this._gutter.innerHTML = html;
 
-    // Add click handlers for breakpoint toggling
+    // Add click handlers for breakpoint toggling and context menu
     this._gutter.querySelectorAll(".bas-gutter-line[data-basic-line]").forEach((el) => {
       el.addEventListener("click", () => {
         const lineNum = parseInt(el.dataset.basicLine, 10);
         this._toggleBreakpoint(lineNum);
+      });
+      el.addEventListener("contextmenu", (e) => {
+        e.preventDefault();
+        const lineNum = parseInt(el.dataset.basicLine, 10);
+        if (this._basicBreakpoints.has(lineNum)) {
+          this._showBreakpointContextMenu(e.clientX, e.clientY, lineNum);
+        }
       });
     });
   }
@@ -536,6 +570,15 @@ export class BasicProgramWindow extends BaseWindow {
         break;
       case "toggle-sidebar":
         this._toggleSidebar();
+        break;
+      case "toggle-bp-panel":
+        this._toggleBpPanel();
+        break;
+      case "add-bp-line":
+        this._addBreakpointFromPanel();
+        break;
+      case "add-bp-rule":
+        this._addConditionRuleFromPanel();
         break;
     }
   }
@@ -692,9 +735,20 @@ export class BasicProgramWindow extends BaseWindow {
     this._updateHighlight();
     this._updateGutter();
 
+    // Reset condition-only rules so they can fire again on this run.
+    // Skip evaluation for the first few handler hits to let RUN clear
+    // variables before conditions are checked against stale memory.
+    this._basicBreakpoints.resetConditionRuleFired();
+    this._skipConditionRuleChecks = 1;
+
     // Arm breakpoints if any exist (they'll fire once the program starts)
     if (this._basicBreakpoints.size > 0) {
       this._syncBreakpointsToWorker();
+    }
+
+    // Arm condition-only rules if any exist
+    if (this._basicBreakpoints.conditionRules.length > 0) {
+      this._installBasicBreakpointHandler();
     }
 
     // Tell C++ to watch for MAIN-4 (0x1303) — the ROM entry point
@@ -720,8 +774,10 @@ export class BasicProgramWindow extends BaseWindow {
   async _stepBasicLine() {
     // No longer paused — we're executing.  _basicStepping will be set
     // back to true when the breakpoint actually fires (in _onBasicPaused).
+    this._clearBreakpointPulse();
     this._basicStepping = false;
     this._currentBasicLine = null;
+    this._singleStepping = true;
 
     this.proxy.setBasicProgramActive();
     this._installBasicBreakpointHandler();
@@ -731,7 +787,9 @@ export class BasicProgramWindow extends BaseWindow {
 
   _continueToBreakpoint() {
     // We're resuming — no longer paused at a breakpoint
+    this._clearBreakpointPulse();
     this._basicStepping = false;
+    this._singleStepping = false;
     this._currentBasicLine = null;
     this._clearHighlight();
     this._updateDebugStatus("");
@@ -739,10 +797,18 @@ export class BasicProgramWindow extends BaseWindow {
     // Re-arm C++ program-end detection
     this.proxy.setBasicProgramActive();
 
-    if (this._basicBreakpoints.size > 0) {
-      // Resume with breakpoints armed — will pause at the next matching line
+    const lineNumbers = this._basicBreakpoints.toLineNumberSet();
+    const hasActiveRules = this._basicBreakpoints.hasActiveConditionRules();
+    if (lineNumbers.size > 0 || hasActiveRules) {
+      // Resume with breakpoints armed — will pause at the next matching line.
+      // Must use "step" mode when condition rules are active so the handler
+      // fires on every line and can evaluate them.
       this._installBasicBreakpointHandler();
-      this.proxy.setBasicBreakpointMode("run", this._basicBreakpoints);
+      if (hasActiveRules) {
+        this.proxy.setBasicBreakpointMode("step", null);
+      } else {
+        this.proxy.setBasicBreakpointMode("run", lineNumbers);
+      }
     } else {
       // No breakpoints — just resume freely
       this.proxy.clearBasicBreakpointMode();
@@ -752,6 +818,7 @@ export class BasicProgramWindow extends BaseWindow {
   }
 
   async _stopDebugging() {
+    this._clearBreakpointPulse();
     // Break the program by sending CAPS SHIFT + SPACE (the Spectrum's
     // BREAK key combination).  The ROM checks this during execution and
     // will stop the program with "BREAK into program" / report L.
@@ -770,6 +837,7 @@ export class BasicProgramWindow extends BaseWindow {
     this.proxy.keyUp(7, 0);
 
     this._basicStepping = false;
+    this._singleStepping = false;
     this._programRunning = false;
     this._currentBasicLine = null;
     this._clearHighlight();
@@ -780,19 +848,79 @@ export class BasicProgramWindow extends BaseWindow {
   }
 
   _installBasicBreakpointHandler() {
-    this.proxy.onBasicBreakpointHit = (framebuffer, lineNumber, hit) => {
-      this._onBasicPaused(lineNumber, framebuffer);
+    this.proxy.onBasicBreakpointHit = async (framebuffer, lineNumber, hit) => {
+      // After RUN, skip condition rule checks for a few lines to let the
+      // ROM clear variables before evaluating conditions against stale memory
+      const canCheckRules = this._skipConditionRuleChecks <= 0;
+      if (this._skipConditionRuleChecks > 0) this._skipConditionRuleChecks--;
+
+      // Single-step mode: always pause on the next line
+      if (this._singleStepping) {
+        this._singleStepping = false;
+        // Still check if a breakpoint/rule happens to match for pulse display
+        let firedType = null;
+        let firedIndex = -1;
+        if (await this._basicBreakpoints.shouldBreak(lineNumber)) {
+          firedType = "line";
+        } else if (canCheckRules) {
+          const ruleIdx = await this._basicBreakpoints.shouldBreakOnConditionRules();
+          if (ruleIdx >= 0) {
+            firedType = "rule";
+            firedIndex = ruleIdx;
+          }
+        }
+        this._onBasicPaused(lineNumber, framebuffer, firedType, firedIndex);
+        return;
+      }
+
+      // Check line breakpoint condition first
+      let firedType = null;
+      let firedIndex = -1;
+      const lineBpFired = await this._basicBreakpoints.shouldBreak(lineNumber);
+      if (lineBpFired) {
+        firedType = "line";
+      }
+
+      // Also check condition-only rules (fire on any line)
+      if (!firedType && canCheckRules) {
+        const ruleIdx = await this._basicBreakpoints.shouldBreakOnConditionRules();
+        if (ruleIdx >= 0) {
+          firedType = "rule";
+          firedIndex = ruleIdx;
+        }
+      }
+
+      if (!firedType) {
+        // Condition not met — resume execution
+        this.proxy.setBasicProgramActive();
+        this._installBasicBreakpointHandler();
+        const lineNumbers = this._basicBreakpoints.toLineNumberSet();
+        const hasActiveRules = this._basicBreakpoints.hasActiveConditionRules();
+        if (lineNumbers.size > 0 || hasActiveRules) {
+          if (hasActiveRules) {
+            this.proxy.setBasicBreakpointMode("step", null);
+          } else {
+            this.proxy.setBasicBreakpointMode("run", lineNumbers);
+          }
+        }
+        return;
+      }
+      this._onBasicPaused(lineNumber, framebuffer, firedType, firedIndex);
     };
   }
 
-  _onBasicPaused(lineNumber, framebuffer) {
+  _onBasicPaused(lineNumber, framebuffer, firedType = null, firedIndex = -1) {
     this._basicStepping = true;
     this._programRunning = true;
     this._currentBasicLine = lineNumber;
 
-    this._updateDebugStatus(`Line ${lineNumber}`);
+    const cond = this._basicBreakpoints.getCondition(lineNumber);
+    const statusText = cond ? `Line ${lineNumber} (${cond})` : `Line ${lineNumber}`;
+    this._updateDebugStatus(statusText);
     this._highlightBasicLine(lineNumber);
     this._updateGutter();
+    this._renderBreakpointPanel();
+    this._pulseBreakpointItem(firedType, firedType === "line" ? lineNumber : firedIndex);
     if (framebuffer && this.onRenderFrame) {
       this.onRenderFrame(framebuffer);
     }
@@ -803,14 +931,103 @@ export class BasicProgramWindow extends BaseWindow {
   }
 
   _toggleBreakpoint(lineNumber) {
-    if (this._basicBreakpoints.has(lineNumber)) {
-      this._basicBreakpoints.delete(lineNumber);
-    } else {
-      this._basicBreakpoints.add(lineNumber);
-    }
+    this._basicBreakpoints.toggle(lineNumber);
     this._syncBreakpointsToWorker();
     this._updateGutter();
+    this._renderBreakpointPanel();
     if (this.onStateChange) this.onStateChange();
+  }
+
+  _showBreakpointContextMenu(x, y, lineNumber) {
+    // Remove any existing context menu
+    this._dismissContextMenu();
+
+    const menu = document.createElement("div");
+    menu.className = "rule-context-menu";
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+
+    const hasCond = this._basicBreakpoints.hasCondition(lineNumber);
+
+    const editItem = document.createElement("div");
+    editItem.className = "rule-context-menu-item";
+    editItem.textContent = hasCond ? "Edit Condition..." : "Add Condition...";
+    editItem.addEventListener("click", () => {
+      this._dismissContextMenu();
+      this._editBreakpointCondition(lineNumber);
+    });
+    menu.appendChild(editItem);
+
+    if (hasCond) {
+      const clearItem = document.createElement("div");
+      clearItem.className = "rule-context-menu-item";
+      clearItem.textContent = "Clear Condition";
+      clearItem.addEventListener("click", () => {
+        this._dismissContextMenu();
+        this._basicBreakpoints.setCondition(lineNumber, 0, null);
+        this._basicBreakpoints.setConditionRules(lineNumber, 0, null);
+        this._updateGutter();
+        this._renderBreakpointPanel();
+      });
+      menu.appendChild(clearItem);
+    }
+
+    const sep = document.createElement("div");
+    sep.className = "rule-context-menu-separator";
+    menu.appendChild(sep);
+
+    const removeItem = document.createElement("div");
+    removeItem.className = "rule-context-menu-item danger";
+    removeItem.textContent = "Remove Breakpoint";
+    removeItem.addEventListener("click", () => {
+      this._dismissContextMenu();
+      this._basicBreakpoints.remove(lineNumber);
+      this._syncBreakpointsToWorker();
+      this._updateGutter();
+      this._renderBreakpointPanel();
+      if (this.onStateChange) this.onStateChange();
+    });
+    menu.appendChild(removeItem);
+
+    document.body.appendChild(menu);
+    this._contextMenu = menu;
+
+    // Close on outside click
+    this._contextMenuDismiss = (e) => {
+      if (!menu.contains(e.target)) this._dismissContextMenu();
+    };
+    setTimeout(() => document.addEventListener("click", this._contextMenuDismiss), 0);
+  }
+
+  _dismissContextMenu() {
+    if (this._contextMenu) {
+      this._contextMenu.remove();
+      this._contextMenu = null;
+    }
+    if (this._contextMenuDismiss) {
+      document.removeEventListener("click", this._contextMenuDismiss);
+      this._contextMenuDismiss = null;
+    }
+  }
+
+  _editBreakpointCondition(lineNumber) {
+    if (!this.ruleBuilderWindow) return;
+    const key = `${lineNumber}`;
+    const entry = {
+      condition: this._basicBreakpoints.getCondition(lineNumber),
+      conditionRules: this._basicBreakpoints.getConditionRules(lineNumber),
+    };
+    this.ruleBuilderWindow.editBreakpoint(
+      key, entry, `Line ${lineNumber}`,
+      (k, condition, conditionRules) => {
+        const ln = parseInt(k, 10);
+        this._basicBreakpoints.setCondition(ln, 0, condition);
+        this._basicBreakpoints.setConditionRules(ln, 0, conditionRules);
+        this._updateGutter();
+        this._renderBreakpointPanel();
+      },
+      "basic"
+    );
   }
 
   /**
@@ -818,9 +1035,17 @@ export class BasicProgramWindow extends BaseWindow {
    * so programs started from within the emulator (typing RUN, GO TO, etc.) also stop.
    */
   _syncBreakpointsToWorker() {
-    if (this._basicBreakpoints.size > 0) {
+    const lineNumbers = this._basicBreakpoints.toLineNumberSet();
+    const hasActiveRules = this._basicBreakpoints.hasActiveConditionRules();
+    if (lineNumbers.size > 0 || hasActiveRules) {
       this._installBasicBreakpointHandler();
-      this.proxy.setBasicBreakpointMode("run", this._basicBreakpoints);
+      // Must use "step" mode when condition rules are active so the handler
+      // fires on every line and can evaluate them
+      if (hasActiveRules) {
+        this.proxy.setBasicBreakpointMode("step", null);
+      } else {
+        this.proxy.setBasicBreakpointMode("run", lineNumbers);
+      }
     } else {
       this.proxy.clearBasicBreakpointMode();
     }
@@ -922,6 +1147,211 @@ export class BasicProgramWindow extends BaseWindow {
 
   _delay(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  _renderBreakpointPanel() {
+    if (!this._bpPanelList) return;
+    const lineBps = this._basicBreakpoints.getAll();
+    const condRules = this._basicBreakpoints.conditionRules;
+
+    if (lineBps.length === 0 && condRules.length === 0) {
+      this._bpPanelList.innerHTML = '<div class="bas-bp-empty">No breakpoints</div>';
+      return;
+    }
+
+    let html = "";
+
+    // Line breakpoints
+    for (const bp of lineBps) {
+      const checked = bp.enabled ? "checked" : "";
+      const disabledCls = bp.enabled ? "" : " disabled";
+      const condText = bp.condition || "";
+      const condHtml = condText
+        ? `<span class="bas-bp-condition">${this._escapeHtml(condText)}</span>`
+        : "";
+      html += `<div class="bas-bp-item${disabledCls}" data-bp-type="line" data-bp-line="${bp.lineNumber}">
+        <input type="checkbox" ${checked} data-bp-enable="line:${bp.lineNumber}">
+        <span class="bas-bp-dot"></span>
+        <span class="bas-bp-label" data-bp-goto="${bp.lineNumber}">Line ${bp.lineNumber}</span>
+        ${condHtml}
+        <span class="bas-bp-spacer"></span>
+        <button class="bas-bp-action-btn" data-bp-edit="line:${bp.lineNumber}" title="Edit condition">?</button>
+        <button class="bas-bp-action-btn danger" data-bp-remove="line:${bp.lineNumber}" title="Remove">\u00d7</button>
+      </div>`;
+    }
+
+    // Condition-only rules
+    for (let i = 0; i < condRules.length; i++) {
+      const rule = condRules[i];
+      const checked = rule.enabled ? "checked" : "";
+      const disabledCls = rule.enabled ? "" : " disabled";
+      const firedCls = rule.fired ? " fired" : "";
+      const label = rule.conditionRules && this.ruleBuilderWindow
+        ? this.ruleBuilderWindow.toDisplayLabel(rule.conditionRules)
+        : rule.condition || "Rule";
+      html += `<div class="bas-bp-item${disabledCls}${firedCls}" data-bp-type="rule" data-bp-index="${i}">
+        <input type="checkbox" ${checked} data-bp-enable="rule:${i}">
+        <span class="bas-bp-diamond"></span>
+        <span class="bas-bp-label">Rule: ${this._escapeHtml(label)}</span>
+        <span class="bas-bp-spacer"></span>
+        <button class="bas-bp-action-btn" data-bp-edit="rule:${i}" title="Edit rule">?</button>
+        <button class="bas-bp-action-btn danger" data-bp-remove="rule:${i}" title="Remove">\u00d7</button>
+      </div>`;
+    }
+
+    this._bpPanelList.innerHTML = html;
+
+    // Wire event handlers
+    this._bpPanelList.querySelectorAll("[data-bp-enable]").forEach((cb) => {
+      cb.addEventListener("change", (e) => {
+        e.stopPropagation();
+        const [type, key] = cb.dataset.bpEnable.split(":");
+        if (type === "line") {
+          this._basicBreakpoints.setEnabled(parseInt(key, 10), 0, cb.checked);
+          this._syncBreakpointsToWorker();
+          this._updateGutter();
+        } else {
+          this._basicBreakpoints.setConditionRuleEnabled(parseInt(key, 10), cb.checked);
+          this._syncBreakpointsToWorker();
+        }
+        this._renderBreakpointPanel();
+      });
+    });
+
+    this._bpPanelList.querySelectorAll("[data-bp-goto]").forEach((el) => {
+      el.addEventListener("click", () => {
+        const lineNum = parseInt(el.dataset.bpGoto, 10);
+        this._highlightBasicLine(lineNum);
+      });
+    });
+
+    this._bpPanelList.querySelectorAll("[data-bp-edit]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const [type, key] = btn.dataset.bpEdit.split(":");
+        if (type === "line") {
+          this._editBreakpointCondition(parseInt(key, 10));
+        } else {
+          this._editConditionRule(parseInt(key, 10));
+        }
+      });
+    });
+
+    this._bpPanelList.querySelectorAll("[data-bp-remove]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const [type, key] = btn.dataset.bpRemove.split(":");
+        if (type === "line") {
+          this._basicBreakpoints.remove(parseInt(key, 10));
+          this._syncBreakpointsToWorker();
+          this._updateGutter();
+        } else {
+          this._basicBreakpoints.removeConditionRule(parseInt(key, 10));
+          this._syncBreakpointsToWorker();
+        }
+        this._renderBreakpointPanel();
+        if (this.onStateChange) this.onStateChange();
+      });
+    });
+  }
+
+  _pulseBreakpointItem(type, key) {
+    if (!type || !this._bpPanelList) return;
+    this._clearBreakpointPulse();
+    let selector;
+    if (type === "line") {
+      selector = `.bas-bp-item[data-bp-type="line"][data-bp-line="${key}"]`;
+    } else {
+      selector = `.bas-bp-item[data-bp-type="rule"][data-bp-index="${key}"]`;
+    }
+    const el = this._bpPanelList.querySelector(selector);
+    if (!el) return;
+    el.classList.add("fired");
+    el.scrollIntoView({ block: "nearest" });
+  }
+
+  _clearBreakpointPulse() {
+    if (!this._bpPanelList) return;
+    this._bpPanelList.querySelectorAll(".bas-bp-item.fired").forEach((el) => {
+      el.classList.remove("fired");
+    });
+  }
+
+  _escapeHtml(str) {
+    return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  _toggleBpPanel() {
+    this._bpPanelVisible = !this._bpPanelVisible;
+    if (this._bpPanel) {
+      this._bpPanel.classList.toggle("hidden", !this._bpPanelVisible);
+    }
+    if (this.onStateChange) this.onStateChange();
+  }
+
+  _addBreakpointFromPanel() {
+    const lineStr = window.prompt("Enter BASIC line number:");
+    if (!lineStr) return;
+    const lineNum = parseInt(lineStr, 10);
+    if (isNaN(lineNum) || lineNum < 0) return;
+
+    // Validate line exists in editor
+    const lines = this._textarea.value.split("\n");
+    const exists = lines.some((l) => {
+      const match = l.trim().match(/^(\d+)\s/);
+      return match && parseInt(match[1], 10) === lineNum;
+    });
+    if (!exists) {
+      window.alert(`Line ${lineNum} not found in the editor.`);
+      return;
+    }
+
+    if (!this._basicBreakpoints.has(lineNum)) {
+      this._basicBreakpoints.add(lineNum);
+      this._syncBreakpointsToWorker();
+      this._updateGutter();
+      this._renderBreakpointPanel();
+      if (this.onStateChange) this.onStateChange();
+    }
+  }
+
+  _addConditionRuleFromPanel() {
+    if (!this.ruleBuilderWindow) return;
+    const idx = this._basicBreakpoints.conditionRules.length;
+    const entry = { condition: null, conditionRules: null };
+    this.ruleBuilderWindow.editBreakpoint(
+      `rule:${idx}`, entry, "New Rule",
+      (_k, condition, conditionRules) => {
+        if (condition) {
+          this._basicBreakpoints.addConditionRule(condition, conditionRules);
+          this._syncBreakpointsToWorker();
+          this._renderBreakpointPanel();
+          if (this.onStateChange) this.onStateChange();
+        }
+      },
+      "basic"
+    );
+  }
+
+  _editConditionRule(index) {
+    if (!this.ruleBuilderWindow) return;
+    const rule = this._basicBreakpoints.conditionRules[index];
+    if (!rule) return;
+    const entry = { condition: rule.condition, conditionRules: rule.conditionRules };
+    this.ruleBuilderWindow.editBreakpoint(
+      `rule:${index}`, entry, `Rule ${index + 1}`,
+      (_k, condition, conditionRules) => {
+        if (condition) {
+          this._basicBreakpoints.updateConditionRule(index, condition, conditionRules);
+        } else {
+          this._basicBreakpoints.removeConditionRule(index);
+        }
+        this._syncBreakpointsToWorker();
+        this._renderBreakpointPanel();
+        if (this.onStateChange) this.onStateChange();
+      },
+      "basic"
+    );
   }
 
   _toggleSidebar() {
@@ -1064,11 +1494,12 @@ export class BasicProgramWindow extends BaseWindow {
     const state = super.getState();
     state.sidebarVisible = this._sidebarVisible;
     state.sidebarWidth = this._sidebarWidth;
-    state.basicBreakpoints = [...this._basicBreakpoints];
     state.traceEnabled = this._traceEnabled;
+    state.bpPanelVisible = this._bpPanelVisible;
     state.errorLineNumber = this._errorLineNumber;
     state.errorMessage = this._errorMessage;
     state.errorLineContent = this._errorLineContent;
+    // BasicBreakpointManager handles its own localStorage persistence
     return state;
   }
 
@@ -1079,11 +1510,19 @@ export class BasicProgramWindow extends BaseWindow {
     if (state.sidebarWidth !== undefined) {
       this._sidebarWidth = state.sidebarWidth;
     }
-    if (state.basicBreakpoints) {
-      this._basicBreakpoints = new Set(state.basicBreakpoints);
+    // Migration: if old-style basicBreakpoints array exists, migrate to new manager
+    if (state.basicBreakpoints && Array.isArray(state.basicBreakpoints)) {
+      for (const lineNum of state.basicBreakpoints) {
+        if (!this._basicBreakpoints.has(lineNum)) {
+          this._basicBreakpoints.add(lineNum);
+        }
+      }
     }
     if (state.traceEnabled !== undefined) {
       this._traceEnabled = state.traceEnabled;
+    }
+    if (state.bpPanelVisible !== undefined) {
+      this._bpPanelVisible = state.bpPanelVisible;
     }
     if (state.errorLineNumber !== undefined) {
       this._errorLineNumber = state.errorLineNumber;
@@ -1104,11 +1543,22 @@ export class BasicProgramWindow extends BaseWindow {
       this._sidebar.style.width = `${this._sidebarWidth}px`;
     }
 
-    // Redraw gutter so restored breakpoints are visible
+    // Apply breakpoint panel state after DOM exists
+    if (this._bpPanel) {
+      if (!this._bpPanelVisible) {
+        this._bpPanel.classList.add("hidden");
+      } else {
+        this._bpPanel.classList.remove("hidden");
+      }
+    }
+
+    // Redraw gutter and breakpoint panel so restored breakpoints are visible
     this._updateGutter();
+    this._renderBreakpointPanel();
   }
 
   destroy() {
+    this._dismissContextMenu();
     document.removeEventListener("mousemove", this._onSidebarResizeMove);
     document.removeEventListener("mouseup", this._onSidebarResizeEnd);
     super.destroy();

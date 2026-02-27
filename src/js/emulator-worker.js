@@ -696,6 +696,32 @@ self.onmessage = async function (e) {
       }
       break;
 
+    case "evaluateCondition": {
+      if (!wasm) break;
+      const encLen = wasm.lengthBytesUTF8(msg.expr) + 1;
+      const encPtr = wasm._malloc(encLen);
+      wasm.stringToUTF8(msg.expr, encPtr, encLen);
+      const condResult = wasm._evaluateCondition(encPtr);
+      wasm._free(encPtr);
+      const errPtr = wasm._getConditionError();
+      const condError = wasm.UTF8ToString(errPtr);
+      self.postMessage({ type: "evaluateConditionResult", id: msg.id, result: condResult !== 0, error: condError || null });
+      break;
+    }
+
+    case "evaluateExpression": {
+      if (!wasm) break;
+      const encLen = wasm.lengthBytesUTF8(msg.expr) + 1;
+      const encPtr = wasm._malloc(encLen);
+      wasm.stringToUTF8(msg.expr, encPtr, encLen);
+      const exprResult = wasm._evaluateExpression(encPtr);
+      wasm._free(encPtr);
+      const errPtr = wasm._getConditionError();
+      const exprError = wasm.UTF8ToString(errPtr);
+      self.postMessage({ type: "evaluateExpressionResult", id: msg.id, result: exprResult, error: exprError || null });
+      break;
+    }
+
     case "getState":
       if (wasm) {
         self.postMessage({ type: "stateUpdate", state: getState() });

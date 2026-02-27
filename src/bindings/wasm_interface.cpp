@@ -15,6 +15,7 @@
 #include "../machines/basic/sinclair_basic_writer.hpp"
 #include "../machines/basic/sinclair_basic_renumber.hpp"
 #include "../core/z80/z80_disassembler.hpp"
+#include "../core/debug/condition_evaluator.hpp"
 #include <cstring>
 #include <string>
 #include <emscripten.h>
@@ -1115,6 +1116,35 @@ EMSCRIPTEN_KEEPALIVE
 int getInstructionLength(uint16_t addr) {
     REQUIRE_MACHINE_OR(1);
     return zxspec::z80InstructionLength(addr, disasmReadByte, g_machine);
+}
+
+// ============================================================================
+// Condition Evaluator (for conditional breakpoints)
+// ============================================================================
+
+static std::string s_conditionError;
+
+EMSCRIPTEN_KEEPALIVE
+int evaluateCondition(const char* expr) {
+    REQUIRE_MACHINE_OR(0);
+    std::string error;
+    bool result = zxspec::debug::evaluateCondition(*g_machine, std::string(expr), error);
+    s_conditionError = error;
+    return result ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int32_t evaluateExpression(const char* expr) {
+    REQUIRE_MACHINE_OR(0);
+    std::string error;
+    int32_t result = zxspec::debug::evaluateExpression(*g_machine, std::string(expr), error);
+    s_conditionError = error;
+    return result;
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* getConditionError() {
+    return s_conditionError.c_str();
 }
 
 } // extern "C"

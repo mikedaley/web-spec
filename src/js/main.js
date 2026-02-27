@@ -19,6 +19,7 @@ import { StackViewerWindow } from "./debug/stack-viewer-window.js";
 import { TapeWindow } from "./tape/tape-window.js";
 import { SoundWindow } from "./audio/sound-window.js";
 import { BasicProgramWindow } from "./debug/basic-program-window.js";
+import { RuleBuilderWindow } from "./debug/rule-builder-window.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
@@ -37,6 +38,7 @@ class ZXSpectrumEmulator {
     this.tapeWindow = null;
     this.soundWindow = null;
     this.basicProgramWindow = null;
+    this.ruleBuilderWindow = null;
 
     this.snapshotLoader = null;
     this.themeManager = null;
@@ -104,6 +106,15 @@ class ZXSpectrumEmulator {
       this.basicProgramWindow.create();
       this.windowManager.register(this.basicProgramWindow);
 
+      // Create rule builder window (shared by BASIC and CPU debugger)
+      this.ruleBuilderWindow = new RuleBuilderWindow();
+      this.ruleBuilderWindow.create();
+      this.windowManager.register(this.ruleBuilderWindow);
+
+      // Wire rule builder to BASIC program window and CPU debugger
+      this.basicProgramWindow.ruleBuilderWindow = this.ruleBuilderWindow;
+      this.cpuDebuggerWindow.ruleBuilderWindow = this.ruleBuilderWindow;
+
       // Attach canvas to screen window
       this.screenWindow.attachCanvas();
 
@@ -116,6 +127,7 @@ class ZXSpectrumEmulator {
         { id: "stack-viewer", visible: false },
         { id: "sound-debug", visible: false },
         { id: "basic-program", visible: false },
+        { id: "rule-builder", visible: false },
       ]);
 
       // Load saved window state (overrides defaults if present)
@@ -944,6 +956,11 @@ class ZXSpectrumEmulator {
     if (this.basicProgramWindow) {
       this.basicProgramWindow.destroy();
       this.basicProgramWindow = null;
+    }
+
+    if (this.ruleBuilderWindow) {
+      this.ruleBuilderWindow.destroy();
+      this.ruleBuilderWindow = null;
     }
 
     if (this.cpuDebuggerWindow) {

@@ -51,11 +51,16 @@ set(ZX128K_SOURCES
     src/machines/zx128k/zx_spectrum_128k.cpp
 )
 
+set(DEBUG_SOURCES
+    src/core/debug/condition_evaluator.cpp
+)
+
 set(CORE_SOURCES
     ${Z80_SOURCES}
     ${ZXSPECTRUM_BASE_SOURCES}
     ${ZX48K_SOURCES}
     ${ZX128K_SOURCES}
+    ${DEBUG_SOURCES}
     src/bindings/wasm_interface.cpp
 )
 
@@ -88,6 +93,7 @@ if(EMSCRIPTEN)
         ${CMAKE_SOURCE_DIR}/src/machines/zx48k
         ${CMAKE_SOURCE_DIR}/src/machines/zx128k
         ${CMAKE_SOURCE_DIR}/src/machines/basic
+        ${CMAKE_SOURCE_DIR}/src/core/debug
         ${CMAKE_BINARY_DIR}/generated
     )
 
@@ -231,6 +237,9 @@ if(EMSCRIPTEN)
                 \"_basicAutoRenumber\", \
                 \"_basicAutoRenumberGetResult\", \
                 \"_getPagingRegister\", \
+                \"_evaluateCondition\", \
+                \"_evaluateExpression\", \
+                \"_getConditionError\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \
