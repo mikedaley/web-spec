@@ -266,6 +266,145 @@ std::string parseVariablesFromMemory(const ZXSpectrum& machine) {
     }
 
 done:
+
+    // Scan program lines (PROG->VARS) for DEF FN definitions.
+    // These are not stored in the VARS area — they live inline in the program.
+    {
+        uint16_t programSize = varsAddr - progAddr;
+        if (programSize > 0 && programSize < 0xFFFF) {
+            std::vector<uint8_t> prog(programSize);
+            for (uint16_t p = 0; p < programSize; p++) {
+                prog[p] = machine.readMemory((progAddr + p) & 0xFFFF);
+            }
+
+            size_t offset = 0;
+            while (offset + 4 <= prog.size()) {
+                uint16_t lineNumber = (static_cast<uint16_t>(prog[offset]) << 8) | prog[offset + 1];
+                uint16_t lineLength = prog[offset + 2] | (static_cast<uint16_t>(prog[offset + 3]) << 8);
+                if (lineNumber > 9999 || lineLength == 0) break;
+
+                size_t lineStart = offset + 4;
+                size_t lineEnd = lineStart + lineLength;
+                if (lineEnd > prog.size()) break;
+
+                // Scan for DEF FN token (0xCE) within this line
+                size_t p = lineStart;
+                bool inString = false;
+                while (p < lineEnd) {
+                    uint8_t b = prog[p];
+                    if (b == 0x0D) break;
+
+                    // Track string literals to avoid false matches
+                    if (b == 0x22) { inString = !inString; p++; continue; }
+                    if (inString) { p++; continue; }
+
+                    // Skip number marker + 5-byte float
+                    if (b == NUMBER_MARKER) { p += 6; continue; }
+
+                    if (b == 0xCE) { // DEF FN token
+                        p++;
+
+                        // Skip spaces
+                        while (p < lineEnd && prog[p] == 0x20) p++;
+
+                        // Function name letter
+                        if (p >= lineEnd || !std::isalpha(prog[p])) break;
+                        char fnName = static_cast<char>(prog[p]);
+                        p++;
+
+                        // Optional $ for string function
+                        bool isStringFn = false;
+                        if (p < lineEnd && prog[p] == '$') {
+                            isStringFn = true;
+                            p++;
+                        }
+
+                        // Skip spaces
+                        while (p < lineEnd && prog[p] == 0x20) p++;
+
+                        // Opening bracket
+                        if (p >= lineEnd || prog[p] != '(') break;
+                        p++;
+
+                        // Parse parameter list
+                        std::string params;
+                        while (p < lineEnd && prog[p] != ')') {
+                            uint8_t ch = prog[p];
+                            if (ch == NUMBER_MARKER) { p += 6; continue; }
+                            if (std::isalpha(ch)) {
+                                if (!params.empty() && params.back() != ',') params += ",";
+                                params += static_cast<char>(ch);
+                                p++;
+                                if (p < lineEnd && prog[p] == '$') {
+                                    params += '$';
+                                    p++;
+                                }
+                            } else if (ch == ',') {
+                                p++;
+                            } else if (ch == ' ') {
+                                p++;
+                            } else {
+                                p++;
+                            }
+                        }
+                        if (p < lineEnd && prog[p] == ')') p++; // skip )
+
+                        // Skip spaces and '='
+                        while (p < lineEnd && prog[p] == 0x20) p++;
+                        if (p < lineEnd && prog[p] == '=') p++;
+                        while (p < lineEnd && prog[p] == 0x20) p++;
+
+                        // Extract expression text (rest of the DEF FN until : or end of line)
+                        std::string expr;
+                        while (p < lineEnd) {
+                            uint8_t eb = prog[p];
+                            if (eb == 0x0D) break;
+                            if (eb == ':') break;
+                            if (eb == NUMBER_MARKER) { p += 6; continue; }
+                            if (eb >= 0xA5) {
+                                const char* kw = tokenToKeyword(eb);
+                                if (kw) expr += kw;
+                                p++;
+                                continue;
+                            }
+                            if (eb >= 0x20 && eb < 0x80) {
+                                expr += static_cast<char>(eb);
+                            }
+                            p++;
+                        }
+
+                        // Trim expression
+                        size_t es = expr.find_first_not_of(' ');
+                        size_t ee = expr.find_last_not_of(' ');
+                        if (es != std::string::npos) {
+                            expr = expr.substr(es, ee - es + 1);
+                        }
+
+                        // Emit JSON
+                        if (!first) json += ",";
+                        first = false;
+                        json += "{\"name\":\"FN ";
+                        json += fnName;
+                        if (isStringFn) json += '$';
+                        json += "(";
+                        jsonEscape(json, params);
+                        json += ")\",\"type\":\"defFn\",\"line\":";
+                        json += std::to_string(lineNumber);
+                        json += ",\"expression\":\"";
+                        jsonEscape(json, expr);
+                        json += "\"}";
+
+                        break; // Only one DEF FN per scan position
+                    }
+
+                    p++;
+                }
+
+                offset = lineEnd;
+            }
+        }
+    }
+
     json += "]";
     return json;
 }

@@ -91,6 +91,9 @@ if(EMSCRIPTEN)
         ${CMAKE_BINARY_DIR}/generated
     )
 
+    # Compile-time optimisation flags
+    target_compile_options(zxspec PRIVATE -O3 -flto -fno-exceptions -fno-rtti -msimd128)
+
     # Emscripten-specific flags
     set_target_properties(zxspec PROPERTIES
         SUFFIX ".js"
@@ -238,9 +241,14 @@ if(EMSCRIPTEN)
             -s NO_EXIT_RUNTIME=1 \
             -s ASYNCIFY=0 \
             -s STACK_SIZE=131072 \
+            -s MALLOC=emmalloc \
+            -s FILESYSTEM=0 \
             --no-entry \
             -O3 \
             -flto \
+            -fno-exceptions \
+            -fno-rtti \
+            -msimd128 \
         "
     )
 

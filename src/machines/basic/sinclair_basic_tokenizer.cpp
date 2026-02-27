@@ -46,9 +46,14 @@ static void tokenizeLine(const std::string& text, std::vector<uint8_t>& bytes) {
                 continue;
             }
             if (std::isalpha(static_cast<unsigned char>(text[i]))) {
-                // Parameter variable letter + number placeholder
+                // Parameter variable letter + optional $ + number placeholder
                 bytes.push_back(static_cast<uint8_t>(text[i]));
                 i++;
+                // String parameter: emit $ before the number placeholder
+                if (i < len && text[i] == '$') {
+                    bytes.push_back('$');
+                    i++;
+                }
                 bytes.push_back(NUMBER_MARKER);
                 bytes.push_back(0x00);
                 bytes.push_back(0x00);
@@ -141,6 +146,11 @@ static void tokenizeLine(const std::string& text, std::vector<uint8_t>& bytes) {
                 if (i < len && std::isalpha(static_cast<unsigned char>(text[i]))) {
                     bytes.push_back(static_cast<uint8_t>(text[i]));
                     i++;
+                    // String function: emit $ after the function name letter
+                    if (i < len && text[i] == '$') {
+                        bytes.push_back('$');
+                        i++;
+                    }
                 }
                 while (i < len && text[i] == ' ') {
                     bytes.push_back(0x20);

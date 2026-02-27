@@ -285,8 +285,16 @@ uint32_t Z80::execute(uint32_t numTStates, uint32_t intTStates)
 
                 m_PrevOpcodeFlags = table->entries[opcode].flags;
             }
+            else if (table == &ED_Opcodes)
+            {
+                // Undefined ED opcodes are 8-T-state NOPs.
+                // The 8 T-states have already been consumed (4 for ED fetch + 4 for
+                // opcode fetch). Nothing more to do.
+            }
             else
             {
+                // DD/FD prefix with undefined opcode: backtrack and re-execute
+                // the second byte as a main table instruction (the prefix is ignored).
                 m_CPURegisters.DDFDmultiByte = true;
                 m_CPURegisters.regPC--;
                 m_CPURegisters.regR--;

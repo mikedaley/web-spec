@@ -77,6 +77,9 @@ export class BasicProgramWindow extends BaseWindow {
     this._errorMessage = null;
     this._errorLineContent = null;
 
+    // Track last seen ERR_NR so we can detect errors from emulator-initiated runs
+    this._lastSeenErrNr = 0xFF; // 0xFF = OK (no error)
+
     // BASIC debugging state
     this._basicBreakpoints = new Set();
     this._basicStepping = false; // true ONLY when paused at a BASIC breakpoint
@@ -1006,6 +1009,22 @@ export class BasicProgramWindow extends BaseWindow {
           this._updateGutter();
           this._updateToolbarState();
         }
+
+        // Detect errors from emulator-initiated runs (user typed RUN directly).
+        // When ERR_NR transitions from OK to an error, show it in the editor.
+        if (!wasRunning && !this._programRunning) {
+          const errChanged = errNr !== this._lastSeenErrNr;
+          if (errChanged && errNr !== 0xFF && errNr !== 0x14 && SPECTRUM_ERRORS[errNr] !== undefined) {
+            this._setError(ppc, errNr);
+            this._updateHighlight();
+            this._updateGutter();
+          } else if (errChanged && (errNr === 0xFF || errNr === 0x14) && this._errorLineNumber !== null) {
+            this._clearError();
+            this._updateHighlight();
+            this._updateGutter();
+          }
+        }
+        this._lastSeenErrNr = errNr;
       }).catch(() => { this._romReadyChecking = false; });
     }
 

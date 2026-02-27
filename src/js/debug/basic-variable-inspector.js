@@ -121,8 +121,9 @@ export class BasicVariableInspector {
       return;
     }
 
-    const scalars = variables.filter((v) => v.type !== "numArray" && v.type !== "strArray");
+    const scalars = variables.filter((v) => v.type !== "numArray" && v.type !== "strArray" && v.type !== "defFn");
     const arrays = variables.filter((v) => v.type === "numArray" || v.type === "strArray");
+    const defFns = variables.filter((v) => v.type === "defFn");
 
     let html = '<table class="bas-vars-table">';
     html += '<thead><tr><th>Name</th><th>Type</th><th>Value</th></tr></thead>';
@@ -163,6 +164,12 @@ export class BasicVariableInspector {
       html += '<tr><td colspan="3" class="bas-var-array-cell">';
       html += this._renderArray(v);
       html += '</td></tr>';
+    }
+
+    for (const v of defFns) {
+      const name = escHtml(v.name);
+      const expr = escHtml(v.expression);
+      html += `<tr><td class="bas-var-name">${name}</td><td class="bas-var-type">DEF</td><td class="bas-var-value">${expr}</td></tr>`;
     }
 
     html += '</tbody></table>';
