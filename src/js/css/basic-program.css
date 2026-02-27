@@ -526,6 +526,16 @@
   background: var(--overlay-hover);
 }
 
+/* Variable value change flash — reuses reg-flash keyframe from cpu-debugger */
+.bas-vars-table tbody tr.bas-var-changed .bas-var-value {
+  animation: reg-flash 0.6s ease-out;
+}
+
+/* Array element change flash */
+.bas-arr-val.bas-var-changed {
+  animation: reg-flash 0.6s ease-out;
+}
+
 /* ============================================
    SIDEBAR RESIZE HANDLE
    ============================================ */

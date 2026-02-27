@@ -272,6 +272,12 @@ export class BasicProgramWindow extends BaseWindow {
     const currentLine = this._textarea.value.substring(0, pos).split("\n").length - 1;
     if (this._lastCursorLine >= 0 && currentLine !== this._lastCursorLine) {
       this._autoRenumberIfNeeded();
+      // Reformat only if the current line has a line number (not a new empty line)
+      const lines = this._textarea.value.split("\n");
+      const curLine = lines[currentLine] || "";
+      if (/^\s*\d+\s/.test(curLine)) {
+        this._formatProgram();
+      }
     }
     this._lastCursorLine = currentLine;
 
@@ -572,20 +578,27 @@ export class BasicProgramWindow extends BaseWindow {
     let indent = 0;
     const formatted = [];
     for (const line of lines) {
-      const upper = line.body.toUpperCase();
-      // Decrease indent before NEXT
-      if (/^\s*NEXT\b/.test(upper)) {
+      const body = line.body.replace(/^\s+/, "");
+      const upper = body.toUpperCase();
+      // Decrease indent before NEXT (but not inside REM)
+      if (!/^REM\b/.test(upper) && /^NEXT\b/.test(upper)) {
         indent = Math.max(0, indent - 1);
       }
       const padding = "  ".repeat(indent);
-      formatted.push(`${line.lineNumber} ${padding}${line.body}`);
-      // Increase indent after FOR
-      if (/\bFOR\b/.test(upper) && !/\bNEXT\b/.test(upper)) {
+      formatted.push(`${line.lineNumber} ${padding}${body}`);
+      // Increase indent after FOR (but not inside REM or strings)
+      if (!/^REM\b/.test(upper) && /\bFOR\b/.test(upper) && !/\bNEXT\b/.test(upper)) {
         indent++;
       }
     }
 
-    this._textarea.value = formatted.join("\n");
+    const newText = formatted.join("\n");
+    if (newText === text) return;
+    const cursorStart = this._textarea.selectionStart;
+    const cursorEnd = this._textarea.selectionEnd;
+    this._textarea.value = newText;
+    this._textarea.selectionStart = Math.min(cursorStart, newText.length);
+    this._textarea.selectionEnd = Math.min(cursorEnd, newText.length);
     this._onInput();
   }
 

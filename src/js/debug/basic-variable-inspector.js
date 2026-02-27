@@ -14,6 +14,7 @@ export class BasicVariableInspector {
   constructor() {
     this.container = null;
     this.variables = [];
+    this._previousValues = new Map(); // name -> formatted display value
   }
 
   /**
@@ -43,9 +44,56 @@ export class BasicVariableInspector {
   }
 
   /**
+   * Format a variable's display value as a string.
+   */
+  formatValue(v) {
+    switch (v.type) {
+      case "number":
+        return this._formatNumber(v.value);
+      case "string":
+        return '"' + (v.value.length > 24 ? v.value.slice(0, 24) + "..." : v.value) + '"';
+      case "for":
+        return `${this._formatNumber(v.value)} TO ${this._formatNumber(v.limit)} STEP ${this._formatNumber(v.step)}`;
+      case "defFn":
+        return v.expression;
+      case "numArray":
+      case "strArray":
+        return v.elements ? v.elements.join(",") : "";
+      default:
+        return "";
+    }
+  }
+
+  /**
+   * Format a variable's type label.
+   */
+  _typeLabel(v) {
+    switch (v.type) {
+      case "number": return "Num";
+      case "string": return "Str";
+      case "for": return "FOR";
+      case "numArray": return "Num()";
+      case "strArray": return "Str()";
+      case "defFn": return "DEF";
+      default: return "";
+    }
+  }
+
+  /**
+   * Format array dimensions label for the summary row.
+   */
+  _dimsLabel(v) {
+    const dims = v.dimensions;
+    if (v.type === "strArray" && v.strLen) {
+      return dims.length > 0 ? `[${dims.join("x")} x${v.strLen}chr]` : `[${v.strLen}chr]`;
+    }
+    return `[${dims.join("x")}]`;
+  }
+
+  /**
    * Render an array variable as an HTML table.
    */
-  _renderArray(v) {
+  _renderArrayHtml(v) {
     const dims = v.dimensions;
     const elements = v.elements;
     const isString = v.type === "strArray";
@@ -70,7 +118,7 @@ export class BasicVariableInspector {
       html += '</tr></thead><tbody><tr>';
       for (let i = 0; i < count; i++) {
         const val = i < elements.length ? fmtVal(elements[i]) : "";
-        html += `<td class="bas-var-value">${val}</td>`;
+        html += `<td class="bas-var-value bas-arr-val">${val}</td>`;
       }
       html += '</tr></tbody></table>';
       return html;
@@ -91,7 +139,7 @@ export class BasicVariableInspector {
         for (let c = 0; c < cols; c++) {
           const idx = r * cols + c;
           const val = idx < elements.length ? fmtVal(elements[idx]) : "";
-          html += `<td class="bas-var-value">${val}</td>`;
+          html += `<td class="bas-var-value bas-arr-val">${val}</td>`;
         }
         html += '</tr>';
       }
@@ -107,18 +155,27 @@ export class BasicVariableInspector {
     }
     html += '</tr></thead><tbody><tr>';
     for (let i = 0; i < elements.length; i++) {
-      html += `<td class="bas-var-value">${fmtVal(elements[i])}</td>`;
+      html += `<td class="bas-var-value bas-arr-val">${fmtVal(elements[i])}</td>`;
     }
     html += '</tr></tbody></table>';
     return html;
   }
 
-  render(variables, container) {
-    if (!container) return;
-
-    if (!variables || variables.length === 0) {
-      container.innerHTML = '<div class="bas-vars-empty">No variables</div>';
-      return;
+  /**
+   * Do a full DOM rebuild of the variable table.
+   * New variables (not in _previousValues) get the flash animation.
+   */
+  _fullRender(variables, container) {
+    const newNames = new Set();
+    const changedNames = new Set();
+    for (const v of variables) {
+      const displayValue = this.formatValue(v);
+      const prev = this._previousValues.get(v.name);
+      if (prev === undefined) {
+        newNames.add(v.name);
+      } else if (prev !== displayValue) {
+        changedNames.add(v.name);
+      }
     }
 
     const scalars = variables.filter((v) => v.type !== "numArray" && v.type !== "strArray" && v.type !== "defFn");
@@ -130,50 +187,118 @@ export class BasicVariableInspector {
     html += '<tbody>';
 
     for (const v of scalars) {
-      const name = escHtml(v.name);
-      let type = "";
-      let value = "";
-
-      switch (v.type) {
-        case "number":
-          type = "Num";
-          value = this._formatNumber(v.value);
-          break;
-        case "string":
-          type = "Str";
-          value = '"' + escHtml(v.value.length > 24 ? v.value.slice(0, 24) + "..." : v.value) + '"';
-          break;
-        case "for":
-          type = "FOR";
-          value = `${this._formatNumber(v.value)} TO ${this._formatNumber(v.limit)} STEP ${this._formatNumber(v.step)}`;
-          break;
-      }
-
-      html += `<tr><td class="bas-var-name">${name}</td><td class="bas-var-type">${type}</td><td class="bas-var-value">${value}</td></tr>`;
+      const displayValue = this.formatValue(v);
+      this._previousValues.set(v.name, displayValue);
+      html += `<tr data-var="${escAttr(v.name)}"><td class="bas-var-name">${escHtml(v.name)}</td><td class="bas-var-type">${this._typeLabel(v)}</td><td class="bas-var-value">${escHtml(displayValue)}</td></tr>`;
     }
 
     for (const v of arrays) {
-      const name = escHtml(v.name);
-      const type = v.type === "numArray" ? "Num()" : "Str()";
-      const dims = v.dimensions;
-      let dimsLabel = dims.join("x");
-      if (v.type === "strArray" && v.strLen) {
-        dimsLabel = dims.length > 0 ? `${dims.join("x")} x${v.strLen}chr` : `${v.strLen}chr`;
-      }
-      html += `<tr><td class="bas-var-name">${name}</td><td class="bas-var-type">${type}</td><td class="bas-var-value">[${dimsLabel}]</td></tr>`;
-      html += '<tr><td colspan="3" class="bas-var-array-cell">';
-      html += this._renderArray(v);
+      const displayValue = this.formatValue(v);
+      this._previousValues.set(v.name, displayValue);
+      html += `<tr data-var="${escAttr(v.name)}"><td class="bas-var-name">${escHtml(v.name)}</td><td class="bas-var-type">${this._typeLabel(v)}</td><td class="bas-var-value">${this._dimsLabel(v)}</td></tr>`;
+      html += `<tr data-var-array="${escAttr(v.name)}"><td colspan="3" class="bas-var-array-cell">`;
+      html += this._renderArrayHtml(v);
       html += '</td></tr>';
     }
 
     for (const v of defFns) {
-      const name = escHtml(v.name);
-      const expr = escHtml(v.expression);
-      html += `<tr><td class="bas-var-name">${name}</td><td class="bas-var-type">DEF</td><td class="bas-var-value">${expr}</td></tr>`;
+      const displayValue = this.formatValue(v);
+      this._previousValues.set(v.name, displayValue);
+      html += `<tr data-var="${escAttr(v.name)}"><td class="bas-var-name">${escHtml(v.name)}</td><td class="bas-var-type">DEF</td><td class="bas-var-value">${escHtml(displayValue)}</td></tr>`;
     }
 
     html += '</tbody></table>';
     container.innerHTML = html;
+
+    // Flash new or changed variables after DOM is built
+    for (const v of variables) {
+      const isNew = newNames.has(v.name);
+      const isChanged = changedNames.has(v.name);
+      if (isNew || isChanged) {
+        const row = container.querySelector(`tr[data-var="${escAttr(v.name)}"]`);
+        if (row) row.classList.add("bas-var-changed");
+      }
+    }
+  }
+
+  /**
+   * In-place update of existing DOM rows. Flashes changed values.
+   * Returns false if the variable set has structurally changed (new/removed vars)
+   * and a full rebuild is needed.
+   */
+  _incrementalUpdate(variables, container) {
+    const table = container.querySelector(".bas-vars-table");
+    if (!table) return false;
+
+    // Check structural match: same variable names in same order
+    const rows = table.querySelectorAll("tr[data-var]");
+    if (rows.length !== variables.length) return false;
+    for (let i = 0; i < variables.length; i++) {
+      if (rows[i].dataset.var !== variables[i].name) return false;
+    }
+
+    // Update values in place
+    for (let i = 0; i < variables.length; i++) {
+      const v = variables[i];
+      const row = rows[i];
+      const displayValue = this.formatValue(v);
+      const prevValue = this._previousValues.get(v.name);
+      const changed = prevValue !== undefined && prevValue !== displayValue;
+      this._previousValues.set(v.name, displayValue);
+
+      // Update the value cell text
+      const valueCell = row.querySelector(".bas-var-value");
+      if (valueCell) {
+        if (v.type === "numArray" || v.type === "strArray") {
+          valueCell.textContent = this._dimsLabel(v);
+        } else {
+          valueCell.textContent = displayValue;
+        }
+      }
+
+      // Flash on change: remove class, force reflow, re-add class
+      if (changed) {
+        row.classList.remove("bas-var-changed");
+        void row.offsetWidth;
+        row.classList.add("bas-var-changed");
+
+        // For arrays, also update and flash individual elements
+        if (v.type === "numArray" || v.type === "strArray") {
+          const arrayRow = table.querySelector(`tr[data-var-array="${escAttr(v.name)}"]`);
+          if (arrayRow) {
+            const valCells = arrayRow.querySelectorAll(".bas-arr-val");
+            const elements = v.elements || [];
+            const isString = v.type === "strArray";
+            for (let j = 0; j < valCells.length && j < elements.length; j++) {
+              const formatted = isString ? '"' + elements[j] + '"' : this._formatNumber(elements[j]);
+              if (valCells[j].textContent !== formatted) {
+                valCells[j].textContent = formatted;
+                valCells[j].classList.remove("bas-var-changed");
+                void valCells[j].offsetWidth;
+                valCells[j].classList.add("bas-var-changed");
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return true;
+  }
+
+  render(variables, container) {
+    if (!container) return;
+
+    if (!variables || variables.length === 0) {
+      container.innerHTML = '<div class="bas-vars-empty">No variables</div>';
+      this._previousValues.clear();
+      return;
+    }
+
+    // Try in-place update first; fall back to full rebuild if structure changed
+    if (!this._incrementalUpdate(variables, container)) {
+      this._fullRender(variables, container);
+    }
   }
 }
 
@@ -182,4 +307,8 @@ function escHtml(text) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+function escAttr(text) {
+  return escHtml(text).replace(/"/g, "&quot;");
 }
