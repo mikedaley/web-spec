@@ -149,17 +149,20 @@ vec2 applyJitter(vec2 uv, float time) {
 float staticNoise(vec2 uv, float time) {
     if (u_staticNoise < 0.001) return 0.0;
 
+    // Wrap time to avoid float32 precision loss after long sessions
+    float t = mod(time, 3600.0);
+
     vec2 blockSize = vec2(1.0, 1.0);
     vec2 pixelCoord = floor(uv * u_textureSize / blockSize);
 
     vec2 noiseCoord = pixelCoord + vec2(
-        floor(time * 30.0) * 17.0,
-        floor(time * 30.0) * 31.0
+        floor(t * 30.0) * 17.0,
+        floor(t * 30.0) * 31.0
     );
 
     float noise = hash12(noiseCoord);
 
-    float scanBand = hash12(vec2(pixelCoord.y, floor(time * 15.0)));
+    float scanBand = hash12(vec2(pixelCoord.y, floor(t * 15.0)));
     noise = mix(noise, scanBand, 0.3);
 
     vec2 cc = uv - 0.5;
@@ -174,10 +177,13 @@ float staticNoise(vec2 uv, float time) {
 // ============================================
 
 vec3 noSignalStatic(vec2 uv, float time) {
+    // Wrap time to avoid float32 precision loss after long sessions
+    float t = mod(time, 3600.0);
+
     vec2 blockSize = vec2(1.0, 1.0);
     vec2 pixelCoord = floor(uv * u_textureSize / blockSize);
 
-    float frameTime = floor(time * 50.0);
+    float frameTime = floor(t * 50.0);
     vec2 noiseCoord = pixelCoord + vec2(frameTime * 17.0, frameTime * 31.0);
 
     float noise = hash12(noiseCoord);
