@@ -255,7 +255,8 @@ export class BasicProgramWindow extends BaseWindow {
   _onSidebarResizeMove(e) {
     if (!this._sidebarResizing) return;
     const dx = this._sidebarResizeStartX - e.clientX;
-    const newWidth = Math.max(100, Math.min(400, this._sidebarResizeStartWidth + dx));
+    const maxWidth = Math.max(200, Math.floor(this.element.offsetWidth * 0.7));
+    const newWidth = Math.max(100, Math.min(maxWidth, this._sidebarResizeStartWidth + dx));
     this._sidebarWidth = newWidth;
     this._sidebar.style.width = `${newWidth}px`;
   }

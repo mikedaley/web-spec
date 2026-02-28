@@ -427,6 +427,20 @@
   font-style: italic;
 }
 
+.bas-var-section-header {
+  padding: 3px 6px;
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--glass-border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
 .bas-vars-table {
   width: 100%;
   border-collapse: collapse;
@@ -443,8 +457,6 @@
   color: var(--text-muted);
   text-align: left;
   border-bottom: 1px solid var(--glass-border-subtle);
-  position: sticky;
-  top: 0;
   background: var(--glass-bg-header);
 }
 
@@ -471,7 +483,6 @@
 
 .bas-vars-table td.bas-var-value {
   color: var(--accent-green);
-  max-width: 100px;
 }
 
 .bas-vars-table td.bas-var-array-cell {

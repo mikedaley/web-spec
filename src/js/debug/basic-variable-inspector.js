@@ -162,9 +162,24 @@ export class BasicVariableInspector {
   }
 
   /**
-   * Do a full DOM rebuild of the variable table.
-   * New variables (not in _previousValues) get the flash animation.
+   * Group variables by type into sections.
    */
+  _groupVariables(variables) {
+    const groups = [
+      { key: "numbers", label: "Numbers", types: ["number"] },
+      { key: "strings", label: "Strings", types: ["string"] },
+      { key: "forLoops", label: "FOR Loops", types: ["for"] },
+      { key: "arrays", label: "Arrays", types: ["numArray", "strArray"] },
+      { key: "defFns", label: "DEF FN", types: ["defFn"] },
+    ];
+    const result = [];
+    for (const g of groups) {
+      const items = variables.filter((v) => g.types.includes(v.type));
+      if (items.length > 0) result.push({ label: g.label, items });
+    }
+    return result;
+  }
+
   _fullRender(variables, container) {
     const newNames = new Set();
     const changedNames = new Set();
@@ -178,36 +193,32 @@ export class BasicVariableInspector {
       }
     }
 
-    const scalars = variables.filter((v) => v.type !== "numArray" && v.type !== "strArray" && v.type !== "defFn");
-    const arrays = variables.filter((v) => v.type === "numArray" || v.type === "strArray");
-    const defFns = variables.filter((v) => v.type === "defFn");
+    const groups = this._groupVariables(variables);
+    let html = '';
 
-    let html = '<table class="bas-vars-table">';
-    html += '<thead><tr><th>Name</th><th>Type</th><th>Value</th></tr></thead>';
-    html += '<tbody>';
+    for (const group of groups) {
+      html += `<div class="bas-var-section-header">${group.label}</div>`;
+      html += '<table class="bas-vars-table">';
+      html += '<thead><tr><th>Name</th><th>Type</th><th>Value</th></tr></thead>';
+      html += '<tbody>';
 
-    for (const v of scalars) {
-      const displayValue = this.formatValue(v);
-      this._previousValues.set(v.name, displayValue);
-      html += `<tr data-var="${escAttr(v.name)}"><td class="bas-var-name">${escHtml(v.name)}</td><td class="bas-var-type">${this._typeLabel(v)}</td><td class="bas-var-value">${escHtml(displayValue)}</td></tr>`;
+      for (const v of group.items) {
+        const displayValue = this.formatValue(v);
+        this._previousValues.set(v.name, displayValue);
+
+        if (v.type === "numArray" || v.type === "strArray") {
+          html += `<tr data-var="${escAttr(v.name)}"><td class="bas-var-name">${escHtml(v.name)}</td><td class="bas-var-type">${this._typeLabel(v)}</td><td class="bas-var-value">${this._dimsLabel(v)}</td></tr>`;
+          html += `<tr data-var-array="${escAttr(v.name)}"><td colspan="3" class="bas-var-array-cell">`;
+          html += this._renderArrayHtml(v);
+          html += '</td></tr>';
+        } else {
+          html += `<tr data-var="${escAttr(v.name)}"><td class="bas-var-name">${escHtml(v.name)}</td><td class="bas-var-type">${this._typeLabel(v)}</td><td class="bas-var-value">${escHtml(displayValue)}</td></tr>`;
+        }
+      }
+
+      html += '</tbody></table>';
     }
 
-    for (const v of arrays) {
-      const displayValue = this.formatValue(v);
-      this._previousValues.set(v.name, displayValue);
-      html += `<tr data-var="${escAttr(v.name)}"><td class="bas-var-name">${escHtml(v.name)}</td><td class="bas-var-type">${this._typeLabel(v)}</td><td class="bas-var-value">${this._dimsLabel(v)}</td></tr>`;
-      html += `<tr data-var-array="${escAttr(v.name)}"><td colspan="3" class="bas-var-array-cell">`;
-      html += this._renderArrayHtml(v);
-      html += '</td></tr>';
-    }
-
-    for (const v of defFns) {
-      const displayValue = this.formatValue(v);
-      this._previousValues.set(v.name, displayValue);
-      html += `<tr data-var="${escAttr(v.name)}"><td class="bas-var-name">${escHtml(v.name)}</td><td class="bas-var-type">DEF</td><td class="bas-var-value">${escHtml(displayValue)}</td></tr>`;
-    }
-
-    html += '</tbody></table>';
     container.innerHTML = html;
 
     // Flash new or changed variables after DOM is built
@@ -227,11 +238,11 @@ export class BasicVariableInspector {
    * and a full rebuild is needed.
    */
   _incrementalUpdate(variables, container) {
-    const table = container.querySelector(".bas-vars-table");
-    if (!table) return false;
+    const tables = container.querySelectorAll(".bas-vars-table");
+    if (!tables.length) return false;
 
-    // Check structural match: same variable names in same order
-    const rows = table.querySelectorAll("tr[data-var]");
+    // Check structural match: same variable names in same order across all section tables
+    const rows = container.querySelectorAll("tr[data-var]");
     if (rows.length !== variables.length) return false;
     for (let i = 0; i < variables.length; i++) {
       if (rows[i].dataset.var !== variables[i].name) return false;
@@ -264,7 +275,7 @@ export class BasicVariableInspector {
 
         // For arrays, also update and flash individual elements
         if (v.type === "numArray" || v.type === "strArray") {
-          const arrayRow = table.querySelector(`tr[data-var-array="${escAttr(v.name)}"]`);
+          const arrayRow = container.querySelector(`tr[data-var-array="${escAttr(v.name)}"]`);
           if (arrayRow) {
             const valCells = arrayRow.querySelectorAll(".bas-arr-val");
             const elements = v.elements || [];
