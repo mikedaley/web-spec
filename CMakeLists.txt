@@ -220,6 +220,7 @@ if(EMSCRIPTEN)
                 \"_clearBasicBreakpointMode\", \
                 \"_isBasicBreakpointHit\", \
                 \"_getBasicBreakpointLine\", \
+                \"_getBasicBreakpointStatement\", \
                 \"_clearBasicBreakpointHit\", \
                 \"_hasBasicProgram\", \
                 \"_setBasicProgramActive\", \

@@ -654,6 +654,7 @@ void ZXSpectrum::installOpcodeCallback()
                             basicBpMode_ = BasicBpMode::OFF;
                             basicBpHit_ = true;
                             basicBpLine_ = ppc;
+                            basicBpStatement_ = coreDebugRead(basic::sys::SUBPPC);
                             breakpointHit_ = true;
                             breakpointAddress_ = address;
                             paused_ = true;

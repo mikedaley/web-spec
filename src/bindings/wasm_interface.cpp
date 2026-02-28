@@ -955,6 +955,13 @@ int getBasicBreakpointLine() {
 }
 
 EMSCRIPTEN_KEEPALIVE
+int getBasicBreakpointStatement() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? spec->getBasicBreakpointStatement() : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
 void clearBasicBreakpointHit() {
     REQUIRE_MACHINE();
     auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);

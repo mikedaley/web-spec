@@ -46,6 +46,56 @@ const SPECTRUM_ERRORS = {
   0x1A: ["R", "Tape loading error"],
 };
 
+/**
+ * Finds statement boundaries within a BASIC line.
+ * Statements are separated by `:` outside of strings and after REM.
+ * Returns an array of { start, end, codeStart } character offsets.
+ * `codeStart` skips the line number prefix on the first statement and
+ * the `:` separator on subsequent statements.
+ */
+function findStatementBoundaries(lineText) {
+  // Skip line number prefix for the first statement
+  const lineNumMatch = lineText.match(/^(\s*\d+\s*)/);
+  const lineNumEnd = lineNumMatch ? lineNumMatch[1].length : 0;
+
+  const boundaries = [];
+  let stmtStart = 0;
+  let inString = false;
+  let afterRem = false;
+
+  for (let i = lineNumEnd; i < lineText.length; i++) {
+    const ch = lineText[i];
+
+    if (afterRem) break; // Everything after REM is one statement
+
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    // Check for REM keyword (case-insensitive)
+    if (i + 3 <= lineText.length) {
+      const word = lineText.slice(i, i + 3).toUpperCase();
+      if (word === "REM") {
+        afterRem = true;
+        continue;
+      }
+    }
+
+    if (ch === ":") {
+      boundaries.push({ start: stmtStart, end: i, codeStart: stmtStart === 0 ? lineNumEnd : stmtStart + 1 });
+      stmtStart = i; // Include the colon as start of next statement
+    }
+  }
+
+  // Final statement
+  boundaries.push({ start: stmtStart, end: lineText.length, codeStart: stmtStart === 0 ? lineNumEnd : stmtStart + 1 });
+
+  return boundaries;
+}
+
 export class BasicProgramWindow extends BaseWindow {
   constructor(proxy) {
     super({
@@ -73,6 +123,7 @@ export class BasicProgramWindow extends BaseWindow {
     this._programRunning = false; // true when a BASIC program is executing
     this._traceEnabled = true; // highlight current line while running (no pause)
     this._traceLastLine = null; // last line highlighted by trace (avoid redundant DOM updates)
+    this._traceLastStatement = null; // last statement index highlighted by trace
 
     // Error overlay state
     this._errorLineNumber = null;
@@ -233,6 +284,7 @@ export class BasicProgramWindow extends BaseWindow {
       this._traceEnabled = this._traceCheckbox.checked;
       if (!this._traceEnabled) {
         this._traceLastLine = null;
+        this._traceLastStatement = null;
         this._clearHighlight();
         this._updateGutter();
       }
@@ -849,7 +901,7 @@ export class BasicProgramWindow extends BaseWindow {
   }
 
   _installBasicBreakpointHandler() {
-    this.proxy.onBasicBreakpointHit = async (framebuffer, lineNumber, hit) => {
+    this.proxy.onBasicBreakpointHit = async (framebuffer, lineNumber, hit, statementIndex) => {
       // After RUN, skip condition rule checks for a few lines to let the
       // ROM clear variables before evaluating conditions against stale memory
       const canCheckRules = this._skipConditionRuleChecks <= 0;
@@ -870,7 +922,7 @@ export class BasicProgramWindow extends BaseWindow {
             firedIndex = ruleIdx;
           }
         }
-        this._onBasicPaused(lineNumber, framebuffer, firedType, firedIndex);
+        this._onBasicPaused(lineNumber, framebuffer, firedType, firedIndex, statementIndex);
         return;
       }
 
@@ -906,19 +958,20 @@ export class BasicProgramWindow extends BaseWindow {
         }
         return;
       }
-      this._onBasicPaused(lineNumber, framebuffer, firedType, firedIndex);
+      this._onBasicPaused(lineNumber, framebuffer, firedType, firedIndex, statementIndex);
     };
   }
 
-  _onBasicPaused(lineNumber, framebuffer, firedType = null, firedIndex = -1) {
+  _onBasicPaused(lineNumber, framebuffer, firedType = null, firedIndex = -1, statementIndex = 0) {
     this._basicStepping = true;
     this._programRunning = true;
     this._currentBasicLine = lineNumber;
 
     const cond = this._basicBreakpoints.getCondition(lineNumber);
-    const statusText = cond ? `Line ${lineNumber} (${cond})` : `Line ${lineNumber}`;
+    const stmtSuffix = statementIndex > 0 ? `:${statementIndex + 1}` : "";
+    const statusText = cond ? `Line ${lineNumber}${stmtSuffix} (${cond})` : `Line ${lineNumber}${stmtSuffix}`;
     this._updateDebugStatus(statusText);
-    this._highlightBasicLine(lineNumber);
+    this._highlightBasicLine(lineNumber, statementIndex);
     this._updateGutter();
     this._renderBreakpointPanel();
     this._pulseBreakpointItem(firedType, firedType === "line" ? lineNumber : firedIndex);
@@ -1052,7 +1105,7 @@ export class BasicProgramWindow extends BaseWindow {
     }
   }
 
-  _highlightBasicLine(targetLineNumber) {
+  _highlightBasicLine(targetLineNumber, statementIndex = 0) {
     this._clearHighlight();
     const lines = this._textarea.value.split("\n");
     const highlightEl = this._highlight;
@@ -1073,9 +1126,23 @@ export class BasicProgramWindow extends BaseWindow {
     // Wrap the corresponding highlight line in a highlight span
     const highlightLines = highlightEl.innerHTML.split("\n");
     if (editorLineIdx < highlightLines.length) {
+      const rawText = lines[editorLineIdx];
+      const boundaries = findStatementBoundaries(rawText);
+
+      // Always highlight the full line with the blue background
       highlightLines[editorLineIdx] =
         `<span class="bas-highlight-line">${highlightLines[editorLineIdx]}</span>`;
       highlightEl.innerHTML = highlightLines.join("\n");
+
+      // For multi-statement lines, add a red underline on the active statement
+      if (boundaries.length > 1 && statementIndex >= 0) {
+        const stmtIdx = Math.min(statementIndex, boundaries.length - 1);
+        const { codeStart, end } = boundaries[stmtIdx];
+        const hlSpan = highlightEl.querySelector(".bas-highlight-line");
+        if (hlSpan) {
+          this._underlineTextRange(hlSpan, codeStart, end);
+        }
+      }
     }
 
     // Scroll textarea to make the line visible
@@ -1085,10 +1152,54 @@ export class BasicProgramWindow extends BaseWindow {
     this._syncScroll();
   }
 
+  /**
+   * Walks the text nodes inside `container` and wraps the character range
+   * [rangeStart, rangeEnd) in a <span class="bas-stmt-underline"> element.
+   * Character positions are relative to the full raw line text.
+   */
+  _underlineTextRange(container, rangeStart, rangeEnd) {
+    const textNodes = [];
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
+
+    let charPos = 0;
+    for (const node of textNodes) {
+      const nodeLen = node.textContent.length;
+      const nodeStart = charPos;
+      const nodeEnd = charPos + nodeLen;
+      charPos = nodeEnd;
+
+      // No overlap with our range
+      if (nodeEnd <= rangeStart || nodeStart >= rangeEnd) continue;
+
+      const overlapStart = Math.max(0, rangeStart - nodeStart);
+      const overlapEnd = Math.min(nodeLen, rangeEnd - nodeStart);
+      const text = node.textContent;
+
+      // Split into before / underlined / after
+      const before = text.slice(0, overlapStart);
+      const mid = text.slice(overlapStart, overlapEnd);
+      const after = text.slice(overlapEnd);
+
+      const frag = document.createDocumentFragment();
+      if (before) frag.appendChild(document.createTextNode(before));
+      const span = document.createElement("span");
+      span.className = "bas-stmt-underline";
+      span.textContent = mid;
+      frag.appendChild(span);
+      if (after) frag.appendChild(document.createTextNode(after));
+
+      node.parentNode.replaceChild(frag, node);
+    }
+  }
+
   _clearHighlight() {
     if (!this._highlight) return;
-    const existing = this._highlight.querySelectorAll(".bas-highlight-line");
-    existing.forEach((el) => {
+    // Remove underline spans first (they're inside highlight-line spans)
+    this._highlight.querySelectorAll(".bas-stmt-underline").forEach((el) => {
+      el.replaceWith(...el.childNodes);
+    });
+    this._highlight.querySelectorAll(".bas-highlight-line").forEach((el) => {
       el.outerHTML = el.innerHTML;
     });
   }
@@ -1407,6 +1518,7 @@ export class BasicProgramWindow extends BaseWindow {
         this._romReadyChecking = false;
         const errNr = data[0];                            // 0x5C3A (ERR_NR)
         const ppc = data[11] | (data[12] << 8);          // 0x5C45-46
+        const subppc = data[13];                          // 0x5C47 (SUBPPC)
         const prog = data[25] | (data[26] << 8);         // 0x5C53-54
         this._romReady = (prog >= 0x5C00 && prog < 0x8000);
 
@@ -1419,12 +1531,13 @@ export class BasicProgramWindow extends BaseWindow {
           proxy.clearBasicReportFired();
         }
 
-        // Trace mode: highlight current line while running (no pause)
+        // Trace mode: highlight current line/statement while running (no pause)
         if (this._traceEnabled && this._programRunning && !this._basicStepping) {
-          if (ppc !== this._traceLastLine) {
+          if (ppc !== this._traceLastLine || subppc !== this._traceLastStatement) {
             this._traceLastLine = ppc;
+            this._traceLastStatement = subppc;
             this._currentBasicLine = ppc;
-            this._highlightBasicLine(ppc);
+            this._highlightBasicLine(ppc, subppc);
             this._updateGutter();
           }
         }
@@ -1440,6 +1553,7 @@ export class BasicProgramWindow extends BaseWindow {
           this._syncBreakpointsToWorker();
           if (this._traceLastLine !== null) {
             this._traceLastLine = null;
+            this._traceLastStatement = null;
           }
 
           // Check for runtime errors (ignore L BREAK into program — normal stop)

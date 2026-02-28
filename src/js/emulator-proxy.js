@@ -73,7 +73,7 @@ export class EmulatorProxy {
       case "basicBreakpointHit": {
         this.state = msg.state;
         if (this.onBasicBreakpointHit) {
-          this.onBasicBreakpointHit(msg.framebuffer, msg.lineNumber, msg.hit);
+          this.onBasicBreakpointHit(msg.framebuffer, msg.lineNumber, msg.hit, msg.statementIndex);
         }
         break;
       }

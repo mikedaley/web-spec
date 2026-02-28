@@ -97,6 +97,7 @@ public:
     void clearBasicBreakpointMode();
     bool isBasicBreakpointHit() const { return basicBpHit_; }
     uint16_t getBasicBreakpointLine() const { return basicBpLine_; }
+    uint8_t getBasicBreakpointStatement() const { return basicBpStatement_; }
     void clearBasicBreakpointHit() { basicBpHit_ = false; }
     bool hasBasicProgram() const;
 
@@ -273,6 +274,7 @@ protected:
     std::set<uint16_t> basicBreakpointLines_;
     bool basicBpHit_ = false;
     uint16_t basicBpLine_ = 0;
+    uint8_t basicBpStatement_ = 0;
     bool basicProgramActive_ = false;  // JS told us a program is running
     bool basicReportFired_ = false;    // ROM reached MAIN-4 (report issued)
 

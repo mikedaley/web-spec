@@ -56,6 +56,7 @@ function runFrames(count) {
     // Check for BASIC breakpoint hit (filtering is done in C++)
     if (wasm._isBasicBreakpointHit()) {
       const ppc = wasm._getBasicBreakpointLine();
+      const statementIndex = wasm._getBasicBreakpointStatement();
       wasm._clearBasicBreakpointHit();
 
       const fbPtr = wasm._getFramebuffer();
@@ -93,6 +94,7 @@ function runFrames(count) {
         framebuffer: fb,
         signalBuffer: signalBuf,
         lineNumber: ppc,
+        statementIndex,
         hit: true,
         state: frameState
       }, [fb.buffer, signalBuf.buffer]);

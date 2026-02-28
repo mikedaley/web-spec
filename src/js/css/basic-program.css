@@ -328,6 +328,11 @@
   width: 100%;
 }
 
+/* Red underline on the active statement within a multi-statement line */
+.bas-stmt-underline {
+  border-bottom: 2px solid var(--accent-red);
+}
+
 /* Error line highlight */
 .bas-error-line {
   display: inline-block;
