@@ -108,6 +108,7 @@ export class BasicProgramWindow extends BaseWindow {
     });
 
     this.proxy = proxy;
+    this._machineId = 0;
     this.parser = new SinclairBasicParser();
     this.tokenizer = new SinclairBasicTokenizer();
     this.variableInspector = new BasicVariableInspector();
@@ -154,6 +155,23 @@ export class BasicProgramWindow extends BaseWindow {
     // Bind handlers
     this._onSidebarResizeMove = this._onSidebarResizeMove.bind(this);
     this._onSidebarResizeEnd = this._onSidebarResizeEnd.bind(this);
+  }
+
+  /**
+   * Update the window title to reflect the current BASIC variant.
+   */
+  setMachine(machineId) {
+    this._machineId = machineId;
+    this._updateBasicTitle();
+  }
+
+  _updateBasicTitle() {
+    const is128k = this._machineId >= 1;
+    const is128kBasic = is128k && (this.proxy.getPagingRegister() & 0x10) === 0;
+    const newTitle = is128kBasic ? "Sinclair BASIC 128" : "Sinclair BASIC 48";
+    if (this.title !== newTitle) {
+      this.setTitle(newTitle);
+    }
   }
 
   renderContent() {
@@ -811,11 +829,26 @@ export class BasicProgramWindow extends BaseWindow {
     this._programRunning = true;
     this._updateToolbarState();
 
-    // Type R + ENTER (48K keyword mode generates RUN)
-    const keys = [
-      [2, 3], // R
-      [6, 0], // ENTER
-    ];
+    // Determine if we need to type the full word RUN or just R (keyword mode).
+    // 48K BASIC uses keyword mode: pressing R alone produces RUN.
+    // 128K BASIC requires typing R, U, N individually.
+    // On a 128K machine, paging register bit 4 selects the ROM:
+    //   bit 4 = 0 → ROM 0 (128K BASIC, full typing required)
+    //   bit 4 = 1 → ROM 1 (48K BASIC, keyword mode)
+    const machineId = this.proxy.getMachineId();
+    const is128kBasic = machineId === 1 && (this.proxy.getPagingRegister() & 0x10) === 0;
+
+    const keys = is128kBasic
+      ? [
+          [2, 3], // R
+          [5, 3], // U
+          [7, 3], // N
+          [6, 0], // ENTER
+        ]
+      : [
+          [2, 3], // R
+          [6, 0], // ENTER
+        ];
     for (const [row, bit] of keys) {
       this.proxy.keyDown(row, bit);
       await this._delay(50);
@@ -1502,6 +1535,11 @@ export class BasicProgramWindow extends BaseWindow {
    */
   update(proxy) {
     if (!this.isVisible) return;
+
+    // Update title when ROM page changes on 128K machines
+    if (this._machineId >= 1) {
+      this._updateBasicTitle();
+    }
 
     // Keep toolbar state in sync with emulator state every frame
     this._updateToolbarState();

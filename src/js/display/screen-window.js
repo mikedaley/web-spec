@@ -7,6 +7,13 @@
 
 import { BaseWindow } from "../windows/base-window.js";
 
+const MACHINE_NAMES = {
+  0: "ZX Spectrum 48K",
+  1: "ZX Spectrum 128K",
+  2: "ZX Spectrum 128K +2",
+  3: "ZX Spectrum 128K +2A",
+};
+
 export class ScreenWindow extends BaseWindow {
   constructor(renderer) {
     super({
@@ -25,6 +32,13 @@ export class ScreenWindow extends BaseWindow {
     // 352x288 = 48px border on all four sides around 256x192 paper
     this._aspect = renderer.width / renderer.height;
     this._viewportLocked = false;
+  }
+
+  /**
+   * Update the window title to reflect the current machine.
+   */
+  setMachine(machineId) {
+    this.setTitle(MACHINE_NAMES[machineId] || "Screen");
   }
 
   renderContent() {

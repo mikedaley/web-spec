@@ -782,6 +782,8 @@ class ZXSpectrumEmulator {
     const currentMachineId = parseInt(localStorage.getItem("zxspec-machine-id") || "0", 10);
     updateMachineChecks(currentMachineId);
     update48kOptionsVisibility(currentMachineId);
+    this.screenWindow.setMachine(currentMachineId);
+    this.basicProgramWindow.setMachine(currentMachineId);
 
     // Machine model selection
     machineItems.forEach((item) => {
@@ -798,6 +800,8 @@ class ZXSpectrumEmulator {
         update48kOptionsVisibility(machineId);
 
         await this.proxy.switchMachine(machineId);
+        this.screenWindow.setMachine(machineId);
+        this.basicProgramWindow.setMachine(machineId);
 
         // If running, reset and continue; otherwise just switch
         if (this.running) {
@@ -819,6 +823,8 @@ class ZXSpectrumEmulator {
       localStorage.setItem("zxspec-machine-id", String(machineId));
       updateMachineChecks(machineId);
       update48kOptionsVisibility(machineId);
+      this.screenWindow.setMachine(machineId);
+      this.basicProgramWindow.setMachine(machineId);
     };
 
     // Restore Issue number from localStorage

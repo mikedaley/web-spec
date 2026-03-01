@@ -70,6 +70,9 @@ export class BaseWindow {
     this.handleMouseDown = this.handleMouseDown.bind(this);
     this.handleMouseMove = this.handleMouseMove.bind(this);
     this.handleMouseUp = this.handleMouseUp.bind(this);
+
+    /** @type {HTMLElement|null} */
+    this._titleElement = null;
   }
 
   /**
@@ -92,6 +95,8 @@ export class BaseWindow {
       <span class="${this.cssClasses.title}">${this.title}</span>
       ${this.closable ? `<button class="${this.cssClasses.close}" title="Close">&times;</button>` : ""}
     `;
+
+    this._titleElement = this.headerElement.querySelector(`.${this.cssClasses.title}`);
 
     // Content area
     this.contentElement = document.createElement("div");
@@ -346,6 +351,16 @@ export class BaseWindow {
     this.currentHeight = newHeight;
     this.currentX = newLeft;
     this.currentY = newTop;
+  }
+
+  /**
+   * Update the window title text.
+   */
+  setTitle(text) {
+    this.title = text;
+    if (this._titleElement) {
+      this._titleElement.textContent = text;
+    }
   }
 
   /**
