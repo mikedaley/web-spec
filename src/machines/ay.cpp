@@ -299,6 +299,17 @@ float AY3_8912::getChannelOutput(int ch) const
     return (toneOut && noiseOut) ? level : 0.0f;
 }
 
+bool AY3_8912::getToneOutput(int ch) const
+{
+    if (ch < 0 || ch >= NUM_CHANNELS) return false;
+    return toneOutput_[ch];
+}
+
+uint32_t AY3_8912::getNoiseLFSR() const { return noiseLFSR_; }
+uint8_t AY3_8912::getEnvVolume() const { return envVolume_; }
+bool AY3_8912::getEnvHolding() const { return envHolding_; }
+bool AY3_8912::getEnvAttack() const { return envAttack_; }
+
 float AY3_8912::computeMixerOutput() const
 {
     uint8_t mixer = regs_[7];

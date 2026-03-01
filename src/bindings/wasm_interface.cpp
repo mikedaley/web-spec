@@ -795,6 +795,48 @@ void getBeeperWaveform(float* buf, int count) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+int getAYToneOutput(int ch) {
+  REQUIRE_MACHINE_OR(0);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec ? (spec->getAY().getToneOutput(ch) ? 1 : 0) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int getAYNoiseLFSR() {
+  REQUIRE_MACHINE_OR(0);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec ? static_cast<int>(spec->getAY().getNoiseLFSR()) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int getAYEnvVolume() {
+  REQUIRE_MACHINE_OR(0);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec ? spec->getAY().getEnvVolume() : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int getAYEnvHolding() {
+  REQUIRE_MACHINE_OR(0);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec ? (spec->getAY().getEnvHolding() ? 1 : 0) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int getAYEnvAttack() {
+  REQUIRE_MACHINE_OR(0);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec ? (spec->getAY().getEnvAttack() ? 1 : 0) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+float getAYChannelOutput(int ch) {
+  REQUIRE_MACHINE_OR(0.0f);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec ? spec->getAY().getChannelOutput(ch) : 0.0f;
+}
+
+EMSCRIPTEN_KEEPALIVE
 int isAYEnabled() {
   REQUIRE_MACHINE_OR(0);
   auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);

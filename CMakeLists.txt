@@ -207,6 +207,12 @@ if(EMSCRIPTEN)
                 \"_getBeeperWaveform\", \
                 \"_isAYEnabled\", \
                 \"_setAYEnabled\", \
+                \"_getAYToneOutput\", \
+                \"_getAYNoiseLFSR\", \
+                \"_getAYEnvVolume\", \
+                \"_getAYEnvHolding\", \
+                \"_getAYEnvAttack\", \
+                \"_getAYChannelOutput\", \
                 \"_getIssueNumber\", \
                 \"_setIssueNumber\", \
                 \"_basicTokenize\", \

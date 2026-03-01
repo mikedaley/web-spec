@@ -306,6 +306,25 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // File menu > Reset Layout
+    const resetLayoutBtn = document.getElementById("btn-reset-layout");
+    if (resetLayoutBtn) {
+      resetLayoutBtn.addEventListener("click", () => {
+        this.closeAllMenus();
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith("zxspec-")) {
+            keysToRemove.push(key);
+          }
+        }
+        for (const key of keysToRemove) {
+          localStorage.removeItem(key);
+        }
+        window.location.reload();
+      });
+    }
+
     // View menu > Display (opens display settings window)
     const displayBtn = document.getElementById("btn-display");
     if (displayBtn) {

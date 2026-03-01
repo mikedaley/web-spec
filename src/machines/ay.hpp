@@ -55,6 +55,14 @@ public:
     int getSampleCount() const { return sampleIndex_; }
     void resetBuffer() { sampleIndex_ = 0; }
 
+    // Internal state accessors (debug)
+    bool getToneOutput(int ch) const;
+    uint32_t getNoiseLFSR() const;
+    uint8_t getEnvVolume() const;
+    bool getEnvHolding() const;
+    bool getEnvAttack() const;
+    float getChannelOutput(int ch) const;
+
 private:
     static constexpr int MAX_SAMPLES_PER_FRAME = 2048;
     static constexpr int WAVEFORM_BUFFER_SIZE = 256;
@@ -112,7 +120,6 @@ private:
     void tickEnvelopeGenerator();
     void handleEnvelopeCycleEnd();
     float computeMixerOutput() const;
-    float getChannelOutput(int ch) const;
 };
 
 } // namespace zxspec

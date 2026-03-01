@@ -85,9 +85,9 @@ export class SoundWindow extends BaseWindow {
       id: "sound-debug",
       title: "Sound",
       defaultWidth: 575,
-      defaultHeight: 475,
+      defaultHeight: 230,
       minWidth: 575,
-      minHeight: 475,
+      minHeight: 230,
       defaultPosition: { x: 60, y: 300 },
       resizeDirections: ["e", "w"],
     });
@@ -179,9 +179,16 @@ export class SoundWindow extends BaseWindow {
             <span class="snd-env-label">Env</span>
             <span id="snd-env-shape" class="snd-env-shape"></span>
             <span id="snd-env-freq" class="snd-env-freq"></span>
+            <span class="snd-env-phase" id="snd-env-phase">
+              <span class="snd-env-phase-arrow" id="snd-env-phase-arrow">&#x25B2;</span>
+              <span class="snd-env-phase-label" id="snd-env-phase-label">Attack</span>
+            </span>
             <span class="snd-env-sep"></span>
             <span class="snd-env-label">Noise</span>
             <span id="snd-noise-freq" class="snd-noise-freq"></span>
+            <span class="snd-env-sep"></span>
+            <span class="snd-env-label">LFSR</span>
+            <span class="snd-int-val" id="snd-int-lfsr">00000</span>
           </div>
         </div>
 
@@ -192,6 +199,9 @@ export class SoundWindow extends BaseWindow {
 
   renderStyles() {
     return `<style>
+      #sound-debug {
+        height: auto !important;
+      }
       #sound-debug .debug-window-content {
         overflow: hidden;
         padding: 0;
@@ -199,7 +209,6 @@ export class SoundWindow extends BaseWindow {
 
       /* Root container */
       .snd-root {
-        height: 100%;
         display: flex;
         flex-direction: column;
         gap: 6px;
@@ -487,16 +496,66 @@ export class SoundWindow extends BaseWindow {
         text-transform: uppercase;
         letter-spacing: 0.05em;
         color: var(--text-muted);
+        flex-shrink: 0;
       }
       .snd-env-svg { vertical-align: middle; }
-      .snd-env-freq { color: var(--accent-green); font-family: var(--font-mono); font-size: 10px; }
-      .snd-noise-freq { color: var(--accent-blue); font-family: var(--font-mono); font-size: 10px; }
+      .snd-env-freq { width: 52px; flex-shrink: 0; color: var(--accent-green); font-family: var(--font-mono); font-size: 10px; font-variant-numeric: tabular-nums; }
+      .snd-noise-freq { width: 60px; flex-shrink: 0; color: var(--accent-blue); font-family: var(--font-mono); font-size: 10px; font-variant-numeric: tabular-nums; }
       .snd-env-unknown { color: var(--text-muted); }
       .snd-env-sep {
         width: 1px;
         height: 12px;
         background: var(--border-muted);
         margin: 0 4px;
+      }
+
+      /* Envelope phase badge */
+      .snd-env-phase {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        width: 62px;
+        flex-shrink: 0;
+        padding: 1px 0;
+        border-radius: 3px;
+        font-family: var(--font-mono);
+        font-size: 9px;
+        font-weight: 600;
+        border: 1px solid var(--border-muted);
+        background: var(--overlay-subtle);
+        color: var(--text-muted);
+        transition: all 0.15s;
+      }
+      .snd-env-phase[data-phase="attack"] {
+        background: var(--accent-green-bg);
+        border-color: var(--accent-green-border);
+        color: var(--accent-green);
+      }
+      .snd-env-phase[data-phase="decay"] {
+        background: var(--accent-red-bg);
+        border-color: var(--accent-red-border);
+        color: var(--accent-red);
+      }
+      .snd-env-phase[data-phase="hold"] {
+        background: var(--overlay-subtle);
+        border-color: var(--border-muted);
+        color: var(--text-muted);
+      }
+      .snd-env-phase-arrow {
+        font-size: 8px;
+        line-height: 1;
+      }
+      .snd-env-phase-label {
+        letter-spacing: 0.04em;
+      }
+      .snd-int-val {
+        width: 42px;
+        flex-shrink: 0;
+        color: var(--text-secondary);
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-variant-numeric: tabular-nums;
       }
 
     </style>`;
@@ -597,6 +656,10 @@ export class SoundWindow extends BaseWindow {
       envShape: el.querySelector("#snd-env-shape"),
       envFreq: el.querySelector("#snd-env-freq"),
       noiseFreq: el.querySelector("#snd-noise-freq"),
+      intLFSR: el.querySelector("#snd-int-lfsr"),
+      envPhase: el.querySelector("#snd-env-phase"),
+      envPhaseArrow: el.querySelector("#snd-env-phase-arrow"),
+      envPhaseLabel: el.querySelector("#snd-env-phase-label"),
     };
 
     for (let ch = 0; ch < 3; ch++) {
@@ -857,7 +920,8 @@ export class SoundWindow extends BaseWindow {
       const ctx = this.ayElements.canvasCtx[ch];
       if (!ctx) continue;
       const canvas = this.ayElements.canvases[ch];
-      const samples = ayOn && proxy.getAYWaveform ? proxy.getAYWaveform(ch) : null;
+      const samples =
+        ayOn && proxy.getAYWaveform ? proxy.getAYWaveform(ch) : null;
       this.drawChannelWaveform(ctx, canvas, samples, colors[ch]);
     }
   }
@@ -874,6 +938,44 @@ export class SoundWindow extends BaseWindow {
           this.ayElements.mute[ch].classList.toggle("muted", isMuted);
         if (this.ayElements.channels[ch])
           this.ayElements.channels[ch].classList.toggle("muted", isMuted);
+      }
+    }
+  }
+
+  updateAYInternals(proxy) {
+    const internals = proxy.getAYInternals ? proxy.getAYInternals() : null;
+    if (!internals || !this.ayElements) return;
+
+    // Noise LFSR
+    const lfsr = internals.noiseLFSR;
+    if (this.ayPrevValues.intLFSR !== lfsr) {
+      this.ayPrevValues.intLFSR = lfsr;
+      if (this.ayElements.intLFSR) {
+        this.ayElements.intLFSR.textContent = lfsr
+          .toString(16)
+          .toUpperCase()
+          .padStart(5, "0");
+      }
+    }
+
+    // Envelope phase (attack / decay / hold)
+    const attack = internals.envAttack;
+    const holding = internals.envHolding;
+    const stateLabel = holding ? "Hold" : attack ? "Attack" : "Decay";
+    if (this.ayPrevValues.intEnvState !== stateLabel) {
+      this.ayPrevValues.intEnvState = stateLabel;
+      if (this.ayElements.envPhaseArrow) {
+        this.ayElements.envPhaseArrow.textContent = holding
+          ? "\u25A0"
+          : attack
+            ? "\u25B2"
+            : "\u25BC";
+      }
+      if (this.ayElements.envPhaseLabel) {
+        this.ayElements.envPhaseLabel.textContent = stateLabel;
+      }
+      if (this.ayElements.envPhase) {
+        this.ayElements.envPhase.dataset.phase = stateLabel.toLowerCase();
       }
     }
   }
@@ -986,6 +1088,7 @@ export class SoundWindow extends BaseWindow {
         this.updateAYChannels(proxy);
         this.updateAYWaveforms(proxy);
         this.updateAYMuteState(proxy);
+        this.updateAYInternals(proxy);
       }
     }
   }

@@ -194,6 +194,12 @@ function runFrames(count) {
       const heapOffset = wavePtr >> 2;
       ayWaveforms.push(new Float32Array(wasm.HEAPF32.buffer, heapOffset * 4, ayWaveCount).slice());
     }
+    // Collect AY internal state
+    var ayInternals = {
+      noiseLFSR: wasm._getAYNoiseLFSR(),
+      envHolding: !!wasm._getAYEnvHolding(),
+      envAttack: !!wasm._getAYEnvAttack(),
+    };
   }
   wasm._free(wavePtr);
 
@@ -204,7 +210,7 @@ function runFrames(count) {
     for (const wf of ayWaveforms) transfer.push(wf.buffer);
   }
 
-  self.postMessage({ type: "frame", framebuffer, signalBuffer, audio, sampleCount: sampleCount, state, recordedBlocks, beeperWaveform, ayRegisters, ayMutes, ayWaveforms }, transfer);
+  self.postMessage({ type: "frame", framebuffer, signalBuffer, audio, sampleCount: sampleCount, state, recordedBlocks, beeperWaveform, ayRegisters, ayMutes, ayWaveforms, ayInternals }, transfer);
 }
 
 self.onmessage = async function (e) {
