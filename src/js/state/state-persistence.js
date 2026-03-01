@@ -103,18 +103,31 @@ function slotKey(slotNumber) {
   return `slot-${slotNumber}`;
 }
 
-export async function saveStateToSlot(slotNumber, stateData, thumbnail, preview) {
+export async function saveStateToSlot(slotNumber, stateData, thumbnail, preview, name) {
   try {
+    const existing = await db.get(STORE_NAME, slotKey(slotNumber));
     const record = {
       id: slotKey(slotNumber),
       data: new Uint8Array(stateData),
       savedAt: Date.now(),
       thumbnail: thumbnail || null,
       preview: preview || null,
+      name: name || (existing && existing.name) || `Slot ${slotNumber}`,
     };
     await db.put(STORE_NAME, record);
   } catch (error) {
     console.error(`Error saving state to slot ${slotNumber}:`, error);
+  }
+}
+
+export async function updateSlotName(slotNumber, name) {
+  try {
+    const result = await db.get(STORE_NAME, slotKey(slotNumber));
+    if (!result) return;
+    result.name = name;
+    await db.put(STORE_NAME, result);
+  } catch (error) {
+    console.error(`Error updating slot ${slotNumber} name:`, error);
   }
 }
 
@@ -126,6 +139,7 @@ export async function loadStateFromSlot(slotNumber) {
         data: new Uint8Array(result.data),
         savedAt: result.savedAt,
         thumbnail: result.thumbnail || null,
+        name: result.name || null,
       };
     }
     return null;
@@ -154,6 +168,7 @@ export async function getAllSlotInfo() {
           savedAt: result.savedAt,
           thumbnail: result.thumbnail || null,
           preview: result.preview || null,
+          name: result.name || `Slot ${i}`,
         });
       } else {
         slots.push(null);

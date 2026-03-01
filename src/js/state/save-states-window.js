@@ -12,6 +12,7 @@ import {
   getAllSlotInfo,
   clearSlot,
   loadStateFromSlot,
+  updateSlotName,
 } from "./state-persistence.js";
 
 import "../css/save-states.css";
@@ -60,7 +61,7 @@ export class SaveStatesWindow extends BaseWindow {
             <span class="slot-empty-icon">--</span>
           </div>
           <div class="slot-info">
-            <div class="slot-status empty">Empty</div>
+            <input class="slot-name" type="text" value="Slot ${i}" placeholder="Slot ${i}" data-slot="${i}" disabled />
             <div class="slot-timestamp"></div>
           </div>
           <div class="slot-actions">
@@ -139,6 +140,22 @@ export class SaveStatesWindow extends BaseWindow {
       this.hoverPreview.style.top = `${y}px`;
     });
 
+    this.contentElement.addEventListener("change", (e) => {
+      const nameInput = e.target.closest(".slot-name");
+      if (nameInput) {
+        const slot = parseInt(nameInput.dataset.slot, 10);
+        const name = nameInput.value.trim() || `Slot ${slot}`;
+        nameInput.value = name;
+        updateSlotName(slot, name);
+      }
+    });
+
+    this.contentElement.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && e.target.closest(".slot-name")) {
+        e.target.blur();
+      }
+    });
+
     const fileInput = this.contentElement.querySelector('input[type="file"]');
     const loadFileBtn = this.contentElement.querySelector(".load-file-btn");
 
@@ -168,7 +185,7 @@ export class SaveStatesWindow extends BaseWindow {
 
       const info = slots[i];
       const thumbEl = row.querySelector(".slot-thumbnail");
-      const statusEl = row.querySelector(".slot-status");
+      const nameInput = row.querySelector(".slot-name");
       const timestampEl = row.querySelector(".slot-timestamp");
       const loadBtn = row.querySelector('[data-action="load"]');
       const clearBtn = row.querySelector('[data-action="clear"]');
@@ -181,8 +198,8 @@ export class SaveStatesWindow extends BaseWindow {
           thumbEl.innerHTML = '<span class="slot-empty-icon">--</span>';
         }
         thumbEl.dataset.preview = info.preview || info.thumbnail || "";
-        statusEl.textContent = "Saved";
-        statusEl.classList.remove("empty");
+        nameInput.value = info.name || `Slot ${i + 1}`;
+        nameInput.disabled = false;
         timestampEl.textContent = this.formatTimestamp(info.savedAt);
         loadBtn.disabled = false;
         clearBtn.disabled = false;
@@ -190,8 +207,8 @@ export class SaveStatesWindow extends BaseWindow {
       } else {
         thumbEl.innerHTML = '<span class="slot-empty-icon">--</span>';
         delete thumbEl.dataset.preview;
-        statusEl.textContent = "Empty";
-        statusEl.classList.add("empty");
+        nameInput.value = `Slot ${i + 1}`;
+        nameInput.disabled = true;
         timestampEl.textContent = "";
         loadBtn.disabled = true;
         clearBtn.disabled = true;
@@ -272,7 +289,8 @@ export class SaveStatesWindow extends BaseWindow {
   async handleDownload(slot) {
     const slotData = await loadStateFromSlot(slot);
     if (!slotData) return;
-    this.downloadBlob(slotData.data, `zxspectrum-slot-${slot}.z80`);
+    const name = (slotData.name || `Slot ${slot}`).replace(/[^a-zA-Z0-9_\- ]/g, "").trim().replace(/\s+/g, "-");
+    this.downloadBlob(slotData.data, `${name}.z80`);
   }
 
   async handleLoadAutosave() {

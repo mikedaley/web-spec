@@ -102,15 +102,33 @@
     gap: 2px;
 }
 
-.slot-status {
+.slot-name {
     font-family: var(--font-sans);
     font-size: 11px;
     font-weight: 500;
     color: var(--text-primary);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    padding: 1px 4px;
+    width: 100%;
+    min-width: 0;
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
 }
 
-.slot-status.empty {
+.slot-name:not(:disabled):hover {
+    border-color: var(--control-border);
+}
+
+.slot-name:not(:disabled):focus {
+    border-color: var(--accent-blue);
+    background: var(--control-bg);
+}
+
+.slot-name:disabled {
     color: var(--text-muted);
+    cursor: default;
 }
 
 .slot-timestamp {
