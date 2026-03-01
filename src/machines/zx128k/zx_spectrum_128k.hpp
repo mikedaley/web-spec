@@ -59,7 +59,11 @@ public:
         return (pagingRegister_ & 0x10) ? 0x1B29 : 0x17C1;
     }
     uint16_t getMainReportAddr() const override {
-        return (pagingRegister_ & 0x10) ? 0x1303 : 0x0321;
+        // ROM 1 (48K BASIC): MAIN-4 at $1303 is HALT (single-byte opcode).
+        // ROM 0 (128K BASIC): error handler at $0321 is LD SP,(nn) ($ED $7B),
+        // an ED-prefixed instruction. The opcode callback fires after the ED
+        // prefix is consumed, so the reported address is $0322 not $0321.
+        return (pagingRegister_ & 0x10) ? 0x1303 : 0x0322;
     }
 
 private:

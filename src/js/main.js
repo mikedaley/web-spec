@@ -20,6 +20,7 @@ import { TapeWindow } from "./tape/tape-window.js";
 import { SoundWindow } from "./audio/sound-window.js";
 import { BasicProgramWindow } from "./debug/basic-program-window.js";
 import { RuleBuilderWindow } from "./debug/rule-builder-window.js";
+import { MemoryMapWindow } from "./debug/memory-map-window.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
@@ -41,6 +42,7 @@ class ZXSpectrumEmulator {
     this.soundWindow = null;
     this.basicProgramWindow = null;
     this.ruleBuilderWindow = null;
+    this.memoryMapWindow = null;
 
     this.snapshotLoader = null;
     this.themeManager = null;
@@ -110,6 +112,11 @@ class ZXSpectrumEmulator {
       this.basicProgramWindow.create();
       this.windowManager.register(this.basicProgramWindow);
 
+      // Create memory map window
+      this.memoryMapWindow = new MemoryMapWindow();
+      this.memoryMapWindow.create();
+      this.windowManager.register(this.memoryMapWindow);
+
       // Create rule builder window (shared by BASIC and CPU debugger)
       this.ruleBuilderWindow = new RuleBuilderWindow();
       this.ruleBuilderWindow.create();
@@ -153,6 +160,7 @@ class ZXSpectrumEmulator {
         { id: "sound-debug", visible: false },
         { id: "basic-program", visible: false },
         { id: "rule-builder", visible: false },
+        { id: "memory-map", visible: false },
         { id: "save-states", visible: false },
       ]);
 
@@ -308,6 +316,16 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // View menu > Memory Map
+    const memoryMapBtn = document.getElementById("btn-memory-map");
+    if (memoryMapBtn) {
+      memoryMapBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("memory-map");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
     // Dev menu > Z80 Debugger (opens CPU debugger window)
     const z80DebugBtn = document.getElementById("btn-z80-debug");
     if (z80DebugBtn) {
@@ -440,6 +458,7 @@ class ZXSpectrumEmulator {
       "btn-display": "display-settings",
       "btn-tape-player": "tape-window",
       "btn-sound-debug": "sound-debug",
+      "btn-memory-map": "memory-map",
       "btn-z80-debug": "cpu-debugger",
       "btn-stack-viewer": "stack-viewer",
       "btn-basic-editor": "basic-program",
@@ -1016,6 +1035,11 @@ class ZXSpectrumEmulator {
     if (this.ruleBuilderWindow) {
       this.ruleBuilderWindow.destroy();
       this.ruleBuilderWindow = null;
+    }
+
+    if (this.memoryMapWindow) {
+      this.memoryMapWindow.destroy();
+      this.memoryMapWindow = null;
     }
 
     if (this.cpuDebuggerWindow) {
