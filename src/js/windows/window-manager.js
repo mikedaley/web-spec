@@ -43,6 +43,32 @@ export class WindowManager {
   }
 
   /**
+   * Set the bottom sheet instance for mobile window display.
+   */
+  setBottomSheet(bottomSheet) {
+    this._bottomSheet = bottomSheet;
+  }
+
+  /**
+   * Set the mobile detector instance.
+   */
+  setMobileDetector(mobileDetector) {
+    this._mobileDetector = mobileDetector;
+  }
+
+  /**
+   * Show a window in mobile mode (as a bottom sheet).
+   * Falls back to normal showWindow if not mobile.
+   */
+  showWindowMobile(id) {
+    if (this._mobileDetector && this._mobileDetector.isMobile && this._bottomSheet) {
+      this._bottomSheet.showWindow(id);
+    } else {
+      this.showWindow(id);
+    }
+  }
+
+  /**
    * Show a specific window
    */
   showWindow(id) {

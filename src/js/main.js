@@ -24,6 +24,11 @@ import { MemoryMapWindow } from "./debug/memory-map-window.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
+import { MobileDetector } from "./ui/mobile-detector.js";
+import { MobileMenu } from "./ui/mobile-menu.js";
+import { VirtualKeyboard } from "./input/virtual-keyboard.js";
+import { VirtualGamepad } from "./input/virtual-gamepad.js";
+import { BottomSheet } from "./windows/bottom-sheet.js";
 import { StateManager } from "./state/state-manager.js";
 import { SaveStatesWindow } from "./state/save-states-window.js";
 import { VERSION } from "./config/version.js";
@@ -49,6 +54,14 @@ class ZXSpectrumEmulator {
     this.themeManager = null;
     this.stateManager = null;
     this.saveStatesWindow = null;
+
+    // Mobile support
+    this.mobileDetector = null;
+    this.mobileMenu = null;
+    this.virtualKeyboard = null;
+    this.virtualGamepad = null;
+    this.bottomSheet = null;
+    this._mobileControlMode = 'keyboard'; // 'keyboard' or 'gamepad'
 
     this.swRegistration = null;
     this.running = false;
@@ -189,12 +202,30 @@ class ZXSpectrumEmulator {
         this.renderFrame(framebuffer, signalBuffer);
       };
 
+      // Mute audio when emulator is paused/stepping
+      this.proxy.onStateUpdate = () => {
+        this.audioDriver.setDebugMute(this.proxy.isPaused());
+      };
+
       // Set up input handler
       this.inputHandler = new InputHandler(this.proxy);
       this.inputHandler.init();
 
       // Set up theme manager
       this.themeManager = new ThemeManager();
+
+      // Set up mobile detection (before setupControls so hamburger can be wired)
+      this.mobileDetector = new MobileDetector();
+      this.mobileDetector.init();
+
+      // Set up bottom sheet for mobile window display
+      this.bottomSheet = new BottomSheet();
+      this.bottomSheet.setWindowManager(this.windowManager);
+      this.windowManager.setBottomSheet(this.bottomSheet);
+      this.windowManager.setMobileDetector(this.mobileDetector);
+
+      // Set up mobile subsystems if on mobile
+      this._initMobile();
 
       // Set up UI controls
       this.setupControls();
@@ -403,6 +434,14 @@ class ZXSpectrumEmulator {
       checkUpdatesBtn.addEventListener("click", () => {
         this.closeAllMenus();
         this.checkForUpdates();
+      });
+    }
+
+    // Mobile hamburger menu button
+    const hamburgerBtn = document.getElementById("btn-hamburger");
+    if (hamburgerBtn && this.mobileMenu) {
+      hamburgerBtn.addEventListener("click", () => {
+        this.mobileMenu.toggle();
       });
     }
 
@@ -1016,6 +1055,122 @@ class ZXSpectrumEmulator {
     }
   }
 
+  /**
+   * Initialize mobile subsystems (virtual keyboard, gamepad, menu).
+   */
+  _initMobile() {
+    // Restore saved control mode
+    const savedMode = localStorage.getItem('zxspec-mobile-controls') || 'keyboard';
+    this._mobileControlMode = savedMode;
+
+    // Create virtual keyboard
+    const kbdContainer = document.getElementById('mobile-keyboard-container');
+    if (kbdContainer) {
+      this.virtualKeyboard = new VirtualKeyboard(this.proxy);
+      this.virtualKeyboard.create(kbdContainer);
+    }
+
+    // Create virtual gamepad
+    const dpadContainer = document.getElementById('mobile-dpad-container');
+    if (dpadContainer) {
+      this.virtualGamepad = new VirtualGamepad(this.proxy);
+      this.virtualGamepad.create(dpadContainer);
+    }
+
+    // Create mobile menu
+    const menuContainer = document.getElementById('mobile-menu-container');
+    if (menuContainer) {
+      this.mobileMenu = new MobileMenu({
+        emulator: this,
+        windowManager: this.windowManager,
+        onControlsToggle: (mode) => this._setMobileControlMode(mode),
+      });
+      this.mobileMenu.create(menuContainer);
+    }
+
+    // Register for mobile state changes
+    this.mobileDetector.onChange((state) => this._onMobileChange(state));
+
+    // Apply initial state
+    this._onMobileChange({
+      isMobile: this.mobileDetector.isMobile,
+      orientation: this.mobileDetector.orientation,
+      softKeyboardOpen: this.mobileDetector.softKeyboardOpen,
+    });
+
+    // Prevent pull-to-refresh on the app container
+    const app = document.getElementById('app');
+    if (app) {
+      app.addEventListener('touchmove', (e) => {
+        // Only prevent on non-scrollable areas
+        if (!e.target.closest('.bottom-sheet-body, .mobile-menu.open')) {
+          if (e.touches.length === 1) {
+            e.preventDefault();
+          }
+        }
+      }, { passive: false });
+    }
+  }
+
+  /**
+   * Handle mobile state changes.
+   */
+  _onMobileChange(state) {
+    const { isMobile } = state;
+
+    // Toggle screen window mobile mode
+    if (this.screenWindow) {
+      this.screenWindow.setMobileMode(isMobile);
+    }
+
+    // Show/hide mobile controls
+    if (isMobile) {
+      this._applyMobileControlMode();
+
+      // Hide all floating debug windows on mobile
+      for (const [id, win] of this.windowManager.windows) {
+        if (id !== 'screen-window' && win.isVisible) {
+          win.hide();
+        }
+      }
+    } else {
+      // Entering desktop mode — hide mobile controls
+      if (this.virtualKeyboard) this.virtualKeyboard.hide();
+      if (this.virtualGamepad) this.virtualGamepad.hide();
+      if (this.bottomSheet && this.bottomSheet.isOpen) {
+        this.bottomSheet.dismiss();
+      }
+      if (this.mobileMenu) this.mobileMenu.close();
+    }
+  }
+
+  /**
+   * Set the mobile control mode (keyboard or gamepad).
+   */
+  _setMobileControlMode(mode) {
+    this._mobileControlMode = mode;
+    localStorage.setItem('zxspec-mobile-controls', mode);
+    this._applyMobileControlMode();
+    if (this.mobileMenu) {
+      this.mobileMenu.setControlMode(mode);
+    }
+  }
+
+  /**
+   * Apply the current mobile control mode.
+   */
+  _applyMobileControlMode() {
+    if (!this.mobileDetector || !this.mobileDetector.isMobile) return;
+
+    if (this._mobileControlMode === 'keyboard') {
+      if (this.virtualKeyboard) this.virtualKeyboard.show();
+      if (this.virtualGamepad) this.virtualGamepad.hide();
+    } else {
+      if (this.virtualKeyboard) this.virtualKeyboard.hide();
+      if (this.virtualGamepad) this.virtualGamepad.show();
+    }
+  }
+
   isRunning() {
     return this.running;
   }
@@ -1140,6 +1295,31 @@ class ZXSpectrumEmulator {
     if (this.snapshotLoader) {
       this.snapshotLoader.destroy();
       this.snapshotLoader = null;
+    }
+
+    if (this.virtualKeyboard) {
+      this.virtualKeyboard.destroy();
+      this.virtualKeyboard = null;
+    }
+
+    if (this.virtualGamepad) {
+      this.virtualGamepad.destroy();
+      this.virtualGamepad = null;
+    }
+
+    if (this.mobileMenu) {
+      this.mobileMenu.destroy();
+      this.mobileMenu = null;
+    }
+
+    if (this.bottomSheet) {
+      this.bottomSheet.destroy();
+      this.bottomSheet = null;
+    }
+
+    if (this.mobileDetector) {
+      this.mobileDetector.destroy();
+      this.mobileDetector = null;
     }
 
     if (this.themeManager) {

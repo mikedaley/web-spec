@@ -131,6 +131,61 @@ export class ScreenWindow extends BaseWindow {
   }
 
   /**
+   * Enable or disable mobile mode.
+   * In mobile mode the screen window becomes a static, frameless element
+   * at the top of the page instead of a floating window.
+   */
+  setMobileMode(enabled) {
+    this._mobileMode = enabled;
+    if (!this.element) return;
+
+    if (enabled) {
+      this.element.classList.add('mobile-screen');
+
+      // Reparent the window into main so it participates in the flex layout
+      const main = document.querySelector('main');
+      if (main && this.element.parentElement !== main) {
+        main.prepend(this.element);
+      }
+
+      // Remove fixed positioning styles
+      this.element.style.left = '';
+      this.element.style.top = '';
+
+      // Set height from aspect ratio based on available width
+      requestAnimationFrame(() => this._fitMobileScreen());
+    } else {
+      this.element.classList.remove('mobile-screen');
+
+      // Move back to body for absolute/fixed positioning
+      if (this.element.parentElement !== document.body) {
+        document.body.appendChild(this.element);
+      }
+
+      // Restore from state
+      this.element.style.left = `${this.currentX}px`;
+      this.element.style.top = `${this.currentY}px`;
+      this.element.style.width = `${this.currentWidth}px`;
+      this.element.style.height = `${this.currentHeight}px`;
+      this._fitCanvas();
+    }
+  }
+
+  /**
+   * In mobile mode, set the screen height based on the viewport width and aspect ratio.
+   */
+  _fitMobileScreen() {
+    if (!this._mobileMode || !this.element) return;
+
+    const width = this.element.clientWidth;
+    if (width <= 0) return;
+
+    const height = Math.round(width / this._aspect);
+    this.element.style.height = `${height}px`;
+    this._fitCanvas();
+  }
+
+  /**
    * Move #screen canvas from #monitor-frame into this window's content area.
    */
   attachCanvas() {
@@ -199,6 +254,12 @@ export class ScreenWindow extends BaseWindow {
    */
   constrainToViewport() {
     if (!this.element) return;
+
+    // In mobile mode, just re-fit the screen
+    if (this._mobileMode) {
+      requestAnimationFrame(() => this._fitMobileScreen());
+      return;
+    }
 
     if (this._viewportLocked) {
       const vpW = window.innerWidth;

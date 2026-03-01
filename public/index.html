@@ -2,13 +2,13 @@
 <html lang="en">
     <head>
         <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
         <meta
             name="description"
             content="ZX Spectrum emulator for the browser"
         />
         <meta name="theme-color" content="#0a0a0b" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <meta
             name="apple-mobile-web-app-status-bar-style"
             content="black-translucent"
@@ -33,6 +33,15 @@
                     <span class="version-chip"></span>
                 </div>
                 <nav class="header-controls">
+                    <!-- Mobile hamburger menu button -->
+                    <button id="btn-hamburger" class="control-btn mobile-only" title="Menu" aria-label="Menu">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="3" y1="6" x2="21" y2="6"/>
+                            <line x1="3" y1="12" x2="21" y2="12"/>
+                            <line x1="3" y1="18" x2="21" y2="18"/>
+                        </svg>
+                    </button>
+
                     <!-- Action buttons: immediate actions with borders -->
                     <div class="control-group">
                         <button
@@ -99,10 +108,10 @@
                     </div>
 
                     <!-- Divider between action buttons and menus -->
-                    <div class="header-divider"></div>
+                    <div class="header-divider desktop-only"></div>
 
                     <!-- File menu -->
-                    <div class="header-menu-container" id="file-menu-container">
+                    <div class="header-menu-container desktop-only" id="file-menu-container">
                         <button class="header-menu-trigger" id="btn-file-menu">
                             <span>File</span>
                             <svg
@@ -152,7 +161,7 @@
 
                     <!-- Machine menu -->
                     <div
-                        class="header-menu-container"
+                        class="header-menu-container desktop-only"
                         id="machine-menu-container"
                     >
                         <button
@@ -224,7 +233,7 @@
                     </div>
 
                     <!-- View menu -->
-                    <div class="header-menu-container" id="view-menu-container">
+                    <div class="header-menu-container desktop-only" id="view-menu-container">
                         <button class="header-menu-trigger" id="btn-view-menu">
                             <span>View</span>
                             <svg
@@ -346,7 +355,7 @@
                     </div>
 
                     <!-- Dev menu -->
-                    <div class="header-menu-container" id="dev-menu-container">
+                    <div class="header-menu-container desktop-only" id="dev-menu-container">
                         <button class="header-menu-trigger" id="btn-dev-menu">
                             <span>Dev</span>
                             <svg
@@ -390,7 +399,7 @@
 
                     <!-- Help menu -->
                     <div
-                        class="header-menu-container"
+                        class="header-menu-container desktop-only"
                         id="help-menu-container"
                     >
                         <button
@@ -423,10 +432,10 @@
                     </div>
 
                     <!-- Divider between menu zone and panel triggers -->
-                    <div class="header-divider"></div>
+                    <div class="header-divider desktop-only"></div>
 
                     <!-- Panel triggers: open popups, styled like menu triggers -->
-                    <div class="panel-trigger-group">
+                    <div class="panel-trigger-group desktop-only">
                         <div class="speed-control-wrapper">
                             <button
                                 id="btn-speed"
@@ -555,6 +564,14 @@
                     </div>
                 </div>
             </main>
+
+            <!-- Mobile overlays -->
+            <div id="mobile-overlays" class="mobile-only">
+                <div id="mobile-keyboard-container"></div>
+                <div id="mobile-dpad-container"></div>
+                <div id="mobile-menu-container"></div>
+                <div id="mobile-sheet-container"></div>
+            </div>
 
             <div id="loading">
                 <p>Initializing ZX Spectrum...</p>

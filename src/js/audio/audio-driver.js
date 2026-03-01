@@ -20,6 +20,7 @@ export class AudioDriver {
     this.sampleRate = SAMPLE_RATE;
     this.running = false;
     this.muted = false;
+    this._debugMuted = false;
 
     const savedVol = localStorage.getItem("zxspec-volume");
     this.volume = savedVol !== null ? parseFloat(savedVol) : DEFAULT_VOLUME;
@@ -45,6 +46,13 @@ export class AudioDriver {
 
     // Set up frame callback from proxy
     this.proxy.onFrame = (framebuffer, signalBuffer, audio, sampleCount) => {
+      // Auto-mute when emulator is paused (covers BASIC breakpoints and
+      // any other path that sets paused state without a stateUpdate message)
+      const paused = this.proxy.isPaused();
+      if (paused !== this._debugMuted) {
+        this.setDebugMute(paused);
+      }
+
       this._latestFramebuffer = framebuffer;
       this._latestSignalBuffer = signalBuffer;
 
@@ -103,7 +111,7 @@ export class AudioDriver {
   async initAudioNodes() {
     this.gainNode = this.audioContext.createGain();
     this.gainNode.connect(this.audioContext.destination);
-    this.gainNode.gain.value = this.muted ? 0 : this.volume;
+    this._updateGain();
 
     try {
       await this.audioContext.audioWorklet.addModule(
@@ -217,13 +225,20 @@ export class AudioDriver {
 
   toggleMute() {
     this.muted = !this.muted;
-    if (this.gainNode) {
-      this.gainNode.gain.value = this.muted ? 0 : this.volume;
-    }
+    this._updateGain();
   }
 
   isMuted() {
     return this.muted;
+  }
+
+  /**
+   * Mute/unmute audio for debug purposes (pause, stepping).
+   * Independent of the user-facing mute toggle.
+   */
+  setDebugMute(muted) {
+    this._debugMuted = muted;
+    this._updateGain();
   }
 
   getVolume() {
@@ -233,8 +248,12 @@ export class AudioDriver {
   setVolume(volume) {
     this.volume = Math.max(0, Math.min(1, volume));
     localStorage.setItem("zxspec-volume", this.volume);
+    this._updateGain();
+  }
+
+  _updateGain() {
     if (this.gainNode) {
-      this.gainNode.gain.value = this.muted ? 0 : this.volume;
+      this.gainNode.gain.value = (this.muted || this._debugMuted) ? 0 : this.volume;
     }
   }
 
