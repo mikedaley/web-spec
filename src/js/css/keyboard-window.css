@@ -1,0 +1,360 @@
+/*
+ * keyboard-window.css - ZX Spectrum 48K keyboard window styles
+ *
+ * Authentic layout: labels above/below keys (printed on the case)
+ * plus on-key legends (main letter, BASIC keyword, symbol shift char).
+ */
+
+/* Remove padding from content area */
+#keyboard .debug-window-content {
+  padding: 0;
+  overflow: auto;
+}
+
+/* ── Container ── */
+
+.kbd-container {
+  background: #000000;
+  padding: 6px 50px 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+html[data-theme="light"] .kbd-container {
+  background: #000000;
+}
+
+/* ── Case label rows (above / below keys) ── */
+
+.kbd-label-row {
+  display: flex;
+  gap: 4px;
+  padding: 0;
+  min-height: 14px;
+}
+
+.kbd-label-cell {
+  text-align: left;
+  white-space: nowrap;
+  overflow: visible;
+  line-height: 14px;
+  min-height: 14px;
+  font-size: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 2px;
+}
+
+.kbd-above-text {
+  color: var(--accent-green);
+  font-size: 9px;
+  font-weight: 500;
+  padding-left: 4px;
+}
+
+/* Number row (section-0) above-text is white, not green */
+.kbd-section-0 .kbd-above-text {
+  color: #FFFFFF;
+}
+
+/* Arrow labels */
+.kbd-arrow {
+  display: inline-flex;
+  align-items: center;
+}
+
+.kbd-arrow-svg {
+  width: 11px;
+  height: 14px;
+}
+
+.kbd-label-below .kbd-below-text {
+  color: #F45830;
+  font-size: 9px;
+  font-weight: 500;
+  padding-left: 4px;
+}
+
+/* Spectrum colour names above number keys */
+.kbd-color-name {
+  font-size: 8px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding-left: 4px;
+}
+
+.kbd-clr-blue { color: #0000FF; }
+.kbd-clr-red { color: #F45830; }
+.kbd-clr-magenta { color: #FF00FF; }
+.kbd-clr-green { color: #00FF00; }
+.kbd-clr-cyan { color: #00FFFF; }
+.kbd-clr-yellow { color: #FFFF00; }
+.kbd-clr-white { color: #FFFFFF; }
+.kbd-clr-black {
+  color: #000000;
+  background: #FFFFFF;
+  padding: 0 3px;
+  border-radius: 0;
+  font-size: 7px;
+  margin-left: 4px;
+}
+
+html[data-theme="light"] .kbd-clr-blue { color: #0000CD; }
+html[data-theme="light"] .kbd-clr-red { color: #F45830; }
+html[data-theme="light"] .kbd-clr-magenta { color: #CD00CD; }
+html[data-theme="light"] .kbd-clr-green { color: #00CD00; }
+html[data-theme="light"] .kbd-clr-cyan { color: #00CDCD; }
+html[data-theme="light"] .kbd-clr-yellow { color: #8B8B00; }
+html[data-theme="light"] .kbd-clr-white { color: #999; }
+
+/* ── Row sections (staggered offsets like the real keyboard) ── */
+
+.kbd-section {
+  margin-bottom: 4px;
+}
+
+.kbd-section:last-child {
+  margin-bottom: 0;
+}
+
+.kbd-section-0 { margin-left: 0; }
+.kbd-section-1 { margin-left: 24px; margin-right: -24px; }
+.kbd-section-2 { margin-left: 40px; margin-right: -40px; }
+.kbd-section-3 { margin-left: 8px; margin-right: -40px; }
+
+/* ── Key rows ── */
+
+.kbd-row {
+  display: flex;
+  gap: 4px;
+  padding: 2px 0;
+}
+
+/* ── Individual key ── */
+
+.kbd-key {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  height: 44px;
+  border-radius: 5px;
+  background: #5A8691;
+  border: 1px solid #6a969f;
+  cursor: pointer;
+  padding: 2px 5px;
+  position: relative;
+  transition: background 0.08s, border-color 0.08s;
+  overflow: hidden;
+}
+
+html[data-theme="light"] .kbd-key {
+  background: #5A8691;
+  border-color: #6a969f;
+}
+
+.kbd-key:hover {
+  background: #6a969f;
+}
+
+html[data-theme="light"] .kbd-key:hover {
+  background: #6a969f;
+}
+
+.kbd-key:active,
+.kbd-key.pressed {
+  background: var(--accent-blue-bg-strong);
+  border-color: var(--accent-blue-border);
+}
+
+.kbd-key.shift-active {
+  background: var(--accent-red-bg-strong);
+  border-color: var(--accent-red-border);
+}
+
+/* ── On-key legend zones ── */
+
+/* Top row: main letter (left) + symbol shift char (right) */
+.kbd-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex: 1;
+}
+
+/* Number row: stretch children so right-col can bottom-align */
+.kbd-section-0 .kbd-top {
+  align-items: stretch;
+}
+
+
+/* Main character: large white, top-left */
+.kbd-main {
+  color: #FFFFFF;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 28px;
+  text-align: left;
+}
+
+/* Smaller main text for multi-line labels (CAPS SHIFT, SYMBOL SHIFT) */
+.kbd-main-small {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 12px;
+  text-align: center;
+}
+
+/* Symbol Shift key label in red */
+.kbd-key[data-shift="symbol"] .kbd-main {
+  color: #F45830;
+}
+
+html[data-theme="light"] .kbd-key[data-shift="symbol"] .kbd-main {
+  color: #F45830;
+}
+
+/* Keys with only a centered label (ENTER) */
+.kbd-key-center {
+  justify-content: center;
+  align-items: center;
+}
+
+.kbd-key-center .kbd-top {
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.kbd-main-center {
+  text-align: center;
+  font-size: 16px;
+  line-height: 18px;
+}
+
+/* SPACE key: BREAK above SPACE, both centered */
+.kbd-key-space {
+  justify-content: center;
+  align-items: center;
+}
+
+.kbd-space-break {
+  color: #FFFFFF;
+  font-size: 9px;
+  font-weight: 500;
+  text-align: center;
+  line-height: 12px;
+}
+
+.kbd-space-label {
+  color: #FFFFFF;
+  font-size: 16px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 18px;
+}
+
+/* Right column: graphic icon stacked above sym char (number keys) */
+.kbd-right-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  margin-left: auto;
+  margin-right: 4px;
+  align-self: stretch;
+}
+
+/* Block graphic icon on number keys: 2x2 grid with outline */
+.kbd-graphic {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  min-height: 14px;
+  border: 1px solid #FFFFFF;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.kbd-gfx-cell {
+  display: block;
+}
+
+.kbd-gfx-cell.filled {
+  background: #FFFFFF;
+}
+
+/* Symbol Shift character: red, top-right */
+.kbd-sym-char {
+  color: #F45830;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+html[data-theme="light"] .kbd-sym-char {
+  color: #F45830;
+}
+
+.kbd-sym-word {
+  font-size: 10px;
+}
+
+.kbd-right-col .kbd-sym-char {
+  line-height: 14px;
+  text-align: center;
+  margin-top: auto;
+}
+
+/* Number row: all red symbols pushed down */
+.kbd-section-0 .kbd-sym-char {
+  margin-top: auto;
+}
+
+/* Number row: sym-char centered and bottom-aligned (for keys 9, 0 without graphics) */
+.kbd-section-0 .kbd-key .kbd-top > .kbd-sym-char {
+  text-align: center;
+  align-self: flex-end;
+  margin-bottom: -2px;
+  margin-right: 8px;
+}
+
+/* BASIC keyword: white, bottom-right */
+.kbd-keyword {
+  color: #FFFFFF;
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 11px;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  min-height: 11px;
+}
+
+/* ── Width classes ── */
+
+.kbd-w1 {
+  flex: 1;
+  min-width: 0;
+}
+
+.kbd-w075 {
+  flex: 0.75;
+  min-width: 0;
+}
+
+.kbd-w1_5 {
+  flex: 1.5;
+  min-width: 0;
+}

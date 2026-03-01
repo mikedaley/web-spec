@@ -126,6 +126,9 @@ export class MobileMenu {
         <button class="mobile-menu-item" data-mobile-window="memory-map">
           <span class="menu-item-label">Memory Map</span>
         </button>
+        <button class="mobile-menu-item" data-mobile-window="keyboard">
+          <span class="menu-item-label">Keyboard</span>
+        </button>
         <button class="mobile-menu-item" data-mobile-window="cpu-debugger">
           <span class="menu-item-label">Z80 Debugger</span>
         </button>

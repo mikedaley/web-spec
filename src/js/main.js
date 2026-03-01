@@ -21,6 +21,7 @@ import { SoundWindow } from "./audio/sound-window.js";
 import { BasicProgramWindow } from "./debug/basic-program-window.js";
 import { RuleBuilderWindow } from "./debug/rule-builder-window.js";
 import { MemoryMapWindow } from "./debug/memory-map-window.js";
+import { KeyboardWindow } from "./input/keyboard-window.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
@@ -49,6 +50,7 @@ class ZXSpectrumEmulator {
     this.basicProgramWindow = null;
     this.ruleBuilderWindow = null;
     this.memoryMapWindow = null;
+    this.keyboardWindow = null;
 
     this.snapshotLoader = null;
     this.themeManager = null;
@@ -132,6 +134,11 @@ class ZXSpectrumEmulator {
       this.memoryMapWindow.create();
       this.windowManager.register(this.memoryMapWindow);
 
+      // Create keyboard window
+      this.keyboardWindow = new KeyboardWindow(this.proxy);
+      this.keyboardWindow.create();
+      this.windowManager.register(this.keyboardWindow);
+
       // Create rule builder window (shared by BASIC and CPU debugger)
       this.ruleBuilderWindow = new RuleBuilderWindow();
       this.ruleBuilderWindow.create();
@@ -176,6 +183,7 @@ class ZXSpectrumEmulator {
         { id: "basic-program", visible: false },
         { id: "rule-builder", visible: false },
         { id: "memory-map", visible: false },
+        { id: "keyboard", visible: false },
         { id: "save-states", visible: false },
       ]);
 
@@ -378,6 +386,16 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // View menu > Keyboard
+    const keyboardBtn = document.getElementById("btn-keyboard");
+    if (keyboardBtn) {
+      keyboardBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("keyboard");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
     // Dev menu > Z80 Debugger (opens CPU debugger window)
     const z80DebugBtn = document.getElementById("btn-z80-debug");
     if (z80DebugBtn) {
@@ -528,6 +546,7 @@ class ZXSpectrumEmulator {
       "btn-tape-player": "tape-window",
       "btn-sound-debug": "sound-debug",
       "btn-memory-map": "memory-map",
+      "btn-keyboard": "keyboard",
       "btn-z80-debug": "cpu-debugger",
       "btn-stack-viewer": "stack-viewer",
       "btn-basic-editor": "basic-program",
@@ -1275,6 +1294,11 @@ class ZXSpectrumEmulator {
     if (this.memoryMapWindow) {
       this.memoryMapWindow.destroy();
       this.memoryMapWindow = null;
+    }
+
+    if (this.keyboardWindow) {
+      this.keyboardWindow.destroy();
+      this.keyboardWindow = null;
     }
 
     if (this.cpuDebuggerWindow) {
