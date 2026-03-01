@@ -412,7 +412,7 @@ void ZXSpectrum::removeBreakpoint(uint16_t addr)
     breakpoints_.erase(addr);
     disabledBreakpoints_.erase(addr);
 
-    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_) {
+    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF) {
         z80_->registerOpcodeCallback(nullptr);
     } else {
         installOpcodeCallback();
@@ -528,22 +528,16 @@ void ZXSpectrum::clearTempBreakpoint()
 // BASIC Breakpoint Support
 // ============================================================================
 
-// EACH_S_2 (0x1B29): fires before each BASIC statement executes
-static constexpr uint16_t EACH_S_2_ADDR = 0x1B29;
-
-// MAIN_4 (0x1303): ROM entry point reached after every report/error.
-// When a BASIC program ends (0 OK, errors, STOP, BREAK) the ROM always
-// arrives here.  It is NOT reached during scroll?, INPUT, or PAUSE waits.
-static constexpr uint16_t MAIN_4_ADDR = 0x1303;
-
 void ZXSpectrum::setBasicBreakpointStep()
 {
-    basicBpMode_ = BasicBpMode::STEP;
     basicBpHit_ = false;
 
-    // If currently stopped at EACH_S_2, step past it first
-    if (breakpointHit_ && breakpointAddress_ == EACH_S_2_ADDR) {
-        removeBreakpoint(EACH_S_2_ADDR);
+    // If currently stopped at the statement loop address, step past it first.
+    // Temporarily keep basicBpMode_ OFF during the step so the opcode callback
+    // doesn't re-trigger on the same instruction we're stepping over.
+    uint16_t stmtAddr = getStmtLoopAddr();
+    if (breakpointHit_ && breakpointAddress_ == stmtAddr) {
+        basicBpMode_ = BasicBpMode::OFF;
         breakpointHit_ = false;
         paused_ = false;
         stepInstruction();
@@ -551,18 +545,22 @@ void ZXSpectrum::setBasicBreakpointStep()
         breakpointHit_ = false;
     }
 
-    addBreakpoint(EACH_S_2_ADDR);
+    // Now arm STEP mode and ensure the opcode callback is installed
+    basicBpMode_ = BasicBpMode::STEP;
+    installOpcodeCallback();
     paused_ = false;
 }
 
 void ZXSpectrum::setBasicBreakpointRun()
 {
-    basicBpMode_ = BasicBpMode::RUN;
     basicBpHit_ = false;
 
-    // If currently stopped at EACH_S_2, step past it first
-    if (breakpointHit_ && breakpointAddress_ == EACH_S_2_ADDR) {
-        removeBreakpoint(EACH_S_2_ADDR);
+    // If currently stopped at the statement loop address, step past it first.
+    // Temporarily keep basicBpMode_ OFF during the step so the opcode callback
+    // doesn't re-trigger on the same instruction we're stepping over.
+    uint16_t stmtAddr = getStmtLoopAddr();
+    if (breakpointHit_ && breakpointAddress_ == stmtAddr) {
+        basicBpMode_ = BasicBpMode::OFF;
         breakpointHit_ = false;
         paused_ = false;
         stepInstruction();
@@ -570,7 +568,9 @@ void ZXSpectrum::setBasicBreakpointRun()
         breakpointHit_ = false;
     }
 
-    addBreakpoint(EACH_S_2_ADDR);
+    // Now arm RUN mode and ensure the opcode callback is installed
+    basicBpMode_ = BasicBpMode::RUN;
+    installOpcodeCallback();
     paused_ = false;
 }
 
@@ -589,7 +589,11 @@ void ZXSpectrum::clearBasicBreakpointMode()
     basicBpMode_ = BasicBpMode::OFF;
     basicBpHit_ = false;
     basicBreakpointLines_.clear();
-    removeBreakpoint(EACH_S_2_ADDR);
+
+    // If no other reasons to keep the callback, remove it
+    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_) {
+        z80_->registerOpcodeCallback(nullptr);
+    }
 }
 
 void ZXSpectrum::setBasicProgramActive()
@@ -620,15 +624,46 @@ void ZXSpectrum::installOpcodeCallback()
                 return true;
             }
 
-            // Detect BASIC program end: MAIN-4 (0x1303) is reached after
-            // every ROM report (0 OK, errors, STOP, BREAK).  It is NOT
-            // reached during scroll?, INPUT, or PAUSE waits.
-            if (basicProgramActive_ && address == MAIN_4_ADDR) {
+            // Detect BASIC program end: check PC against current ROM's
+            // report handler address (0x1303 for 48K ROM, 0x0321 for 128K ROM 0).
+            if (basicProgramActive_ && address == getMainReportAddr()) {
                 basicProgramActive_ = false;
                 basicReportFired_ = true;
             }
 
-            // Breakpoint handling
+            // BASIC statement hook — check PC against current ROM's statement
+            // loop address (0x1B29 for 48K ROM, 0x17C1 for 128K ROM 0).
+            // This is checked directly rather than via the breakpoints_ set
+            // so that ROM page switches are handled dynamically.
+            if (basicBpMode_ != BasicBpMode::OFF && address == getStmtLoopAddr()) {
+                uint8_t lo = coreDebugRead(basic::sys::PPC);
+                uint8_t hi = coreDebugRead(basic::sys::PPC + 1);
+                uint16_t ppc = lo | (hi << 8);
+
+                bool validLine = ppc > 0 && ppc <= 9999;
+                bool shouldStop = validLine && (
+                    basicBpMode_ == BasicBpMode::STEP ||
+                    (basicBpMode_ == BasicBpMode::RUN && basicBreakpointLines_.count(ppc))
+                );
+
+                if (shouldStop) {
+                    basicBpMode_ = BasicBpMode::OFF;
+                    basicBpHit_ = true;
+                    basicBpLine_ = ppc;
+                    basicBpStatement_ = coreDebugRead(basic::sys::SUBPPC);
+                    breakpointHit_ = true;
+                    breakpointAddress_ = address;
+                    paused_ = true;
+                    z80_->setRegister(Z80::WordReg::PC, address);
+
+                    // Render display so PRINT output is visible
+                    renderDisplay();
+                    return true;
+                }
+                // Not our target line — let the instruction execute normally
+            }
+
+            // Breakpoint handling (user-set breakpoints)
             if (!breakpoints_.empty())
             {
                 if (skipBreakpointOnce_ && address == skipBreakpointAddr_) {
@@ -636,41 +671,6 @@ void ZXSpectrum::installOpcodeCallback()
                     return false;
                 }
                 if (breakpoints_.count(address) && !disabledBreakpoints_.count(address)) {
-                    // BASIC breakpoint filtering at EACH_S_2 (0x1B29)
-                    if (address == EACH_S_2_ADDR && basicBpMode_ != BasicBpMode::OFF) {
-                        uint8_t lo = coreDebugRead(basic::sys::PPC);
-                        uint8_t hi = coreDebugRead(basic::sys::PPC + 1);
-                        uint16_t ppc = lo | (hi << 8);
-
-                        bool validLine = ppc > 0 && ppc <= 9999;
-                        bool shouldStop = validLine && (
-                            basicBpMode_ == BasicBpMode::STEP ||
-                            (basicBpMode_ == BasicBpMode::RUN && basicBreakpointLines_.count(ppc))
-                        );
-
-                        if (shouldStop) {
-                            // Hit! Remove the 0x1B29 breakpoint and notify
-                            removeBreakpoint(EACH_S_2_ADDR);
-                            basicBpMode_ = BasicBpMode::OFF;
-                            basicBpHit_ = true;
-                            basicBpLine_ = ppc;
-                            basicBpStatement_ = coreDebugRead(basic::sys::SUBPPC);
-                            breakpointHit_ = true;
-                            breakpointAddress_ = address;
-                            paused_ = true;
-                            z80_->setRegister(Z80::WordReg::PC, address);
-
-                            // Render display so PRINT output is visible
-                            renderDisplay();
-                            return true;
-                        } else {
-                            // Not our target line — let the instruction execute
-                            // normally.  The breakpoint stays armed and will fire
-                            // again for the next BASIC statement.
-                            return false;
-                        }
-                    }
-
                     // Auto-clear temp breakpoint on hit
                     if (tempBreakpointActive_ && address == tempBreakpointAddr_) {
                         removeBreakpoint(tempBreakpointAddr_);

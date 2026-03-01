@@ -51,6 +51,16 @@ public:
     void setPagingRegister(uint8_t value) override;
     void writeRamBank(uint8_t bank, uint16_t offset, uint8_t data) override;
 
+    // ROM-dependent BASIC breakpoint addresses:
+    // When ROM 0 (128K BASIC) is paged in, use 128K-specific addresses;
+    // when ROM 1 (48K BASIC) is paged in, use the standard 48K addresses.
+    uint16_t getStmtLoopAddr() const override {
+        return (pagingRegister_ & 0x10) ? 0x1B29 : 0x17C1;
+    }
+    uint16_t getMainReportAddr() const override {
+        return (pagingRegister_ & 0x10) ? 0x1303 : 0x0321;
+    }
+
 private:
     void updatePaging();
 

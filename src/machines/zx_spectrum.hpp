@@ -216,6 +216,12 @@ public:
     virtual void setPagingRegister(uint8_t /*value*/) {}
     virtual void writeRamBank(uint8_t /*bank*/, uint16_t /*offset*/, uint8_t /*data*/) {}
 
+    // ROM-dependent addresses for BASIC breakpoints (48K defaults)
+    // STMT-L-1 / EACH_S_2: fires before each BASIC statement
+    virtual uint16_t getStmtLoopAddr() const { return 0x1B29; }
+    // MAIN-4: ROM entry after every report/error (program end)
+    virtual uint16_t getMainReportAddr() const { return 0x1303; }
+
 protected:
     // Called by variant's init() after setting machineInfo_
     void baseInit();
