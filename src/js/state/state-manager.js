@@ -87,16 +87,17 @@ export class StateManager {
   async importStateData(stateData) {
     if (!stateData) return false;
 
-    const wasRunning = this.emulator.isRunning();
-    if (wasRunning) {
-      this.emulator.stop();
-    }
-
-    this.emulator.start();
-
     try {
       const result = await this.proxy.importState(stateData);
       if (result.success) {
+        // Ensure the emulator is running (without reset — importState already loaded the state)
+        if (!this.emulator.isRunning()) {
+          this.emulator.running = true;
+          this.emulator.renderer.setNoSignal(false);
+          this.emulator.audioDriver.start();
+          this.emulator.updatePowerButton();
+        }
+
         // Update machine UI if machine switched
         const newMachineId = result.machineId;
         const savedMachineId = parseInt(localStorage.getItem("zxspec-machine-id") || "0", 10);
@@ -106,13 +107,10 @@ export class StateManager {
           if (this.basicProgramWindow) this.basicProgramWindow.setMachine(newMachineId);
         }
         return true;
-      } else {
-        this.emulator.stop();
-        return false;
       }
+      return false;
     } catch (error) {
       console.error("Failed to import state:", error);
-      this.emulator.stop();
       return false;
     }
   }
