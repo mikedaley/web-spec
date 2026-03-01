@@ -940,6 +940,7 @@ class ZXSpectrumEmulator {
     update48kOptionsVisibility(currentMachineId);
     this.screenWindow.setMachine(currentMachineId);
     this.basicProgramWindow.setMachine(currentMachineId);
+    this.keyboardWindow.setMachine(currentMachineId);
 
     // Machine model selection
     machineItems.forEach((item) => {
@@ -958,6 +959,7 @@ class ZXSpectrumEmulator {
         await this.proxy.switchMachine(machineId);
         this.screenWindow.setMachine(machineId);
         this.basicProgramWindow.setMachine(machineId);
+        this.keyboardWindow.setMachine(machineId);
 
         // If running, reset and continue; otherwise just switch
         if (this.running) {
@@ -981,6 +983,7 @@ class ZXSpectrumEmulator {
       update48kOptionsVisibility(machineId);
       this.screenWindow.setMachine(machineId);
       this.basicProgramWindow.setMachine(machineId);
+      this.keyboardWindow.setMachine(machineId);
     };
 
     // Restore Issue number from localStorage

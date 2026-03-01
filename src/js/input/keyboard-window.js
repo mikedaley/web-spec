@@ -77,6 +77,13 @@ const KEY_MAP = {
 };
 
 /*
+ * Keyboard layouts keyed by machine ID.
+ * 0 = ZX Spectrum 48K, 1 = ZX Spectrum 128K.
+ * When a 128K layout is created, add it as KEYBOARD_LAYOUTS[1].
+ */
+const KEYBOARD_LAYOUTS = {};
+
+/*
  * Authentic ZX Spectrum 48K keyboard layout.
  *
  * Each key has:
@@ -90,7 +97,7 @@ const KEY_MAP = {
  *   width      - flex multiplier (1, 1.5, or 4)
  *   shift      - "caps" or "symbol" for modifier keys
  */
-const KEYBOARD_LAYOUT = [
+KEYBOARD_LAYOUTS[0] = [
   // === Row 1: Number keys 1-0 ===
   [
     {
@@ -531,12 +538,15 @@ const KEYBOARD_LAYOUT = [
   ],
 ];
 
+// 128K uses the 48K layout until a dedicated one is created
+KEYBOARD_LAYOUTS[1] = KEYBOARD_LAYOUTS[0];
+
 export class KeyboardWindow extends BaseWindow {
   constructor(proxy) {
     super({
       id: "keyboard",
       title: "Keyboard",
-      defaultWidth: 1060,
+      defaultWidth: 860,
       minWidth: 780,
       defaultHeight: 420,
       closable: true,
@@ -544,6 +554,7 @@ export class KeyboardWindow extends BaseWindow {
     });
 
     this.proxy = proxy;
+    this._machineId = parseInt(localStorage.getItem("zxspec-machine-id") || "0", 10);
     this._keyElements = new Map();
     this._capsShiftActive = false;
     this._symbolShiftActive = false;
@@ -552,11 +563,31 @@ export class KeyboardWindow extends BaseWindow {
     this._onDocKeyUp = (e) => this._handleKeyUp(e);
   }
 
+  /**
+   * Switch the keyboard layout for the given machine.
+   * @param {number} machineId - 0 = 48K, 1 = 128K
+   */
+  setMachine(machineId) {
+    this._machineId = machineId;
+    this._keyElements.clear();
+    this._capsShiftActive = false;
+    this._symbolShiftActive = false;
+    if (this.contentElement) {
+      this.contentElement.innerHTML = this.renderContent();
+      this.onContentRendered();
+    }
+  }
+
+  _getLayout() {
+    return KEYBOARD_LAYOUTS[this._machineId] || KEYBOARD_LAYOUTS[0];
+  }
+
   renderContent() {
+    const layout = this._getLayout();
     let html = '<div class="kbd-container">';
 
-    for (let ri = 0; ri < KEYBOARD_LAYOUT.length; ri++) {
-      const row = KEYBOARD_LAYOUT[ri];
+    for (let ri = 0; ri < layout.length; ri++) {
+      const row = layout[ri];
       const isNumberRow = ri === 0;
 
       // Wrap each row section so we can apply per-row offset
@@ -718,8 +749,12 @@ export class KeyboardWindow extends BaseWindow {
     document.addEventListener("keydown", this._onDocKeyDown);
     document.addEventListener("keyup", this._onDocKeyUp);
 
-    // Auto-size window height to fit content (deferred so layout is computed)
+    // Auto-size window to fit content (deferred so layout is computed)
+    // Force fixed width to prevent saved state from stretching the keyboard
     requestAnimationFrame(() => {
+      this.element.style.width = `${this.defaultWidth}px`;
+      this.currentWidth = this.defaultWidth;
+
       const container = this.contentElement.querySelector(".kbd-container");
       if (!container) return;
       const headerH = this.headerElement ? this.headerElement.offsetHeight : 0;
