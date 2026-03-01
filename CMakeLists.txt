@@ -39,6 +39,7 @@ set(ZXSPECTRUM_BASE_SOURCES
     src/machines/basic/sinclair_basic_variables.cpp
     src/machines/basic/sinclair_basic_writer.cpp
     src/machines/basic/sinclair_basic_renumber.cpp
+    src/machines/loaders/z80_saver.cpp
 )
 
 # Source files - ZX Spectrum 48K variant
@@ -241,6 +242,8 @@ if(EMSCRIPTEN)
                 \"_evaluateCondition\", \
                 \"_evaluateExpression\", \
                 \"_getConditionError\", \
+                \"_exportState\", \
+                \"_importState\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \

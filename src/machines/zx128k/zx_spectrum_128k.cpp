@@ -108,6 +108,15 @@ void ZXSpectrum128::writeRamBank(uint8_t bank, uint16_t offset, uint8_t data)
     }
 }
 
+uint8_t ZXSpectrum128::readRamBank(uint8_t bank, uint16_t offset) const
+{
+    if (bank < 8 && offset < MEM_PAGE_SIZE)
+    {
+        return memoryRam_[bank * MEM_PAGE_SIZE + offset];
+    }
+    return 0xFF;
+}
+
 // ============================================================================
 // Screen memory
 // ============================================================================

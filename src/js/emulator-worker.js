@@ -724,6 +724,33 @@ self.onmessage = async function (e) {
       break;
     }
 
+    case "exportState": {
+      if (!wasm) break;
+      const sizePtr = wasm._malloc(4);
+      const statePtr = wasm._exportState(sizePtr);
+      const size = new DataView(wasm.HEAPU8.buffer, sizePtr, 4).getUint32(0, true);
+      wasm._free(sizePtr);
+      if (size > 0 && statePtr) {
+        const stateData = new Uint8Array(wasm.HEAPU8.buffer.slice(statePtr, statePtr + size));
+        self.postMessage({ type: "exportStateResult", id: msg.id, data: stateData }, [stateData.buffer]);
+      } else {
+        self.postMessage({ type: "exportStateResult", id: msg.id, data: null });
+      }
+      break;
+    }
+
+    case "importState": {
+      if (!wasm) break;
+      const stateData = new Uint8Array(msg.data);
+      const statePtr = wasm._malloc(stateData.length);
+      wasm.HEAPU8.set(stateData, statePtr);
+      const success = wasm._importState(statePtr, stateData.length);
+      wasm._free(statePtr);
+      const newMachineId = wasm._getMachineId();
+      self.postMessage({ type: "importStateResult", id: msg.id, success: !!success, machineId: newMachineId, state: getState() });
+      break;
+    }
+
     case "getState":
       if (wasm) {
         self.postMessage({ type: "stateUpdate", state: getState() });

@@ -1,0 +1,201 @@
+/* ==========================================
+   Save States Window
+   ========================================== */
+
+.save-states-container {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 4px 0;
+    height: 100%;
+}
+
+.save-slot {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: var(--control-bg);
+    border: 1px solid var(--control-border);
+    border-radius: var(--radius-sm);
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.save-slot:hover {
+    background: var(--control-bg-hover);
+    border-color: var(--control-border-hover);
+}
+
+.save-slot .slot-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-blue-bg);
+    color: var(--accent-blue);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.slot-thumbnail {
+    width: 70px;
+    height: 48px;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--control-bg-solid);
+    border: 1px solid var(--glass-border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.slot-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.slot-thumbnail .slot-empty-icon {
+    color: var(--text-muted);
+    font-size: 16px;
+    opacity: 0.4;
+}
+
+.slot-thumbnail-preview {
+    position: fixed;
+    width: 280px;
+    height: 192px;
+    pointer-events: none;
+    z-index: 10000;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--glass-border);
+    background: var(--glass-bg-solid);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+
+.slot-thumbnail-preview.visible {
+    opacity: 1;
+}
+
+.slot-thumbnail-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    image-rendering: pixelated;
+}
+
+.slot-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.slot-status {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.slot-status.empty {
+    color: var(--text-muted);
+}
+
+.slot-timestamp {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+}
+
+.slot-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.slot-btn {
+    padding: 4px 8px;
+    border: 1px solid var(--separator-bg);
+    border-radius: var(--radius-sm);
+    background: var(--glass-bg-header);
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-size: 10px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.slot-btn:hover:not(:disabled) {
+    background: var(--control-bg-active);
+    color: var(--text-primary);
+}
+
+.slot-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+.slot-btn.save-btn:hover:not(:disabled) {
+    border-color: var(--accent-green-border);
+    color: var(--accent-green);
+}
+
+.slot-btn.load-btn:hover:not(:disabled) {
+    border-color: var(--accent-blue-border);
+    color: var(--accent-blue);
+}
+
+.slot-btn.clear-btn:hover:not(:disabled) {
+    border-color: var(--accent-red-border);
+    color: var(--accent-red);
+}
+
+.slot-btn.download-btn:hover:not(:disabled) {
+    border-color: var(--accent-purple-bg-strong);
+    color: var(--accent-purple);
+}
+
+.save-states-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border-top: 1px solid var(--control-border);
+    margin-top: auto;
+}
+
+.save-states-toolbar .slot-btn {
+    font-size: 11px;
+    padding: 5px 12px;
+}
+
+.save-states-toolbar .slot-btn:hover:not(:disabled) {
+    border-color: var(--accent-blue-border);
+    color: var(--accent-blue);
+}
+
+/* Autosave row accent */
+.save-slot .slot-number.auto {
+    background: var(--accent-green-bg);
+    color: var(--accent-green);
+}
+
+.save-states-divider {
+    height: 1px;
+    background: var(--control-border);
+    margin: 2px 0;
+}

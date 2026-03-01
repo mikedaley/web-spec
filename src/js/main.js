@@ -23,6 +23,8 @@ import { RuleBuilderWindow } from "./debug/rule-builder-window.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
+import { StateManager } from "./state/state-manager.js";
+import { SaveStatesWindow } from "./state/save-states-window.js";
 import { VERSION } from "./config/version.js";
 
 class ZXSpectrumEmulator {
@@ -42,6 +44,8 @@ class ZXSpectrumEmulator {
 
     this.snapshotLoader = null;
     this.themeManager = null;
+    this.stateManager = null;
+    this.saveStatesWindow = null;
 
     this.running = false;
     this.animFrameId = null;
@@ -115,6 +119,27 @@ class ZXSpectrumEmulator {
       this.basicProgramWindow.ruleBuilderWindow = this.ruleBuilderWindow;
       this.cpuDebuggerWindow.ruleBuilderWindow = this.ruleBuilderWindow;
 
+      // Create state manager
+      this.stateManager = new StateManager({
+        emulator: this,
+        proxy: this.proxy,
+        screenWindow: this.screenWindow,
+        cpuDebuggerWindow: this.cpuDebuggerWindow,
+        basicProgramWindow: this.basicProgramWindow,
+      });
+
+      // Create save states window
+      this.saveStatesWindow = new SaveStatesWindow(this.stateManager);
+      this.saveStatesWindow.create();
+      this.windowManager.register(this.saveStatesWindow);
+
+      // Wire autosave callback to refresh the save states window
+      this.stateManager.onAutosave = () => {
+        if (this.saveStatesWindow && this.saveStatesWindow.isVisible) {
+          this.saveStatesWindow.refreshAutosaveRow();
+        }
+      };
+
       // Attach canvas to screen window
       this.screenWindow.attachCanvas();
 
@@ -128,6 +153,7 @@ class ZXSpectrumEmulator {
         { id: "sound-debug", visible: false },
         { id: "basic-program", visible: false },
         { id: "rule-builder", visible: false },
+        { id: "save-states", visible: false },
       ]);
 
       // Load saved window state (overrides defaults if present)
@@ -162,6 +188,9 @@ class ZXSpectrumEmulator {
 
       // Set up UI controls
       this.setupControls();
+
+      // Initialize state manager (auto-save, beforeunload handlers)
+      this.stateManager.init();
 
       // Start render loop
       this.startRenderLoop();
@@ -246,12 +275,26 @@ class ZXSpectrumEmulator {
       });
     }
 
-    // File menu > Save State
-    const saveStateBtn = document.getElementById("btn-save-state");
-    if (saveStateBtn) {
-      saveStateBtn.addEventListener("click", () => {
+    // File menu > Save States... (opens Save States window)
+    const saveStatesBtn = document.getElementById("btn-save-states");
+    if (saveStatesBtn) {
+      saveStatesBtn.addEventListener("click", () => {
+        this.windowManager.showWindow("save-states");
         this.closeAllMenus();
-        console.log("Save State not yet implemented");
+        this.refocusCanvas();
+      });
+    }
+
+    // File menu > Auto Save toggle
+    const autosaveToggle = document.getElementById("btn-autosave-toggle");
+    if (autosaveToggle) {
+      autosaveToggle.classList.toggle("active", this.stateManager.isAutoSaveEnabled());
+      autosaveToggle.addEventListener("click", () => {
+        const newEnabled = !this.stateManager.isAutoSaveEnabled();
+        this.stateManager.setAutoSaveEnabled(newEnabled);
+        autosaveToggle.classList.toggle("active", newEnabled);
+        this.closeAllMenus();
+        this.refocusCanvas();
       });
     }
 
@@ -408,6 +451,12 @@ class ZXSpectrumEmulator {
       const win = this.windowManager.getWindow(windowId);
       const isVisible = win && win.isVisible;
       btn.classList.toggle("active", isVisible);
+    }
+
+    // Update autosave checkmark
+    const autosaveBtn = document.getElementById("btn-autosave-toggle");
+    if (autosaveBtn && this.stateManager) {
+      autosaveBtn.classList.toggle("active", this.stateManager.isAutoSaveEnabled());
     }
   }
 
@@ -972,6 +1021,16 @@ class ZXSpectrumEmulator {
     if (this.cpuDebuggerWindow) {
       this.cpuDebuggerWindow.destroy();
       this.cpuDebuggerWindow = null;
+    }
+
+    if (this.saveStatesWindow) {
+      this.saveStatesWindow.destroy();
+      this.saveStatesWindow = null;
+    }
+
+    if (this.stateManager) {
+      this.stateManager.destroy();
+      this.stateManager = null;
     }
 
     if (this.snapshotLoader) {

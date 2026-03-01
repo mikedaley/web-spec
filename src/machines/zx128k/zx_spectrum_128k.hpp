@@ -50,6 +50,7 @@ public:
     uint8_t getPagingRegister() const override { return pagingRegister_; }
     void setPagingRegister(uint8_t value) override;
     void writeRamBank(uint8_t bank, uint16_t offset, uint8_t data) override;
+    uint8_t readRamBank(uint8_t bank, uint16_t offset) const override;
 
     // ROM-dependent BASIC breakpoint addresses:
     // When ROM 0 (128K BASIC) is paged in, use 128K-specific addresses;

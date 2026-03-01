@@ -161,6 +161,32 @@ export class EmulatorProxy {
         }
         break;
       }
+
+      case "exportStateResult": {
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve(msg.data);
+        }
+        break;
+      }
+
+      case "importStateResult": {
+        this.state = msg.state;
+        if (msg.success && this.onMachineSwitched) {
+          const currentMachineId = this.state.machineId;
+          const savedMachineId = parseInt(localStorage.getItem("zxspec-machine-id") || "0", 10);
+          if (currentMachineId !== savedMachineId) {
+            this.onMachineSwitched(msg.machineId);
+          }
+        }
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve({ success: msg.success, machineId: msg.machineId });
+        }
+        break;
+      }
     }
   }
 
@@ -498,6 +524,23 @@ export class EmulatorProxy {
     return new Promise((resolve) => {
       this._pendingRequests.set(id, resolve);
       this.worker.postMessage({ type: "evaluateExpression", expr, id });
+    });
+  }
+
+  exportState() {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "exportState", id });
+    });
+  }
+
+  importState(data) {
+    const id = this._nextId++;
+    const buffer = new Uint8Array(data);
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "importState", id, data: buffer.buffer }, [buffer.buffer]);
     });
   }
 

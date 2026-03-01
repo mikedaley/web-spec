@@ -16,8 +16,11 @@
 #include "../machines/basic/sinclair_basic_renumber.hpp"
 #include "../core/z80/z80_disassembler.hpp"
 #include "../core/debug/condition_evaluator.hpp"
+#include "../machines/loaders/z80_saver.hpp"
+#include "../machines/loaders/z80_loader.hpp"
 #include <cstring>
 #include <string>
+#include <vector>
 #include <emscripten.h>
 
 // Global machine instance
@@ -1152,6 +1155,44 @@ int32_t evaluateExpression(const char* expr) {
 EMSCRIPTEN_KEEPALIVE
 const char* getConditionError() {
     return s_conditionError.c_str();
+}
+
+// ============================================================================
+// Save State (Z80 v3 format)
+// ============================================================================
+
+static std::vector<uint8_t> s_stateBuffer;
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t* exportState(uint32_t* sizeOut) {
+    if (!g_machine) { *sizeOut = 0; return nullptr; }
+
+    auto* spectrum = static_cast<zxspec::ZXSpectrum*>(g_machine);
+
+    s_stateBuffer.resize(256 * 1024);  // 256KB max
+    uint32_t written = zxspec::Z80Saver::save(*spectrum, s_stateBuffer.data(), static_cast<uint32_t>(s_stateBuffer.size()));
+    *sizeOut = written;
+    return s_stateBuffer.data();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int importState(const uint8_t* data, uint32_t size) {
+    if (!data || size < 30) return 0;
+
+    // Detect required machine from Z80 header
+    // Re-use detectSnapshotMachine with format "z80"
+    int requiredMachine = detectSnapshotMachine(data, static_cast<int>(size), "z80");
+    if (requiredMachine < 0) return 0;
+
+    int currentMachine = g_machine ? g_machine->getId() : -1;
+    if (requiredMachine != currentMachine) {
+        initMachine(requiredMachine);
+    }
+
+    auto* spectrum = static_cast<zxspec::ZXSpectrum*>(g_machine);
+
+    spectrum->loadZ80(data, size);
+    return 1;
 }
 
 } // extern "C"

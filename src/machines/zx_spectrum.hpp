@@ -141,6 +141,7 @@ public:
     void setR(uint8_t v) override { z80_->setRegister(Z80::ByteReg::R, v); }
 
     void setBorderColor(uint8_t color) { borderColor_ = color & 0x07; }
+    uint8_t getBorderColor() const { return borderColor_; }
 
     // Audio (beeper)
     Audio& getAudio() { return audio_; }
@@ -215,6 +216,9 @@ public:
     virtual uint8_t getPagingRegister() const { return 0; }
     virtual void setPagingRegister(uint8_t /*value*/) {}
     virtual void writeRamBank(uint8_t /*bank*/, uint16_t /*offset*/, uint8_t /*data*/) {}
+    virtual uint8_t readRamBank(uint8_t /*bank*/, uint16_t offset) const {
+        return readMemory(0x4000 + offset);
+    }
 
     // ROM-dependent addresses for BASIC breakpoints (48K defaults)
     // STMT-L-1 / EACH_S_2: fires before each BASIC statement
