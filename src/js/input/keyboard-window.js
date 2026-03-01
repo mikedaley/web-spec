@@ -749,8 +749,10 @@ export class KeyboardWindow extends BaseWindow {
     document.addEventListener("keydown", this._onDocKeyDown);
     document.addEventListener("keyup", this._onDocKeyUp);
 
-    // Auto-size window to fit content (deferred so layout is computed)
-    // Force fixed width to prevent saved state from stretching the keyboard
+    this._autoSize();
+  }
+
+  _autoSize() {
     requestAnimationFrame(() => {
       this.element.style.width = `${this.defaultWidth}px`;
       this.currentWidth = this.defaultWidth;
@@ -759,10 +761,16 @@ export class KeyboardWindow extends BaseWindow {
       if (!container) return;
       const headerH = this.headerElement ? this.headerElement.offsetHeight : 0;
       const contentH = container.scrollHeight;
+      if (contentH === 0) return; // not visible yet, will retry on show
       const totalH = headerH + contentH + 2; // +2 for border
       this.element.style.height = `${totalH}px`;
       this.currentHeight = totalH;
     });
+  }
+
+  show() {
+    super.show();
+    this._autoSize();
   }
 
   // --- Click/touch input ---
