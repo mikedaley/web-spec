@@ -1559,3 +1559,115 @@ main {
   border-color: var(--accent-blue-border-light);
   color: var(--accent-blue);
 }
+
+/* ── Message Panel ─────────────────────────────── */
+
+.message-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.message-panel-backdrop-in {
+  animation: message-panel-fade-in 0.15s ease forwards;
+}
+
+.message-panel-backdrop-out {
+  animation: message-panel-fade-out 0.12s ease forwards;
+}
+
+.message-panel {
+  background: var(--glass-bg-solid);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  padding: 24px 28px;
+  min-width: 300px;
+  max-width: 440px;
+  opacity: 0;
+  transform: scale(0.95) translateY(-8px);
+}
+
+.message-panel-in {
+  animation: message-panel-enter 0.15s ease forwards;
+}
+
+.message-panel-out {
+  animation: message-panel-exit 0.12s ease forwards;
+}
+
+.message-panel-text {
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.message-panel-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.message-panel-btn {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  padding: 6px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--glass-border);
+  background: var(--control-bg);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.message-panel-btn:hover {
+  background: var(--overlay-hover);
+  border-color: var(--text-muted);
+}
+
+.message-panel-btn-primary {
+  background: var(--accent-blue-bg-strong);
+  border-color: var(--accent-blue-border);
+  color: var(--accent-blue);
+}
+
+.message-panel-btn-primary:hover {
+  background: var(--accent-blue-bg-stronger);
+  border-color: var(--accent-blue-border-light);
+}
+
+@keyframes message-panel-fade-in {
+  to { opacity: 1; }
+}
+
+@keyframes message-panel-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes message-panel-enter {
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes message-panel-exit {
+  from {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95) translateY(-8px);
+  }
+}

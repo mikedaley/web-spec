@@ -1,0 +1,10 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" fill="#0a0a0b"/>
+  <!-- Spectrum diagonal stripes, centered -->
+  <g transform="translate(-55, 100) scale(1.5)">
+    <path fill="#00a7e1" d="M 238.29 0 L 208.73 0 L 306.82 138 L 336.39 138 Z"/>
+    <path fill="#3d9b00" d="M 208.73 0 L 179.15 0 L 277.24 138 L 306.82 138 Z"/>
+    <path fill="#ffc610" d="M 179.15 0 L 149.57 0 L 247.67 138 L 277.24 138 Z"/>
+    <path fill="#ff1f1f" d="M 149.57 0 L 120 0 L 218.10 138 L 247.67 138 Z"/>
+  </g>
+</svg>

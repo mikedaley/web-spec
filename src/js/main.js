@@ -27,6 +27,7 @@ import { ThemeManager } from "./ui/theme-manager.js";
 import { StateManager } from "./state/state-manager.js";
 import { SaveStatesWindow } from "./state/save-states-window.js";
 import { VERSION } from "./config/version.js";
+import { MessagePanel } from "./ui/message-panel.js";
 
 class ZXSpectrumEmulator {
   constructor() {
@@ -49,6 +50,7 @@ class ZXSpectrumEmulator {
     this.stateManager = null;
     this.saveStatesWindow = null;
 
+    this.swRegistration = null;
     this.running = false;
     this.animFrameId = null;
   }
@@ -392,6 +394,15 @@ class ZXSpectrumEmulator {
         this.windowManager.toggleWindow("basic-program");
         this.closeAllMenus();
         this.refocusCanvas();
+      });
+    }
+
+    // Help menu > Check for Updates
+    const checkUpdatesBtn = document.getElementById("btn-check-updates");
+    if (checkUpdatesBtn) {
+      checkUpdatesBtn.addEventListener("click", () => {
+        this.closeAllMenus();
+        this.checkForUpdates();
       });
     }
 
@@ -955,6 +966,56 @@ class ZXSpectrumEmulator {
     }
   }
 
+  async checkForUpdates() {
+    if (!this.swRegistration) {
+      await MessagePanel.show({
+        message: "No service worker registered — updates are not available.",
+        buttons: [{ label: "OK", value: true, primary: true }],
+      });
+      return;
+    }
+
+    const offerReload = async () => {
+      const result = await MessagePanel.show({
+        message: "An update is available. Reload now to apply it?",
+        buttons: [
+          { label: "Reload", value: true, primary: true },
+          { label: "Cancel", value: false },
+        ],
+        dismissable: false,
+      });
+      if (result) window.location.reload();
+    };
+
+    try {
+      await this.swRegistration.update();
+
+      const newWorker = this.swRegistration.installing || this.swRegistration.waiting;
+      if (newWorker) {
+        if (newWorker.state === "installed") {
+          await offerReload();
+        } else {
+          newWorker.addEventListener("statechange", () => {
+            if (newWorker.state === "installed") {
+              offerReload();
+            }
+          });
+        }
+      } else {
+        await MessagePanel.show({
+          message: "You're up to date.",
+          buttons: [{ label: "OK", value: true, primary: true }],
+        });
+      }
+    } catch (err) {
+      console.error("Update check failed:", err);
+      await MessagePanel.show({
+        message: "Update check failed. Please try again later.",
+        buttons: [{ label: "OK", value: true, primary: true }],
+      });
+    }
+  }
+
   isRunning() {
     return this.running;
   }
@@ -1106,6 +1167,15 @@ document.addEventListener("DOMContentLoaded", () => {
   // Make emulator accessible globally for debugging
   window.zxspec = emulator;
 
-
-
+  // Register service worker for PWA support
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker
+      .register("/service-worker.js")
+      .then((registration) => {
+        emulator.swRegistration = registration;
+      })
+      .catch((err) => {
+        console.warn("Service worker registration failed:", err);
+      });
+  }
 });

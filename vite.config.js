@@ -15,6 +15,10 @@ const copyWorkerFiles = () => ({
       resolve(__dirname, "src/js/emulator-worker.js"),
       resolve(__dirname, "dist/src/js/emulator-worker.js"),
     );
+    copyFileSync(
+      resolve(__dirname, "public/service-worker.js"),
+      resolve(__dirname, "dist/service-worker.js"),
+    );
   },
 });
 

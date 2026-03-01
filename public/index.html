@@ -8,7 +8,16 @@
             content="ZX Spectrum emulator for the browser"
         />
         <meta name="theme-color" content="#0a0a0b" />
-        <title>ZX Spectrum Emulator</title>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta
+            name="apple-mobile-web-app-status-bar-style"
+            content="black-translucent"
+        />
+        <meta name="apple-mobile-web-app-title" content="SpectrEm" />
+        <link rel="manifest" href="/site.webmanifest" />
+        <link rel="icon" href="/icons/icon-192.png" type="image/png" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        <title>SpectrEm</title>
     </head>
     <body>
         <div id="app">
@@ -375,6 +384,40 @@
                             >
                                 <span class="menu-check">&#10003;</span>
                                 <span>BASIC Editor</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Help menu -->
+                    <div
+                        class="header-menu-container"
+                        id="help-menu-container"
+                    >
+                        <button
+                            class="header-menu-trigger"
+                            id="btn-help-menu"
+                        >
+                            <span>Help</span>
+                            <svg
+                                class="menu-chevron"
+                                viewBox="0 0 12 12"
+                                width="10"
+                                height="10"
+                            >
+                                <path
+                                    d="M3 5l3 3 3-3"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                />
+                            </svg>
+                        </button>
+                        <div class="header-menu" id="help-menu">
+                            <button
+                                class="header-menu-item"
+                                id="btn-check-updates"
+                            >
+                                <span>Check for Updates...</span>
                             </button>
                         </div>
                     </div>
