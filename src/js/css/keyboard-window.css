@@ -358,3 +358,72 @@ html[data-theme="light"] .kbd-sym-char {
   flex: 1.5;
   min-width: 0;
 }
+
+/* ── Shift-mode label highlighting ── */
+
+.kbd-container .kbd-above-text,
+.kbd-container .kbd-sym-char,
+.kbd-container .kbd-below-text,
+.kbd-container .kbd-keyword,
+.kbd-container .kbd-color-name,
+.kbd-container .kbd-main,
+.kbd-container .kbd-graphic,
+.kbd-container .kbd-arrow-svg,
+.kbd-container .kbd-space-break,
+.kbd-container .kbd-space-label,
+.kbd-container .kbd-main-center {
+  transition: opacity 0.15s ease;
+}
+
+/* K mode (keyword): highlight BASIC keywords, dim other labels */
+.kbd-container[data-shift-mode="keyword"] .kbd-above-text,
+.kbd-container[data-shift-mode="keyword"] .kbd-color-name,
+.kbd-container[data-shift-mode="keyword"] .kbd-below-text,
+.kbd-container[data-shift-mode="keyword"] .kbd-sym-char {
+  opacity: 0.2;
+}
+
+/* SYMBOL SHIFT held: highlight sym-char (red on-key), dim others */
+.kbd-container[data-shift-mode="symbol"] .kbd-above-text,
+.kbd-container[data-shift-mode="symbol"] .kbd-color-name,
+.kbd-container[data-shift-mode="symbol"] .kbd-below-text,
+.kbd-container[data-shift-mode="symbol"] .kbd-keyword {
+  opacity: 0.2;
+}
+
+/* EXTENDED (E mode): dim everything except green above-text on letter rows and colour names */
+.kbd-container[data-shift-mode="extended"] .kbd-main,
+.kbd-container[data-shift-mode="extended"] .kbd-sym-char,
+.kbd-container[data-shift-mode="extended"] .kbd-keyword,
+.kbd-container[data-shift-mode="extended"] .kbd-below-text,
+.kbd-container[data-shift-mode="extended"] .kbd-graphic,
+.kbd-container[data-shift-mode="extended"] .kbd-section-0 .kbd-above-text,
+.kbd-container[data-shift-mode="extended"] .kbd-arrow-svg,
+.kbd-container[data-shift-mode="extended"] .kbd-space-break,
+.kbd-container[data-shift-mode="extended"] .kbd-space-label,
+.kbd-container[data-shift-mode="extended"] .kbd-main-center {
+  opacity: 0.2;
+}
+
+/* EXTENDED + CAPS SHIFT (E mode shifted): dim everything except red below-text */
+.kbd-container[data-shift-mode="extended-shift"] .kbd-main,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-sym-char,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-keyword,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-above-text,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-color-name,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-graphic,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-arrow-svg,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-space-break,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-space-label,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-main-center {
+  opacity: 0.2;
+}
+
+/* GRAPHICS (G mode): highlight graphic icons, dim other labels */
+.kbd-container[data-shift-mode="graphics"] .kbd-above-text,
+.kbd-container[data-shift-mode="graphics"] .kbd-color-name,
+.kbd-container[data-shift-mode="graphics"] .kbd-below-text,
+.kbd-container[data-shift-mode="graphics"] .kbd-sym-char,
+.kbd-container[data-shift-mode="graphics"] .kbd-keyword {
+  opacity: 0.2;
+}

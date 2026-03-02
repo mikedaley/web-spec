@@ -558,6 +558,8 @@ export class KeyboardWindow extends BaseWindow {
     this._keyElements = new Map();
     this._capsShiftActive = false;
     this._symbolShiftActive = false;
+    this._physCapsHeld = false;
+    this._physSymbolHeld = false;
 
     this._onDocKeyDown = (e) => this._handleKeyDown(e);
     this._onDocKeyUp = (e) => this._handleKeyUp(e);
@@ -572,6 +574,8 @@ export class KeyboardWindow extends BaseWindow {
     this._keyElements.clear();
     this._capsShiftActive = false;
     this._symbolShiftActive = false;
+    this._physCapsHeld = false;
+    this._physSymbolHeld = false;
     if (this.contentElement) {
       this.contentElement.innerHTML = this.renderContent();
       this.onContentRendered();
@@ -730,6 +734,13 @@ export class KeyboardWindow extends BaseWindow {
     this.contentElement.addEventListener("mouseleave", (e) =>
       this._handlePointerUp(e),
     );
+    // Prevent Ctrl+Click triggering a context menu on macOS,
+    // which would swallow the mouseup and leave the key stuck.
+    this.contentElement.addEventListener(
+      "contextmenu",
+      (e) => e.preventDefault(),
+      true,
+    );
     this.contentElement.addEventListener(
       "touchstart",
       (e) => this._handleTouchStart(e),
@@ -886,6 +897,63 @@ export class KeyboardWindow extends BaseWindow {
     }
   }
 
+  // --- Emulator-driven mode highlighting ---
+
+  /**
+   * Called every frame by WindowManager for visible windows.
+   * Polls the emulator's system variables to determine the current input mode.
+   */
+  update(proxy) {
+    if (!proxy) return;
+    proxy.readMemory(0x5C3B, 7).then((data) => {
+      // FLAGS at 0x5C3B (offset 0), MODE at 0x5C41 (offset 6)
+      const flags = data[0];
+      const mode = data[6]; // 0=KLC, 1=E, 2=G
+      this._applyEmulatorMode(mode, flags);
+    });
+  }
+
+  /**
+   * Determine the CSS highlight mode from the emulator's MODE and FLAGS
+   * system variables and apply it to the keyboard container.
+   */
+  _applyEmulatorMode(mode, flags) {
+    const container = this.contentElement?.querySelector('.kbd-container');
+    if (!container) return;
+
+    let modeName;
+    if (mode === 1) {
+      modeName = 'E';
+    } else if (mode === 2) {
+      modeName = 'G';
+    } else {
+      // MODE=0 covers K, L, C — check FLAGS bit 3 to distinguish K from L/C
+      const isK = (flags & 0x08) === 0;
+      modeName = isK ? 'K' : 'L';
+    }
+
+    // Symbol Shift overlay: check if either on-screen or physical sym shift is held
+    const symHeld = this._symbolShiftActive || this._physSymbolHeld;
+    const capsHeld = this._capsShiftActive || this._physCapsHeld;
+
+    let cssMode;
+    if (symHeld && modeName !== 'E') {
+      cssMode = 'symbol';
+    } else if (modeName === 'E') {
+      cssMode = capsHeld ? 'extended-shift' : 'extended';
+    } else if (modeName === 'G') {
+      cssMode = 'graphics';
+    } else if (modeName === 'K') {
+      cssMode = 'keyword';
+    } else {
+      cssMode = 'none';
+    }
+
+    if (container.dataset.shiftMode !== cssMode) {
+      container.dataset.shiftMode = cssMode;
+    }
+  }
+
   // --- Physical keyboard highlighting ---
 
   _handleKeyDown(e) {
@@ -895,6 +963,11 @@ export class KeyboardWindow extends BaseWindow {
       const el = this._keyElements.get(`${row},${bit}`);
       if (el) el.classList.add("pressed");
     }
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+      this._physCapsHeld = true;
+    } else if (e.code === 'ControlLeft' || e.code === 'ControlRight') {
+      this._physSymbolHeld = true;
+    }
   }
 
   _handleKeyUp(e) {
@@ -903,6 +976,11 @@ export class KeyboardWindow extends BaseWindow {
     for (const [row, bit] of mapping) {
       const el = this._keyElements.get(`${row},${bit}`);
       if (el) el.classList.remove("pressed");
+    }
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+      this._physCapsHeld = false;
+    } else if (e.code === 'ControlLeft' || e.code === 'ControlRight') {
+      this._physSymbolHeld = false;
     }
   }
 
