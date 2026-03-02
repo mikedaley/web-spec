@@ -753,18 +753,21 @@ export class KeyboardWindow extends BaseWindow {
   }
 
   _autoSize() {
+    // Double RAF ensures browser has fully computed layout after display:none removal
     requestAnimationFrame(() => {
-      this.element.style.width = `${this.defaultWidth}px`;
-      this.currentWidth = this.defaultWidth;
+      requestAnimationFrame(() => {
+        this.element.style.width = `${this.defaultWidth}px`;
+        this.currentWidth = this.defaultWidth;
 
-      const container = this.contentElement.querySelector(".kbd-container");
-      if (!container) return;
-      const headerH = this.headerElement ? this.headerElement.offsetHeight : 0;
-      const contentH = container.scrollHeight;
-      if (contentH === 0) return; // not visible yet, will retry on show
-      const totalH = headerH + contentH + 2; // +2 for border
-      this.element.style.height = `${totalH}px`;
-      this.currentHeight = totalH;
+        const container = this.contentElement.querySelector(".kbd-container");
+        if (!container) return;
+        const headerH = this.headerElement ? this.headerElement.offsetHeight : 0;
+        const contentH = container.scrollHeight;
+        // Use measured height if layout is ready, otherwise fall back to default
+        const totalH = contentH > 0 ? headerH + contentH + 2 : this.defaultHeight;
+        this.element.style.height = `${totalH}px`;
+        this.currentHeight = totalH;
+      });
     });
   }
 
