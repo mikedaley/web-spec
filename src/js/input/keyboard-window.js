@@ -550,12 +550,13 @@ export class KeyboardWindow extends BaseWindow {
       minWidth: 780,
       defaultHeight: 420,
       closable: true,
-      resizeDirections: [],
     });
 
     this.proxy = proxy;
     this._machineId = parseInt(localStorage.getItem("zxspec-machine-id") || "0", 10);
     this._keyElements = new Map();
+    this._naturalWidth = 0;
+    this._naturalHeight = 0;
     this._capsShiftActive = false;
     this._symbolShiftActive = false;
     this._physCapsHeld = false;
@@ -572,6 +573,8 @@ export class KeyboardWindow extends BaseWindow {
   setMachine(machineId) {
     this._machineId = machineId;
     this._keyElements.clear();
+    this._naturalWidth = 0;
+    this._naturalHeight = 0;
     this._capsShiftActive = false;
     this._symbolShiftActive = false;
     this._physCapsHeld = false;
@@ -760,31 +763,72 @@ export class KeyboardWindow extends BaseWindow {
     document.addEventListener("keydown", this._onDocKeyDown);
     document.addEventListener("keyup", this._onDocKeyUp);
 
-    this._autoSize();
+    this._updateScale();
   }
 
-  _autoSize() {
+  _updateScale() {
     // Double RAF ensures browser has fully computed layout after display:none removal
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        this.element.style.width = `${this.defaultWidth}px`;
-        this.currentWidth = this.defaultWidth;
-
-        const container = this.contentElement.querySelector(".kbd-container");
+        const container = this.contentElement?.querySelector('.kbd-container');
         if (!container) return;
+
+        // Measure the natural (unscaled) size once
+        if (!this._naturalWidth) {
+          container.style.transform = 'none';
+          container.style.width = '';
+          container.style.height = '';
+          this._naturalWidth = container.scrollWidth;
+          this._naturalHeight = container.scrollHeight;
+        }
+
         const headerH = this.headerElement ? this.headerElement.offsetHeight : 0;
-        const contentH = container.scrollHeight;
-        // Use measured height if layout is ready, otherwise fall back to default
-        const totalH = contentH > 0 ? headerH + contentH + 2 : this.defaultHeight;
-        this.element.style.height = `${totalH}px`;
-        this.currentHeight = totalH;
+        const availableWidth = this.currentWidth;
+        const availableHeight = this.currentHeight - headerH;
+
+        const scaleX = availableWidth / this._naturalWidth;
+        const scaleY = availableHeight / this._naturalHeight;
+        const scale = Math.min(scaleX, scaleY);
+
+        container.style.transform = `scale(${scale})`;
+        container.style.width = `${this._naturalWidth}px`;
+        container.style.height = `${this._naturalHeight}px`;
       });
     });
   }
 
+  resize(e) {
+    super.resize(e);
+    const container = this.contentElement?.querySelector('.kbd-container');
+    if (!container || !this._naturalWidth) return;
+
+    const headerH = this.headerElement ? this.headerElement.offsetHeight : 0;
+    const availableWidth = this.currentWidth;
+    const availableHeight = this.currentHeight - headerH;
+
+    const scaleX = availableWidth / this._naturalWidth;
+    const scaleY = availableHeight / this._naturalHeight;
+    const scale = Math.min(scaleX, scaleY);
+
+    container.style.transform = `scale(${scale})`;
+
+    // Snap the window to fit the scaled content exactly (no dead space)
+    const fittedWidth = this._naturalWidth * scale;
+    const fittedHeight = this._naturalHeight * scale + headerH;
+
+    if (Math.abs(this.currentWidth - fittedWidth) > 1) {
+      this.currentWidth = fittedWidth;
+      this.element.style.width = `${fittedWidth}px`;
+    }
+    if (Math.abs(this.currentHeight - fittedHeight) > 1) {
+      this.currentHeight = fittedHeight;
+      this.element.style.height = `${fittedHeight}px`;
+    }
+  }
+
   show() {
     super.show();
-    this._autoSize();
+    this._updateScale();
   }
 
   // --- Click/touch input ---
@@ -940,13 +984,13 @@ export class KeyboardWindow extends BaseWindow {
     if (symHeld && modeName !== 'E') {
       cssMode = 'symbol';
     } else if (modeName === 'E') {
-      cssMode = capsHeld ? 'extended-shift' : 'extended';
+      cssMode = (capsHeld || symHeld) ? 'extended-shift' : 'extended';
     } else if (modeName === 'G') {
       cssMode = 'graphics';
     } else if (modeName === 'K') {
       cssMode = 'keyword';
     } else {
-      cssMode = 'none';
+      cssMode = 'letter';
     }
 
     if (container.dataset.shiftMode !== cssMode) {

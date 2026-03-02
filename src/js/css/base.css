@@ -1120,6 +1120,7 @@ main {
 .debug-resize-handle {
   position: absolute;
   background: transparent;
+  z-index: 10;
 }
 
 .debug-resize-handle.n {
