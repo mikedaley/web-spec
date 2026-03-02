@@ -793,6 +793,19 @@ export class KeyboardWindow extends BaseWindow {
         container.style.transform = `scale(${scale})`;
         container.style.width = `${this._naturalWidth}px`;
         container.style.height = `${this._naturalHeight}px`;
+
+        // Snap window to fit scaled content exactly (no dead space)
+        const fittedWidth = this._naturalWidth * scale;
+        const fittedHeight = this._naturalHeight * scale + headerH;
+
+        if (Math.abs(this.currentWidth - fittedWidth) > 1) {
+          this.currentWidth = fittedWidth;
+          this.element.style.width = `${fittedWidth}px`;
+        }
+        if (Math.abs(this.currentHeight - fittedHeight) > 1) {
+          this.currentHeight = fittedHeight;
+          this.element.style.height = `${fittedHeight}px`;
+        }
       });
     });
   }
