@@ -9,6 +9,8 @@
 #keyboard .debug-window-content {
   padding: 0;
   overflow: hidden;
+  position: relative;
+  z-index: 0;
 }
 
 /* ── Container ── */
