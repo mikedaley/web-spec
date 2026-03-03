@@ -1029,7 +1029,7 @@ export class KeyboardWindow extends BaseWindow {
     } else if (modeName === 'G') {
       cssMode = 'graphics';
     } else if (modeName === 'K') {
-      cssMode = 'keyword';
+      cssMode = capsHeld ? 'keyword-caps' : 'keyword';
     } else {
       cssMode = 'letter';
     }

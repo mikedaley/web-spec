@@ -449,8 +449,9 @@ html[data-theme="light"] .kbd-sym-char {
    top/left 50% + translate(-50%,-50%).  Scale is kept modest so content
    stays within the key's overflow:hidden boundary. */
 
-/* K mode: keywords centered and scaled */
-.kbd-container[data-shift-mode="keyword"] .kbd-keyword {
+/* K mode + keyword-caps: keywords centered and scaled */
+.kbd-container[data-shift-mode="keyword"] .kbd-keyword,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-keyword {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -459,8 +460,9 @@ html[data-theme="light"] .kbd-sym-char {
   text-align: center;
 }
 
-/* K mode: number row digits centered and scaled */
-.kbd-container[data-shift-mode="keyword"] .kbd-section-0 .kbd-main {
+/* K mode + keyword-caps: number row digits centered and scaled */
+.kbd-container[data-shift-mode="keyword"] .kbd-section-0 .kbd-main,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-section-0 .kbd-main {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -520,10 +522,13 @@ html[data-theme="light"] .kbd-sym-char {
   transform: none !important;
 }
 
-/* K mode (keyword): show small letter label top-left */
+/* K mode + keyword-caps: show small letter label top-left */
 .kbd-container[data-shift-mode="keyword"] .kbd-section-1 .kbd-main,
 .kbd-container[data-shift-mode="keyword"] .kbd-section-2 .kbd-main,
-.kbd-container[data-shift-mode="keyword"] .kbd-section-3 .kbd-main {
+.kbd-container[data-shift-mode="keyword"] .kbd-section-3 .kbd-main,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-section-1 .kbd-main,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-section-2 .kbd-main,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-section-3 .kbd-main {
   position: absolute;
   top: 2px;
   left: 4px;
@@ -534,9 +539,11 @@ html[data-theme="light"] .kbd-sym-char {
   z-index: 1;
 }
 
-/* K mode: other on-key elements fully hidden */
+/* K mode + keyword-caps: other on-key elements fully hidden */
 .kbd-container[data-shift-mode="keyword"] .kbd-sym-char,
-.kbd-container[data-shift-mode="keyword"] .kbd-graphic {
+.kbd-container[data-shift-mode="keyword"] .kbd-graphic,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-sym-char,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-graphic {
   opacity: 0;
 }
 
@@ -547,6 +554,17 @@ html[data-theme="light"] .kbd-sym-char {
 .kbd-container[data-shift-mode="keyword"] .kbd-arrow-svg,
 .kbd-container[data-shift-mode="keyword"] .kbd-space-break,
 .kbd-container[data-shift-mode="keyword"] .kbd-space-label {
+  opacity: 0.35;
+}
+
+/* Keyword-caps: same as keyword but number row above-text and arrows highlighted */
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-section-1 .kbd-above-text,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-section-2 .kbd-above-text,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-section-3 .kbd-above-text,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-color-name,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-below-text,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-space-break,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-space-label {
   opacity: 0.35;
 }
 
