@@ -158,13 +158,13 @@ html[data-theme="light"] .kbd-container {
   padding-left: 4px;
 }
 
-.kbd-clr-blue { color: #0000FF; }
-.kbd-clr-red { color: #F45830; }
-.kbd-clr-magenta { color: #FF00FF; }
-.kbd-clr-green { color: #00FF00; }
-.kbd-clr-cyan { color: #00FFFF; }
-.kbd-clr-yellow { color: #FFFF00; }
-.kbd-clr-white { color: #FFFFFF; }
+.kbd-clr-blue { color: #6666FF; }
+.kbd-clr-red { color: #F47860; }
+.kbd-clr-magenta { color: #DD66DD; }
+.kbd-clr-green { color: #66DD66; }
+.kbd-clr-cyan { color: #66DDDD; }
+.kbd-clr-yellow { color: #DDDD66; }
+.kbd-clr-white { color: #DDDDDD; }
 .kbd-clr-black {
   color: #000000;
   background: #FFFFFF;
