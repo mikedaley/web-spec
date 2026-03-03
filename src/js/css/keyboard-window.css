@@ -542,7 +542,8 @@ html[data-theme="light"] .kbd-sym-char {
 /* Caps-shift: on-key elements fully hidden so only main letter is visible */
 .kbd-container[data-shift-mode="caps-shift"] .kbd-sym-char,
 .kbd-container[data-shift-mode="caps-shift"] .kbd-keyword,
-.kbd-container[data-shift-mode="caps-shift"] .kbd-graphic {
+.kbd-container[data-shift-mode="caps-shift"] .kbd-graphic,
+.kbd-container[data-shift-mode="caps-shift"] .kbd-section-0 .kbd-main {
   opacity: 0;
 }
 
