@@ -543,7 +543,8 @@ html[data-theme="light"] .kbd-sym-char {
 .kbd-container[data-shift-mode="keyword"] .kbd-sym-char,
 .kbd-container[data-shift-mode="keyword"] .kbd-graphic,
 .kbd-container[data-shift-mode="keyword-caps"] .kbd-sym-char,
-.kbd-container[data-shift-mode="keyword-caps"] .kbd-graphic {
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-graphic,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-section-0 .kbd-main {
   opacity: 0;
 }
 
