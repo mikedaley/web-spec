@@ -281,11 +281,11 @@ html[data-theme="light"] .kbd-key:hover {
 
 /* Symbol Shift key label in red */
 .kbd-key[data-shift="symbol"] .kbd-main {
-  color: #C0401E;
+  color: #E84830;
 }
 
 html[data-theme="light"] .kbd-key[data-shift="symbol"] .kbd-main {
-  color: #C0401E;
+  color: #E84830;
 }
 
 /* Keys with only a centered label (ENTER) */
@@ -364,7 +364,7 @@ html[data-theme="light"] .kbd-key[data-shift="symbol"] .kbd-main {
 
 /* Symbol Shift character: red, top-right */
 .kbd-sym-char {
-  color: #C0401E;
+  color: #E84830;
   font-size: 14px;
   font-weight: 600;
   line-height: 20px;
@@ -374,7 +374,7 @@ html[data-theme="light"] .kbd-key[data-shift="symbol"] .kbd-main {
 }
 
 html[data-theme="light"] .kbd-sym-char {
-  color: #C0401E;
+  color: #E84830;
 }
 
 .kbd-sym-word {
