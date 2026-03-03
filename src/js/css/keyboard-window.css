@@ -7,6 +7,22 @@
 
 /* ── Header toggle switch ── */
 
+.kbd-highlight-wrap {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  margin-right: 8px;
+}
+
+.kbd-highlight-label {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  line-height: 1;
+  white-space: nowrap;
+}
+
 .kbd-highlight-toggle {
   position: relative;
   display: inline-block;
@@ -14,7 +30,6 @@
   height: 14px;
   cursor: pointer;
   vertical-align: middle;
-  margin-right: 6px;
   flex-shrink: 0;
 }
 

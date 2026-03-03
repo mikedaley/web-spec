@@ -725,12 +725,11 @@ export class KeyboardWindow extends BaseWindow {
   onContentRendered() {
     // Add highlight toggle to header (before close button)
     const closeBtn = this.headerElement.querySelector('.debug-window-close');
-    if (closeBtn && !this.headerElement.querySelector('.kbd-highlight-toggle')) {
-      const toggle = document.createElement('label');
-      toggle.className = 'kbd-highlight-toggle';
-      toggle.title = 'Dynamic mode highlighting';
-      toggle.innerHTML = `<input type="checkbox"${this._dynamicHighlight ? ' checked' : ''}><span class="kbd-toggle-slider"></span>`;
-      toggle.querySelector('input').addEventListener('change', (e) => {
+    if (closeBtn && !this.headerElement.querySelector('.kbd-highlight-wrap')) {
+      const wrap = document.createElement('div');
+      wrap.className = 'kbd-highlight-wrap';
+      wrap.innerHTML = `<span class="kbd-highlight-label">Dynamic</span><label class="kbd-highlight-toggle"><input type="checkbox"${this._dynamicHighlight ? ' checked' : ''}><span class="kbd-toggle-slider"></span></label>`;
+      wrap.querySelector('input').addEventListener('change', (e) => {
         e.stopPropagation();
         this._dynamicHighlight = e.target.checked;
         const container = this.contentElement?.querySelector('.kbd-container');
@@ -740,8 +739,8 @@ export class KeyboardWindow extends BaseWindow {
         if (this.onStateChange) this.onStateChange();
         this.saveSettings();
       });
-      toggle.addEventListener('mousedown', (e) => e.stopPropagation());
-      closeBtn.parentNode.insertBefore(toggle, closeBtn);
+      wrap.addEventListener('mousedown', (e) => e.stopPropagation());
+      closeBtn.parentNode.insertBefore(wrap, closeBtn);
     }
 
     this.contentElement.querySelectorAll(".kbd-key").forEach((el) => {
@@ -1077,7 +1076,7 @@ export class KeyboardWindow extends BaseWindow {
   restoreState(state) {
     if (state.dynamicHighlight !== undefined) {
       this._dynamicHighlight = state.dynamicHighlight;
-      const input = this.headerElement?.querySelector('.kbd-highlight-toggle input');
+      const input = this.headerElement?.querySelector('.kbd-highlight-wrap input');
       if (input) input.checked = this._dynamicHighlight;
     }
     super.restoreState(state);
