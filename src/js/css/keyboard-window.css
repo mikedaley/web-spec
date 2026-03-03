@@ -484,8 +484,8 @@ html[data-theme="light"] .kbd-sym-char {
   z-index: 2;
 }
 
-/* L mode: main letters/numbers centered and scaled */
-.kbd-container[data-shift-mode="letter"] .kbd-main {
+/* L mode: main letters/numbers centered and scaled (exclude ENTER) */
+.kbd-container[data-shift-mode="letter"] .kbd-key:not(.kbd-key-center) .kbd-main {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -493,8 +493,8 @@ html[data-theme="light"] .kbd-sym-char {
   z-index: 2;
 }
 
-/* Caps-shift mode: main letters/numbers centered and scaled */
-.kbd-container[data-shift-mode="caps-shift"] .kbd-main {
+/* Caps-shift mode: main letters/numbers centered and scaled (exclude ENTER) */
+.kbd-container[data-shift-mode="caps-shift"] .kbd-key:not(.kbd-key-center) .kbd-main {
   position: absolute;
   top: 50%;
   left: 50%;
