@@ -557,6 +557,7 @@ export class KeyboardWindow extends BaseWindow {
     this._keyElements = new Map();
     this._naturalWidth = 0;
     this._naturalHeight = 0;
+    this._dynamicHighlight = true;
     this._capsShiftActive = false;
     this._symbolShiftActive = false;
     this._physCapsHeld = false;
@@ -722,6 +723,27 @@ export class KeyboardWindow extends BaseWindow {
   }
 
   onContentRendered() {
+    // Add highlight toggle to header (before close button)
+    const closeBtn = this.headerElement.querySelector('.debug-window-close');
+    if (closeBtn && !this.headerElement.querySelector('.kbd-highlight-toggle')) {
+      const toggle = document.createElement('label');
+      toggle.className = 'kbd-highlight-toggle';
+      toggle.title = 'Dynamic mode highlighting';
+      toggle.innerHTML = `<input type="checkbox"${this._dynamicHighlight ? ' checked' : ''}><span class="kbd-toggle-slider"></span>`;
+      toggle.querySelector('input').addEventListener('change', (e) => {
+        e.stopPropagation();
+        this._dynamicHighlight = e.target.checked;
+        const container = this.contentElement?.querySelector('.kbd-container');
+        if (container && !this._dynamicHighlight) {
+          delete container.dataset.shiftMode;
+        }
+        if (this.onStateChange) this.onStateChange();
+        this.saveSettings();
+      });
+      toggle.addEventListener('mousedown', (e) => e.stopPropagation());
+      closeBtn.parentNode.insertBefore(toggle, closeBtn);
+    }
+
     this.contentElement.querySelectorAll(".kbd-key").forEach((el) => {
       const row = el.dataset.row;
       const bit = el.dataset.bit;
@@ -978,6 +1000,11 @@ export class KeyboardWindow extends BaseWindow {
     const container = this.contentElement?.querySelector('.kbd-container');
     if (!container) return;
 
+    if (!this._dynamicHighlight) {
+      if (container.dataset.shiftMode) delete container.dataset.shiftMode;
+      return;
+    }
+
     let modeName;
     if (mode === 1) {
       modeName = 'E';
@@ -1039,6 +1066,21 @@ export class KeyboardWindow extends BaseWindow {
     } else if (e.code === 'ControlLeft' || e.code === 'ControlRight') {
       this._physSymbolHeld = false;
     }
+  }
+
+  getState() {
+    const base = super.getState();
+    base.dynamicHighlight = this._dynamicHighlight;
+    return base;
+  }
+
+  restoreState(state) {
+    if (state.dynamicHighlight !== undefined) {
+      this._dynamicHighlight = state.dynamicHighlight;
+      const input = this.headerElement?.querySelector('.kbd-highlight-toggle input');
+      if (input) input.checked = this._dynamicHighlight;
+    }
+    super.restoreState(state);
   }
 
   destroy() {
