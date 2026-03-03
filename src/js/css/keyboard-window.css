@@ -442,18 +442,61 @@ html[data-theme="light"] .kbd-sym-char {
 .kbd-container .kbd-space-break,
 .kbd-container .kbd-space-label,
 .kbd-container .kbd-main-center {
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, transform 0.25s ease;
 }
 
-/* K mode (keyword): highlight BASIC keywords and number keys, dim everything else */
+/* ── Shift-mode center animations ── */
+/* Elements become absolutely positioned and centered within the key via
+   top/left 50% + translate(-50%,-50%).  Scale is kept modest so content
+   stays within the key's overflow:hidden boundary. */
+
+/* K mode: keywords centered and scaled */
+.kbd-container[data-shift-mode="keyword"] .kbd-keyword {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1.8);
+  z-index: 2;
+  text-align: center;
+}
+
+/* Symbol mode: sym-chars centered and scaled */
+.kbd-container[data-shift-mode="symbol"] .kbd-sym-char {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(2);
+  z-index: 2;
+  text-align: center;
+}
+
+/* Symbol mode: multi-char sym words need a smaller scale to fit */
+.kbd-container[data-shift-mode="symbol"] .kbd-sym-word {
+  transform: translate(-50%, -50%) scale(1.5);
+}
+
+/* Graphics mode: graphic blocks centered and scaled */
+.kbd-container[data-shift-mode="graphics"] .kbd-graphic {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(2);
+  z-index: 2;
+}
+
+/* K mode (keyword): on-key elements fully hidden so only keyword is visible */
 .kbd-container[data-shift-mode="keyword"] .kbd-section-1 .kbd-main,
 .kbd-container[data-shift-mode="keyword"] .kbd-section-2 .kbd-main,
 .kbd-container[data-shift-mode="keyword"] .kbd-section-3 .kbd-main,
+.kbd-container[data-shift-mode="keyword"] .kbd-sym-char,
+.kbd-container[data-shift-mode="keyword"] .kbd-graphic {
+  opacity: 0;
+}
+
+/* K mode: off-key labels dimmed */
 .kbd-container[data-shift-mode="keyword"] .kbd-above-text,
 .kbd-container[data-shift-mode="keyword"] .kbd-color-name,
 .kbd-container[data-shift-mode="keyword"] .kbd-below-text,
-.kbd-container[data-shift-mode="keyword"] .kbd-sym-char,
-.kbd-container[data-shift-mode="keyword"] .kbd-graphic,
 .kbd-container[data-shift-mode="keyword"] .kbd-arrow-svg,
 .kbd-container[data-shift-mode="keyword"] .kbd-space-break,
 .kbd-container[data-shift-mode="keyword"] .kbd-space-label,
@@ -475,13 +518,17 @@ html[data-theme="light"] .kbd-sym-char {
   opacity: 0.35;
 }
 
-/* SYMBOL SHIFT held: highlight sym-char (red on-key), dim others */
+/* Symbol mode: on-key elements fully hidden so only sym-char is visible */
 .kbd-container[data-shift-mode="symbol"] .kbd-main,
+.kbd-container[data-shift-mode="symbol"] .kbd-keyword,
+.kbd-container[data-shift-mode="symbol"] .kbd-graphic {
+  opacity: 0;
+}
+
+/* Symbol mode: off-key labels dimmed */
 .kbd-container[data-shift-mode="symbol"] .kbd-above-text,
 .kbd-container[data-shift-mode="symbol"] .kbd-color-name,
 .kbd-container[data-shift-mode="symbol"] .kbd-below-text,
-.kbd-container[data-shift-mode="symbol"] .kbd-keyword,
-.kbd-container[data-shift-mode="symbol"] .kbd-graphic,
 .kbd-container[data-shift-mode="symbol"] .kbd-arrow-svg,
 .kbd-container[data-shift-mode="symbol"] .kbd-space-break,
 .kbd-container[data-shift-mode="symbol"] .kbd-space-label,
@@ -529,11 +576,16 @@ html[data-theme="light"] .kbd-sym-char {
   opacity: 0.35;
 }
 
-/* GRAPHICS (G mode): highlight graphic icons, dim other labels */
-.kbd-container[data-shift-mode="graphics"] .kbd-above-text,
-.kbd-container[data-shift-mode="graphics"] .kbd-color-name,
-.kbd-container[data-shift-mode="graphics"] .kbd-below-text,
+/* Graphics mode: on-key elements fully hidden so only graphic is visible */
+.kbd-container[data-shift-mode="graphics"] .kbd-main,
 .kbd-container[data-shift-mode="graphics"] .kbd-sym-char,
 .kbd-container[data-shift-mode="graphics"] .kbd-keyword {
+  opacity: 0;
+}
+
+/* Graphics mode: off-key labels dimmed */
+.kbd-container[data-shift-mode="graphics"] .kbd-above-text,
+.kbd-container[data-shift-mode="graphics"] .kbd-color-name,
+.kbd-container[data-shift-mode="graphics"] .kbd-below-text {
   opacity: 0.35;
 }
