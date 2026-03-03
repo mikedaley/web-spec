@@ -484,6 +484,24 @@ html[data-theme="light"] .kbd-sym-char {
   z-index: 2;
 }
 
+/* L mode: main letters/numbers centered and scaled */
+.kbd-container[data-shift-mode="letter"] .kbd-main {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1.3);
+  z-index: 2;
+}
+
+/* Caps-shift mode: main letters/numbers centered and scaled */
+.kbd-container[data-shift-mode="caps-shift"] .kbd-main {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1.3);
+  z-index: 2;
+}
+
 /* K mode (keyword): on-key elements fully hidden so only keyword is visible */
 .kbd-container[data-shift-mode="keyword"] .kbd-section-1 .kbd-main,
 .kbd-container[data-shift-mode="keyword"] .kbd-section-2 .kbd-main,
@@ -504,11 +522,15 @@ html[data-theme="light"] .kbd-sym-char {
   opacity: 0.35;
 }
 
-/* CAPS SHIFT held: highlight letters, numbers, and number row above-text (EDIT, CAPS LOCK, etc.) */
+/* Caps-shift: on-key elements fully hidden so only main letter is visible */
 .kbd-container[data-shift-mode="caps-shift"] .kbd-sym-char,
 .kbd-container[data-shift-mode="caps-shift"] .kbd-keyword,
+.kbd-container[data-shift-mode="caps-shift"] .kbd-graphic {
+  opacity: 0;
+}
+
+/* Caps-shift: off-key labels dimmed */
 .kbd-container[data-shift-mode="caps-shift"] .kbd-below-text,
-.kbd-container[data-shift-mode="caps-shift"] .kbd-graphic,
 .kbd-container[data-shift-mode="caps-shift"] .kbd-color-name,
 .kbd-container[data-shift-mode="caps-shift"] .kbd-section-1 .kbd-above-text,
 .kbd-container[data-shift-mode="caps-shift"] .kbd-section-2 .kbd-above-text,
@@ -564,13 +586,17 @@ html[data-theme="light"] .kbd-sym-char {
   opacity: 0.35;
 }
 
-/* L mode (letter): highlight main letters/numbers only, dim everything else */
+/* L mode: on-key elements fully hidden so only main letter is visible */
+.kbd-container[data-shift-mode="letter"] .kbd-sym-char,
+.kbd-container[data-shift-mode="letter"] .kbd-keyword,
+.kbd-container[data-shift-mode="letter"] .kbd-graphic {
+  opacity: 0;
+}
+
+/* L mode: off-key labels dimmed */
 .kbd-container[data-shift-mode="letter"] .kbd-above-text,
 .kbd-container[data-shift-mode="letter"] .kbd-color-name,
 .kbd-container[data-shift-mode="letter"] .kbd-below-text,
-.kbd-container[data-shift-mode="letter"] .kbd-sym-char,
-.kbd-container[data-shift-mode="letter"] .kbd-keyword,
-.kbd-container[data-shift-mode="letter"] .kbd-graphic,
 .kbd-container[data-shift-mode="letter"] .kbd-arrow-svg,
 .kbd-container[data-shift-mode="letter"] .kbd-space-break {
   opacity: 0.35;
