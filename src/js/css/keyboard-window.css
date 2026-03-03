@@ -461,6 +461,21 @@ html[data-theme="light"] .kbd-sym-char {
   opacity: 0.35;
 }
 
+/* CAPS SHIFT held: highlight number row above-text (EDIT, CAPS LOCK, etc.), arrows, colour names */
+.kbd-container[data-shift-mode="caps-shift"] .kbd-main,
+.kbd-container[data-shift-mode="caps-shift"] .kbd-sym-char,
+.kbd-container[data-shift-mode="caps-shift"] .kbd-keyword,
+.kbd-container[data-shift-mode="caps-shift"] .kbd-below-text,
+.kbd-container[data-shift-mode="caps-shift"] .kbd-graphic,
+.kbd-container[data-shift-mode="caps-shift"] .kbd-section-1 .kbd-above-text,
+.kbd-container[data-shift-mode="caps-shift"] .kbd-section-2 .kbd-above-text,
+.kbd-container[data-shift-mode="caps-shift"] .kbd-section-3 .kbd-above-text,
+.kbd-container[data-shift-mode="caps-shift"] .kbd-space-break,
+.kbd-container[data-shift-mode="caps-shift"] .kbd-space-label,
+.kbd-container[data-shift-mode="caps-shift"] .kbd-main-center {
+  opacity: 0.35;
+}
+
 /* SYMBOL SHIFT held: highlight sym-char (red on-key), dim others */
 .kbd-container[data-shift-mode="symbol"] .kbd-main,
 .kbd-container[data-shift-mode="symbol"] .kbd-above-text,

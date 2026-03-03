@@ -1022,6 +1022,8 @@ export class KeyboardWindow extends BaseWindow {
     let cssMode;
     if (symHeld && modeName !== 'E') {
       cssMode = 'symbol';
+    } else if (capsHeld && modeName !== 'E') {
+      cssMode = 'caps-shift';
     } else if (modeName === 'E') {
       cssMode = (capsHeld || symHeld) ? 'extended-shift' : 'extended';
     } else if (modeName === 'G') {
