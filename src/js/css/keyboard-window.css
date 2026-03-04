@@ -718,7 +718,7 @@ html[data-theme="light"] .kbd-ext-above {
   display: block;
 }
 
-/* E+shift: number row — small number top-left, colour name centered */
+/* E+shift: number row — small number top-left, red below label centered */
 .kbd-container[data-shift-mode="extended-shift"] .kbd-section-0 .kbd-main {
   opacity: 0.5;
   position: absolute;
@@ -730,7 +730,7 @@ html[data-theme="light"] .kbd-ext-above {
   z-index: 1;
 }
 
-.kbd-container[data-shift-mode="extended-shift"] .kbd-section-0 .kbd-ext-color {
+.kbd-container[data-shift-mode="extended-shift"] .kbd-section-0 .kbd-ext-below {
   display: block;
 }
 
