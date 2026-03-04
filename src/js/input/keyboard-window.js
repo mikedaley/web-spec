@@ -697,9 +697,9 @@ export class KeyboardWindow extends BaseWindow {
             html += `<canvas class="kbd-udg" data-udg-index="${udgIdx}" width="8" height="8"></canvas>`;
           }
 
-          // Custom font canvas for letters A-Z
-          if (letter.length === 1 && letter >= 'A' && letter <= 'Z') {
-            html += `<canvas class="kbd-font-char" data-font-letter="${letter}" width="8" height="8"></canvas>`;
+          // Custom font canvas for characters 0-9 and A-Z
+          if (letter.length === 1 && ((letter >= '0' && letter <= '9') || (letter >= 'A' && letter <= 'Z'))) {
+            html += `<canvas class="kbd-font-char" data-font-char="${letter}" width="8" height="8"></canvas>`;
           }
         }
 
@@ -812,14 +812,14 @@ export class KeyboardWindow extends BaseWindow {
       this._udgCanvases[idx] = { canvas, ctx, key: canvas.closest('.kbd-key') };
     });
 
-    // Collect custom font canvas references for A-Z keys
+    // Collect custom font canvas references for 0-9 and A-Z keys
     this._fontCanvases = {};
     this._fontCache = null;
     this.contentElement.querySelectorAll('.kbd-font-char').forEach(canvas => {
-      const letter = canvas.dataset.fontLetter;
+      const ch = canvas.dataset.fontChar;
       const ctx = canvas.getContext('2d');
       ctx.imageSmoothingEnabled = false;
-      this._fontCanvases[letter] = { canvas, ctx, key: canvas.closest('.kbd-key') };
+      this._fontCanvases[ch] = { canvas, ctx, key: canvas.closest('.kbd-key') };
     });
 
     // Apply custom font class if persisted
@@ -1182,14 +1182,19 @@ export class KeyboardWindow extends BaseWindow {
         return;
       }
 
-      // Read 26 letters (A=65, offset from space=33, so byte offset = 33*8 = 264)
-      // Font data starts at chars + 256, letter A at chars + 256 + 33*8 = chars + 520
-      const fontStart = chars + 520;
-      proxy.readMemory(fontStart, 26 * 8).then((fontData) => {
+      // Font data starts at chars + 256 (offset for CHR$ 32 = space)
+      // Digits 0-9: CHR$ 48-57, offset (48-32)*8 = 128 bytes from font start
+      // Letters A-Z: CHR$ 65-90, offset (65-32)*8 = 264 bytes from font start
+      // Read from '0' to 'Z': CHR$ 48 to CHR$ 90 = 43 chars, but there's a gap
+      // (chars 58-64 between digits and letters). Read all 43 chars contiguously.
+      const digitStart = chars + 256 + (48 - 32) * 8; // chars + 384
+      const totalChars = 43; // '0'(48) through 'Z'(90)
+      const totalBytes = totalChars * 8; // 344 bytes
+      proxy.readMemory(digitStart, totalBytes).then((fontData) => {
         // Cache check
         if (this._fontCache) {
           let same = true;
-          for (let i = 0; i < 208; i++) {
+          for (let i = 0; i < totalBytes; i++) {
             if (fontData[i] !== this._fontCache[i]) { same = false; break; }
           }
           if (same) return;
@@ -1197,12 +1202,23 @@ export class KeyboardWindow extends BaseWindow {
         this._fontCache = new Uint8Array(fontData);
         container.classList.add('kbd-has-custom-font');
 
-        for (let i = 0; i < 26; i++) {
-          const letter = String.fromCharCode(65 + i);
-          const entry = this._fontCanvases[letter];
+        // Render digits 0-9 (CHR$ 48-57, index 0-9 in fontData)
+        for (let i = 0; i < 10; i++) {
+          const ch = String.fromCharCode(48 + i);
+          const entry = this._fontCanvases[ch];
           if (!entry) continue;
+          const bytes = fontData.slice(i * 8, (i + 1) * 8);
+          this._drawUDG(entry.ctx, bytes);
+          entry.canvas.classList.add('active');
+          entry.key.classList.add('font-active');
+        }
 
-          const offset = i * 8;
+        // Render letters A-Z (CHR$ 65-90, index 17-42 in fontData)
+        for (let i = 0; i < 26; i++) {
+          const ch = String.fromCharCode(65 + i);
+          const entry = this._fontCanvases[ch];
+          if (!entry) continue;
+          const offset = (17 + i) * 8; // 65 - 48 = 17
           const bytes = fontData.slice(offset, offset + 8);
           this._drawUDG(entry.ctx, bytes);
           entry.canvas.classList.add('active');
