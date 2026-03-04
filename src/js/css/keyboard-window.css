@@ -563,7 +563,7 @@ html[data-theme="light"] .kbd-sym-char {
   opacity: 0;
 }
 
-/* Symbol mode: sym-chars centered and large */
+/* Symbol mode: sym-chars centered and large with dark pill background */
 .kbd-container[data-shift-mode="symbol"] .kbd-sym-char {
   position: absolute;
   top: 50%;
@@ -573,6 +573,9 @@ html[data-theme="light"] .kbd-sym-char {
   line-height: 1.2;
   z-index: 2;
   text-align: center;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 /* Symbol mode: multi-char sym words slightly smaller to fit */
