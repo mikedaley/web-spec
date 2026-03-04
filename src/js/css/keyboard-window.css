@@ -265,14 +265,19 @@ html[data-theme="light"] .kbd-key:hover {
 }
 
 
-/* Main character: large white, top-left — lowercase by default */
+/* Main character: large white, centered — lowercase by default */
 .kbd-main {
   color: #FFFFFF;
   font-size: 26px;
   font-weight: 700;
   line-height: 28px;
-  text-align: left;
+  text-align: center;
   text-transform: lowercase;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
 }
 
 /* Uppercase in K mode (first letter is capital) and caps-shift */
@@ -461,6 +466,16 @@ html[data-theme="light"] .kbd-sym-char {
 .kbd-container .kbd-key-space .kbd-space-break,
 .kbd-container .kbd-key-space .kbd-space-label {
   opacity: 1 !important;
+}
+
+/* Reset centering for shift keys and ENTER — they have multi-line labels */
+.kbd-key[data-shift] .kbd-main,
+.kbd-key-center .kbd-main {
+  position: static;
+  top: auto;
+  left: auto;
+  transform: none;
+  text-transform: none;
 }
 
 /* K mode + keyword-caps: other on-key elements fully hidden */
