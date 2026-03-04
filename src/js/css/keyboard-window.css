@@ -262,13 +262,21 @@ html[data-theme="light"] .kbd-key:hover {
 }
 
 
-/* Main character: large white, top-left */
+/* Main character: large white, top-left — lowercase by default */
 .kbd-main {
   color: #FFFFFF;
   font-size: 26px;
   font-weight: 700;
   line-height: 28px;
   text-align: left;
+  text-transform: lowercase;
+}
+
+/* Uppercase in K mode (first letter is capital) and caps-shift */
+.kbd-container[data-shift-mode="keyword"] .kbd-main,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-main,
+.kbd-container[data-shift-mode="caps-shift"] .kbd-main {
+  text-transform: none;
 }
 
 /* Smaller main text for multi-line labels (CAPS SHIFT, SYMBOL SHIFT) */

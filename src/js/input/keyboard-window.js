@@ -1179,20 +1179,22 @@ export class KeyboardWindow extends BaseWindow {
       if (!isCustom) {
         container.classList.remove('kbd-has-custom-font');
         this._fontCache = null;
+        this._fontCacheLower = null;
         return;
       }
 
-      // Font data starts at chars + 256 (offset for CHR$ 32 = space)
-      // Digits 0-9: CHR$ 48-57, offset (48-32)*8 = 128 bytes from font start
-      // Letters A-Z: CHR$ 65-90, offset (65-32)*8 = 264 bytes from font start
-      // Read from '0' to 'Z': CHR$ 48 to CHR$ 90 = 43 chars, but there's a gap
-      // (chars 58-64 between digits and letters). Read all 43 chars contiguously.
-      const digitStart = chars + 256 + (48 - 32) * 8; // chars + 384
-      const totalChars = 43; // '0'(48) through 'Z'(90)
-      const totalBytes = totalChars * 8; // 344 bytes
-      proxy.readMemory(digitStart, totalBytes).then((fontData) => {
-        // Cache check
-        if (this._fontCache) {
+      // Determine whether to show uppercase or lowercase glyphs
+      const cssMode = container.dataset.shiftMode;
+      const useUpper = cssMode === 'keyword' || cssMode === 'keyword-caps' || cssMode === 'caps-shift';
+
+      // Read digits 0-9 (CHR$ 48-57), uppercase A-Z (CHR$ 65-90), lowercase a-z (CHR$ 97-122)
+      // All from chars+256 base. Read CHR$ 48 through CHR$ 122 = 75 chars contiguously.
+      const readStart = chars + 256 + (48 - 32) * 8; // chars + 384
+      const totalChars = 75; // CHR$ 48 through CHR$ 122
+      const totalBytes = totalChars * 8; // 600 bytes
+      proxy.readMemory(readStart, totalBytes).then((fontData) => {
+        // Cache check — also invalidate when case changes
+        if (this._fontCache && this._fontCaseUpper === useUpper) {
           let same = true;
           for (let i = 0; i < totalBytes; i++) {
             if (fontData[i] !== this._fontCache[i]) { same = false; break; }
@@ -1200,6 +1202,7 @@ export class KeyboardWindow extends BaseWindow {
           if (same) return;
         }
         this._fontCache = new Uint8Array(fontData);
+        this._fontCaseUpper = useUpper;
         container.classList.add('kbd-has-custom-font');
 
         // Render digits 0-9 (CHR$ 48-57, index 0-9 in fontData)
@@ -1213,12 +1216,14 @@ export class KeyboardWindow extends BaseWindow {
           entry.key.classList.add('font-active');
         }
 
-        // Render letters A-Z (CHR$ 65-90, index 17-42 in fontData)
+        // Render letters A-Z using uppercase (CHR$ 65-90, index 17-42) or
+        // lowercase (CHR$ 97-122, index 49-74) glyphs
+        const letterBaseIdx = useUpper ? 17 : 49;
         for (let i = 0; i < 26; i++) {
-          const ch = String.fromCharCode(65 + i);
+          const ch = String.fromCharCode(65 + i); // canvas key is always uppercase
           const entry = this._fontCanvases[ch];
           if (!entry) continue;
-          const offset = (17 + i) * 8; // 65 - 48 = 17
+          const offset = (letterBaseIdx + i) * 8;
           const bytes = fontData.slice(offset, offset + 8);
           this._drawUDG(entry.ctx, bytes);
           entry.canvas.classList.add('active');
