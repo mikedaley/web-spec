@@ -558,9 +558,26 @@ html[data-theme="light"] .kbd-sym-char {
   opacity: 0.35;
 }
 
-/* Symbol mode: dim main letter */
+/* Symbol mode: hide main letter */
 .kbd-container[data-shift-mode="symbol"] .kbd-main {
-  opacity: 0.35;
+  opacity: 0;
+}
+
+/* Symbol mode: sym-chars centered and large */
+.kbd-container[data-shift-mode="symbol"] .kbd-sym-char {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 18px;
+  line-height: 1.2;
+  z-index: 2;
+  text-align: center;
+}
+
+/* Symbol mode: multi-char sym words slightly smaller to fit */
+.kbd-container[data-shift-mode="symbol"] .kbd-sym-word {
+  font-size: 14px;
 }
 
 /* Symbol mode: other on-key elements fully hidden */
