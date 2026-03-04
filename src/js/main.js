@@ -23,6 +23,7 @@ import { RuleBuilderWindow } from "./debug/rule-builder-window.js";
 import { MemoryMapWindow } from "./debug/memory-map-window.js";
 import { KeyboardWindow } from "./input/keyboard-window.js";
 import { UDGEditorWindow } from "./debug/udg-editor-window.js";
+import { FontEditorWindow } from "./debug/font-editor-window.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
@@ -53,6 +54,7 @@ class ZXSpectrumEmulator {
     this.memoryMapWindow = null;
     this.keyboardWindow = null;
     this.udgEditorWindow = null;
+    this.fontEditorWindow = null;
 
     this.snapshotLoader = null;
     this.themeManager = null;
@@ -146,6 +148,11 @@ class ZXSpectrumEmulator {
       this.udgEditorWindow.create();
       this.windowManager.register(this.udgEditorWindow);
 
+      // Create font editor window
+      this.fontEditorWindow = new FontEditorWindow(this.proxy);
+      this.fontEditorWindow.create();
+      this.windowManager.register(this.fontEditorWindow);
+
       // Create rule builder window (shared by BASIC and CPU debugger)
       this.ruleBuilderWindow = new RuleBuilderWindow();
       this.ruleBuilderWindow.create();
@@ -192,6 +199,7 @@ class ZXSpectrumEmulator {
         { id: "memory-map", visible: false },
         { id: "keyboard", visible: false },
         { id: "udg-editor", visible: false },
+        { id: "font-editor", visible: false },
         { id: "save-states", visible: false },
       ]);
 
@@ -465,6 +473,16 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // Dev menu > Font Editor
+    const fontEditorBtn = document.getElementById("btn-font-editor");
+    if (fontEditorBtn) {
+      fontEditorBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("font-editor");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
     // Help menu > Check for Updates
     const checkUpdatesBtn = document.getElementById("btn-check-updates");
     if (checkUpdatesBtn) {
@@ -579,6 +597,7 @@ class ZXSpectrumEmulator {
       "btn-stack-viewer": "stack-viewer",
       "btn-basic-editor": "basic-program",
       "btn-udg-editor": "udg-editor",
+      "btn-font-editor": "font-editor",
     };
 
     for (const [btnId, windowId] of Object.entries(windowMap)) {

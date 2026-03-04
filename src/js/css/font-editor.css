@@ -1,8 +1,8 @@
 /* ============================================
-   UDG EDITOR WINDOW
+   FONT EDITOR WINDOW
    ============================================ */
 
-.udg-editor {
+.font-editor {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -12,15 +12,32 @@
   padding: 6px;
 }
 
-/* ---- Letter selector ---- */
-.udg-letter-bar {
+/* ---- Character selector ---- */
+.fe-char-bar {
   display: flex;
   flex-wrap: wrap;
   gap: 2px;
   padding: 2px 0;
+  max-height: 110px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--glass-border) transparent;
 }
 
-.udg-letter-btn {
+.fe-char-bar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.fe-char-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.fe-char-bar::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 2px;
+}
+
+.fe-char-btn {
   width: 24px;
   height: 24px;
   padding: 0;
@@ -34,25 +51,25 @@
   transition: all 0.15s;
 }
 
-.udg-letter-btn canvas {
+.fe-char-btn canvas {
   width: 14px;
   height: 14px;
   image-rendering: pixelated;
 }
 
-.udg-letter-btn:hover {
+.fe-char-btn:hover {
   background: var(--glass-border);
   border-color: var(--accent-blue-border);
 }
 
-.udg-letter-btn.selected {
+.fe-char-btn.selected {
   background: var(--accent-blue-bg);
   border-color: var(--accent-blue-border);
   box-shadow: 0 0 6px var(--accent-blue-bg-stronger);
 }
 
-/* ---- Main editor area (grid + bytes + preview) ---- */
-.udg-editor-body {
+/* ---- Main editor area (grid + bytes) ---- */
+.fe-editor-body {
   display: flex;
   gap: 8px;
   align-items: center;
@@ -60,7 +77,7 @@
 }
 
 /* ---- 8×8 pixel grid ---- */
-.udg-pixel-grid {
+.fe-pixel-grid {
   display: grid;
   grid-template-columns: repeat(8, 1fr);
   gap: 1px;
@@ -72,29 +89,29 @@
   height: 168px;
 }
 
-.udg-pixel-cell {
+.fe-pixel-cell {
   background: var(--bg-secondary);
   cursor: crosshair;
   transition: background 0.05s;
 }
 
-.udg-pixel-cell.filled {
+.fe-pixel-cell.filled {
   background: var(--text-primary);
 }
 
-.udg-pixel-cell:hover {
+.fe-pixel-cell:hover {
   opacity: 0.8;
 }
 
 /* ---- Byte display (aligned to grid rows) ---- */
-.udg-byte-display {
+.fe-byte-display {
   display: flex;
   flex-direction: column;
   height: 168px;
   flex-shrink: 0;
 }
 
-.udg-byte-row {
+.fe-byte-row {
   flex: 1;
   display: flex;
   align-items: center;
@@ -105,7 +122,7 @@
 }
 
 /* ---- Toolbar groups ---- */
-.udg-toolbars {
+.fe-toolbars {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -114,7 +131,7 @@
   border-bottom: 1px solid var(--separator-bg);
 }
 
-.udg-toolbar-group {
+.fe-toolbar-group {
   display: flex;
   align-items: center;
   gap: 2px;
@@ -124,7 +141,7 @@
   background: var(--glass-bg-header);
 }
 
-.udg-group-label {
+.fe-group-label {
   font-size: 9px;
   font-weight: 600;
   color: var(--text-muted);
@@ -134,7 +151,7 @@
   user-select: none;
 }
 
-.udg-toolbar-group button {
+.fe-toolbar-group button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -150,27 +167,51 @@
   transition: all 0.15s;
 }
 
-.udg-toolbar-group button:hover {
+.fe-toolbar-group button:hover {
   background: var(--glass-border);
   border-color: var(--control-border);
   color: var(--text-primary);
 }
 
-.udg-toolbar-group button.btn-flash {
+.fe-toolbar-group button.btn-flash {
   background: var(--accent-green-bg);
   border-color: var(--accent-green-border);
   color: var(--accent-green);
   transition: all 0.05s;
 }
 
-.udg-toolbar-group button.has-clipboard {
+@keyframes fe-btn-flash {
+  0% { background: var(--accent-green-bg-stronger); }
+  100% { background: transparent; }
+}
+
+.fe-toolbar-group button.has-clipboard {
   background: var(--accent-blue-bg);
   border-color: var(--accent-blue-border);
   color: var(--accent-blue);
 }
 
+/* ---- Address input ---- */
+.fe-address-input {
+  width: 60px;
+  padding: 2px 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  background: var(--input-bg);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  text-align: center;
+}
+
+.fe-address-input:focus {
+  outline: none;
+  border-color: var(--accent-blue-border);
+  box-shadow: 0 0 4px var(--accent-blue-bg-stronger);
+}
+
 /* ---- Live toggle switch ---- */
-.udg-live-toggle {
+.fe-live-toggle {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -184,11 +225,11 @@
   padding: 0 2px;
 }
 
-.udg-live-toggle:hover {
+.fe-live-toggle:hover {
   color: var(--text-primary);
 }
 
-.udg-live-checkbox {
+.fe-live-checkbox {
   appearance: none;
   -webkit-appearance: none;
   width: 26px;
@@ -202,7 +243,7 @@
   transition: background 0.2s, border-color 0.2s;
 }
 
-.udg-live-checkbox::after {
+.fe-live-checkbox::after {
   content: "";
   position: absolute;
   left: 2px;
@@ -214,42 +255,29 @@
   transition: transform 0.2s, background 0.2s;
 }
 
-.udg-live-checkbox:checked {
+.fe-live-checkbox:checked {
   background: var(--accent-red-bg-stronger);
   border-color: var(--accent-red);
 }
 
-.udg-live-checkbox:checked::after {
+.fe-live-checkbox:checked::after {
   transform: translateX(12px);
   background: var(--accent-red);
 }
 
-.udg-live-checkbox:hover {
+.fe-live-checkbox:hover {
   border-color: var(--accent-red);
 }
 
-/* ---- Sync indicator ---- */
-.udg-sync-indicator {
-  font-size: 10px;
-  color: var(--accent-orange);
-  padding: 0;
-  display: none;
-  flex-shrink: 0;
-}
-
-.udg-sync-indicator.visible {
-  display: block;
-}
-
 /* ---- BASIC code panel (fills remaining space) ---- */
-.udg-basic-panel {
+.fe-basic-panel {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
 }
 
-.udg-basic-header {
+.fe-basic-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -257,7 +285,7 @@
   flex-shrink: 0;
 }
 
-.udg-basic-title {
+.fe-basic-title {
   font-size: 10px;
   font-weight: 600;
   color: var(--text-muted);
@@ -265,12 +293,12 @@
   letter-spacing: 0.5px;
 }
 
-.udg-basic-actions {
+.fe-basic-actions {
   display: flex;
   gap: 6px;
 }
 
-.udg-basic-actions button {
+.fe-basic-actions button {
   padding: 2px 8px;
   font-family: var(--font-sans);
   font-size: 10px;
@@ -283,23 +311,23 @@
   transition: all 0.15s;
 }
 
-.udg-basic-actions button:hover {
+.fe-basic-actions button:hover {
   background: var(--glass-border);
   color: var(--text-primary);
 }
 
-.udg-basic-actions .btn-write {
+.fe-basic-actions .btn-write {
   background: var(--accent-green-bg);
   border-color: var(--accent-green-border);
   color: var(--accent-green);
 }
 
-.udg-basic-actions .btn-write:hover {
+.fe-basic-actions .btn-write:hover {
   background: var(--accent-green-bg-stronger);
 }
 
 /* ---- BASIC editor (textarea + highlight overlay) ---- */
-.udg-basic-editor-container {
+.fe-basic-editor-container {
   position: relative;
   flex: 1;
   min-height: 0;
@@ -309,8 +337,8 @@
   background: var(--input-bg);
 }
 
-.udg-basic-textarea,
-.udg-basic-highlight {
+.fe-basic-textarea,
+.fe-basic-highlight {
   position: absolute;
   top: 0;
   left: 0;
@@ -327,7 +355,7 @@
   box-sizing: border-box;
 }
 
-.udg-basic-textarea {
+.fe-basic-textarea {
   background: transparent;
   color: transparent;
   caret-color: var(--text-primary);
@@ -336,8 +364,21 @@
   outline: none;
 }
 
-.udg-basic-highlight {
+.fe-basic-highlight {
   z-index: 1;
   color: var(--text-primary);
   pointer-events: none;
+}
+
+/* ---- Sync indicator ---- */
+.fe-sync-indicator {
+  font-size: 10px;
+  color: var(--accent-orange);
+  padding: 0;
+  display: none;
+  flex-shrink: 0;
+}
+
+.fe-sync-indicator.visible {
+  display: block;
 }

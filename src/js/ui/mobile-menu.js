@@ -138,6 +138,12 @@ export class MobileMenu {
         <button class="mobile-menu-item" data-mobile-window="basic-program">
           <span class="menu-item-label">BASIC Editor</span>
         </button>
+        <button class="mobile-menu-item" data-mobile-window="udg-editor">
+          <span class="menu-item-label">UDG Editor</span>
+        </button>
+        <button class="mobile-menu-item" data-mobile-window="font-editor">
+          <span class="menu-item-label">Font Editor</span>
+        </button>
       </div>
 
       <!-- Help section -->

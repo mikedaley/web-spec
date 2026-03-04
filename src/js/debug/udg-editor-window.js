@@ -222,7 +222,10 @@ export class UDGEditorWindow extends BaseWindow {
       const btn = e.target.closest("button");
       if (!btn) return;
       const action = btn.dataset.action;
-      if (action) this._handleAction(action);
+      if (action) {
+        this._flashButton(btn);
+        this._handleAction(action);
+      }
     });
 
     // Live toggle
@@ -342,6 +345,11 @@ export class UDGEditorWindow extends BaseWindow {
 
   _updateClipboardIndicator() {
     this._elements.btnCopyUdg.classList.toggle("has-clipboard", this._udgClipboard !== null);
+  }
+
+  _flashButton(btn) {
+    btn.classList.add("btn-flash");
+    setTimeout(() => btn.classList.remove("btn-flash"), 150);
   }
 
   // ---- Tool actions ----
