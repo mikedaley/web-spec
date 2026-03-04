@@ -452,6 +452,72 @@ html[data-theme="light"] .kbd-sym-char {
   min-width: 0;
 }
 
+/* ── Non-dynamic (default) keyboard overrides ── */
+
+/* Letters: uppercase, top-left, large */
+.kbd-container:not([data-shift-mode]) .kbd-section-1 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main,
+.kbd-container:not([data-shift-mode]) .kbd-section-2 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main,
+.kbd-container:not([data-shift-mode]) .kbd-section-3 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main {
+  text-transform: uppercase;
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  transform: none;
+  font-size: 22px;
+  line-height: 24px;
+}
+
+/* Red sym-char: top-right in non-dynamic mode for letter rows */
+.kbd-container:not([data-shift-mode]) .kbd-section-1 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-sym-char,
+.kbd-container:not([data-shift-mode]) .kbd-section-2 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-sym-char,
+.kbd-container:not([data-shift-mode]) .kbd-section-3 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-sym-char {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  z-index: 1;
+}
+
+/* Number row: number top-left */
+.kbd-container:not([data-shift-mode]) .kbd-section-0 .kbd-main {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  transform: none;
+  font-size: 22px;
+  line-height: 24px;
+}
+
+/* Number row: graphic top-right */
+.kbd-container:not([data-shift-mode]) .kbd-section-0 .kbd-right-col {
+  position: static;
+  margin: 0;
+}
+
+.kbd-container:not([data-shift-mode]) .kbd-section-0 .kbd-graphic {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+}
+
+/* Number row: red sym-char bottom-right, positioned relative to .kbd-key */
+.kbd-container:not([data-shift-mode]) .kbd-section-0 .kbd-sym-char,
+.kbd-container:not([data-shift-mode]) .kbd-section-0 .kbd-right-col .kbd-sym-char {
+  position: absolute;
+  bottom: 2px;
+  right: 4px;
+  left: auto;
+  top: auto;
+  margin-top: 0;
+  z-index: 1;
+  text-align: right;
+}
+
+/* Keyword: a bit bigger in non-dynamic mode */
+.kbd-container:not([data-shift-mode]) .kbd-keyword {
+  font-size: 11px;
+  line-height: 13px;
+}
+
 /* ── Shift-mode label highlighting ── */
 
 .kbd-container .kbd-above-text,
