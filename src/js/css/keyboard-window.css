@@ -569,18 +569,15 @@ html[data-theme="light"] .kbd-sym-char {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 18px;
+  font-size: 22px;
   line-height: 1.2;
   z-index: 2;
   text-align: center;
-  background: rgba(0, 0, 0, 0.45);
-  padding: 2px 6px;
-  border-radius: 4px;
 }
 
 /* Symbol mode: multi-char sym words slightly smaller to fit */
 .kbd-container[data-shift-mode="symbol"] .kbd-sym-word {
-  font-size: 14px;
+  font-size: 16px;
 }
 
 /* Symbol mode: other on-key elements fully hidden */
