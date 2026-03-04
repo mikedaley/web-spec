@@ -559,6 +559,7 @@ export class KeyboardWindow extends BaseWindow {
     this._naturalHeight = 0;
     this._dynamicHighlight = true;
     this._customFont = false;
+    this._emulatorRunning = false;
     this._capsShiftActive = false;
     this._symbolShiftActive = false;
     this._physCapsHeld = false;
@@ -592,6 +593,14 @@ export class KeyboardWindow extends BaseWindow {
     if (this.contentElement) {
       this.contentElement.innerHTML = this.renderContent();
       this.onContentRendered();
+    }
+  }
+
+  setRunning(running) {
+    this._emulatorRunning = running;
+    const container = this.contentElement?.querySelector('.kbd-container');
+    if (container) {
+      container.classList.toggle('kbd-inactive', !running);
     }
   }
 
@@ -822,10 +831,11 @@ export class KeyboardWindow extends BaseWindow {
       this._fontCanvases[ch] = { canvas, ctx, key: canvas.closest('.kbd-key') };
     });
 
-    // Apply custom font class if persisted
-    if (this._customFont) {
-      const container = this.contentElement?.querySelector('.kbd-container');
-      if (container) container.classList.add('kbd-custom-font');
+    // Apply persisted classes
+    const container = this.contentElement?.querySelector('.kbd-container');
+    if (container) {
+      if (this._customFont) container.classList.add('kbd-custom-font');
+      if (!this._emulatorRunning) container.classList.add('kbd-inactive');
     }
 
     this.contentElement.addEventListener("mousedown", (e) =>
@@ -952,6 +962,7 @@ export class KeyboardWindow extends BaseWindow {
   }
 
   _handlePointerDown(e) {
+    if (!this._emulatorRunning) return;
     const el = this._getKeyFromEvent(e);
     if (!el) return;
     e.preventDefault();
@@ -992,6 +1003,7 @@ export class KeyboardWindow extends BaseWindow {
   }
 
   _handleTouchStart(e) {
+    if (!this._emulatorRunning) return;
     e.preventDefault();
     for (const touch of e.changedTouches) {
       const el = document

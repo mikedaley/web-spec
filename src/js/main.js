@@ -1237,6 +1237,7 @@ class ZXSpectrumEmulator {
     this.running = true;
     this.renderer.setNoSignal(false);
     this.audioDriver.start();
+    if (this.keyboardWindow) this.keyboardWindow.setRunning(true);
     console.log("Emulator powered on");
   }
 
@@ -1246,6 +1247,7 @@ class ZXSpectrumEmulator {
     this.running = false;
     this.audioDriver.stop();
     this.renderer.setNoSignal(true);
+    if (this.keyboardWindow) this.keyboardWindow.setRunning(false);
     console.log("Emulator powered off");
   }
 

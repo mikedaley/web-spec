@@ -75,6 +75,13 @@
   transform: translateX(14px);
 }
 
+/* Dimmed inactive state when emulator is not running */
+.kbd-container.kbd-inactive {
+  opacity: 0.35;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
 /* Remove padding from content area */
 #keyboard .debug-window-content {
   padding: 0;
