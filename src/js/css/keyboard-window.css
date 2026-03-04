@@ -596,12 +596,16 @@ html[data-theme="light"] .kbd-sym-char {
   opacity: 0.35;
 }
 
-/* EXTENDED (E mode): dim everything except green above-text on letter rows and colour names */
+/* EXTENDED (E mode): hide all on-key content */
 .kbd-container[data-shift-mode="extended"] .kbd-main,
 .kbd-container[data-shift-mode="extended"] .kbd-sym-char,
 .kbd-container[data-shift-mode="extended"] .kbd-keyword,
+.kbd-container[data-shift-mode="extended"] .kbd-graphic {
+  opacity: 0;
+}
+
+/* EXTENDED (E mode): dim off-key labels except green above-text on letter rows */
 .kbd-container[data-shift-mode="extended"] .kbd-below-text,
-.kbd-container[data-shift-mode="extended"] .kbd-graphic,
 .kbd-container[data-shift-mode="extended"] .kbd-section-0 .kbd-above-text,
 .kbd-container[data-shift-mode="extended"] .kbd-arrow-svg,
 .kbd-container[data-shift-mode="extended"] .kbd-space-break,
@@ -609,13 +613,17 @@ html[data-theme="light"] .kbd-sym-char {
   opacity: 0.35;
 }
 
-/* EXTENDED + CAPS SHIFT (E mode shifted): dim everything except red below-text */
+/* EXTENDED + CAPS SHIFT (E mode shifted): hide all on-key content */
 .kbd-container[data-shift-mode="extended-shift"] .kbd-main,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-sym-char,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-keyword,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-graphic {
+  opacity: 0;
+}
+
+/* EXTENDED + CAPS SHIFT: dim off-key labels except red below-text */
 .kbd-container[data-shift-mode="extended-shift"] .kbd-above-text,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-color-name,
-.kbd-container[data-shift-mode="extended-shift"] .kbd-graphic,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-arrow-svg,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-space-break,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-space-label {
