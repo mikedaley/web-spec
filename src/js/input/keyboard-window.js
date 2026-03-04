@@ -1074,7 +1074,7 @@ export class KeyboardWindow extends BaseWindow {
    * Polls the emulator's system variables to determine the current input mode.
    */
   update(proxy) {
-    if (!proxy || !this._dynamicHighlight) return;
+    if (!proxy || !this._dynamicHighlight || !this._emulatorRunning) return;
     proxy.readMemory(0x5C3B, 7).then((data) => {
       // FLAGS at 0x5C3B (offset 0), MODE at 0x5C41 (offset 6)
       const flags = data[0];
