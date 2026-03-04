@@ -558,6 +558,7 @@ export class KeyboardWindow extends BaseWindow {
     this._naturalWidth = 0;
     this._naturalHeight = 0;
     this._dynamicHighlight = true;
+    this._customFont = false;
     this._capsShiftActive = false;
     this._symbolShiftActive = false;
     this._physCapsHeld = false;
@@ -695,6 +696,11 @@ export class KeyboardWindow extends BaseWindow {
             const udgIdx = letter.charCodeAt(0) - 65;
             html += `<canvas class="kbd-udg" data-udg-index="${udgIdx}" width="8" height="8"></canvas>`;
           }
+
+          // Custom font canvas for letters A-Z
+          if (letter.length === 1 && letter >= 'A' && letter <= 'Z') {
+            html += `<canvas class="kbd-font-char" data-font-letter="${letter}" width="8" height="8"></canvas>`;
+          }
         }
 
         html += "</div>";
@@ -761,6 +767,34 @@ export class KeyboardWindow extends BaseWindow {
       closeBtn.parentNode.insertBefore(wrap, closeBtn);
     }
 
+    // Add custom font toggle to header
+    if (closeBtn && !this.headerElement.querySelector('.kbd-font-wrap')) {
+      const fontWrap = document.createElement('div');
+      fontWrap.className = 'kbd-highlight-wrap kbd-font-wrap';
+      fontWrap.innerHTML = `<span class="kbd-highlight-label">Font</span><label class="kbd-highlight-toggle"><input type="checkbox"${this._customFont ? ' checked' : ''}><span class="kbd-toggle-slider"></span></label>`;
+      fontWrap.querySelector('input').addEventListener('change', (e) => {
+        e.stopPropagation();
+        this._customFont = e.target.checked;
+        const container = this.contentElement?.querySelector('.kbd-container');
+        if (container) {
+          container.classList.toggle('kbd-custom-font', this._customFont);
+        }
+        if (!this._customFont) {
+          this._clearFontCanvases();
+        }
+        if (this.onStateChange) this.onStateChange();
+        this.saveSettings();
+      });
+      fontWrap.addEventListener('mousedown', (e) => e.stopPropagation());
+      // Insert before the Dynamic toggle
+      const dynamicWrap = this.headerElement.querySelector('.kbd-highlight-wrap');
+      if (dynamicWrap) {
+        dynamicWrap.parentNode.insertBefore(fontWrap, dynamicWrap);
+      } else {
+        closeBtn.parentNode.insertBefore(fontWrap, closeBtn);
+      }
+    }
+
     this.contentElement.querySelectorAll(".kbd-key").forEach((el) => {
       const row = el.dataset.row;
       const bit = el.dataset.bit;
@@ -777,6 +811,22 @@ export class KeyboardWindow extends BaseWindow {
       ctx.imageSmoothingEnabled = false;
       this._udgCanvases[idx] = { canvas, ctx, key: canvas.closest('.kbd-key') };
     });
+
+    // Collect custom font canvas references for A-Z keys
+    this._fontCanvases = {};
+    this._fontCache = null;
+    this.contentElement.querySelectorAll('.kbd-font-char').forEach(canvas => {
+      const letter = canvas.dataset.fontLetter;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      this._fontCanvases[letter] = { canvas, ctx, key: canvas.closest('.kbd-key') };
+    });
+
+    // Apply custom font class if persisted
+    if (this._customFont) {
+      const container = this.contentElement?.querySelector('.kbd-container');
+      if (container) container.classList.add('kbd-custom-font');
+    }
 
     this.contentElement.addEventListener("mousedown", (e) =>
       this._handlePointerDown(e),
@@ -1026,6 +1076,11 @@ export class KeyboardWindow extends BaseWindow {
         this._clearUDGs();
         this._lastGMode = false;
       }
+
+      // Custom font rendering
+      if (this._customFont) {
+        this._readAndRenderFont(proxy);
+      }
     });
   }
 
@@ -1109,6 +1164,63 @@ export class KeyboardWindow extends BaseWindow {
     }
     this._udgCache = null;
     this._udgCharCache = null;
+  }
+
+  _readAndRenderFont(proxy) {
+    // CHARS sysvar at 0x5C36 (2 bytes) - points 256 bytes before font data
+    proxy.readMemory(0x5C36, 2).then((sysData) => {
+      const chars = sysData[0] | (sysData[1] << 8);
+      // Default ROM font: CHARS = 15616 (0x3D00), actual font at 15616+256 = 15872 (0x3E00)
+      const isCustom = chars !== 15616;
+
+      const container = this.contentElement?.querySelector('.kbd-container');
+      if (!container) return;
+
+      if (!isCustom) {
+        container.classList.remove('kbd-has-custom-font');
+        this._fontCache = null;
+        return;
+      }
+
+      // Read 26 letters (A=65, offset from space=33, so byte offset = 33*8 = 264)
+      // Font data starts at chars + 256, letter A at chars + 256 + 33*8 = chars + 520
+      const fontStart = chars + 520;
+      proxy.readMemory(fontStart, 26 * 8).then((fontData) => {
+        // Cache check
+        if (this._fontCache) {
+          let same = true;
+          for (let i = 0; i < 208; i++) {
+            if (fontData[i] !== this._fontCache[i]) { same = false; break; }
+          }
+          if (same) return;
+        }
+        this._fontCache = new Uint8Array(fontData);
+        container.classList.add('kbd-has-custom-font');
+
+        for (let i = 0; i < 26; i++) {
+          const letter = String.fromCharCode(65 + i);
+          const entry = this._fontCanvases[letter];
+          if (!entry) continue;
+
+          const offset = i * 8;
+          const bytes = fontData.slice(offset, offset + 8);
+          this._drawUDG(entry.ctx, bytes);
+          entry.canvas.classList.add('active');
+          entry.key.classList.add('font-active');
+        }
+      });
+    });
+  }
+
+  _clearFontCanvases() {
+    for (const letter of Object.keys(this._fontCanvases)) {
+      const entry = this._fontCanvases[letter];
+      entry.canvas.classList.remove('active');
+      entry.key.classList.remove('font-active');
+    }
+    this._fontCache = null;
+    const container = this.contentElement?.querySelector('.kbd-container');
+    if (container) container.classList.remove('kbd-has-custom-font');
   }
 
   /**
@@ -1201,14 +1313,22 @@ export class KeyboardWindow extends BaseWindow {
   getState() {
     const base = super.getState();
     base.dynamicHighlight = this._dynamicHighlight;
+    base.customFont = this._customFont;
     return base;
   }
 
   restoreState(state) {
     if (state.dynamicHighlight !== undefined) {
       this._dynamicHighlight = state.dynamicHighlight;
-      const input = this.headerElement?.querySelector('.kbd-highlight-wrap input');
+      const input = this.headerElement?.querySelector('.kbd-highlight-wrap:not(.kbd-font-wrap) input');
       if (input) input.checked = this._dynamicHighlight;
+    }
+    if (state.customFont !== undefined) {
+      this._customFont = state.customFont;
+      const input = this.headerElement?.querySelector('.kbd-font-wrap input');
+      if (input) input.checked = this._customFont;
+      const container = this.contentElement?.querySelector('.kbd-container');
+      if (container) container.classList.toggle('kbd-custom-font', this._customFont);
     }
     super.restoreState(state);
   }

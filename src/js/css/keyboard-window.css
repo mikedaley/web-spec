@@ -700,3 +700,28 @@ html[data-theme="light"] .kbd-sym-char {
   transform: translate(-50%, -50%) scale(1.3);
   z-index: 2;
 }
+
+/* ── Custom font canvases on letter keys A-Z ── */
+
+.kbd-font-char {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  image-rendering: pixelated;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+}
+
+/* Show font canvas when custom font is active and CHARS differs from ROM */
+.kbd-container.kbd-custom-font.kbd-has-custom-font .kbd-key.font-active .kbd-font-char.active {
+  display: block;
+  z-index: 2;
+}
+
+/* Hide letter label when font canvas is showing */
+.kbd-container.kbd-custom-font.kbd-has-custom-font .kbd-key.font-active .kbd-main {
+  opacity: 0;
+}
