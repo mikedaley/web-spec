@@ -10,6 +10,10 @@
 #include "basic/sinclair_basic.hpp"
 #include <cstring>
 #include <random>
+#include <cstdio>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 namespace zxspec {
 
@@ -393,7 +397,9 @@ uint8_t ZXSpectrum::readMemory(uint16_t address) const
 
 void ZXSpectrum::writeMemory(uint16_t address, uint8_t data)
 {
+    uint8_t oldValue = coreDebugRead(address);
     coreDebugWrite(address, data);
+    patchScreenForUdgWrite(address, oldValue, data);
 }
 
 // ============================================================================
@@ -685,6 +691,80 @@ void ZXSpectrum::installOpcodeCallback()
             }
             return false;
         });
+}
+
+// ============================================================================
+// UDG screen patching
+// ============================================================================
+
+void ZXSpectrum::patchScreenForUdgWrite(uint16_t address, uint8_t oldValue, uint8_t newValue)
+{
+    if (oldValue == newValue) return;
+
+    // Read UDG base pointer from system variable at 0x5C7B (UDG)
+    uint16_t udgBase = coreDebugRead(0x5C7B) | (static_cast<uint16_t>(coreDebugRead(0x5C7C)) << 8);
+
+    // Check if address falls within [udgBase, udgBase + 168)
+    if (address < udgBase || address >= udgBase + 168) return;
+
+    uint16_t offset = address - udgBase;
+    int udgIndex = offset / 8;
+    int pixelRow = offset % 8;
+
+    // Build the full 8-byte UDG pattern using the OLD value at the changed row
+    // (the new value has already been written to memory)
+    uint8_t pattern[8];
+    uint16_t udgStart = udgBase + udgIndex * 8;
+    for (int i = 0; i < 8; i++) {
+        if (i == pixelRow) {
+            pattern[i] = oldValue;
+        } else {
+            pattern[i] = coreDebugRead(udgStart + i);
+        }
+    }
+
+    bool allZero = true;
+    for (int i = 0; i < 8; i++) {
+        if (pattern[i] != 0) { allZero = false; break; }
+    }
+
+    uint8_t* screen = getScreenMemory();
+    auto& positions = udgScreenPositions_[udgIndex];
+
+    if (allZero) {
+        // Old pattern is all zeros — we can't scan screen to find cells.
+        // Use remembered positions from the last successful pattern match.
+        if (positions.count == 0) return;
+
+        for (int p = 0; p < positions.count; p++) {
+            int cr = positions.positions[p] / 32;
+            int c  = positions.positions[p] % 32;
+            int off = (cr >> 3) * 0x800 + pixelRow * 0x100 + (cr & 7) * 0x20 + c;
+            screen[off] = newValue;
+        }
+        return;
+    }
+
+    // Scan all 768 character cells in screen memory for old pattern matches
+    positions.count = 0;
+    for (int cr = 0; cr < 24; cr++) {
+        for (int c = 0; c < 32; c++) {
+            bool match = true;
+            for (int pl = 0; pl < 8; pl++) {
+                int off = (cr >> 3) * 0x800 + pl * 0x100 + (cr & 7) * 0x20 + c;
+                if (screen[off] != pattern[pl]) { match = false; break; }
+            }
+            if (match) {
+                // Remember this position
+                if (positions.count < kMaxUdgScreenPositions) {
+                    positions.positions[positions.count++] = static_cast<uint16_t>(cr * 32 + c);
+                }
+                // Write the new value at the changed pixel row
+                int off = (cr >> 3) * 0x800 + pixelRow * 0x100 + (cr & 7) * 0x20 + c;
+                screen[off] = newValue;
+            }
+        }
+    }
 }
 
 // ============================================================================

@@ -156,11 +156,17 @@
   color: var(--text-primary);
 }
 
+.udg-toolbar-group button.has-clipboard {
+  background: var(--accent-blue-bg);
+  border-color: var(--accent-blue-border);
+  color: var(--accent-blue);
+}
+
 /* ---- Live toggle switch ---- */
 .udg-live-toggle {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   cursor: pointer;
   font-family: var(--font-sans);
   font-size: 10px;
@@ -254,7 +260,7 @@
 
 .udg-basic-actions {
   display: flex;
-  gap: 4px;
+  gap: 6px;
 }
 
 .udg-basic-actions button {

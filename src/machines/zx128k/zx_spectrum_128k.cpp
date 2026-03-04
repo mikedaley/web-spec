@@ -160,7 +160,15 @@ void ZXSpectrum128::coreMemoryWrite(uint16_t address, uint8_t data)
             getScreenMemory(), borderColor_, frameCounter_);
     }
 
+    // Capture old value before writing for UDG screen patching
+    uint8_t oldValue = pageWrite_[slot][address & 0x3FFF];
     pageWrite_[slot][address & 0x3FFF] = data;
+
+    // Auto-patch screen memory when UDG data is modified
+    if (!tapeAccelerating_)
+    {
+        patchScreenForUdgWrite(address, oldValue, data);
+    }
 }
 
 // ============================================================================

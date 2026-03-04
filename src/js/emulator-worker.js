@@ -355,6 +355,7 @@ self.onmessage = async function (e) {
     case "writeMemoryBulk": {
       if (!wasm) break;
       const bulkData = new Uint8Array(msg.data);
+      console.log(`[WORKER] writeMemoryBulk addr=0x${msg.addr.toString(16)} len=${bulkData.length} data=[${bulkData.join(",")}]`);
       for (let i = 0; i < bulkData.length; i++) {
         wasm._writeMemory((msg.addr + i) & 0xFFFF, bulkData[i]);
       }

@@ -1406,15 +1406,12 @@ document.addEventListener("DOMContentLoaded", () => {
   // Make emulator accessible globally for debugging
   window.zxspec = emulator;
 
-  // Register service worker for PWA support
+  // Unregister any existing service worker (PWA disabled)
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker
-      .register("/service-worker.js")
-      .then((registration) => {
-        emulator.swRegistration = registration;
-      })
-      .catch((err) => {
-        console.warn("Service worker registration failed:", err);
-      });
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      for (const registration of registrations) {
+        registration.unregister();
+      }
+    });
   }
 });

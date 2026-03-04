@@ -212,6 +212,17 @@ public:
     virtual uint8_t* getScreenMemory() = 0;
     virtual const uint8_t* getScreenMemory() const = 0;
 
+    // Auto-patch screen when UDG memory is written
+    void patchScreenForUdgWrite(uint16_t address, uint8_t oldValue, uint8_t newValue);
+
+    // Remembered screen positions (row*32+col) for each UDG, used when old pattern is all-zero
+    static constexpr int kMaxUdgScreenPositions = 8;
+    struct UdgScreenPositions {
+        int count = 0;
+        uint16_t positions[kMaxUdgScreenPositions] = {};
+    };
+    UdgScreenPositions udgScreenPositions_[21];
+
     // 128K paging support (base returns defaults for 48K)
     virtual uint8_t getPagingRegister() const { return 0; }
     virtual void setPagingRegister(uint8_t /*value*/) {}

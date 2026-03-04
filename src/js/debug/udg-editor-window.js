@@ -44,6 +44,12 @@ export class UDGEditorWindow extends BaseWindow {
     this._emulatorUdgData = null;
     this._lastSyncCheck = 0;
     this._liveUpdate = false;
+    this._udgClipboard = null;
+    // Track what's currently in emulator memory per-UDG
+    this._lastPushed = new Array(UDG_COUNT);
+    for (let i = 0; i < UDG_COUNT; i++) {
+      this._lastPushed[i] = null;
+    }
     this._tokenizer = new SinclairBasicTokenizer();
   }
 
@@ -69,6 +75,8 @@ export class UDGEditorWindow extends BaseWindow {
           <button data-action="invert">Invert</button>
           <button data-action="mirror-h">Mirror H</button>
           <button data-action="mirror-v">Mirror V</button>
+          <button data-action="copy-udg" title="Copy current UDG to clipboard">Copy</button>
+          <button data-action="paste-udg" title="Paste copied UDG into current letter">Paste</button>
         </div>
         <div class="udg-toolbar-group">
           <span class="udg-group-label">Shift</span>
@@ -118,6 +126,15 @@ export class UDGEditorWindow extends BaseWindow {
     this._selectLetter(this.selectedLetter);
     this._updateAllLetterPreviews();
     this._generateBasic();
+
+    // Re-render canvases when theme changes
+    this._themeObserver = new MutationObserver(() => {
+      this._updateAllLetterPreviews();
+    });
+    this._themeObserver.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
   }
 
   _cacheElements() {
@@ -138,6 +155,7 @@ export class UDGEditorWindow extends BaseWindow {
       syncIndicator: el.querySelector(".udg-sync-indicator"),
       fileInput: el.querySelector(".udg-file-input"),
       liveCheckbox: el.querySelector(".udg-live-checkbox"),
+      btnCopyUdg: el.querySelector("[data-action='copy-udg']"),
     };
 
     this._letterCanvases = Array.from(this._elements.letterBtns).map(
@@ -322,6 +340,10 @@ export class UDGEditorWindow extends BaseWindow {
     ).join("");
   }
 
+  _updateClipboardIndicator() {
+    this._elements.btnCopyUdg.classList.toggle("has-clipboard", this._udgClipboard !== null);
+  }
+
   // ---- Tool actions ----
 
   _handleAction(action) {
@@ -363,6 +385,17 @@ export class UDGEditorWindow extends BaseWindow {
           const tmp = data[i];
           data[i] = data[7 - i];
           data[7 - i] = tmp;
+        }
+        break;
+      case "copy-udg":
+        this._udgClipboard = new Uint8Array(data);
+        this._updateClipboardIndicator();
+        return;
+      case "paste-udg":
+        if (this._udgClipboard) {
+          this.udgData[this.selectedLetter] = new Uint8Array(this._udgClipboard);
+          this._udgClipboard = null;
+          this._updateClipboardIndicator();
         }
         break;
       case "pull":
@@ -481,8 +514,9 @@ export class UDGEditorWindow extends BaseWindow {
       const udgBase = sysData[0] | (sysData[1] << 8);
       this._proxy.readMemory(udgBase + idx * UDG_ROWS, UDG_ROWS).then((data) => {
         this.udgData[idx] = new Uint8Array(data);
+        this._lastPushed[idx] = new Uint8Array(data);
         this._loadGridFromData();
-    
+
         this._updateByteDisplay();
         this._updateLetterPreview(idx);
         this._generateBasic();
@@ -497,9 +531,10 @@ export class UDGEditorWindow extends BaseWindow {
       this._proxy.readMemory(udgBase, UDG_COUNT * UDG_ROWS).then((data) => {
         for (let i = 0; i < UDG_COUNT; i++) {
           this.udgData[i] = new Uint8Array(data.slice(i * UDG_ROWS, (i + 1) * UDG_ROWS));
+          this._lastPushed[i] = new Uint8Array(this.udgData[i]);
         }
         this._loadGridFromData();
-    
+
         this._updateByteDisplay();
         this._updateAllLetterPreviews();
         this._generateBasic();
@@ -511,60 +546,27 @@ export class UDGEditorWindow extends BaseWindow {
     if (!this._proxy) return;
     const idx = this.selectedLetter;
     const newData = this.udgData[idx];
+    this._lastPushed[idx] = new Uint8Array(newData);
+
     this._proxy.readMemory(0x5C7B, 2).then((sysData) => {
       const udgBase = sysData[0] | (sysData[1] << 8);
-      // Read old UDG data before overwriting so we can patch the display
-      this._proxy.readMemory(udgBase + idx * UDG_ROWS, UDG_ROWS).then((oldData) => {
-        this._proxy.writeMemoryBulk(udgBase + idx * UDG_ROWS, newData);
-        this._patchDisplayMemory(oldData, newData);
-      });
-    });
-  }
-
-  /**
-   * Scan the 6144-byte display file for character cells whose 8 pixel rows
-   * match oldData, and overwrite them with newData.  This makes pushed UDG
-   * changes visible immediately without the program needing to reprint.
-   *
-   * Skipped when oldData is all zeros — we can't distinguish a printed
-   * all-zero UDG from ordinary blank space characters.
-   */
-  _patchDisplayMemory(oldData, newData) {
-    if (!this._proxy) return;
-    // Skip if old pattern is all zeros (would match every blank cell)
-    if (oldData.every(b => b === 0)) return;
-    // Skip if nothing actually changed
-    let same = true;
-    for (let i = 0; i < UDG_ROWS; i++) {
-      if (oldData[i] !== newData[i]) { same = false; break; }
-    }
-    if (same) return;
-
-    this._proxy.readMemory(0x4000, 6144).then((display) => {
-      for (let cr = 0; cr < 24; cr++) {
-        for (let c = 0; c < 32; c++) {
-          // Check if all 8 pixel rows match the old UDG
-          let match = true;
-          for (let pl = 0; pl < 8; pl++) {
-            const off = ((cr >> 3) * 0x800) + (pl * 0x100) + ((cr & 7) * 0x20) + c;
-            if (display[off] !== oldData[pl]) { match = false; break; }
-          }
-          if (match) {
-            // Overwrite this character cell with the new UDG pixel data
-            for (let pl = 0; pl < 8; pl++) {
-              const addr = 0x4000 + ((cr >> 3) * 0x800) + (pl * 0x100) + ((cr & 7) * 0x20) + c;
-              this._proxy.writeMemory(addr, newData[pl]);
-            }
-          }
-        }
-      }
+      this._proxy.writeMemoryBulk(udgBase + idx * UDG_ROWS, newData);
     });
   }
 
   _toggleLive() {
     this._liveUpdate = this._elements.liveCheckbox.checked;
     if (this._liveUpdate) {
-      this._pushToEmulator();
+      // Seed _lastPushed from emulator so we know what to patch against
+      this._proxy.readMemory(0x5C7B, 2).then((sysData) => {
+        const udgBase = sysData[0] | (sysData[1] << 8);
+        this._proxy.readMemory(udgBase, UDG_COUNT * UDG_ROWS).then((data) => {
+          for (let i = 0; i < UDG_COUNT; i++) {
+            this._lastPushed[i] = new Uint8Array(data.slice(i * UDG_ROWS, (i + 1) * UDG_ROWS));
+          }
+          this._pushToEmulator();
+        });
+      });
     }
   }
 
@@ -583,10 +585,9 @@ export class UDGEditorWindow extends BaseWindow {
         this._proxy.writeMemoryBulk(udgBase, block);
         this._elements.syncIndicator.classList.remove("visible");
 
-        // Patch display for each changed UDG
+        // Update tracking
         for (let i = 0; i < UDG_COUNT; i++) {
-          const oldData = oldBlock.slice(i * UDG_ROWS, (i + 1) * UDG_ROWS);
-          this._patchDisplayMemory(oldData, this.udgData[i]);
+          this._lastPushed[i] = new Uint8Array(this.udgData[i]);
         }
       });
     });
@@ -694,6 +695,7 @@ export class UDGEditorWindow extends BaseWindow {
 
   destroy() {
     if (this._cleanupPaint) this._cleanupPaint();
+    if (this._themeObserver) this._themeObserver.disconnect();
     super.destroy();
   }
 }
