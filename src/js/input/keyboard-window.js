@@ -718,6 +718,9 @@ export class KeyboardWindow extends BaseWindow {
           if (key.below) {
             html += `<span class="kbd-ext-below">${this._esc(key.below)}</span>`;
           }
+          if (key.aboveColor) {
+            html += `<span class="kbd-ext-color kbd-clr-${key.aboveColor.toLowerCase()}">${this._esc(key.aboveColor)}</span>`;
+          }
         }
 
         html += "</div>";

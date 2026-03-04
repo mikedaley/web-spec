@@ -624,14 +624,31 @@ html[data-theme="light"] .kbd-ext-above {
   color: #FF6E5A;
 }
 
-/* EXTENDED (E mode): show green above label inside key, hide other on-key content */
+.kbd-ext-color {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  z-index: 2;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* EXTENDED (E mode): hide on-key content */
 .kbd-container[data-shift-mode="extended"] .kbd-sym-char,
 .kbd-container[data-shift-mode="extended"] .kbd-keyword,
 .kbd-container[data-shift-mode="extended"] .kbd-graphic {
   opacity: 0;
 }
 
-.kbd-container[data-shift-mode="extended"] .kbd-main {
+/* E mode: letter rows — small letter top-left, green label centered */
+.kbd-container[data-shift-mode="extended"] .kbd-section-1 .kbd-main,
+.kbd-container[data-shift-mode="extended"] .kbd-section-2 .kbd-main,
+.kbd-container[data-shift-mode="extended"] .kbd-section-3 .kbd-main {
   opacity: 0.5;
   position: absolute;
   top: 2px;
@@ -642,7 +659,25 @@ html[data-theme="light"] .kbd-ext-above {
   z-index: 1;
 }
 
-.kbd-container[data-shift-mode="extended"] .kbd-ext-above {
+.kbd-container[data-shift-mode="extended"] .kbd-section-1 .kbd-ext-above,
+.kbd-container[data-shift-mode="extended"] .kbd-section-2 .kbd-ext-above,
+.kbd-container[data-shift-mode="extended"] .kbd-section-3 .kbd-ext-above {
+  display: block;
+}
+
+/* E mode: number row — small number top-left, colour name centered */
+.kbd-container[data-shift-mode="extended"] .kbd-section-0 .kbd-main {
+  opacity: 0.5;
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  transform: none;
+  font-size: 11px;
+  line-height: 13px;
+  z-index: 1;
+}
+
+.kbd-container[data-shift-mode="extended"] .kbd-section-0 .kbd-ext-color {
   display: block;
 }
 
@@ -656,14 +691,17 @@ html[data-theme="light"] .kbd-ext-above {
   opacity: 0.35;
 }
 
-/* EXTENDED + CAPS SHIFT (E mode shifted): show red below label inside key */
+/* EXTENDED + CAPS SHIFT: hide on-key content */
 .kbd-container[data-shift-mode="extended-shift"] .kbd-sym-char,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-keyword,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-graphic {
   opacity: 0;
 }
 
-.kbd-container[data-shift-mode="extended-shift"] .kbd-main {
+/* E+shift: letter rows — small letter top-left, red label centered */
+.kbd-container[data-shift-mode="extended-shift"] .kbd-section-1 .kbd-main,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-section-2 .kbd-main,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-section-3 .kbd-main {
   opacity: 0.5;
   position: absolute;
   top: 2px;
@@ -674,7 +712,25 @@ html[data-theme="light"] .kbd-ext-above {
   z-index: 1;
 }
 
-.kbd-container[data-shift-mode="extended-shift"] .kbd-ext-below {
+.kbd-container[data-shift-mode="extended-shift"] .kbd-section-1 .kbd-ext-below,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-section-2 .kbd-ext-below,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-section-3 .kbd-ext-below {
+  display: block;
+}
+
+/* E+shift: number row — small number top-left, colour name centered */
+.kbd-container[data-shift-mode="extended-shift"] .kbd-section-0 .kbd-main {
+  opacity: 0.5;
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  transform: none;
+  font-size: 11px;
+  line-height: 13px;
+  z-index: 1;
+}
+
+.kbd-container[data-shift-mode="extended-shift"] .kbd-section-0 .kbd-ext-color {
   display: block;
 }
 
