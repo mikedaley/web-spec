@@ -13,6 +13,7 @@ import { highlightLine } from "../utils/sinclair-basic-highlighting.js";
 import { KEYWORDS_BY_LENGTH } from "../utils/sinclair-basic-tokens.js";
 import { BasicVariableInspector } from "./basic-variable-inspector.js";
 import { BasicBreakpointManager } from "./basic-breakpoint-manager.js";
+import { parseBasicLines, formatBasicText } from "../utils/sinclair-basic-formatting.js";
 
 // ERR_NR (0x5C3A) stores the report code MINUS 1.
 // Report codes: 0=OK, 1..9 use digits, 10+ use letters A..R.
@@ -682,31 +683,7 @@ export class BasicProgramWindow extends BaseWindow {
 
   _formatProgram() {
     const text = this._textarea.value;
-    const lines = this._parseEditorLines(text);
-    if (lines.length === 0) return;
-
-    // Sort by line number
-    lines.sort((a, b) => a.lineNumber - b.lineNumber);
-
-    // Simple indentation based on FOR/NEXT
-    let indent = 0;
-    const formatted = [];
-    for (const line of lines) {
-      const body = line.body.replace(/^\s+/, "");
-      const upper = body.toUpperCase();
-      // Decrease indent before NEXT (but not inside REM)
-      if (!/^REM\b/.test(upper) && /^NEXT\b/.test(upper)) {
-        indent = Math.max(0, indent - 1);
-      }
-      const padding = "  ".repeat(indent);
-      formatted.push(`${line.lineNumber} ${padding}${body}`);
-      // Increase indent after FOR (but not inside REM or strings)
-      if (!/^REM\b/.test(upper) && /\bFOR\b/.test(upper) && !/\bNEXT\b/.test(upper)) {
-        indent++;
-      }
-    }
-
-    const newText = formatted.join("\n");
+    const newText = formatBasicText(text);
     if (newText === text) return;
     const cursorStart = this._textarea.selectionStart;
     const cursorEnd = this._textarea.selectionEnd;
@@ -726,16 +703,7 @@ export class BasicProgramWindow extends BaseWindow {
   }
 
   _parseEditorLines(text) {
-    const lines = [];
-    for (const rawLine of text.split("\n")) {
-      const trimmed = rawLine.trim();
-      if (!trimmed) continue;
-      const match = trimmed.match(/^(\d+)\s*(.*)/);
-      if (match) {
-        lines.push({ lineNumber: parseInt(match[1], 10), body: match[2] });
-      }
-    }
-    return lines;
+    return parseBasicLines(text);
   }
 
   _newProgram() {

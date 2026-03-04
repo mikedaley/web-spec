@@ -22,6 +22,7 @@ import { BasicProgramWindow } from "./debug/basic-program-window.js";
 import { RuleBuilderWindow } from "./debug/rule-builder-window.js";
 import { MemoryMapWindow } from "./debug/memory-map-window.js";
 import { KeyboardWindow } from "./input/keyboard-window.js";
+import { UDGEditorWindow } from "./debug/udg-editor-window.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
@@ -51,6 +52,7 @@ class ZXSpectrumEmulator {
     this.ruleBuilderWindow = null;
     this.memoryMapWindow = null;
     this.keyboardWindow = null;
+    this.udgEditorWindow = null;
 
     this.snapshotLoader = null;
     this.themeManager = null;
@@ -139,6 +141,11 @@ class ZXSpectrumEmulator {
       this.keyboardWindow.create();
       this.windowManager.register(this.keyboardWindow);
 
+      // Create UDG editor window
+      this.udgEditorWindow = new UDGEditorWindow(this.proxy);
+      this.udgEditorWindow.create();
+      this.windowManager.register(this.udgEditorWindow);
+
       // Create rule builder window (shared by BASIC and CPU debugger)
       this.ruleBuilderWindow = new RuleBuilderWindow();
       this.ruleBuilderWindow.create();
@@ -184,6 +191,7 @@ class ZXSpectrumEmulator {
         { id: "rule-builder", visible: false },
         { id: "memory-map", visible: false },
         { id: "keyboard", visible: false },
+        { id: "udg-editor", visible: false },
         { id: "save-states", visible: false },
       ]);
 
@@ -446,6 +454,16 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // Dev menu > UDG Editor
+    const udgEditorBtn = document.getElementById("btn-udg-editor");
+    if (udgEditorBtn) {
+      udgEditorBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("udg-editor");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
     // Help menu > Check for Updates
     const checkUpdatesBtn = document.getElementById("btn-check-updates");
     if (checkUpdatesBtn) {
@@ -550,6 +568,7 @@ class ZXSpectrumEmulator {
       "btn-z80-debug": "cpu-debugger",
       "btn-stack-viewer": "stack-viewer",
       "btn-basic-editor": "basic-program",
+      "btn-udg-editor": "udg-editor",
     };
 
     for (const [btnId, windowId] of Object.entries(windowMap)) {
