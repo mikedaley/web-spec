@@ -168,13 +168,13 @@ html[data-theme="light"] .kbd-container {
   padding-left: 4px;
 }
 
-.kbd-clr-blue { color: #6666FF; }
-.kbd-clr-red { color: #F47860; }
-.kbd-clr-magenta { color: #DD66DD; }
-.kbd-clr-green { color: #66DD66; }
-.kbd-clr-cyan { color: #66DDDD; }
-.kbd-clr-yellow { color: #DDDD66; }
-.kbd-clr-white { color: #DDDDDD; }
+.kbd-clr-blue { color: #0000FF; }
+.kbd-clr-red { color: #FF0000; }
+.kbd-clr-magenta { color: #FF00FF; }
+.kbd-clr-green { color: #00FF00; }
+.kbd-clr-cyan { color: #00FFFF; }
+.kbd-clr-yellow { color: #FFFF00; }
+.kbd-clr-white { color: #FFFFFF; }
 .kbd-clr-black {
   color: #000000;
   background: #FFFFFF;
@@ -646,9 +646,10 @@ html[data-theme="light"] .kbd-ext-above {
 }
 
 /* E mode: letter rows — small letter top-left, green label centered */
-.kbd-container[data-shift-mode="extended"] .kbd-section-1 .kbd-main,
-.kbd-container[data-shift-mode="extended"] .kbd-section-2 .kbd-main,
-.kbd-container[data-shift-mode="extended"] .kbd-section-3 .kbd-main {
+/* Exclude ENTER (kbd-key-center) and shift keys (data-shift) from repositioning */
+.kbd-container[data-shift-mode="extended"] .kbd-section-1 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main,
+.kbd-container[data-shift-mode="extended"] .kbd-section-2 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main,
+.kbd-container[data-shift-mode="extended"] .kbd-section-3 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main {
   opacity: 0.5;
   position: absolute;
   top: 2px;
@@ -699,9 +700,10 @@ html[data-theme="light"] .kbd-ext-above {
 }
 
 /* E+shift: letter rows — small letter top-left, red label centered */
-.kbd-container[data-shift-mode="extended-shift"] .kbd-section-1 .kbd-main,
-.kbd-container[data-shift-mode="extended-shift"] .kbd-section-2 .kbd-main,
-.kbd-container[data-shift-mode="extended-shift"] .kbd-section-3 .kbd-main {
+/* Exclude ENTER (kbd-key-center) and shift keys (data-shift) from repositioning */
+.kbd-container[data-shift-mode="extended-shift"] .kbd-section-1 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-section-2 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-section-3 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main {
   opacity: 0.5;
   position: absolute;
   top: 2px;
