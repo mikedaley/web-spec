@@ -474,6 +474,15 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // Help menu > Unregister App
+    const unregisterPwaBtn = document.getElementById("btn-unregister-pwa");
+    if (unregisterPwaBtn) {
+      unregisterPwaBtn.addEventListener("click", () => {
+        this.closeAllMenus();
+        this.unregisterPWA();
+      });
+    }
+
     // Mobile hamburger menu button
     const hamburgerBtn = document.getElementById("btn-hamburger");
     if (hamburgerBtn && this.mobileMenu) {
@@ -1106,6 +1115,53 @@ class ZXSpectrumEmulator {
       console.error("Update check failed:", err);
       await MessagePanel.show({
         message: "Update check failed. Please try again later.",
+        buttons: [{ label: "OK", value: true, primary: true }],
+      });
+    }
+  }
+
+  async unregisterPWA() {
+    const confirm = await MessagePanel.show({
+      message: "This will unregister the service worker and clear all cached data. Continue?",
+      buttons: [
+        { label: "Unregister", value: true, primary: true },
+        { label: "Cancel", value: false },
+      ],
+      dismissable: false,
+    });
+    if (!confirm) return;
+
+    let swCount = 0;
+    let cacheCount = 0;
+
+    try {
+      if ("serviceWorker" in navigator) {
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        for (const reg of registrations) {
+          await reg.unregister();
+          swCount++;
+        }
+        this.swRegistration = null;
+      }
+
+      if ("caches" in window) {
+        const keys = await caches.keys();
+        for (const key of keys) {
+          await caches.delete(key);
+          cacheCount++;
+        }
+      }
+
+      await MessagePanel.show({
+        message:
+          `Unregistered ${swCount} service worker(s) and cleared ${cacheCount} cache(s). ` +
+          "Close all tabs for this site to complete removal.",
+        buttons: [{ label: "OK", value: true, primary: true }],
+      });
+    } catch (err) {
+      console.error("PWA unregister failed:", err);
+      await MessagePanel.show({
+        message: "Failed to unregister. Please try again or use browser DevTools.",
         buttons: [{ label: "OK", value: true, primary: true }],
       });
     }
