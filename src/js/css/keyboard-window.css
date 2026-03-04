@@ -596,34 +596,92 @@ html[data-theme="light"] .kbd-sym-char {
   opacity: 0.35;
 }
 
-/* EXTENDED (E mode): hide all on-key content */
-.kbd-container[data-shift-mode="extended"] .kbd-main,
+/* ── E-mode in-key labels (hidden by default) ── */
+
+.kbd-ext-above,
+.kbd-ext-below {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  z-index: 2;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.kbd-ext-above {
+  color: #00FF00;
+}
+html[data-theme="light"] .kbd-ext-above {
+  color: #00CD00;
+}
+
+.kbd-ext-below {
+  color: #FF6E5A;
+}
+
+/* EXTENDED (E mode): show green above label inside key, hide other on-key content */
 .kbd-container[data-shift-mode="extended"] .kbd-sym-char,
 .kbd-container[data-shift-mode="extended"] .kbd-keyword,
 .kbd-container[data-shift-mode="extended"] .kbd-graphic {
   opacity: 0;
 }
 
-/* EXTENDED (E mode): dim off-key labels except green above-text on letter rows */
+.kbd-container[data-shift-mode="extended"] .kbd-main {
+  opacity: 0.5;
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  transform: none;
+  font-size: 11px;
+  line-height: 13px;
+  z-index: 1;
+}
+
+.kbd-container[data-shift-mode="extended"] .kbd-ext-above {
+  display: block;
+}
+
+/* EXTENDED (E mode): dim all off-key labels */
+.kbd-container[data-shift-mode="extended"] .kbd-above-text,
+.kbd-container[data-shift-mode="extended"] .kbd-color-name,
 .kbd-container[data-shift-mode="extended"] .kbd-below-text,
-.kbd-container[data-shift-mode="extended"] .kbd-section-0 .kbd-above-text,
 .kbd-container[data-shift-mode="extended"] .kbd-arrow-svg,
 .kbd-container[data-shift-mode="extended"] .kbd-space-break,
 .kbd-container[data-shift-mode="extended"] .kbd-space-label {
   opacity: 0.35;
 }
 
-/* EXTENDED + CAPS SHIFT (E mode shifted): hide all on-key content */
-.kbd-container[data-shift-mode="extended-shift"] .kbd-main,
+/* EXTENDED + CAPS SHIFT (E mode shifted): show red below label inside key */
 .kbd-container[data-shift-mode="extended-shift"] .kbd-sym-char,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-keyword,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-graphic {
   opacity: 0;
 }
 
-/* EXTENDED + CAPS SHIFT: dim off-key labels except red below-text */
+.kbd-container[data-shift-mode="extended-shift"] .kbd-main {
+  opacity: 0.5;
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  transform: none;
+  font-size: 11px;
+  line-height: 13px;
+  z-index: 1;
+}
+
+.kbd-container[data-shift-mode="extended-shift"] .kbd-ext-below {
+  display: block;
+}
+
+/* EXTENDED + CAPS SHIFT: dim all off-key labels */
 .kbd-container[data-shift-mode="extended-shift"] .kbd-above-text,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-color-name,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-below-text,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-arrow-svg,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-space-break,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-space-label {

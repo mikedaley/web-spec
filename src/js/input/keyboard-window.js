@@ -710,6 +710,14 @@ export class KeyboardWindow extends BaseWindow {
           if (letter.length === 1 && ((letter >= '0' && letter <= '9') || (letter >= 'A' && letter <= 'Z'))) {
             html += `<canvas class="kbd-font-char" data-font-char="${letter}" width="8" height="8"></canvas>`;
           }
+
+          // E-mode labels inside the key (hidden by default, shown in extended modes)
+          if (key.above) {
+            html += `<span class="kbd-ext-above">${this._esc(key.above)}</span>`;
+          }
+          if (key.below) {
+            html += `<span class="kbd-ext-below">${this._esc(key.below)}</span>`;
+          }
         }
 
         html += "</div>";
