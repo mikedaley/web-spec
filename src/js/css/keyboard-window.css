@@ -485,6 +485,29 @@ html[data-theme="light"] .kbd-sym-char {
   text-transform: none;
 }
 
+/* K mode + keyword-caps: hide main letter on letter rows so keyword is visible */
+.kbd-container[data-shift-mode="keyword"] .kbd-section-1 .kbd-main,
+.kbd-container[data-shift-mode="keyword"] .kbd-section-2 .kbd-main,
+.kbd-container[data-shift-mode="keyword"] .kbd-section-3 .kbd-main,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-section-1 .kbd-main,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-section-2 .kbd-main,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-section-3 .kbd-main {
+  opacity: 0;
+}
+
+/* K mode + keyword-caps: make keyword prominent */
+.kbd-container[data-shift-mode="keyword"] .kbd-keyword,
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-keyword {
+  opacity: 1;
+  font-size: 16px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  text-align: center;
+}
+
 /* K mode + keyword-caps: other on-key elements fully hidden */
 .kbd-container[data-shift-mode="keyword"] .kbd-sym-char,
 .kbd-container[data-shift-mode="keyword"] .kbd-graphic,
