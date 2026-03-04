@@ -771,7 +771,7 @@ export class KeyboardWindow extends BaseWindow {
     if (closeBtn && !this.headerElement.querySelector('.kbd-font-wrap')) {
       const fontWrap = document.createElement('div');
       fontWrap.className = 'kbd-highlight-wrap kbd-font-wrap';
-      fontWrap.innerHTML = `<span class="kbd-highlight-label">Font</span><label class="kbd-highlight-toggle"><input type="checkbox"${this._customFont ? ' checked' : ''}><span class="kbd-toggle-slider"></span></label>`;
+      fontWrap.innerHTML = `<span class="kbd-highlight-label">Custom Font</span><label class="kbd-highlight-toggle"><input type="checkbox"${this._customFont ? ' checked' : ''}><span class="kbd-toggle-slider"></span></label>`;
       fontWrap.querySelector('input').addEventListener('change', (e) => {
         e.stopPropagation();
         this._customFont = e.target.checked;
