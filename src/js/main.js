@@ -306,6 +306,7 @@ class ZXSpectrumEmulator {
         this.running = true;
         this.renderer.setNoSignal(false);
         this.audioDriver.start();
+        if (this.keyboardWindow) this.keyboardWindow.setRunning(true);
         this.updatePowerButton();
       }
     };
@@ -987,6 +988,7 @@ class ZXSpectrumEmulator {
           this.running = true;
           this.renderer.setNoSignal(false);
           this.audioDriver.start();
+          if (this.keyboardWindow) this.keyboardWindow.setRunning(true);
           this.updatePowerButton();
         }
 
