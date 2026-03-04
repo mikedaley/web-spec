@@ -715,13 +715,39 @@ html[data-theme="light"] .kbd-sym-char {
   pointer-events: none;
 }
 
-/* Show font canvas when custom font is active and CHARS differs from ROM */
-.kbd-container.kbd-custom-font.kbd-has-custom-font .kbd-key.font-active .kbd-font-char.active {
+/* Show font canvas only in modes where the main letter is prominently visible */
+
+/* Default state (no shift mode) */
+.kbd-container.kbd-custom-font.kbd-has-custom-font:not([data-shift-mode]) .kbd-key.font-active .kbd-font-char.active {
   display: block;
   z-index: 2;
 }
+.kbd-container.kbd-custom-font.kbd-has-custom-font:not([data-shift-mode]) .kbd-key.font-active .kbd-main {
+  opacity: 0;
+}
 
-/* Hide letter label when font canvas is showing */
-.kbd-container.kbd-custom-font.kbd-has-custom-font .kbd-key.font-active .kbd-main {
+/* L mode: font canvas centered like .kbd-main */
+.kbd-container.kbd-custom-font.kbd-has-custom-font[data-shift-mode="letter"] .kbd-key:not(.kbd-key-center).font-active .kbd-font-char.active {
+  display: block;
+  z-index: 2;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1.1);
+}
+.kbd-container.kbd-custom-font.kbd-has-custom-font[data-shift-mode="letter"] .kbd-key:not(.kbd-key-center).font-active .kbd-main {
+  opacity: 0;
+}
+
+/* Caps-shift mode: same as L mode */
+.kbd-container.kbd-custom-font.kbd-has-custom-font[data-shift-mode="caps-shift"] .kbd-key:not(.kbd-key-center).font-active .kbd-font-char.active {
+  display: block;
+  z-index: 2;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1.1);
+}
+.kbd-container.kbd-custom-font.kbd-has-custom-font[data-shift-mode="caps-shift"] .kbd-key:not(.kbd-key-center).font-active .kbd-main {
   opacity: 0;
 }
