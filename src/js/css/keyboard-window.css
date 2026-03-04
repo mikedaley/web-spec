@@ -68,7 +68,7 @@
 }
 
 .kbd-highlight-toggle input:checked + .kbd-toggle-slider {
-  background-color: var(--accent-blue);
+  background-color: #4da8a8;
 }
 
 .kbd-highlight-toggle input:checked + .kbd-toggle-slider::before {
