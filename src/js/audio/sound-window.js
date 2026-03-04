@@ -775,13 +775,16 @@ export class SoundWindow extends BaseWindow {
     ctx.stroke();
   }
 
-  drawChannelWaveform(ctx, canvas, samples, color) {
+  drawChannelWaveform(ctx, canvas, samples, color, volume) {
     if (!this.drawWaveformBase(ctx, canvas, samples, color)) return;
 
     const width = canvas.width;
     const height = canvas.height;
     const sampleCount = samples.length;
     const xScale = width / (sampleCount - 1);
+
+    // Scale waveform height by channel volume (0-15)
+    const volScale = volume / 15;
 
     // Find min/max for normalization and centering
     let min = Infinity,
@@ -796,7 +799,7 @@ export class SoundWindow extends BaseWindow {
 
     for (let i = 0; i < sampleCount; i++) {
       const x = i * xScale;
-      const y = height / 2 - (samples[i] - mid) * scale * (height / 2 - 1);
+      const y = height / 2 - (samples[i] - mid) * scale * volScale * (height / 2 - 1);
       if (i === 0) {
         ctx.moveTo(x, y);
       } else {
@@ -922,7 +925,9 @@ export class SoundWindow extends BaseWindow {
       const canvas = this.ayElements.canvases[ch];
       const samples =
         ayOn && proxy.getAYWaveform ? proxy.getAYWaveform(ch) : null;
-      this.drawChannelWaveform(ctx, canvas, samples, colors[ch]);
+      const ampReg = proxy._getAYRegister(8 + ch);
+      const vol = (ampReg & 0x10) ? 15 : (ampReg & 0x0f);
+      this.drawChannelWaveform(ctx, canvas, samples, colors[ch], vol);
     }
   }
 

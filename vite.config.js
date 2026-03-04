@@ -2,6 +2,30 @@ import { defineConfig } from "vite";
 import { resolve } from "path";
 import { copyFileSync, mkdirSync } from "fs";
 
+// Fix MIME type for classic worker/worklet files served from outside Vite's root.
+// Vite serves the correct content but with text/html Content-Type, which browsers
+// reject for worker scripts due to strict MIME checking.
+const fixWorkerMimeTypes = () => ({
+  name: "fix-worker-mime-types",
+  configureServer(server) {
+    server.middlewares.use((req, res, next) => {
+      if (req.url && (
+        req.url === "/src/js/emulator-worker.js" ||
+        req.url === "/src/js/audio/audio-worklet.js"
+      )) {
+        const origSetHeader = res.setHeader.bind(res);
+        res.setHeader = (name, value) => {
+          if (name.toLowerCase() === "content-type") {
+            return origSetHeader(name, "text/javascript");
+          }
+          return origSetHeader(name, value);
+        };
+      }
+      next();
+    });
+  },
+});
+
 // Plugin to copy worker files that can't be bundled (classic workers, worklets)
 const copyWorkerFiles = () => ({
   name: "copy-worker-files",
@@ -59,5 +83,5 @@ export default defineConfig({
     exclude: ["zxspec.js"],
   },
 
-  plugins: [copyWorkerFiles()],
+  plugins: [fixWorkerMimeTypes(), copyWorkerFiles()],
 });

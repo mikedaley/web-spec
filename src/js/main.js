@@ -1049,8 +1049,19 @@ class ZXSpectrumEmulator {
     };
 
     try {
+      // Listen for controller change before triggering the update.
+      // Because the service worker calls skipWaiting(), a new worker
+      // activates immediately and the installing/waiting refs are null
+      // by the time update() resolves.
+      const controllerChanged = new Promise((resolve) => {
+        navigator.serviceWorker.addEventListener("controllerchange", () => resolve(true), { once: true });
+        // Timeout after 3 seconds — no update available
+        setTimeout(() => resolve(false), 3000);
+      });
+
       await this.swRegistration.update();
 
+      // Check installing/waiting first (in case skipWaiting is removed in the future)
       const newWorker = this.swRegistration.installing || this.swRegistration.waiting;
       if (newWorker) {
         if (newWorker.state === "installed") {
@@ -1062,6 +1073,8 @@ class ZXSpectrumEmulator {
             }
           });
         }
+      } else if (await controllerChanged) {
+        await offerReload();
       } else {
         await MessagePanel.show({
           message: "You're up to date.",

@@ -20,7 +20,7 @@ export class SnapshotLoader {
   init() {
     this.fileInput = document.createElement("input");
     this.fileInput.type = "file";
-    this.fileInput.accept = ".sna,.z80,.tzx,.tap";
+    this.fileInput.accept = ".sna,.z80";
     this.fileInput.style.display = "none";
     document.body.appendChild(this.fileInput);
 
