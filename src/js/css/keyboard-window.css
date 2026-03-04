@@ -670,3 +670,33 @@ html[data-theme="light"] .kbd-sym-char {
 .kbd-container[data-shift-mode="graphics"] .kbd-below-text {
   opacity: 0.35;
 }
+
+/* ── UDG canvases on letter keys A-U ── */
+
+.kbd-udg {
+  display: none;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  image-rendering: pixelated;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+}
+
+/* Show UDG canvas when active (custom graphic) in graphics mode */
+.kbd-container[data-shift-mode="graphics"] .kbd-key.udg-active .kbd-udg {
+  display: block;
+  z-index: 2;
+}
+
+/* Show letter on A-U keys when UDG is still default (not custom) */
+.kbd-container[data-shift-mode="graphics"] .kbd-key[data-udg]:not(.udg-active) .kbd-main {
+  opacity: 1;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1.3);
+  z-index: 2;
+}

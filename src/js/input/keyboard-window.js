@@ -565,6 +565,14 @@ export class KeyboardWindow extends BaseWindow {
 
     this._onDocKeyDown = (e) => this._handleKeyDown(e);
     this._onDocKeyUp = (e) => this._handleKeyUp(e);
+    this._pressedCodes = new Set();
+    this._onWindowBlur = () => {
+      this._physCapsHeld = false;
+      this._physSymbolHeld = false;
+      // Clear all stuck pressed keys on blur
+      this._pressedCodes.clear();
+      this.contentElement?.querySelectorAll('.kbd-key.pressed').forEach(el => el.classList.remove('pressed'));
+    };
   }
 
   /**
@@ -641,7 +649,8 @@ export class KeyboardWindow extends BaseWindow {
         const needsCenter = !key.symChar && !key.keyword && !key.space;
         const centerCls = needsCenter ? " kbd-key-center" : "";
         const spaceCls = key.space ? " kbd-key-space" : "";
-        html += `<div class="kbd-key ${wCls}${centerCls}${spaceCls}" data-row="${key.row}" data-bit="${key.bit}"${shiftAttr}>`;
+        const udgAttr = (key.main.length === 1 && key.main >= 'A' && key.main <= 'U') ? ' data-udg' : '';
+        html += `<div class="kbd-key ${wCls}${centerCls}${spaceCls}" data-row="${key.row}" data-bit="${key.bit}"${shiftAttr}${udgAttr}>`;
 
         if (key.space) {
           // SPACE key: BREAK (small) above SPACE (large), both centered
@@ -678,6 +687,13 @@ export class KeyboardWindow extends BaseWindow {
           // BASIC keyword (white, bottom-right) — skip for centered keys and empty keywords
           if (!needsCenter && key.keyword) {
             html += `<span class="kbd-keyword">${this._esc(key.keyword)}</span>`;
+          }
+
+          // UDG canvas for letters A-U in graphics mode
+          const letter = key.main;
+          if (letter.length === 1 && letter >= 'A' && letter <= 'U') {
+            const udgIdx = letter.charCodeAt(0) - 65;
+            html += `<canvas class="kbd-udg" data-udg-index="${udgIdx}" width="8" height="8"></canvas>`;
           }
         }
 
@@ -735,6 +751,8 @@ export class KeyboardWindow extends BaseWindow {
         const container = this.contentElement?.querySelector('.kbd-container');
         if (container && !this._dynamicHighlight) {
           delete container.dataset.shiftMode;
+          this._physCapsHeld = false;
+          this._physSymbolHeld = false;
         }
         if (this.onStateChange) this.onStateChange();
         this.saveSettings();
@@ -747,6 +765,17 @@ export class KeyboardWindow extends BaseWindow {
       const row = el.dataset.row;
       const bit = el.dataset.bit;
       this._keyElements.set(`${row},${bit}`, el);
+    });
+
+    // Collect UDG canvas references for A-U keys
+    this._udgCanvases = [];
+    this._udgCache = null;
+    this._lastGMode = false;
+    this.contentElement.querySelectorAll('.kbd-udg').forEach(canvas => {
+      const idx = parseInt(canvas.dataset.udgIndex, 10);
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+      this._udgCanvases[idx] = { canvas, ctx, key: canvas.closest('.kbd-key') };
     });
 
     this.contentElement.addEventListener("mousedown", (e) =>
@@ -783,6 +812,7 @@ export class KeyboardWindow extends BaseWindow {
 
     document.addEventListener("keydown", this._onDocKeyDown);
     document.addEventListener("keyup", this._onDocKeyUp);
+    window.addEventListener("blur", this._onWindowBlur);
 
     this._updateScale();
   }
@@ -982,13 +1012,103 @@ export class KeyboardWindow extends BaseWindow {
    * Polls the emulator's system variables to determine the current input mode.
    */
   update(proxy) {
-    if (!proxy) return;
+    if (!proxy || !this._dynamicHighlight) return;
     proxy.readMemory(0x5C3B, 7).then((data) => {
       // FLAGS at 0x5C3B (offset 0), MODE at 0x5C41 (offset 6)
       const flags = data[0];
       const mode = data[6]; // 0=KLC, 1=E, 2=G
       this._applyEmulatorMode(mode, flags);
+
+      if (mode === 2 && this._udgCanvases?.length) {
+        this._readAndRenderUDGs(proxy);
+        this._lastGMode = true;
+      } else if (this._lastGMode) {
+        this._clearUDGs();
+        this._lastGMode = false;
+      }
     });
+  }
+
+  _readAndRenderUDGs(proxy) {
+    // Read CHARS (0x5C36, 2 bytes) and UDG (0x5C7B, 2 bytes) system variables
+    // 0x5C7B - 0x5C36 = 69, so read 71 bytes to get both
+    proxy.readMemory(0x5C36, 71).then((sysData) => {
+      const chars = sysData[0] | (sysData[1] << 8);
+      const udgBase = sysData[69] | (sysData[70] << 8);
+
+      // Character data for A-U starts at chars + 256 + (65-32)*8 = chars + 520
+      const charsStart = chars + 520;
+
+      Promise.all([
+        proxy.readMemory(udgBase, 168),    // 21 UDGs × 8 bytes
+        proxy.readMemory(charsStart, 168), // 21 default chars × 8 bytes
+      ]).then(([udgData, charData]) => {
+        // Quick check: has anything changed since last render?
+        if (this._udgCache && this._udgCharCache) {
+          let same = true;
+          for (let i = 0; i < 168; i++) {
+            if (udgData[i] !== this._udgCache[i] || charData[i] !== this._udgCharCache[i]) {
+              same = false;
+              break;
+            }
+          }
+          if (same) return;
+        }
+
+        this._udgCache = new Uint8Array(udgData);
+        this._udgCharCache = new Uint8Array(charData);
+
+        for (let i = 0; i < 21; i++) {
+          const entry = this._udgCanvases[i];
+          if (!entry) continue;
+
+          const offset = i * 8;
+          const udgBytes = udgData.slice(offset, offset + 8);
+          const charBytes = charData.slice(offset, offset + 8);
+
+          // Compare UDG against default character
+          let isCustom = false;
+          for (let b = 0; b < 8; b++) {
+            if (udgBytes[b] !== charBytes[b]) { isCustom = true; break; }
+          }
+
+          if (isCustom) {
+            this._drawUDG(entry.ctx, udgBytes);
+            entry.canvas.classList.add('active');
+            entry.key.classList.add('udg-active');
+          } else {
+            entry.canvas.classList.remove('active');
+            entry.key.classList.remove('udg-active');
+          }
+        }
+      });
+    });
+  }
+
+  _drawUDG(ctx, bytes) {
+    ctx.clearRect(0, 0, 8, 8);
+    const imgData = ctx.createImageData(8, 8);
+    for (let row = 0; row < 8; row++) {
+      for (let bit = 7; bit >= 0; bit--) {
+        if (bytes[row] & (1 << bit)) {
+          const px = 7 - bit;
+          const i = (row * 8 + px) * 4;
+          imgData.data[i] = imgData.data[i + 1] = imgData.data[i + 2] = imgData.data[i + 3] = 255;
+        }
+      }
+    }
+    ctx.putImageData(imgData, 0, 0);
+  }
+
+  _clearUDGs() {
+    for (let i = 0; i < 21; i++) {
+      const entry = this._udgCanvases[i];
+      if (!entry) continue;
+      entry.canvas.classList.remove('active');
+      entry.key.classList.remove('udg-active');
+    }
+    this._udgCache = null;
+    this._udgCharCache = null;
   }
 
   /**
@@ -1020,9 +1140,9 @@ export class KeyboardWindow extends BaseWindow {
     const capsHeld = this._capsShiftActive || this._physCapsHeld;
 
     let cssMode;
-    if (symHeld && modeName !== 'E') {
+    if (symHeld && modeName !== 'E' && modeName !== 'G') {
       cssMode = 'symbol';
-    } else if (capsHeld && modeName !== 'E' && modeName !== 'K') {
+    } else if (capsHeld && modeName !== 'E' && modeName !== 'K' && modeName !== 'G') {
       cssMode = 'caps-shift';
     } else if (modeName === 'E') {
       cssMode = (capsHeld || symHeld) ? 'extended-shift' : 'extended';
@@ -1044,6 +1164,7 @@ export class KeyboardWindow extends BaseWindow {
   _handleKeyDown(e) {
     const mapping = KEY_MAP[e.code];
     if (!mapping) return;
+    this._pressedCodes.add(e.code);
     for (const [row, bit] of mapping) {
       const el = this._keyElements.get(`${row},${bit}`);
       if (el) el.classList.add("pressed");
@@ -1058,9 +1179,17 @@ export class KeyboardWindow extends BaseWindow {
   _handleKeyUp(e) {
     const mapping = KEY_MAP[e.code];
     if (!mapping) return;
+    this._pressedCodes.delete(e.code);
     for (const [row, bit] of mapping) {
-      const el = this._keyElements.get(`${row},${bit}`);
-      if (el) el.classList.remove("pressed");
+      // Only remove pressed if no other held key maps to this same row,bit
+      const stillHeld = [...this._pressedCodes].some(code => {
+        const m = KEY_MAP[code];
+        return m && m.some(([r, b]) => r === row && b === bit);
+      });
+      if (!stillHeld) {
+        const el = this._keyElements.get(`${row},${bit}`);
+        if (el) el.classList.remove("pressed");
+      }
     }
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
       this._physCapsHeld = false;
@@ -1087,6 +1216,7 @@ export class KeyboardWindow extends BaseWindow {
   destroy() {
     document.removeEventListener("keydown", this._onDocKeyDown);
     document.removeEventListener("keyup", this._onDocKeyUp);
+    window.removeEventListener("blur", this._onWindowBlur);
     super.destroy();
   }
 }
