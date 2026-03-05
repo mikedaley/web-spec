@@ -780,6 +780,18 @@ export class KeyboardWindow extends BaseWindow {
           this._physCapsHeld = false;
           this._physSymbolHeld = false;
         }
+        // Hide/show custom font toggle and disable custom font when dynamic is off
+        const fontWrapEl = this.headerElement?.querySelector('.kbd-font-wrap');
+        if (fontWrapEl) {
+          fontWrapEl.style.display = this._dynamicHighlight ? '' : 'none';
+        }
+        if (!this._dynamicHighlight && this._customFont) {
+          this._customFont = false;
+          const fontInput = this.headerElement?.querySelector('.kbd-font-wrap input');
+          if (fontInput) fontInput.checked = false;
+          if (container) container.classList.remove('kbd-custom-font');
+          this._clearFontCanvases();
+        }
         if (this.onStateChange) this.onStateChange();
         this.saveSettings();
       });
@@ -815,6 +827,10 @@ export class KeyboardWindow extends BaseWindow {
         dynamicWrap.parentNode.insertBefore(fontWrap, dynamicWrap);
       } else {
         closeBtn.parentNode.insertBefore(fontWrap, closeBtn);
+      }
+      // Hide font toggle if dynamic mode is off
+      if (!this._dynamicHighlight) {
+        fontWrap.style.display = 'none';
       }
     }
 
