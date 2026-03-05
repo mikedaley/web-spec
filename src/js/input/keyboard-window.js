@@ -799,7 +799,10 @@ export class KeyboardWindow extends BaseWindow {
         if (container) {
           container.classList.toggle('kbd-custom-font', this._customFont);
         }
-        if (!this._customFont) {
+        if (this._customFont && this._emulatorRunning && this.proxy) {
+          this._fontCache = null; // force re-render
+          this._readAndRenderFont(this.proxy);
+        } else if (!this._customFont) {
           this._clearFontCanvases();
         }
         if (this.onStateChange) this.onStateChange();
