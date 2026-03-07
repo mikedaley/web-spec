@@ -51,6 +51,7 @@ public:
     using IoWriteFunc = std::function<void(uint16_t address, uint8_t data, void* param)>;
     using ContentionFunc = std::function<void(uint16_t address, uint32_t tstates, void* param)>;
     using OpcodeCallback = std::function<bool(uint8_t opcode, uint16_t address, void* param)>;
+    using RetnCallback = std::function<void()>;
 
 private:
     static constexpr uint32_t OPCODEFLAG_AltersFlags = (1 << 0);
@@ -132,6 +133,7 @@ public:
     uint32_t execute(uint32_t numTStates = 0, uint32_t intTStates = 32);
 
     void registerOpcodeCallback(OpcodeCallback callback);
+    void registerRetnCallback(RetnCallback callback);
     void signalInterrupt();
 
     bool isInterruptRequesting() const { return m_CPURegisters.IntReq; }
@@ -814,6 +816,7 @@ protected:
     ContentionFunc m_MemContentionHandling;
     ContentionFunc m_NoMreqContentionHandling;
     OpcodeCallback m_OpcodeCallback;
+    RetnCallback m_RetnCallback;
 };
 
 } // namespace zxspec

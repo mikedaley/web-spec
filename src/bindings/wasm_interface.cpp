@@ -77,6 +77,12 @@ void reset() {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void triggerNMI() {
+  REQUIRE_MACHINE();
+  g_machine->triggerNMI();
+}
+
+EMSCRIPTEN_KEEPALIVE
 void runCycles(int cycles) {
   REQUIRE_MACHINE();
   g_machine->runCycles(cycles);
@@ -1235,6 +1241,202 @@ int importState(const uint8_t* data, uint32_t size) {
 
     spectrum->loadZ80(data, size);
     return 1;
+}
+
+// ============================================================================
+// Spectranet Ethernet Interface
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+int isSpectranetEnabled() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? (spec->isSpectranetEnabled() ? 1 : 0) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void setSpectranetEnabled(int enabled) {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->setSpectranetEnabled(enabled != 0);
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t spectranetGetPageA() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? spec->getSpectranet().getPageA() : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t spectranetGetPageB() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? spec->getSpectranet().getPageB() : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t spectranetGetControlReg() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? spec->getSpectranet().getControlReg() : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int spectranetIsPagedIn() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? (spec->getSpectranet().isPagedIn() ? 1 : 0) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint16_t spectranetGetTrapAddr() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? spec->getSpectranet().getTrapAddress() : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int spectranetIsTrapEnabled() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? (spec->getSpectranet().isTrapEnabled() ? 1 : 0) : 0;
+}
+
+// Serialized command buffer: 16 bytes
+// [0]     type (NetCommandType)
+// [1]     socket
+// [2]     protocol
+// [3-6]   destIP (4 bytes)
+// [7-8]   destPort (BE)
+// [9-10]  srcPort (BE)
+// [11-12] txOffset (LE)
+// [13-14] txLength (LE)
+// [15]    reserved
+static uint8_t s_netCmdBuf[16];
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* spectranetGetPendingCommand() {
+    REQUIRE_MACHINE_OR(nullptr);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (!spec) return nullptr;
+
+    auto& snet = spec->getSpectranet();
+    if (!snet.getW5100().hasPendingCommand()) return nullptr;
+
+    const auto& cmd = snet.getW5100().getPendingCommand();
+    s_netCmdBuf[0] = static_cast<uint8_t>(cmd.type);
+    s_netCmdBuf[1] = cmd.socket;
+    s_netCmdBuf[2] = cmd.protocol;
+    s_netCmdBuf[3] = cmd.destIP[0];
+    s_netCmdBuf[4] = cmd.destIP[1];
+    s_netCmdBuf[5] = cmd.destIP[2];
+    s_netCmdBuf[6] = cmd.destIP[3];
+    s_netCmdBuf[7] = (cmd.destPort >> 8) & 0xFF;
+    s_netCmdBuf[8] = cmd.destPort & 0xFF;
+    s_netCmdBuf[9] = (cmd.srcPort >> 8) & 0xFF;
+    s_netCmdBuf[10] = cmd.srcPort & 0xFF;
+    s_netCmdBuf[11] = cmd.txOffset & 0xFF;
+    s_netCmdBuf[12] = (cmd.txOffset >> 8) & 0xFF;
+    s_netCmdBuf[13] = cmd.txLength & 0xFF;
+    s_netCmdBuf[14] = (cmd.txLength >> 8) & 0xFF;
+    s_netCmdBuf[15] = 0;
+    return s_netCmdBuf;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void spectranetClearPendingCommand() {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->getSpectranet().getW5100().clearPendingCommand();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void spectranetPushReceivedData(int socket, const uint8_t* data, int length) {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->getSpectranet().getW5100().pushReceivedData(
+        static_cast<uint8_t>(socket), data, static_cast<uint16_t>(length));
+}
+
+EMSCRIPTEN_KEEPALIVE
+void spectranetSetSocketStatus(int socket, int status) {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->getSpectranet().getW5100().setSocketStatus(
+        static_cast<uint8_t>(socket), static_cast<uint8_t>(status));
+}
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* spectranetGetTxBuffer() {
+    REQUIRE_MACHINE_OR(nullptr);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? spec->getSpectranet().getW5100().getTxBuffer() : nullptr;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int spectranetGetTxBufferSize() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? spec->getSpectranet().getW5100().getTxBufferSize() : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t spectranetW5100Read(uint16_t address) {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? spec->getSpectranet().getW5100().read(address) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint8_t spectranetGetSocketStatus(int socket) {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? spec->getSpectranet().getW5100().getSocketStatus(static_cast<uint8_t>(socket)) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void spectranetSetNetworkConfig(const uint8_t* ip, const uint8_t* gateway,
+                                const uint8_t* subnet, const uint8_t* dns) {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->getSpectranet().setNetworkConfig(ip, gateway, subnet, dns);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void spectranetSetStaticIP(bool useStatic) {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->getSpectranet().setStaticIP(useStatic);
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool spectranetIsStaticIP() {
+    REQUIRE_MACHINE_OR(true);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? spec->getSpectranet().isStaticIP() : true;
+}
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* spectranetGetSRAMData() {
+    REQUIRE_MACHINE_OR(nullptr);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? spec->getSpectranet().getSRAMData() : nullptr;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint32_t spectranetGetSRAMSize() {
+    return zxspec::Spectranet::getSRAMSize();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void spectranetSetSRAMData(const uint8_t* data, uint32_t size) {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec && data) {
+        uint32_t copySize = (size < zxspec::Spectranet::getSRAMSize()) ? size : zxspec::Spectranet::getSRAMSize();
+        std::memcpy(spec->getSpectranet().getSRAMData(), data, copySize);
+    }
 }
 
 } // extern "C"

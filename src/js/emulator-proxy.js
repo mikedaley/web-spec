@@ -17,6 +17,7 @@ export class EmulatorProxy {
     this.onTapLoadError = null;
     this.onTapeRecordComplete = null;
     this.onBasicBreakpointHit = null;
+    this.onSpectranetCommand = null;
     this.onStateUpdate = null;
     this._nextId = 1;
     this._pendingRequests = new Map();
@@ -75,6 +76,19 @@ export class EmulatorProxy {
         this.state = msg.state;
         if (this.onBasicBreakpointHit) {
           this.onBasicBreakpointHit(msg.framebuffer, msg.lineNumber, msg.hit, msg.statementIndex);
+        }
+        break;
+      }
+
+      case "spectranetCommand":
+        if (this.onSpectranetCommand) this.onSpectranetCommand(msg.command);
+        break;
+
+      case "spectranetSRAMData": {
+        const resolve = this._pendingRequests.get("spectranetSRAM");
+        if (resolve) {
+          this._pendingRequests.delete("spectranetSRAM");
+          resolve(msg.data ? new Uint8Array(msg.data) : null);
         }
         break;
       }
@@ -200,6 +214,10 @@ export class EmulatorProxy {
 
   reset() {
     this.worker.postMessage({ type: "reset" });
+  }
+
+  triggerNMI() {
+    this.worker.postMessage({ type: "triggerNMI" });
   }
 
   runFrames(count) {
@@ -547,6 +565,50 @@ export class EmulatorProxy {
       this._pendingRequests.set(id, resolve);
       this.worker.postMessage({ type: "importState", id, data: buffer.buffer }, [buffer.buffer]);
     });
+  }
+
+  // Spectranet Ethernet interface
+  isSpectranetEnabled() {
+    return this.state.spectranetEnabled ?? false;
+  }
+
+  setSpectranetEnabled(enabled) {
+    this.worker.postMessage({ type: "setSpectranetEnabled", enabled });
+  }
+
+  spectranetPushData(socket, data) {
+    const buffer = new Uint8Array(data).buffer;
+    this.worker.postMessage({ type: "spectranetPushData", socket, data: buffer }, [buffer]);
+  }
+
+  spectranetSetSocketStatus(socket, status) {
+    this.worker.postMessage({ type: "spectranetSetSocketStatus", socket, status });
+  }
+
+  spectranetSetNetworkConfig(ip, gateway, subnet, dns) {
+    this.worker.postMessage({
+      type: "spectranetSetNetworkConfig",
+      ip: new Uint8Array(ip),
+      gateway: new Uint8Array(gateway),
+      subnet: new Uint8Array(subnet),
+      dns: new Uint8Array(dns),
+    });
+  }
+
+  spectranetSetStaticIP(useStatic) {
+    this.worker.postMessage({ type: "spectranetSetStaticIP", useStatic });
+  }
+
+  spectranetGetSRAM() {
+    return new Promise((resolve) => {
+      this._pendingRequests.set("spectranetSRAM", resolve);
+      this.worker.postMessage({ type: "spectranetGetSRAM" });
+    });
+  }
+
+  spectranetSetSRAM(data) {
+    const buffer = new Uint8Array(data).buffer;
+    this.worker.postMessage({ type: "spectranetSetSRAM", data: buffer }, [buffer]);
   }
 
   destroy() {

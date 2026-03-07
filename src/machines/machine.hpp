@@ -78,6 +78,8 @@ public:
     virtual void clearBreakpointHit() = 0;
     virtual void resetBreakpointHit() = 0;
 
+    virtual void triggerNMI() = 0;
+
     virtual const char* getName() const = 0;
     virtual int getId() const = 0;
 

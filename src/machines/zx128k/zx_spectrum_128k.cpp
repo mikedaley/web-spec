@@ -45,6 +45,12 @@ void ZXSpectrum128::init()
         std::memcpy(memoryRom_.data() + MEM_PAGE_SIZE, roms::ROM_128K_1, roms::ROM_128K_1_SIZE);
     }
 
+    // Load Spectranet ROM into flash if available
+    if (roms::ROM_SPECTRANET_SIZE > 0)
+    {
+        spectranet_.loadROM(roms::ROM_SPECTRANET, static_cast<uint32_t>(roms::ROM_SPECTRANET_SIZE));
+    }
+
     // Default paging: ROM 0, RAM bank 0 at slot 3, screen bank 5
     pagingRegister_ = 0;
     pagingDisabled_ = false;
@@ -141,12 +147,25 @@ const uint8_t* ZXSpectrum128::getScreenMemory() const
 uint8_t ZXSpectrum128::coreMemoryRead(uint16_t address)
 {
     int slot = address >> 14;
+
+    // Spectranet intercepts slot 0 when paged in
+    if (slot == 0 && spectranetEnabled_ && spectranet_.isPagedIn()) {
+        return spectranet_.memoryRead(address);
+    }
+
     return pageRead_[slot][address & 0x3FFF];
 }
 
 void ZXSpectrum128::coreMemoryWrite(uint16_t address, uint8_t data)
 {
     int slot = address >> 14;
+
+    // Spectranet intercepts slot 0 when paged in
+    if (slot == 0 && spectranetEnabled_ && spectranet_.isPagedIn()) {
+        spectranet_.memoryWrite(address, data);
+        return;
+    }
+
     if (!pageWrite_[slot]) return;  // ROM protection
 
     // Slot 1 (bank 5) always gets display catch-up unconditionally,
@@ -178,12 +197,23 @@ void ZXSpectrum128::coreMemoryWrite(uint16_t address, uint8_t data)
 uint8_t ZXSpectrum128::coreDebugRead(uint16_t address) const
 {
     int slot = address >> 14;
+
+    if (slot == 0 && spectranetEnabled_ && spectranet_.isPagedIn()) {
+        return spectranet_.memoryRead(address);
+    }
+
     return pageRead_[slot][address & 0x3FFF];
 }
 
 void ZXSpectrum128::coreDebugWrite(uint16_t address, uint8_t data)
 {
     int slot = address >> 14;
+
+    if (slot == 0 && spectranetEnabled_ && spectranet_.isPagedIn()) {
+        spectranet_.memoryWrite(address, data);
+        return;
+    }
+
     if (pageWrite_[slot])
     {
         pageWrite_[slot][address & 0x3FFF] = data;
@@ -256,6 +286,11 @@ uint8_t ZXSpectrum128::coreIORead(uint16_t address)
         int slot = address >> 14;
         bool contended = (slot == 1) || (slot == 3 && (pagingRegister_ & 0x01));
         contention_.applyIOContention(*z80_, address, contended);
+    }
+
+    // Spectranet ports (low byte 0x3B)
+    if (spectranetEnabled_ && spectranet_.isSpectranetPort(address)) {
+        return spectranet_.ioRead(address, borderColor_, pagingRegister_);
     }
 
     // ULA un-owned (odd) ports
@@ -335,6 +370,12 @@ void ZXSpectrum128::coreIOWrite(uint16_t address, uint8_t data)
         int slot = address >> 14;
         bool contended = (slot == 1) || (slot == 3 && (pagingRegister_ & 0x01));
         contention_.applyIOContention(*z80_, address, contended);
+    }
+
+    // Spectranet ports (low byte 0x3B)
+    if (spectranetEnabled_ && spectranet_.isSpectranetPort(address)) {
+        spectranet_.ioWrite(address, data);
+        return;
     }
 
     // Memory paging: port 0x7FFD -- (address & 0x8002) == 0

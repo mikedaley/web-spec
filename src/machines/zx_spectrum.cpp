@@ -83,6 +83,13 @@ void ZXSpectrum::baseInit()
         this
     );
 
+    // Register RETN callback to clear Spectranet NMI flip-flop
+    z80_->registerRetnCallback([this]() {
+        if (spectranetEnabled_) {
+            spectranet_.clearNMIFlipFlop();
+        }
+    });
+
     // Derive the exact frames-per-second from the CPU clock and T-states per frame.
     // For the 48K: 3,500,000 / 69,888 ≈ 50.08 Hz (not exactly 50 Hz).
     // For 128K:    3,500,000 / 70,908 ≈ 49.36 Hz.
@@ -103,6 +110,25 @@ void ZXSpectrum::baseInit()
 }
 
 // ============================================================================
+// NMI
+// ============================================================================
+
+void ZXSpectrum::triggerNMI()
+{
+    // Block re-entrant NMI while Spectranet NMI handler is active
+    if (spectranetEnabled_ && spectranet_.isNMIBlocked()) {
+        return;
+    }
+
+    spectranet_.pageIn();
+
+    if (spectranetEnabled_) {
+        spectranet_.setNMIFlipFlop(true);
+    }
+
+    z80_->setNMIReq(true);
+}
+
 // Reset
 // ============================================================================
 
@@ -112,6 +138,7 @@ void ZXSpectrum::reset()
     audio_.reset();
     ay_.reset();
     ayMixOffset_ = 0;
+    spectranet_.reset();
     keyboardMatrix_.fill(0xBF);
     display_.frameReset();
     paused_ = false;
@@ -418,7 +445,7 @@ void ZXSpectrum::removeBreakpoint(uint16_t addr)
     breakpoints_.erase(addr);
     disabledBreakpoints_.erase(addr);
 
-    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF) {
+    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     } else {
         installOpcodeCallback();
@@ -597,7 +624,7 @@ void ZXSpectrum::clearBasicBreakpointMode()
     basicBreakpointLines_.clear();
 
     // If no other reasons to keep the callback, remove it
-    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_) {
+    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && !spectranetEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     }
 }
@@ -623,7 +650,76 @@ bool ZXSpectrum::hasBasicProgram() const
 void ZXSpectrum::installOpcodeCallback()
 {
     z80_->registerOpcodeCallback(
-        [this](uint8_t /*opcode*/, uint16_t address, void* /*param*/) -> bool {
+        [this](uint8_t opcode, uint16_t address, void* /*param*/) -> bool {
+            // Spectranet hardware traps
+            if (spectranetEnabled_) {
+                if (spectranet_.isPagedIn()) {
+                    if (spectranet_.isPageOutTrap(address)) {
+                        spectranet_.pageOut();
+                        return false;
+                    }
+                } else {
+                    // Deferred NMI page-in: when a programmable trap fires,
+                    // we can't page in immediately (the current instruction
+                    // hasn't finished, and its operand reads would go to
+                    // Spectranet flash instead of Spectrum ROM). Instead we
+                    // set NMI and defer the page-in. When the NMI handler
+                    // fetches from 0x0066, we page in here so it reads from
+                    // Spectranet flash.
+                    if (spectranet_.isNMIPageInPending() && address == 0x0066) {
+                        spectranet_.pageIn();
+                        spectranet_.setNMIPageInPending(false);
+                        z80_->setRegister(Z80::WordReg::PC, 0x0066);
+                        return true;
+                    }
+
+                    // Page-in traps: the opcode callback fires AFTER the
+                    // opcode fetch, so the CPU already has the Spectrum ROM
+                    // byte. On real hardware the page-in happens BEFORE the
+                    // fetch so the CPU reads from Spectranet flash. To match
+                    // this, page in and set PC back to re-fetch the opcode
+                    // from the now-paged-in Spectranet flash.
+                    if (spectranet_.isPageInTrap(address)) {
+                        if (address == 0x0008) {
+                            uint16_t sp = z80_->getRegister(Z80::WordReg::SP);
+                            uint16_t retAddr = coreDebugRead(sp) | (coreDebugRead(sp + 1) << 8);
+                            uint8_t errByte = coreDebugRead(retAddr);
+                            if (retAddr != 0) {
+                                uint16_t chAdd = coreDebugRead(0x5C5D) | (coreDebugRead(0x5C5E) << 8);
+                                // Command table at SRAM $3A00 (offset 0xA00)
+                                printf("[SNET TRAP] RST8: ret=%04X err=%02X CH_ADD=%04X cmdtbl=",
+                                    retAddr, errByte, chAdd);
+                                for (int i = 0; i < 32; i++) printf("%02X ", spectranet_.sramRead(0xA00 + i));
+                                printf("\n");
+                            }
+                        }
+                        spectranet_.pageIn();
+                        z80_->setRegister(Z80::WordReg::PC, address);
+                        return true;
+                    }
+                    if (spectranet_.isCallTrap(address)) {
+                        spectranet_.pageIn();
+                        z80_->setRegister(Z80::WordReg::PC, address);
+                        return true;
+                    }
+                    if (spectranet_.isProgrammableTrap(address) && !spectranet_.isNMIBlocked()) {
+                        // Don't page in now — the instruction at the trap
+                        // address hasn't finished executing, and paging in
+                        // would corrupt its operand reads. Just request NMI
+                        // and defer the page-in to when 0x0066 is fetched.
+                        spectranet_.setNMIPageInPending(true);
+                        spectranet_.setNMIFlipFlop(true);
+                        z80_->setNMIReq(true);
+                        return false;
+                    }
+                }
+
+                // Clear trap inhibit after checking traps this instruction.
+                // This ensures the inhibit from pageOut() suppresses traps for
+                // exactly one instruction (the RET after UNPAGE at 0x007C).
+                spectranet_.tickTrapInhibit();
+            }
+
             // Tape ROM trap
             if (tapeActive_ && handleTapeTrap(address))
             {
@@ -850,7 +946,7 @@ void ZXSpectrum::tapeEject()
     tapeInstantLoad_ = false;
 
     // Remove opcode callback if no breakpoints remain
-    if (breakpoints_.empty()) {
+    if (breakpoints_.empty() && !spectranetEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     }
 }

@@ -1,0 +1,158 @@
+/* Spectranet debug window styles */
+
+.spectranet-content {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.spectranet-section {
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.spectranet-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+/* Register display */
+.spectranet-registers {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px 12px;
+}
+
+.spectranet-reg-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+}
+
+.spectranet-reg-name {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.spectranet-reg-value {
+  font-family: var(--font-mono, monospace);
+  color: var(--accent-green);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Socket display */
+.spectranet-sockets {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+
+.spectranet-socket {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  border: 1px solid var(--glass-border);
+}
+
+.spectranet-socket-num {
+  font-family: var(--font-mono, monospace);
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  min-width: 10px;
+}
+
+.spectranet-socket-status {
+  font-family: var(--font-mono, monospace);
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.spectranet-socket-status.spectranet-socket-active {
+  color: var(--accent-green);
+}
+
+/* Network config */
+.spectranet-config {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.spectranet-config-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.spectranet-ip-input {
+  max-width: 160px;
+}
+
+.spectranet-apply-btn {
+  align-self: flex-start;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--accent-blue-border);
+  border-radius: 4px;
+  padding: 4px 12px;
+  color: var(--accent-blue);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.spectranet-apply-btn:hover {
+  background: var(--accent-blue-bg);
+}
+
+.spectranet-config-label {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.spectranet-config-input {
+  background: var(--input-bg);
+  border: 1px solid var(--input-border);
+  border-radius: 4px;
+  padding: 4px 6px;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-family: var(--font-mono, monospace);
+  outline: none;
+}
+
+.spectranet-config-input:focus {
+  border-color: var(--accent-blue-border);
+}
+
+.spectranet-config-input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.spectranet-config-input:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.spectranet-checkbox-row label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.spectranet-checkbox-row input[type="checkbox"] {
+  accent-color: var(--accent-blue);
+}

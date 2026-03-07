@@ -1,0 +1,12 @@
+{
+  "name": "spectranet-udp-proxy",
+  "version": "1.0.0",
+  "description": "WebSocket-to-UDP/TCP proxy for Spectranet TNFS",
+  "main": "udp-proxy.js",
+  "scripts": {
+    "start": "node udp-proxy.js"
+  },
+  "dependencies": {
+    "ws": "^8.16.0"
+  }
+}

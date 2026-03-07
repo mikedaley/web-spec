@@ -41,6 +41,12 @@ void ZXSpectrum48::init()
         std::memcpy(memoryRom_.data(), roms::ROM_48K, roms::ROM_48K_SIZE);
     }
 
+    // Load Spectranet ROM into flash if available
+    if (roms::ROM_SPECTRANET_SIZE > 0)
+    {
+        spectranet_.loadROM(roms::ROM_SPECTRANET, static_cast<uint32_t>(roms::ROM_SPECTRANET_SIZE));
+    }
+
     setupPaging();
 }
 
@@ -93,12 +99,25 @@ const uint8_t* ZXSpectrum48::getScreenMemory() const
 uint8_t ZXSpectrum48::coreMemoryRead(uint16_t address)
 {
     int slot = address >> 14;
+
+    // Spectranet intercepts slot 0 when paged in
+    if (slot == 0 && spectranetEnabled_ && spectranet_.isPagedIn()) {
+        return spectranet_.memoryRead(address);
+    }
+
     return pageRead_[slot][address & 0x3FFF];
 }
 
 void ZXSpectrum48::coreMemoryWrite(uint16_t address, uint8_t data)
 {
     int slot = address >> 14;
+
+    // Spectranet intercepts slot 0 when paged in
+    if (slot == 0 && spectranetEnabled_ && spectranet_.isPagedIn()) {
+        spectranet_.memoryWrite(address, data);
+        return;
+    }
+
     if (!pageWrite_[slot]) return;  // ROM protection
 
     // If the CPU is writing to the screen memory area (bitmap: 0x4000-0x57FF,
@@ -135,12 +154,23 @@ void ZXSpectrum48::coreMemoryWrite(uint16_t address, uint8_t data)
 uint8_t ZXSpectrum48::coreDebugRead(uint16_t address) const
 {
     int slot = address >> 14;
+
+    if (slot == 0 && spectranetEnabled_ && spectranet_.isPagedIn()) {
+        return spectranet_.memoryRead(address);
+    }
+
     return pageRead_[slot][address & 0x3FFF];
 }
 
 void ZXSpectrum48::coreDebugWrite(uint16_t address, uint8_t data)
 {
     int slot = address >> 14;
+
+    if (slot == 0 && spectranetEnabled_ && spectranet_.isPagedIn()) {
+        spectranet_.memoryWrite(address, data);
+        return;
+    }
+
     if (pageWrite_[slot])
     {
         pageWrite_[slot][address & 0x3FFF] = data;
@@ -188,6 +218,11 @@ uint8_t ZXSpectrum48::coreIORead(uint16_t address)
     {
         bool contended = ((address >> 14) == 1);
         contention_.applyIOContention(*z80_, address, contended);
+    }
+
+    // Spectranet ports (low byte 0x3B)
+    if (spectranetEnabled_ && spectranet_.isSpectranetPort(address)) {
+        return spectranet_.ioRead(address, borderColor_, 0);
     }
 
     // AY-3-8912 data read: port 0xFFFD — (address & 0xC002) == 0xC000
@@ -241,6 +276,12 @@ void ZXSpectrum48::coreIOWrite(uint16_t address, uint8_t data)
     {
         bool contended = ((address >> 14) == 1);
         contention_.applyIOContention(*z80_, address, contended);
+    }
+
+    // Spectranet ports (low byte 0x3B)
+    if (spectranetEnabled_ && spectranet_.isSpectranetPort(address)) {
+        spectranet_.ioWrite(address, data);
+        return;
     }
 
     // AY-3-8912 ports (128K-compatible scheme)

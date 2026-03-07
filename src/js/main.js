@@ -24,6 +24,9 @@ import { MemoryMapWindow } from "./debug/memory-map-window.js";
 import { KeyboardWindow } from "./input/keyboard-window.js";
 import { UDGEditorWindow } from "./debug/udg-editor-window.js";
 import { FontEditorWindow } from "./debug/font-editor-window.js";
+import { SpectranetWindow } from "./debug/spectranet-window.js";
+import { NetworkManager } from "./spectranet/network-manager.js";
+import { saveSRAM, loadSRAM } from "./spectranet/spectranet-persistence.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
@@ -55,6 +58,8 @@ class ZXSpectrumEmulator {
     this.keyboardWindow = null;
     this.udgEditorWindow = null;
     this.fontEditorWindow = null;
+    this.spectranetWindow = null;
+    this.networkManager = null;
 
     this.snapshotLoader = null;
     this.themeManager = null;
@@ -153,6 +158,17 @@ class ZXSpectrumEmulator {
       this.fontEditorWindow.create();
       this.windowManager.register(this.fontEditorWindow);
 
+      // Create Spectranet debug window
+      this.spectranetWindow = new SpectranetWindow(this.proxy);
+      this.spectranetWindow.create();
+      this.windowManager.register(this.spectranetWindow);
+
+      // Create network manager for Spectranet
+      this.networkManager = new NetworkManager(this.proxy);
+      const savedCorsProxy = localStorage.getItem("zxspec-spectranet-cors-proxy");
+      if (savedCorsProxy) this.networkManager.setCorsProxyUrl(savedCorsProxy);
+      this.spectranetWindow.onCorsProxyUrlChanged = (url) => this.networkManager.setCorsProxyUrl(url);
+
       // Create rule builder window (shared by BASIC and CPU debugger)
       this.ruleBuilderWindow = new RuleBuilderWindow();
       this.ruleBuilderWindow.create();
@@ -200,6 +216,7 @@ class ZXSpectrumEmulator {
         { id: "keyboard", visible: false },
         { id: "udg-editor", visible: false },
         { id: "font-editor", visible: false },
+        { id: "spectranet", visible: false },
         { id: "save-states", visible: false },
       ]);
 
@@ -260,9 +277,12 @@ class ZXSpectrumEmulator {
       // Start render loop
       this.startRenderLoop();
 
-      // Save window state on page unload
+      // Save window state and Spectranet SRAM on page unload
       window.addEventListener("beforeunload", () => {
         this.windowManager.saveState();
+        if (localStorage.getItem("zxspec-spectranet-enabled") === "true") {
+          this.saveSpectranetSRAM();
+        }
       });
 
       // Set version chip from version.js
@@ -301,6 +321,18 @@ class ZXSpectrumEmulator {
           this.proxy.reset();
           this.audioDriver.latestSamples = null;
           console.log("Emulator reset");
+        }
+        this.refocusCanvas();
+      });
+    }
+
+    // NMI button
+    const nmiBtn = document.getElementById("btn-nmi");
+    if (nmiBtn) {
+      nmiBtn.addEventListener("click", () => {
+        if (this.running) {
+          this.proxy.triggerNMI();
+          console.log("NMI triggered");
         }
         this.refocusCanvas();
       });
@@ -483,6 +515,16 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // Dev menu > Spectranet window
+    const spectranetBtn = document.getElementById("btn-spectranet");
+    if (spectranetBtn) {
+      spectranetBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("spectranet");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
     // Help menu > Check for Updates
     const checkUpdatesBtn = document.getElementById("btn-check-updates");
     if (checkUpdatesBtn) {
@@ -547,6 +589,11 @@ class ZXSpectrumEmulator {
     if (resetBtn) {
       resetBtn.classList.toggle("disabled", !this.running);
     }
+
+    const nmiBtn = document.getElementById("btn-nmi");
+    if (nmiBtn) {
+      nmiBtn.classList.toggle("disabled", !this.running);
+    }
   }
 
   /**
@@ -598,6 +645,7 @@ class ZXSpectrumEmulator {
       "btn-basic-editor": "basic-program",
       "btn-udg-editor": "udg-editor",
       "btn-font-editor": "font-editor",
+      "btn-spectranet": "spectranet",
     };
 
     for (const [btnId, windowId] of Object.entries(windowMap)) {
@@ -1073,6 +1121,72 @@ class ZXSpectrumEmulator {
         this.closeAllMenus();
         this.refocusCanvas();
       });
+    }
+
+    // Spectranet toggle
+    const spectranetToggleBtn = document.getElementById("btn-spectranet-toggle");
+    if (spectranetToggleBtn) {
+      const savedSpectranet = localStorage.getItem("zxspec-spectranet-enabled") === "true";
+      if (savedSpectranet) this.applySpectranetNetworkConfig();
+      this.proxy.setSpectranetEnabled(savedSpectranet);
+      spectranetToggleBtn.classList.toggle("active", savedSpectranet);
+      if (savedSpectranet) this.restoreSpectranetSRAM();
+
+      spectranetToggleBtn.addEventListener("click", async () => {
+        const isEnabled = spectranetToggleBtn.classList.contains("active");
+        const newEnabled = !isEnabled;
+        if (isEnabled) {
+          await this.saveSpectranetSRAM();
+        }
+        if (newEnabled) this.applySpectranetNetworkConfig();
+        this.proxy.setSpectranetEnabled(newEnabled);
+        spectranetToggleBtn.classList.toggle("active", newEnabled);
+        localStorage.setItem("zxspec-spectranet-enabled", String(newEnabled));
+        if (newEnabled) {
+          await this.restoreSpectranetSRAM();
+        }
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+  }
+
+  async saveSpectranetSRAM() {
+    try {
+      const sramData = await this.proxy.spectranetGetSRAM();
+      if (sramData) {
+        await saveSRAM(sramData);
+      }
+    } catch (error) {
+      console.error("Failed to save Spectranet SRAM:", error);
+    }
+  }
+
+  async restoreSpectranetSRAM() {
+    try {
+      const sramData = await loadSRAM();
+      if (sramData) {
+        this.proxy.spectranetSetSRAM(sramData);
+      }
+    } catch (error) {
+      console.error("Failed to restore Spectranet SRAM:", error);
+    }
+  }
+
+  applySpectranetNetworkConfig() {
+    const parseIP = (s) => {
+      const parts = (s || "").trim().split(".").map(Number);
+      if (parts.length !== 4 || parts.some(p => isNaN(p) || p < 0 || p > 255)) return [0, 0, 0, 0];
+      return parts;
+    };
+    const ip = parseIP(localStorage.getItem("zxspec-spectranet-ip") || "192.168.1.100");
+    const gw = parseIP(localStorage.getItem("zxspec-spectranet-gateway") || "192.168.1.1");
+    const sn = parseIP(localStorage.getItem("zxspec-spectranet-subnet") || "255.255.255.0");
+    const dns = parseIP(localStorage.getItem("zxspec-spectranet-dns") || "8.8.8.8");
+    const useStatic = localStorage.getItem("zxspec-spectranet-static-ip") !== "false";
+    this.proxy.spectranetSetStaticIP(useStatic);
+    if (useStatic) {
+      this.proxy.spectranetSetNetworkConfig(ip, gw, sn, dns);
     }
   }
 

@@ -15,6 +15,7 @@
 #include "machine_info.hpp"
 #include "audio.hpp"
 #include "ay.hpp"
+#include "spectranet/spectranet.hpp"
 #include "display.hpp"
 #include "contention.hpp"
 #include "tape_block.hpp"
@@ -43,6 +44,7 @@ public:
 
     // Machine interface - concrete implementations
     void reset() override;
+    void triggerNMI() override;
     void runFrame() override;
     void runCycles(int cycles) override;
     void stepInstruction() override;
@@ -153,6 +155,12 @@ public:
     bool isAYEnabled() const { return ayEnabled_; }
     void setAYEnabled(bool enabled) { ayEnabled_ = enabled; }
 
+    // Spectranet Ethernet interface
+    Spectranet& getSpectranet() { return spectranet_; }
+    const Spectranet& getSpectranet() const { return spectranet_; }
+    bool isSpectranetEnabled() const { return spectranetEnabled_; }
+    void setSpectranetEnabled(bool enabled) { spectranetEnabled_ = enabled; if (enabled) installOpcodeCallback(); }
+
     // Issue number (2 or 3) — affects EAR/MIC feedback in IO reads
     uint8_t getIssueNumber() const { return issueNumber_; }
     void setIssueNumber(uint8_t issue) { issueNumber_ = issue; }
@@ -262,6 +270,10 @@ protected:
     // AY sound chip state
     bool ayEnabled_ = false;
     int ayMixOffset_ = 0;
+
+    // Spectranet Ethernet interface
+    Spectranet spectranet_;
+    bool spectranetEnabled_ = false;
 
     // Memory (allocated by base, managed by variant)
     std::vector<uint8_t> memoryRom_;

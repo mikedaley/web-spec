@@ -37,6 +37,7 @@ export class MobileMenu {
     const machineId = parseInt(localStorage.getItem('zxspec-machine-id') || '0', 10);
     const is48k = machineId === 0;
     const ayEnabled = localStorage.getItem('zxspec-ay-enabled') === 'true';
+    const spectranetEnabled = localStorage.getItem('zxspec-spectranet-enabled') === 'true';
     const autosaveEnabled = em.stateManager ? em.stateManager.isAutoSaveEnabled() : false;
 
     return `
@@ -66,6 +67,10 @@ export class MobileMenu {
           <span class="menu-item-label">AY Sound Chip</span>
         </button>
         ` : ''}
+        <button class="mobile-menu-item${spectranetEnabled ? ' active' : ''}" id="mobile-spectranet-toggle">
+          <span class="menu-check">&#10003;</span>
+          <span class="menu-item-label">Spectranet</span>
+        </button>
       </div>
 
       <!-- File section -->
@@ -143,6 +148,9 @@ export class MobileMenu {
         </button>
         <button class="mobile-menu-item" data-mobile-window="font-editor">
           <span class="menu-item-label">Font Editor</span>
+        </button>
+        <button class="mobile-menu-item" data-mobile-window="spectranet">
+          <span class="menu-item-label">Spectranet</span>
         </button>
       </div>
 
@@ -222,6 +230,19 @@ export class MobileMenu {
         em.proxy.setAYEnabled(newEnabled);
         ayToggle.classList.toggle('active', newEnabled);
         localStorage.setItem('zxspec-ay-enabled', String(newEnabled));
+        this.close();
+      });
+    }
+
+    // Spectranet toggle
+    const spectranetToggle = this._element.querySelector('#mobile-spectranet-toggle');
+    if (spectranetToggle) {
+      spectranetToggle.addEventListener('click', () => {
+        const isEnabled = spectranetToggle.classList.contains('active');
+        const newEnabled = !isEnabled;
+        em.proxy.setSpectranetEnabled(newEnabled);
+        spectranetToggle.classList.toggle('active', newEnabled);
+        localStorage.setItem('zxspec-spectranet-enabled', String(newEnabled));
         this.close();
       });
     }

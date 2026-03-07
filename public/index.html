@@ -77,6 +77,22 @@
                         </button>
 
                         <button
+                            id="btn-nmi"
+                            class="control-btn disabled"
+                            title="NMI"
+                            aria-label="NMI"
+                        >
+                            <svg
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                            >
+                                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                            </svg>
+                        </button>
+
+                        <button
                             id="btn-fullscreen"
                             class="control-btn"
                             title="Fullscreen"
@@ -228,6 +244,14 @@
                             >
                                 <span class="menu-check">&#10003;</span>
                                 <span>AY Sound Chip</span>
+                            </button>
+                            <div class="header-menu-separator"></div>
+                            <button
+                                class="header-menu-item menu-check-item"
+                                id="btn-spectranet-toggle"
+                            >
+                                <span class="menu-check">&#10003;</span>
+                                <span>Spectranet</span>
                             </button>
                         </div>
                     </div>
@@ -414,6 +438,12 @@
                             >
                                 <span class="menu-check">&#10003;</span>
                                 <span>Font Editor</span>
+                            </button>
+                            <button
+                                class="header-menu-item"
+                                id="btn-spectranet"
+                            >
+                                <span>Spectranet</span>
                             </button>
                         </div>
                     </div>

@@ -54,6 +54,11 @@ void Z80::registerOpcodeCallback(OpcodeCallback callback)
     m_OpcodeCallback = callback;
 }
 
+void Z80::registerRetnCallback(RetnCallback callback)
+{
+    m_RetnCallback = callback;
+}
+
 uint8_t Z80::z80MemRead(uint16_t address, uint32_t tstates)
 {
     z80MemContention(address, tstates);
@@ -123,11 +128,9 @@ uint32_t Z80::execute(uint32_t numTStates, uint32_t intTStates)
         if (m_CPURegisters.NMIReq)
         {
             m_CPURegisters.NMIReq = false;
+            // NMI only clears IFF1; IFF2 is preserved so RETN can
+            // restore the interrupt state (IFF1 = IFF2).
             m_CPURegisters.IFF1 = 0;
-            if (!m_CPURegisters.IntReq)
-            {
-                m_CPURegisters.IFF2 = 0;
-            }
             z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
             z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
 

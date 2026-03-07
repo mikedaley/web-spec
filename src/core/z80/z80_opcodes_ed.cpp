@@ -77,6 +77,10 @@ void Z80::RETN(uint8_t)
     m_MEMPTR |= z80MemRead(m_CPURegisters.regSP++) << 8;
 
     m_CPURegisters.regPC = m_MEMPTR;
+
+    if (m_RetnCallback) {
+        m_RetnCallback();
+    }
 }
 
 //-----------------------------------------------------------------------------------------

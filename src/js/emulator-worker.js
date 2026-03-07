@@ -8,6 +8,55 @@
 let wasm = null;
 let speedMultiplier = 1;
 
+function pollSpectranetCommands() {
+  if (!wasm._isSpectranetEnabled()) return;
+
+  // Drain the entire command queue (multiple commands may be queued per frame)
+  let cmdPtr;
+  while ((cmdPtr = wasm._spectranetGetPendingCommand()) !== 0) {
+    // Read 16-byte serialized command
+    const type = wasm.HEAPU8[cmdPtr];
+    const socket = wasm.HEAPU8[cmdPtr + 1];
+    const protocol = wasm.HEAPU8[cmdPtr + 2];
+    const destIP = [wasm.HEAPU8[cmdPtr + 3], wasm.HEAPU8[cmdPtr + 4], wasm.HEAPU8[cmdPtr + 5], wasm.HEAPU8[cmdPtr + 6]];
+    const destPort = (wasm.HEAPU8[cmdPtr + 7] << 8) | wasm.HEAPU8[cmdPtr + 8];
+    const srcPort = (wasm.HEAPU8[cmdPtr + 9] << 8) | wasm.HEAPU8[cmdPtr + 10];
+    const txOffset = wasm.HEAPU8[cmdPtr + 11] | (wasm.HEAPU8[cmdPtr + 12] << 8);
+    const txLength = wasm.HEAPU8[cmdPtr + 13] | (wasm.HEAPU8[cmdPtr + 14] << 8);
+
+    // Read TX data if this is a SEND command (type 6)
+    let txData = null;
+    if (type === 6 && txLength > 0) {
+      const txBufPtr = wasm._spectranetGetTxBuffer();
+      if (txBufPtr) {
+        // TX buffer is circular: 2KB (0x800) per socket
+        const sockBufSize = 0x800;
+        const sockBase = socket * sockBufSize;
+        const offsetInSock = txOffset - sockBase;
+        if (offsetInSock + txLength > sockBufSize) {
+          // Data wraps around the circular buffer boundary
+          const firstChunk = sockBufSize - offsetInSock;
+          txData = new Uint8Array(txLength);
+          txData.set(new Uint8Array(wasm.HEAPU8.buffer, txBufPtr + txOffset, firstChunk));
+          txData.set(new Uint8Array(wasm.HEAPU8.buffer, txBufPtr + sockBase, txLength - firstChunk), firstChunk);
+        } else {
+          txData = new Uint8Array(wasm.HEAPU8.buffer, txBufPtr + txOffset, txLength).slice();
+        }
+      }
+    }
+
+    wasm._spectranetClearPendingCommand();
+
+    const cmd = { type, socket, protocol, destIP, destPort, srcPort, txOffset, txLength };
+    const transfer = [];
+    if (txData) {
+      cmd.txData = txData;
+      transfer.push(txData.buffer);
+    }
+    self.postMessage({ type: "spectranetCommand", command: cmd }, transfer);
+  }
+}
+
 function getState() {
   return {
     pc: wasm._getPC(),
@@ -45,6 +94,17 @@ function getState() {
     pagingRegister: wasm._getPagingRegister(),
     hasBasicProgram: wasm._hasBasicProgram() !== 0,
     basicReportFired: wasm._isBasicReportFired() !== 0,
+    spectranetEnabled: !!wasm._isSpectranetEnabled(),
+    spectranetPagedIn: !!wasm._spectranetIsPagedIn(),
+    spectranetPageA: wasm._spectranetGetPageA(),
+    spectranetPageB: wasm._spectranetGetPageB(),
+    spectranetControlReg: wasm._spectranetGetControlReg(),
+    spectranetTrapAddr: wasm._spectranetGetTrapAddr(),
+    spectranetTrapEnabled: !!wasm._spectranetIsTrapEnabled(),
+    spectranetSocket0Status: wasm._spectranetGetSocketStatus(0),
+    spectranetSocket1Status: wasm._spectranetGetSocketStatus(1),
+    spectranetSocket2Status: wasm._spectranetGetSocketStatus(2),
+    spectranetSocket3Status: wasm._spectranetGetSocketStatus(3),
   };
 }
 
@@ -211,6 +271,9 @@ function runFrames(count) {
   }
 
   self.postMessage({ type: "frame", framebuffer, signalBuffer, audio, sampleCount: sampleCount, state, recordedBlocks, beeperWaveform, ayRegisters, ayMutes, ayWaveforms, ayInternals }, transfer);
+
+  // Poll for Spectranet network commands after each frame
+  pollSpectranetCommands();
 }
 
 self.onmessage = async function (e) {
@@ -239,6 +302,12 @@ self.onmessage = async function (e) {
       if (wasm) {
         wasm._reset();
         self.postMessage({ type: "stateUpdate", state: getState() });
+      }
+      break;
+
+    case "triggerNMI":
+      if (wasm) {
+        wasm._triggerNMI();
       }
       break;
 
@@ -763,5 +832,77 @@ self.onmessage = async function (e) {
         self.postMessage({ type: "stateUpdate", state: getState() });
       }
       break;
+
+    case "setSpectranetEnabled":
+      if (wasm) {
+        wasm._setSpectranetEnabled(msg.enabled ? 1 : 0);
+        wasm._reset();
+        self.postMessage({ type: "stateUpdate", state: getState() });
+      }
+      break;
+
+    case "spectranetPushData": {
+      if (!wasm) break;
+      const rxData = new Uint8Array(msg.data);
+      const rxPtr = wasm._malloc(rxData.length);
+      wasm.HEAPU8.set(rxData, rxPtr);
+      wasm._spectranetPushReceivedData(msg.socket, rxPtr, rxData.length);
+      wasm._free(rxPtr);
+      break;
+    }
+
+    case "spectranetSetSocketStatus":
+      if (wasm) wasm._spectranetSetSocketStatus(msg.socket, msg.status);
+      break;
+
+    case "spectranetSetNetworkConfig": {
+      if (!wasm) break;
+      const ipPtr = wasm._malloc(4);
+      const gwPtr = wasm._malloc(4);
+      const snPtr = wasm._malloc(4);
+      const dnsPtr = wasm._malloc(4);
+      const heap = new Uint8Array(wasm.HEAPU8.buffer);
+      heap.set(msg.ip, ipPtr);
+      heap.set(msg.gateway, gwPtr);
+      heap.set(msg.subnet, snPtr);
+      heap.set(msg.dns, dnsPtr);
+      wasm._spectranetSetNetworkConfig(ipPtr, gwPtr, snPtr, dnsPtr);
+      wasm._free(ipPtr);
+      wasm._free(gwPtr);
+      wasm._free(snPtr);
+      wasm._free(dnsPtr);
+      break;
+    }
+    case "spectranetSetStaticIP": {
+      if (!wasm) break;
+      wasm._spectranetSetStaticIP(msg.useStatic ? 1 : 0);
+      break;
+    }
+
+    case "spectranetGetSRAM": {
+      if (!wasm) {
+        self.postMessage({ type: "spectranetSRAMData", data: null });
+        break;
+      }
+      const sramPtr = wasm._spectranetGetSRAMData();
+      const sramSize = wasm._spectranetGetSRAMSize();
+      if (sramPtr && sramSize > 0) {
+        const sramCopy = new Uint8Array(wasm.HEAPU8.buffer.slice(sramPtr, sramPtr + sramSize));
+        self.postMessage({ type: "spectranetSRAMData", data: sramCopy.buffer }, [sramCopy.buffer]);
+      } else {
+        self.postMessage({ type: "spectranetSRAMData", data: null });
+      }
+      break;
+    }
+
+    case "spectranetSetSRAM": {
+      if (!wasm || !msg.data) break;
+      const sramData = new Uint8Array(msg.data);
+      const sramBufPtr = wasm._malloc(sramData.length);
+      wasm.HEAPU8.set(sramData, sramBufPtr);
+      wasm._spectranetSetSRAMData(sramBufPtr, sramData.length);
+      wasm._free(sramBufPtr);
+      break;
+    }
   }
 };
