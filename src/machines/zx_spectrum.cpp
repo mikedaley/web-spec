@@ -680,19 +680,6 @@ void ZXSpectrum::installOpcodeCallback()
                     // this, page in and set PC back to re-fetch the opcode
                     // from the now-paged-in Spectranet flash.
                     if (spectranet_.isPageInTrap(address)) {
-                        if (address == 0x0008) {
-                            uint16_t sp = z80_->getRegister(Z80::WordReg::SP);
-                            uint16_t retAddr = coreDebugRead(sp) | (coreDebugRead(sp + 1) << 8);
-                            uint8_t errByte = coreDebugRead(retAddr);
-                            if (retAddr != 0) {
-                                uint16_t chAdd = coreDebugRead(0x5C5D) | (coreDebugRead(0x5C5E) << 8);
-                                // Command table at SRAM $3A00 (offset 0xA00)
-                                printf("[SNET TRAP] RST8: ret=%04X err=%02X CH_ADD=%04X cmdtbl=",
-                                    retAddr, errByte, chAdd);
-                                for (int i = 0; i < 32; i++) printf("%02X ", spectranet_.sramRead(0xA00 + i));
-                                printf("\n");
-                            }
-                        }
                         spectranet_.pageIn();
                         z80_->setRegister(Z80::WordReg::PC, address);
                         return true;

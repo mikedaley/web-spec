@@ -33,6 +33,10 @@ const CMD_RECV       = 7;
 const PROTO_TCP = 1;
 const PROTO_UDP = 2;
 
+// How often to send a keepalive ping on idle UDP WebSockets (ms).
+// Must be shorter than the proxy's idle timeout to prevent disconnection.
+const UDP_KEEPALIVE_INTERVAL = 15000;
+
 export class NetworkManager {
   constructor(emulatorProxy) {
     this.proxy = emulatorProxy;
@@ -48,14 +52,6 @@ export class NetworkManager {
   }
 
   handleCommand(cmd) {
-    const cmdNames = ['NONE', 'OPEN', 'LISTEN', 'CONNECT', 'DISCONNECT', 'CLOSE', 'SEND', 'RECV'];
-    const name = cmdNames[cmd.type] || cmd.type;
-    if (cmd.type !== CMD_RECV) {
-      console.log(`[Spectranet] CMD ${name} sock=${cmd.socket} proto=${cmd.protocol === PROTO_UDP ? 'UDP' : 'TCP'}` +
-        (cmd.destIP ? ` dest=${cmd.destIP.join('.')}:${cmd.destPort}` : '') +
-        (cmd.txLength ? ` txLen=${cmd.txLength}` : ''));
-    }
-
     switch (cmd.type) {
       case CMD_OPEN:
         this.handleOpen(cmd);
@@ -105,7 +101,6 @@ export class NetworkManager {
         this.connectWebSocket(cmd.socket, wsUrl);
       } else {
         // No proxy configured — report connection failed
-        console.warn(`[Spectranet] No WebSocket proxy configured for TCP ${ipStr}:${cmd.destPort}`);
         this.proxy.spectranetSetSocketStatus(cmd.socket, SOCK_CLOSED);
       }
     } else if (sock.protocol === PROTO_UDP) {
@@ -144,7 +139,6 @@ export class NetworkManager {
     const destPort = cmd.destPort || sock.destPort;
 
     if (!destIP || !destPort) {
-      console.warn(`[Spectranet] UDP send on socket ${cmd.socket} — no destination`);
       return;
     }
 
@@ -152,19 +146,16 @@ export class NetworkManager {
 
     // If the WebSocket is in CLOSING or CLOSED state, discard it so we reconnect
     if (sock.ws && (sock.ws.readyState === WebSocket.CLOSING || sock.ws.readyState === WebSocket.CLOSED)) {
-      console.warn(`[Spectranet] UDP socket ${cmd.socket} WebSocket stale (readyState=${sock.ws.readyState}), will reconnect`);
       sock.ws = null;
     }
 
     // Lazily open WebSocket on first send (or reconnect after close)
     if (!sock.ws) {
       if (!this.corsProxyUrl) {
-        console.warn(`[Spectranet] No WebSocket proxy configured for UDP ${ipStr}:${destPort}`);
         return;
       }
 
       const wsUrl = `${this.corsProxyUrl}/udp/${ipStr}/${destPort}`;
-      console.log(`[Spectranet] UDP socket ${cmd.socket} creating WebSocket → ${wsUrl}`);
       sock.udpSendBuffer = [];
       sock.udpDestIP = destIP;
       sock.udpDestPort = destPort;
@@ -175,15 +166,15 @@ export class NetworkManager {
         sock.ws = ws;
 
         ws.onopen = () => {
-          console.log(`[Spectranet] UDP socket ${cmd.socket} WebSocket OPEN`);
           // Flush buffered sends
           if (sock.udpSendBuffer) {
-            console.log(`[Spectranet] UDP socket ${cmd.socket} flushing ${sock.udpSendBuffer.length} buffered sends`);
             for (const buf of sock.udpSendBuffer) {
               ws.send(buf);
             }
             sock.udpSendBuffer = [];
           }
+          // Start keepalive timer to prevent proxy idle timeout
+          this.startUdpKeepalive(cmd.socket);
         };
 
         ws.onmessage = (event) => {
@@ -205,21 +196,19 @@ export class NetworkManager {
           fullData.set(header);
           fullData.set(payload, 8);
 
-          console.log(`[Spectranet] UDP socket ${cmd.socket} RX ${payload.length} bytes from ${srcIP.join('.')}:${srcPort}`);
           this.proxy.spectranetPushData(cmd.socket, fullData);
         };
 
         ws.onclose = (event) => {
-          console.warn(`[Spectranet] UDP socket ${cmd.socket} WebSocket CLOSED (code=${event.code}, reason=${event.reason})`);
+          this.stopUdpKeepalive(cmd.socket);
           if (sock.ws === ws) sock.ws = null;
         };
 
         ws.onerror = () => {
-          console.error(`[Spectranet] UDP WebSocket error on socket ${cmd.socket}`);
+          this.stopUdpKeepalive(cmd.socket);
           if (sock.ws === ws) sock.ws = null;
         };
       } catch (err) {
-        console.error(`[Spectranet] UDP WebSocket connect failed:`, err);
         return;
       }
     }
@@ -227,13 +216,10 @@ export class NetworkManager {
     // Send or buffer the data
     if (cmd.txData) {
       if (sock.ws.readyState === WebSocket.OPEN) {
-        console.log(`[Spectranet] UDP socket ${cmd.socket} TX ${cmd.txData.byteLength} bytes`);
         sock.ws.send(cmd.txData);
       } else if (sock.udpSendBuffer) {
-        console.log(`[Spectranet] UDP socket ${cmd.socket} buffering ${cmd.txData.byteLength} bytes (wsState=${sock.ws.readyState})`);
         sock.udpSendBuffer.push(cmd.txData);
       } else {
-        console.error(`[Spectranet] UDP socket ${cmd.socket} DATA DROPPED — ws not open and no buffer!`);
       }
     }
   }
@@ -241,6 +227,8 @@ export class NetworkManager {
   handleClose(cmd) {
     const sock = this.sockets[cmd.socket];
     if (!sock) return;
+
+    this.stopUdpKeepalive(cmd.socket);
 
     if (sock.ws) {
       sock.ws.close();
@@ -254,11 +242,33 @@ export class NetworkManager {
     // from a subsequent OPEN on the same socket index.
   }
 
-  connectWebSocket(socketIdx, wsUrl) {
+  startUdpKeepalive(socketIdx) {
     const sock = this.sockets[socketIdx];
     if (!sock) return;
 
-    console.log(`[Spectranet] TCP socket ${socketIdx} creating WebSocket → ${wsUrl}`);
+    this.stopUdpKeepalive(socketIdx);
+
+    sock.keepaliveTimer = setInterval(() => {
+      if (sock.ws && sock.ws.readyState === WebSocket.OPEN) {
+        // Send a 1-byte ping through the WebSocket to reset the proxy's
+        // idle timer.  TNFS requires at least 4 bytes (session + seq + cmd)
+        // so the server will silently discard this as a runt packet.
+        sock.ws.send(new Uint8Array([0]));
+      }
+    }, UDP_KEEPALIVE_INTERVAL);
+  }
+
+  stopUdpKeepalive(socketIdx) {
+    const sock = this.sockets[socketIdx];
+    if (!sock || !sock.keepaliveTimer) return;
+
+    clearInterval(sock.keepaliveTimer);
+    sock.keepaliveTimer = null;
+  }
+
+  connectWebSocket(socketIdx, wsUrl) {
+    const sock = this.sockets[socketIdx];
+    if (!sock) return;
 
     try {
       const ws = new WebSocket(wsUrl);
@@ -266,11 +276,9 @@ export class NetworkManager {
       sock.ws = ws;
 
       ws.onopen = () => {
-        console.log(`[Spectranet] TCP socket ${socketIdx} WebSocket OPEN → ESTABLISHED`);
         this.proxy.spectranetSetSocketStatus(socketIdx, SOCK_ESTABLISHED);
         // Flush any data buffered while the WebSocket was connecting
         if (sock.tcpSendBuffer) {
-          console.log(`[Spectranet] TCP socket ${socketIdx} flushing ${sock.tcpSendBuffer.length} buffered sends`);
           for (const buf of sock.tcpSendBuffer) {
             ws.send(buf);
           }
@@ -279,30 +287,26 @@ export class NetworkManager {
       };
 
       ws.onmessage = (event) => {
-        const data = new Uint8Array(event.data);
-        console.log(`[Spectranet] TCP socket ${socketIdx} RX ${data.length} bytes`);
-        this.proxy.spectranetPushData(socketIdx, data);
+        this.proxy.spectranetPushData(socketIdx, new Uint8Array(event.data));
       };
 
       ws.onclose = (event) => {
-        console.warn(`[Spectranet] TCP socket ${socketIdx} WebSocket CLOSED (code=${event.code}, reason=${event.reason})`);
         this.proxy.spectranetSetSocketStatus(socketIdx, SOCK_CLOSE_WAIT);
         if (sock.ws === ws) sock.ws = null;
       };
 
       ws.onerror = () => {
-        console.error(`[Spectranet] TCP socket ${socketIdx} WebSocket ERROR`);
         this.proxy.spectranetSetSocketStatus(socketIdx, SOCK_CLOSED);
         if (sock.ws === ws) sock.ws = null;
       };
     } catch (err) {
-      console.error(`[Spectranet] TCP socket ${socketIdx} WebSocket connect failed:`, err);
       this.proxy.spectranetSetSocketStatus(socketIdx, SOCK_CLOSED);
     }
   }
 
   destroy() {
     for (let i = 0; i < 4; i++) {
+      this.stopUdpKeepalive(i);
       if (this.sockets[i]?.ws) {
         this.sockets[i].ws.close();
       }

@@ -121,11 +121,6 @@ void W5100::write(uint16_t address, uint8_t data)
             break;
         default:
             commonRegs_[address] = data;
-            if (address == W5100_SIPR + 3) {
-                printf("[W5100] IP configured: %d.%d.%d.%d\n",
-                       commonRegs_[W5100_SIPR], commonRegs_[W5100_SIPR + 1],
-                       commonRegs_[W5100_SIPR + 2], commonRegs_[W5100_SIPR + 3]);
-            }
             break;
         }
         return;
@@ -174,19 +169,6 @@ void W5100::handleSocketCommand(uint8_t socket, uint8_t cmd)
     uint16_t base = socket * 0x100;
     uint8_t protocol = socketRegs_[base + Sn_MR] & 0x0F;
     uint8_t state = socketRegs_[base + Sn_SR];
-
-    static const char* cmdNames[] = {"?", "OPEN", "LISTEN", "?", "CONNECT", "?", "?", "?",
-                                     "DISCON", "?", "?", "?", "?", "?", "?", "?",
-                                     "CLOSE", "?", "?", "?", "?", "?", "?", "?",
-                                     "?", "?", "?", "?", "?", "?", "?", "?",
-                                     "SEND", "?", "?", "?", "?", "?", "?", "?",
-                                     "?", "?", "?", "?", "?", "?", "?", "?",
-                                     "?", "?", "?", "?", "?", "?", "?", "?",
-                                     "?", "?", "?", "?", "?", "?", "?", "?",
-                                     "RECV"};
-    const char* name = (cmd <= 0x40) ? cmdNames[cmd] : "?";
-    printf("[W5100] CMD %s(0x%02X) sock=%d proto=%d state=0x%02X\n",
-           name, cmd, socket, protocol, state);
 
     switch (cmd) {
     case CMD_OPEN: {
@@ -509,10 +491,6 @@ void W5100::handleDHCPRequest(uint8_t socket)
     // Set SEND_OK interrupt
     socketRegs_[base + Sn_IR] |= 0x10;
 
-    printf("[W5100] DHCP %s -> %s for socket %d (IP: %d.%d.%d.%d)\n",
-           msgType == 1 ? "DISCOVER" : "REQUEST",
-           respType == 2 ? "OFFER" : "ACK",
-           socket, assignedIP[0], assignedIP[1], assignedIP[2], assignedIP[3]);
 }
 
 void W5100::setSocketStatus(uint8_t socket, uint8_t status)
@@ -534,7 +512,6 @@ void W5100::setSocketStatus(uint8_t socket, uint8_t status)
 void W5100::pushReceivedData(uint8_t socket, const uint8_t* data, uint16_t length)
 {
     if (socket >= 4 || !data || length == 0) return;
-    printf("[W5100] pushRX sock=%d len=%d\n", socket, length);
 
     uint16_t base = socket * 0x100;
     uint16_t rxRsr = (socketRegs_[base + Sn_RX_RSR] << 8) | socketRegs_[base + Sn_RX_RSR + 1];
