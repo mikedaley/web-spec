@@ -39,7 +39,6 @@ export class SpectranetWindow extends BaseWindow {
 
     this.proxy = proxy;
     this.corsProxyUrl = localStorage.getItem("zxspec-spectranet-cors-proxy") || "";
-    this.proxyToken = localStorage.getItem("zxspec-spectranet-proxy-token") || "";
   }
 
   renderContent() {
@@ -99,11 +98,6 @@ export class SpectranetWindow extends BaseWindow {
               <input type="text" class="spectranet-config-input" id="snet-cors-proxy"
                      placeholder="wss://proxy.example.com" value="${this.escapeAttr(this.corsProxyUrl)}" />
             </div>
-            <div class="spectranet-config-row">
-              <label class="spectranet-config-label">Proxy Token</label>
-              <input type="password" class="spectranet-config-input" id="snet-proxy-token"
-                     placeholder="auth token" value="${this.escapeAttr(this.proxyToken)}" />
-            </div>
             <button class="spectranet-apply-btn" id="snet-apply-cors">Apply</button>
           </div>
         </div>
@@ -124,16 +118,10 @@ export class SpectranetWindow extends BaseWindow {
     if (applyBtn) {
       applyBtn.addEventListener("click", () => {
         const corsInput = this.element.querySelector("#snet-cors-proxy");
-        const tokenInput = this.element.querySelector("#snet-proxy-token");
         if (corsInput) {
           this.corsProxyUrl = corsInput.value.trim();
           localStorage.setItem("zxspec-spectranet-cors-proxy", this.corsProxyUrl);
           if (this.onCorsProxyUrlChanged) this.onCorsProxyUrlChanged(this.corsProxyUrl);
-        }
-        if (tokenInput) {
-          this.proxyToken = tokenInput.value.trim();
-          localStorage.setItem("zxspec-spectranet-proxy-token", this.proxyToken);
-          if (this.onProxyTokenChanged) this.onProxyTokenChanged(this.proxyToken);
         }
 
         applyBtn.textContent = "Applied!";
@@ -195,7 +183,6 @@ export class SpectranetWindow extends BaseWindow {
     return {
       ...base,
       corsProxyUrl: this.corsProxyUrl,
-      proxyToken: this.proxyToken,
     };
   }
 
@@ -204,10 +191,6 @@ export class SpectranetWindow extends BaseWindow {
     if (state.corsProxyUrl !== undefined) {
       this.corsProxyUrl = state.corsProxyUrl;
       localStorage.setItem("zxspec-spectranet-cors-proxy", this.corsProxyUrl);
-    }
-    if (state.proxyToken !== undefined) {
-      this.proxyToken = state.proxyToken;
-      localStorage.setItem("zxspec-spectranet-proxy-token", this.proxyToken);
     }
   }
 }
