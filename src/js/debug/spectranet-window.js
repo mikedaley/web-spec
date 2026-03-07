@@ -31,15 +31,15 @@ export class SpectranetWindow extends BaseWindow {
     super({
       id: "spectranet",
       title: "Spectranet",
-      minWidth: 340,
-      minHeight: 300,
-      defaultWidth: 380,
-      defaultHeight: 420,
+      defaultWidth: 340,
+      defaultHeight: 0,
       defaultPosition: { x: 80, y: 80 },
+      resizeDirections: [],
     });
 
     this.proxy = proxy;
     this.corsProxyUrl = localStorage.getItem("zxspec-spectranet-cors-proxy") || "";
+    this.proxyToken = localStorage.getItem("zxspec-spectranet-proxy-token") || "";
   }
 
   renderContent() {
@@ -95,9 +95,14 @@ export class SpectranetWindow extends BaseWindow {
           <div class="spectranet-section-title">Network Config</div>
           <div class="spectranet-config">
             <div class="spectranet-config-row">
-              <label class="spectranet-config-label">CORS Proxy URL</label>
+              <label class="spectranet-config-label">Proxy URL</label>
               <input type="text" class="spectranet-config-input" id="snet-cors-proxy"
                      placeholder="wss://proxy.example.com" value="${this.escapeAttr(this.corsProxyUrl)}" />
+            </div>
+            <div class="spectranet-config-row">
+              <label class="spectranet-config-label">Proxy Token</label>
+              <input type="password" class="spectranet-config-input" id="snet-proxy-token"
+                     placeholder="auth token" value="${this.escapeAttr(this.proxyToken)}" />
             </div>
             <button class="spectranet-apply-btn" id="snet-apply-cors">Apply</button>
           </div>
@@ -111,15 +116,24 @@ export class SpectranetWindow extends BaseWindow {
   }
 
   onContentRendered() {
+    // Auto-size height to fit content
+    this.element.style.height = "auto";
+
     // Apply CORS proxy button
     const applyBtn = this.element.querySelector("#snet-apply-cors");
     if (applyBtn) {
       applyBtn.addEventListener("click", () => {
         const corsInput = this.element.querySelector("#snet-cors-proxy");
+        const tokenInput = this.element.querySelector("#snet-proxy-token");
         if (corsInput) {
           this.corsProxyUrl = corsInput.value.trim();
           localStorage.setItem("zxspec-spectranet-cors-proxy", this.corsProxyUrl);
           if (this.onCorsProxyUrlChanged) this.onCorsProxyUrlChanged(this.corsProxyUrl);
+        }
+        if (tokenInput) {
+          this.proxyToken = tokenInput.value.trim();
+          localStorage.setItem("zxspec-spectranet-proxy-token", this.proxyToken);
+          if (this.onProxyTokenChanged) this.onProxyTokenChanged(this.proxyToken);
         }
 
         applyBtn.textContent = "Applied!";
@@ -181,6 +195,7 @@ export class SpectranetWindow extends BaseWindow {
     return {
       ...base,
       corsProxyUrl: this.corsProxyUrl,
+      proxyToken: this.proxyToken,
     };
   }
 
@@ -189,6 +204,10 @@ export class SpectranetWindow extends BaseWindow {
     if (state.corsProxyUrl !== undefined) {
       this.corsProxyUrl = state.corsProxyUrl;
       localStorage.setItem("zxspec-spectranet-cors-proxy", this.corsProxyUrl);
+    }
+    if (state.proxyToken !== undefined) {
+      this.proxyToken = state.proxyToken;
+      localStorage.setItem("zxspec-spectranet-proxy-token", this.proxyToken);
     }
   }
 }
