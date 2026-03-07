@@ -38,7 +38,7 @@ export class SpectranetWindow extends BaseWindow {
     });
 
     this.proxy = proxy;
-    this.corsProxyUrl = localStorage.getItem("zxspec-spectranet-cors-proxy") || "";
+    this.corsProxyUrl = localStorage.getItem("zxspec-spectranet-cors-proxy") || "wss://spectrem-proxy.retrotech71.co.uk";
   }
 
   renderContent() {

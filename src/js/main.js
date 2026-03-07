@@ -165,8 +165,8 @@ class ZXSpectrumEmulator {
 
       // Create network manager for Spectranet
       this.networkManager = new NetworkManager(this.proxy);
-      const savedCorsProxy = localStorage.getItem("zxspec-spectranet-cors-proxy");
-      if (savedCorsProxy) this.networkManager.setCorsProxyUrl(savedCorsProxy);
+      const corsProxy = localStorage.getItem("zxspec-spectranet-cors-proxy") || "wss://spectrem-proxy.retrotech71.co.uk";
+      this.networkManager.setCorsProxyUrl(corsProxy);
       this.spectranetWindow.onCorsProxyUrlChanged = (url) => this.networkManager.setCorsProxyUrl(url);
 
       // Create rule builder window (shared by BASIC and CPU debugger)
