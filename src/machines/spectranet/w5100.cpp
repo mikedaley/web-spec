@@ -251,12 +251,11 @@ void W5100::handleSocketCommand(uint8_t socket, uint8_t cmd)
             nc.srcPort = (socketRegs_[base + Sn_PORT] << 8) | socketRegs_[base + Sn_PORT + 1];
             commandQueue_.push_back(nc);
 
-            // Fuse sets ESTABLISHED + CON interrupt immediately on connect success.
-            // In our async model, JS will call setSocketStatus when connect completes.
-            // Set CON interrupt and ESTABLISHED here for browser compatibility since
-            // the Z80 polls in a tight loop within the frame.
-            socketRegs_[base + Sn_IR] |= 0x01;  // CON interrupt
-            socketRegs_[base + Sn_SR] = SOCK_ESTABLISHED;
+            // Set SYNSENT — the JS layer will transition to ESTABLISHED + CON
+            // interrupt when the WebSocket actually connects.  The Spectranet ROM
+            // polls Sn_SR across frames with a generous TCP timeout, so the async
+            // round-trip through the WebSocket proxy has plenty of time.
+            socketRegs_[base + Sn_SR] = SOCK_SYNSENT;
         }
         break;
     }

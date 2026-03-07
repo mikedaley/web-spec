@@ -258,15 +258,19 @@ export class NetworkManager {
     const sock = this.sockets[socketIdx];
     if (!sock) return;
 
+    console.log(`[Spectranet] TCP socket ${socketIdx} creating WebSocket → ${wsUrl}`);
+
     try {
       const ws = new WebSocket(wsUrl);
       ws.binaryType = 'arraybuffer';
       sock.ws = ws;
 
       ws.onopen = () => {
+        console.log(`[Spectranet] TCP socket ${socketIdx} WebSocket OPEN → ESTABLISHED`);
         this.proxy.spectranetSetSocketStatus(socketIdx, SOCK_ESTABLISHED);
         // Flush any data buffered while the WebSocket was connecting
         if (sock.tcpSendBuffer) {
+          console.log(`[Spectranet] TCP socket ${socketIdx} flushing ${sock.tcpSendBuffer.length} buffered sends`);
           for (const buf of sock.tcpSendBuffer) {
             ws.send(buf);
           }
@@ -276,21 +280,23 @@ export class NetworkManager {
 
       ws.onmessage = (event) => {
         const data = new Uint8Array(event.data);
+        console.log(`[Spectranet] TCP socket ${socketIdx} RX ${data.length} bytes`);
         this.proxy.spectranetPushData(socketIdx, data);
       };
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
+        console.warn(`[Spectranet] TCP socket ${socketIdx} WebSocket CLOSED (code=${event.code}, reason=${event.reason})`);
         this.proxy.spectranetSetSocketStatus(socketIdx, SOCK_CLOSE_WAIT);
         if (sock.ws === ws) sock.ws = null;
       };
 
       ws.onerror = () => {
-        console.error(`[Spectranet] WebSocket error on socket ${socketIdx}`);
+        console.error(`[Spectranet] TCP socket ${socketIdx} WebSocket ERROR`);
         this.proxy.spectranetSetSocketStatus(socketIdx, SOCK_CLOSED);
         if (sock.ws === ws) sock.ws = null;
       };
     } catch (err) {
-      console.error(`[Spectranet] WebSocket connect failed:`, err);
+      console.error(`[Spectranet] TCP socket ${socketIdx} WebSocket connect failed:`, err);
       this.proxy.spectranetSetSocketStatus(socketIdx, SOCK_CLOSED);
     }
   }
