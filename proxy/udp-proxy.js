@@ -44,7 +44,7 @@ const ALLOWED_ORIGINS = new Set(
 );
 
 // Default: DNS (53) and TNFS (16384). Set to '*' to allow all ports.
-const ALLOWED_PORTS_ENV = process.env.ALLOWED_PORTS || '53,16384';
+const ALLOWED_PORTS_ENV = process.env.ALLOWED_PORTS || '53,16384,32768';
 const ALLOWED_PORTS = ALLOWED_PORTS_ENV === '*'
   ? null
   : new Set(ALLOWED_PORTS_ENV.split(',').map(p => parseInt(p.trim(), 10)));
