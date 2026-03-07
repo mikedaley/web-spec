@@ -125,6 +125,12 @@ public:
     uint8_t* getSRAMData() { return sram_.data(); }
     static constexpr uint32_t getSRAMSize() { return SRAM_SIZE; }
 
+    // Flash config page 0x1F access (for persistence across sessions)
+    static constexpr uint8_t CONFIG_PAGE = 0x1F;
+    const uint8_t* getFlashConfigData() const { return &flash_[CONFIG_PAGE * SNET_PAGE_SIZE]; }
+    uint8_t* getFlashConfigData() { return &flash_[CONFIG_PAGE * SNET_PAGE_SIZE]; }
+    static constexpr uint32_t getFlashConfigSize() { return SNET_PAGE_SIZE; }
+
     // W5100 access
     W5100& getW5100() { return w5100_; }
     const W5100& getW5100() const { return w5100_; }

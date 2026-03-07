@@ -904,5 +904,31 @@ self.onmessage = async function (e) {
       wasm._free(sramBufPtr);
       break;
     }
+
+    case "spectranetGetFlashConfig": {
+      if (!wasm) {
+        self.postMessage({ type: "spectranetFlashConfigData", data: null });
+        break;
+      }
+      const cfgPtr = wasm._spectranetGetFlashConfig();
+      const cfgSize = wasm._spectranetGetFlashConfigSize();
+      if (cfgPtr && cfgSize > 0) {
+        const cfgCopy = new Uint8Array(wasm.HEAPU8.buffer.slice(cfgPtr, cfgPtr + cfgSize));
+        self.postMessage({ type: "spectranetFlashConfigData", data: cfgCopy.buffer }, [cfgCopy.buffer]);
+      } else {
+        self.postMessage({ type: "spectranetFlashConfigData", data: null });
+      }
+      break;
+    }
+
+    case "spectranetSetFlashConfig": {
+      if (!wasm || !msg.data) break;
+      const cfgData = new Uint8Array(msg.data);
+      const cfgBufPtr = wasm._malloc(cfgData.length);
+      wasm.HEAPU8.set(cfgData, cfgBufPtr);
+      wasm._spectranetSetFlashConfig(cfgBufPtr, cfgData.length);
+      wasm._free(cfgBufPtr);
+      break;
+    }
   }
 };

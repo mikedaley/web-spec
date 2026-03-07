@@ -93,6 +93,15 @@ export class EmulatorProxy {
         break;
       }
 
+      case "spectranetFlashConfigData": {
+        const resolve = this._pendingRequests.get("spectranetFlashConfig");
+        if (resolve) {
+          this._pendingRequests.delete("spectranetFlashConfig");
+          resolve(msg.data ? new Uint8Array(msg.data) : null);
+        }
+        break;
+      }
+
       case "memoryData": {
         const resolve = this._pendingRequests.get(msg.id);
         if (resolve) {
@@ -609,6 +618,18 @@ export class EmulatorProxy {
   spectranetSetSRAM(data) {
     const buffer = new Uint8Array(data).buffer;
     this.worker.postMessage({ type: "spectranetSetSRAM", data: buffer }, [buffer]);
+  }
+
+  spectranetGetFlashConfig() {
+    return new Promise((resolve) => {
+      this._pendingRequests.set("spectranetFlashConfig", resolve);
+      this.worker.postMessage({ type: "spectranetGetFlashConfig" });
+    });
+  }
+
+  spectranetSetFlashConfig(data) {
+    const buffer = new Uint8Array(data).buffer;
+    this.worker.postMessage({ type: "spectranetSetFlashConfig", data: buffer }, [buffer]);
   }
 
   destroy() {

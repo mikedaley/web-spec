@@ -26,7 +26,7 @@ import { UDGEditorWindow } from "./debug/udg-editor-window.js";
 import { FontEditorWindow } from "./debug/font-editor-window.js";
 import { SpectranetWindow } from "./debug/spectranet-window.js";
 import { NetworkManager } from "./spectranet/network-manager.js";
-import { saveSRAM, loadSRAM } from "./spectranet/spectranet-persistence.js";
+import { saveFlashConfig, loadFlashConfig } from "./spectranet/spectranet-persistence.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
@@ -277,11 +277,11 @@ class ZXSpectrumEmulator {
       // Start render loop
       this.startRenderLoop();
 
-      // Save window state and Spectranet SRAM on page unload
+      // Save window state and Spectranet flash config on page unload
       window.addEventListener("beforeunload", () => {
         this.windowManager.saveState();
         if (localStorage.getItem("zxspec-spectranet-enabled") === "true") {
-          this.saveSpectranetSRAM();
+          this.saveSpectranetFlashConfig();
         }
       });
 
@@ -1130,20 +1130,20 @@ class ZXSpectrumEmulator {
       if (savedSpectranet) this.applySpectranetNetworkConfig();
       this.proxy.setSpectranetEnabled(savedSpectranet);
       spectranetToggleBtn.classList.toggle("active", savedSpectranet);
-      if (savedSpectranet) this.restoreSpectranetSRAM();
+      if (savedSpectranet) this.restoreSpectranetFlashConfig();
 
       spectranetToggleBtn.addEventListener("click", async () => {
         const isEnabled = spectranetToggleBtn.classList.contains("active");
         const newEnabled = !isEnabled;
         if (isEnabled) {
-          await this.saveSpectranetSRAM();
+          await this.saveSpectranetFlashConfig();
         }
         if (newEnabled) this.applySpectranetNetworkConfig();
         this.proxy.setSpectranetEnabled(newEnabled);
         spectranetToggleBtn.classList.toggle("active", newEnabled);
         localStorage.setItem("zxspec-spectranet-enabled", String(newEnabled));
         if (newEnabled) {
-          await this.restoreSpectranetSRAM();
+          await this.restoreSpectranetFlashConfig();
         }
         this.closeAllMenus();
         this.refocusCanvas();
@@ -1151,25 +1151,25 @@ class ZXSpectrumEmulator {
     }
   }
 
-  async saveSpectranetSRAM() {
+  async saveSpectranetFlashConfig() {
     try {
-      const sramData = await this.proxy.spectranetGetSRAM();
-      if (sramData) {
-        await saveSRAM(sramData);
+      const configData = await this.proxy.spectranetGetFlashConfig();
+      if (configData) {
+        await saveFlashConfig(configData);
       }
     } catch (error) {
-      console.error("Failed to save Spectranet SRAM:", error);
+      console.error("Failed to save Spectranet flash config:", error);
     }
   }
 
-  async restoreSpectranetSRAM() {
+  async restoreSpectranetFlashConfig() {
     try {
-      const sramData = await loadSRAM();
-      if (sramData) {
-        this.proxy.spectranetSetSRAM(sramData);
+      const configData = await loadFlashConfig();
+      if (configData) {
+        this.proxy.spectranetSetFlashConfig(configData);
       }
     } catch (error) {
-      console.error("Failed to restore Spectranet SRAM:", error);
+      console.error("Failed to restore Spectranet flash config:", error);
     }
   }
 
