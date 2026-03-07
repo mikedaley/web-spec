@@ -13,7 +13,7 @@
 import { createDatabaseManager } from "../utils/indexeddb-helper.js";
 
 const DB_NAME = "zxspec-spectranet-persistence";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = "flashConfig";
 const CONFIG_KEY = "spectranet-flash-config";
 
@@ -22,6 +22,9 @@ const db = createDatabaseManager({
   version: DB_VERSION,
   onUpgrade: (event) => {
     const database = event.target.result;
+    if (database.objectStoreNames.contains("sramData")) {
+      database.deleteObjectStore("sramData");
+    }
     if (!database.objectStoreNames.contains(STORE_NAME)) {
       database.createObjectStore(STORE_NAME, { keyPath: "id" });
     }
