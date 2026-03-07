@@ -40,11 +40,6 @@ export class SpectranetWindow extends BaseWindow {
 
     this.proxy = proxy;
     this.corsProxyUrl = localStorage.getItem("zxspec-spectranet-cors-proxy") || "";
-    this.useStaticIP = localStorage.getItem("zxspec-spectranet-static-ip") !== "false";
-    this.ipAddress = localStorage.getItem("zxspec-spectranet-ip") || "192.168.1.100";
-    this.gateway = localStorage.getItem("zxspec-spectranet-gateway") || "192.168.1.1";
-    this.subnet = localStorage.getItem("zxspec-spectranet-subnet") || "255.255.255.0";
-    this.dns = localStorage.getItem("zxspec-spectranet-dns") || "8.8.8.8";
   }
 
   renderContent() {
@@ -99,38 +94,12 @@ export class SpectranetWindow extends BaseWindow {
         <div class="spectranet-section">
           <div class="spectranet-section-title">Network Config</div>
           <div class="spectranet-config">
-            <div class="spectranet-config-row spectranet-checkbox-row">
-              <label class="spectranet-config-label">
-                <input type="checkbox" id="snet-static-ip" ${this.useStaticIP ? "checked" : ""} />
-                Use Static IP
-              </label>
-            </div>
-            <div class="spectranet-config-row">
-              <label class="spectranet-config-label">IP Address</label>
-              <input type="text" class="spectranet-config-input spectranet-ip-input" id="snet-ip"
-                     placeholder="192.168.1.100" value="${this.escapeAttr(this.ipAddress)}" />
-            </div>
-            <div class="spectranet-config-row">
-              <label class="spectranet-config-label">Gateway</label>
-              <input type="text" class="spectranet-config-input spectranet-ip-input" id="snet-gateway"
-                     placeholder="192.168.1.1" value="${this.escapeAttr(this.gateway)}" />
-            </div>
-            <div class="spectranet-config-row">
-              <label class="spectranet-config-label">Subnet</label>
-              <input type="text" class="spectranet-config-input spectranet-ip-input" id="snet-subnet"
-                     placeholder="255.255.255.0" value="${this.escapeAttr(this.subnet)}" />
-            </div>
-            <div class="spectranet-config-row">
-              <label class="spectranet-config-label">DNS</label>
-              <input type="text" class="spectranet-config-input spectranet-ip-input" id="snet-dns"
-                     placeholder="8.8.8.8" value="${this.escapeAttr(this.dns)}" />
-            </div>
-            <button class="spectranet-apply-btn" id="snet-apply-network">Apply</button>
             <div class="spectranet-config-row">
               <label class="spectranet-config-label">CORS Proxy URL</label>
               <input type="text" class="spectranet-config-input" id="snet-cors-proxy"
                      placeholder="wss://proxy.example.com" value="${this.escapeAttr(this.corsProxyUrl)}" />
             </div>
+            <button class="spectranet-apply-btn" id="snet-apply-cors">Apply</button>
           </div>
         </div>
       </div>
@@ -142,77 +111,25 @@ export class SpectranetWindow extends BaseWindow {
   }
 
   onContentRendered() {
-    // CORS proxy input
-    const corsInput = this.element.querySelector("#snet-cors-proxy");
-    if (corsInput) {
-      corsInput.addEventListener("change", () => {
-        this.corsProxyUrl = corsInput.value.trim();
-        localStorage.setItem("zxspec-spectranet-cors-proxy", this.corsProxyUrl);
-        if (this.onCorsProxyUrlChanged) this.onCorsProxyUrlChanged(this.corsProxyUrl);
-      });
-    }
-
-    // Static IP checkbox
-    const staticCheckbox = this.element.querySelector("#snet-static-ip");
-    if (staticCheckbox) {
-      staticCheckbox.addEventListener("change", () => {
-        this.useStaticIP = staticCheckbox.checked;
-        localStorage.setItem("zxspec-spectranet-static-ip", this.useStaticIP);
-        this.updateIPFieldsState();
-      });
-    }
-
-    this.updateIPFieldsState();
-
-    // Apply network config button
-    const applyBtn = this.element.querySelector("#snet-apply-network");
+    // Apply CORS proxy button
+    const applyBtn = this.element.querySelector("#snet-apply-cors");
     if (applyBtn) {
-      applyBtn.addEventListener("click", () => this.applyNetworkConfig());
+      applyBtn.addEventListener("click", () => {
+        const corsInput = this.element.querySelector("#snet-cors-proxy");
+        if (corsInput) {
+          this.corsProxyUrl = corsInput.value.trim();
+          localStorage.setItem("zxspec-spectranet-cors-proxy", this.corsProxyUrl);
+          if (this.onCorsProxyUrlChanged) this.onCorsProxyUrlChanged(this.corsProxyUrl);
+        }
+
+        applyBtn.textContent = "Applied!";
+        applyBtn.classList.add("spectranet-apply-btn-success");
+        setTimeout(() => {
+          applyBtn.textContent = "Apply";
+          applyBtn.classList.remove("spectranet-apply-btn-success");
+        }, 1500);
+      });
     }
-  }
-
-  parseIP(str) {
-    const parts = str.trim().split(".").map(Number);
-    if (parts.length !== 4 || parts.some(p => isNaN(p) || p < 0 || p > 255)) return null;
-    return parts;
-  }
-
-  updateIPFieldsState() {
-    const disabled = !this.useStaticIP;
-    for (const id of ["snet-ip", "snet-gateway", "snet-subnet", "snet-dns"]) {
-      const el = this.element?.querySelector(`#${id}`);
-      if (el) el.disabled = disabled;
-    }
-  }
-
-  applyNetworkConfig() {
-    const ipEl = this.element.querySelector("#snet-ip");
-    const gwEl = this.element.querySelector("#snet-gateway");
-    const snEl = this.element.querySelector("#snet-subnet");
-    const dnsEl = this.element.querySelector("#snet-dns");
-
-    const ip = this.parseIP(ipEl?.value || "");
-    const gw = this.parseIP(gwEl?.value || "");
-    const sn = this.parseIP(snEl?.value || "");
-    const dns = this.parseIP(dnsEl?.value || "");
-
-    if (!ip || !gw || !sn || !dns) return;
-
-    this.ipAddress = ipEl.value.trim();
-    this.gateway = gwEl.value.trim();
-    this.subnet = snEl.value.trim();
-    this.dns = dnsEl.value.trim();
-
-    localStorage.setItem("zxspec-spectranet-ip", this.ipAddress);
-    localStorage.setItem("zxspec-spectranet-gateway", this.gateway);
-    localStorage.setItem("zxspec-spectranet-subnet", this.subnet);
-    localStorage.setItem("zxspec-spectranet-dns", this.dns);
-
-    this.proxy.spectranetSetStaticIP(this.useStaticIP);
-    if (this.useStaticIP) {
-      this.proxy.spectranetSetNetworkConfig(ip, gw, sn, dns);
-    }
-    this.proxy.reset();
   }
 
   update(proxy) {
@@ -264,11 +181,6 @@ export class SpectranetWindow extends BaseWindow {
     return {
       ...base,
       corsProxyUrl: this.corsProxyUrl,
-      useStaticIP: this.useStaticIP,
-      ipAddress: this.ipAddress,
-      gateway: this.gateway,
-      subnet: this.subnet,
-      dns: this.dns,
     };
   }
 
@@ -277,26 +189,6 @@ export class SpectranetWindow extends BaseWindow {
     if (state.corsProxyUrl !== undefined) {
       this.corsProxyUrl = state.corsProxyUrl;
       localStorage.setItem("zxspec-spectranet-cors-proxy", this.corsProxyUrl);
-    }
-    if (state.useStaticIP !== undefined) {
-      this.useStaticIP = state.useStaticIP;
-      localStorage.setItem("zxspec-spectranet-static-ip", this.useStaticIP);
-    }
-    if (state.ipAddress !== undefined) {
-      this.ipAddress = state.ipAddress;
-      localStorage.setItem("zxspec-spectranet-ip", this.ipAddress);
-    }
-    if (state.gateway !== undefined) {
-      this.gateway = state.gateway;
-      localStorage.setItem("zxspec-spectranet-gateway", this.gateway);
-    }
-    if (state.subnet !== undefined) {
-      this.subnet = state.subnet;
-      localStorage.setItem("zxspec-spectranet-subnet", this.subnet);
-    }
-    if (state.dns !== undefined) {
-      this.dns = state.dns;
-      localStorage.setItem("zxspec-spectranet-dns", this.dns);
     }
   }
 }

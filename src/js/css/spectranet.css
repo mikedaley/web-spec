@@ -97,10 +97,6 @@
   gap: 2px;
 }
 
-.spectranet-ip-input {
-  max-width: 160px;
-}
-
 .spectranet-apply-btn {
   align-self: flex-start;
   background: var(--bg-tertiary);
@@ -115,6 +111,11 @@
 
 .spectranet-apply-btn:hover {
   background: var(--accent-blue-bg);
+}
+
+.spectranet-apply-btn-success {
+  color: var(--accent-green);
+  border-color: var(--accent-green);
 }
 
 .spectranet-config-label {
@@ -146,13 +147,3 @@
   cursor: not-allowed;
 }
 
-.spectranet-checkbox-row label {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-}
-
-.spectranet-checkbox-row input[type="checkbox"] {
-  accent-color: var(--accent-blue);
-}
