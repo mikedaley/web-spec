@@ -79,19 +79,15 @@ export class NetworkManager {
   }
 
   handleOpen(cmd) {
-    const protoStr = cmd.protocol === PROTO_TCP ? 'TCP' : cmd.protocol === PROTO_UDP ? 'UDP' : `?${cmd.protocol}`;
-    console.log(`[SNET] OPEN sock=${cmd.socket} proto=${protoStr} srcPort=${cmd.srcPort}`);
-
     // Clean up any existing state on this socket index before reopening
     const existing = this.sockets[cmd.socket];
     if (existing) {
       this.stopUdpKeepalive(cmd.socket);
       if (existing.ws) {
         if (existing.protocol === PROTO_UDP && existing.udpWsUrl) {
-          console.log(`[SNET]   caching existing UDP WS → ${existing.udpWsUrl} (state=${existing.ws.readyState})`);
+          // Move UDP WebSocket to cache for reuse instead of closing it
           this.cacheUdpWebSocket(existing.udpWsUrl, existing.ws);
         } else {
-          console.log(`[SNET]   closing existing WS (state=${existing.ws.readyState})`);
           existing.ws.onclose = null;
           existing.ws.onerror = null;
           existing.ws.onmessage = null;
@@ -118,14 +114,12 @@ export class NetworkManager {
     sock.destPort = cmd.destPort;
 
     const ipStr = cmd.destIP.join('.');
-    console.log(`[SNET] CONNECT sock=${cmd.socket} → ${ipStr}:${cmd.destPort}`);
 
     if (sock.protocol === PROTO_TCP) {
       if (this.corsProxyUrl) {
         const wsUrl = `${this.corsProxyUrl}/tcp/${ipStr}/${cmd.destPort}`;
         this.connectWebSocket(cmd.socket, wsUrl);
       } else {
-        console.log(`[SNET]   no proxy configured, failing`);
         this.proxy.spectranetSetSocketStatus(cmd.socket, SOCK_CLOSED);
       }
     } else if (sock.protocol === PROTO_UDP) {
@@ -147,10 +141,8 @@ export class NetworkManager {
     // TCP — send via WebSocket (buffering if not yet open)
     if (sock.ws && cmd.txData) {
       if (sock.ws.readyState === WebSocket.OPEN) {
-        console.log(`[SNET] TCP SEND sock=${cmd.socket} len=${cmd.txData.length}`);
         sock.ws.send(cmd.txData);
       } else {
-        console.log(`[SNET] TCP SEND sock=${cmd.socket} len=${cmd.txData.length} (buffered, ws.state=${sock.ws.readyState})`);
         sock.tcpSendBuffer.push(cmd.txData);
       }
     }
@@ -169,12 +161,10 @@ export class NetworkManager {
     }
 
     const ipStr = destIP.join('.');
-    console.log(`[SNET] UDP SEND sock=${cmd.socket} → ${ipStr}:${destPort} len=${cmd.txData ? cmd.txData.length : 0}`);
 
     // If the WebSocket is stale or points to a different destination, close and reconnect
     if (sock.ws) {
       if (sock.ws.readyState === WebSocket.CLOSING || sock.ws.readyState === WebSocket.CLOSED) {
-        console.log(`[SNET]   existing WS stale (state=${sock.ws.readyState}), dropping`);
         sock.ws = null;
       } else if (sock.udpDestIP && (ipStr !== sock.udpDestIP.join('.') || destPort !== sock.udpDestPort)) {
         // Destination changed — cache old WebSocket and create new one
@@ -206,7 +196,6 @@ export class NetworkManager {
       // Check cache for an existing warm WebSocket to this destination
       const cached = this.takeCachedUdpWebSocket(wsUrl);
       if (cached) {
-        console.log(`[SNET]   reusing cached WS → ${wsUrl} (state=${cached.readyState})`);
         sock.ws = cached;
         this.wireUdpHandlers(cached, cmd.socket, sock, destIP, destPort);
         if (cached.readyState === WebSocket.OPEN) {
@@ -224,16 +213,13 @@ export class NetworkManager {
           };
         }
       } else {
-        console.log(`[SNET]   creating new WS → ${wsUrl}`);
         try {
           const ws = new WebSocket(wsUrl);
           ws.binaryType = 'arraybuffer';
           sock.ws = ws;
 
           ws.onopen = () => {
-            console.log(`[SNET]   WS opened → ${wsUrl}`);
             if (sock.udpSendBuffer) {
-              console.log(`[SNET]   flushing ${sock.udpSendBuffer.length} buffered UDP sends`);
               for (const buf of sock.udpSendBuffer) {
                 ws.send(buf);
               }
@@ -244,7 +230,6 @@ export class NetworkManager {
 
           this.wireUdpHandlers(ws, cmd.socket, sock, destIP, destPort);
         } catch (err) {
-          console.log(`[SNET]   WS create failed: ${err.message}`);
           return;
         }
       }
@@ -263,22 +248,15 @@ export class NetworkManager {
 
   handleClose(cmd) {
     const sock = this.sockets[cmd.socket];
-    if (!sock) {
-      console.log(`[SNET] CLOSE sock=${cmd.socket} (no state)`);
-      return;
-    }
-
-    const protoStr = sock.protocol === PROTO_TCP ? 'TCP' : sock.protocol === PROTO_UDP ? 'UDP' : '?';
-    console.log(`[SNET] CLOSE sock=${cmd.socket} proto=${protoStr} ws=${sock.ws ? 'yes(state=' + sock.ws.readyState + ')' : 'none'}`);
+    if (!sock) return;
 
     this.stopUdpKeepalive(cmd.socket);
 
     if (sock.ws) {
       if (sock.protocol === PROTO_UDP && sock.udpWsUrl) {
-        console.log(`[SNET]   caching UDP WS → ${sock.udpWsUrl}`);
+        // Move UDP WebSocket to cache for reuse
         this.cacheUdpWebSocket(sock.udpWsUrl, sock.ws);
       } else {
-        console.log(`[SNET]   closing WS`);
         sock.ws.onclose = null;
         sock.ws.onerror = null;
         sock.ws.onmessage = null;
@@ -321,7 +299,6 @@ export class NetworkManager {
   wireUdpHandlers(ws, socketIdx, sock, destIP, destPort) {
     ws.onmessage = (event) => {
       const payload = new Uint8Array(event.data);
-      console.log(`[SNET] UDP RX sock=${socketIdx} len=${payload.length}`);
       const srcIP = sock.udpDestIP || destIP;
       const srcPort = sock.udpDestPort || destPort;
       const header = new Uint8Array(8);
@@ -342,20 +319,17 @@ export class NetworkManager {
     };
 
     ws.onclose = () => {
-      console.log(`[SNET] UDP WS closed sock=${socketIdx}`);
       this.stopUdpKeepalive(socketIdx);
       if (sock.ws === ws) sock.ws = null;
     };
 
     ws.onerror = () => {
-      console.log(`[SNET] UDP WS error sock=${socketIdx}`);
       this.stopUdpKeepalive(socketIdx);
       if (sock.ws === ws) sock.ws = null;
     };
   }
 
   cacheUdpWebSocket(url, ws) {
-    console.log(`[SNET] cache PUT ${url} (state=${ws.readyState})`);
     // Detach current handlers
     ws.onmessage = null;
     ws.onclose = null;
@@ -391,10 +365,7 @@ export class NetworkManager {
 
   takeCachedUdpWebSocket(url) {
     const entry = this.udpWsCache.get(url);
-    if (!entry) {
-      console.log(`[SNET] cache MISS ${url}`);
-      return null;
-    }
+    if (!entry) return null;
 
     // Remove from cache
     clearInterval(entry.keepaliveTimer);
@@ -403,12 +374,10 @@ export class NetworkManager {
 
     const ws = entry.ws;
     if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
-      console.log(`[SNET] cache HIT ${url} (state=${ws.readyState})`);
       return ws;
     }
 
     // Stale — discard
-    console.log(`[SNET] cache STALE ${url} (state=${ws.readyState})`);
     ws.close();
     return null;
   }
@@ -430,18 +399,14 @@ export class NetworkManager {
     const sock = this.sockets[socketIdx];
     if (!sock) return;
 
-    console.log(`[SNET] TCP WS connecting sock=${socketIdx} → ${wsUrl}`);
-
     try {
       const ws = new WebSocket(wsUrl);
       ws.binaryType = 'arraybuffer';
       sock.ws = ws;
 
       ws.onopen = () => {
-        console.log(`[SNET] TCP WS opened sock=${socketIdx}`);
         this.proxy.spectranetSetSocketStatus(socketIdx, SOCK_ESTABLISHED);
         if (sock.tcpSendBuffer) {
-          console.log(`[SNET]   flushing ${sock.tcpSendBuffer.length} buffered TCP sends`);
           for (const buf of sock.tcpSendBuffer) {
             ws.send(buf);
           }
@@ -450,24 +415,19 @@ export class NetworkManager {
       };
 
       ws.onmessage = (event) => {
-        const data = new Uint8Array(event.data);
-        console.log(`[SNET] TCP RX sock=${socketIdx} len=${data.length}`);
-        this.proxy.spectranetPushData(socketIdx, data);
+        this.proxy.spectranetPushData(socketIdx, new Uint8Array(event.data));
       };
 
       ws.onclose = (event) => {
-        console.log(`[SNET] TCP WS closed sock=${socketIdx} code=${event.code}`);
         this.proxy.spectranetSetSocketStatus(socketIdx, SOCK_CLOSE_WAIT);
         if (sock.ws === ws) sock.ws = null;
       };
 
       ws.onerror = () => {
-        console.log(`[SNET] TCP WS error sock=${socketIdx}`);
         this.proxy.spectranetSetSocketStatus(socketIdx, SOCK_CLOSED);
         if (sock.ws === ws) sock.ws = null;
       };
     } catch (err) {
-      console.log(`[SNET] TCP WS create failed sock=${socketIdx}: ${err.message}`);
       this.proxy.spectranetSetSocketStatus(socketIdx, SOCK_CLOSED);
     }
   }

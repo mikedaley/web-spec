@@ -271,6 +271,7 @@ if(EMSCRIPTEN)
                 \"_spectranetGetPendingCommand\", \
                 \"_spectranetClearPendingCommand\", \
                 \"_spectranetPushReceivedData\", \
+                \"_spectranetGetRxAvailable\", \
                 \"_spectranetSetSocketStatus\", \
                 \"_spectranetGetTxBuffer\", \
                 \"_spectranetGetTxBufferSize\", \
