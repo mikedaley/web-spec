@@ -1440,6 +1440,28 @@ void spectranetSetSRAMData(const uint8_t* data, uint32_t size) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+const uint8_t* spectranetGetFlashData() {
+    REQUIRE_MACHINE_OR(nullptr);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? spec->getSpectranet().getFlashData() : nullptr;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint32_t spectranetGetFlashSize() {
+    return zxspec::Spectranet::getFlashSize();
+}
+
+EMSCRIPTEN_KEEPALIVE
+void spectranetSetFlashData(const uint8_t* data, uint32_t size) {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec && data) {
+        uint32_t copySize = (size < zxspec::Spectranet::getFlashSize()) ? size : zxspec::Spectranet::getFlashSize();
+        std::memcpy(spec->getSpectranet().getFlashData(), data, copySize);
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE
 const uint8_t* spectranetGetFlashConfig() {
     REQUIRE_MACHINE_OR(nullptr);
     auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);

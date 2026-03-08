@@ -1,10 +1,10 @@
 /*
- * spectranet-persistence.js - Spectranet flash config persistence to IndexedDB
+ * spectranet-persistence.js - Spectranet flash persistence to IndexedDB
  *
- * Persists the flash config page (0x1F) across sessions so that network
- * configuration and other settings survive page reloads. When the ROM is
- * loaded it overwrites flash with defaults; the saved config is restored
- * before ROM init runs so it reads correct values into SRAM.
+ * Persists the full 128KB flash memory across sessions so that installed
+ * modules, configuration, and other flash changes survive page reloads.
+ * On first use the ROM firmware initialises flash; after that, the saved
+ * flash image is restored over the firmware defaults each session.
  *
  * Written by
  *  Mike Daley <michael_daley@icloud.com>
@@ -13,17 +13,21 @@
 import { createDatabaseManager } from "../utils/indexeddb-helper.js";
 
 const DB_NAME = "zxspec-spectranet-persistence";
-const DB_VERSION = 2;
-const STORE_NAME = "flashConfig";
-const CONFIG_KEY = "spectranet-flash-config";
+const DB_VERSION = 3;
+const STORE_NAME = "flashData";
+const FLASH_KEY = "spectranet-flash";
 
 const db = createDatabaseManager({
   dbName: DB_NAME,
   version: DB_VERSION,
   onUpgrade: (event) => {
     const database = event.target.result;
+    // Clean up old stores from previous versions
     if (database.objectStoreNames.contains("sramData")) {
       database.deleteObjectStore("sramData");
+    }
+    if (database.objectStoreNames.contains("flashConfig")) {
+      database.deleteObjectStore("flashConfig");
     }
     if (!database.objectStoreNames.contains(STORE_NAME)) {
       database.createObjectStore(STORE_NAME, { keyPath: "id" });
@@ -31,27 +35,27 @@ const db = createDatabaseManager({
   },
 });
 
-export async function saveFlashConfig(data) {
+export async function saveFlashData(data) {
   try {
     await db.put(STORE_NAME, {
-      id: CONFIG_KEY,
+      id: FLASH_KEY,
       data: new Uint8Array(data),
       savedAt: Date.now(),
     });
   } catch (error) {
-    console.error("Error saving Spectranet flash config:", error);
+    console.error("Error saving Spectranet flash:", error);
   }
 }
 
-export async function loadFlashConfig() {
+export async function loadFlashData() {
   try {
-    const result = await db.get(STORE_NAME, CONFIG_KEY);
+    const result = await db.get(STORE_NAME, FLASH_KEY);
     if (result) {
       return new Uint8Array(result.data);
     }
     return null;
   } catch (error) {
-    console.error("Error loading Spectranet flash config:", error);
+    console.error("Error loading Spectranet flash:", error);
     return null;
   }
 }

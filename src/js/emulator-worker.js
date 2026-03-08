@@ -905,6 +905,32 @@ self.onmessage = async function (e) {
       break;
     }
 
+    case "spectranetGetFlashData": {
+      if (!wasm) {
+        self.postMessage({ type: "spectranetFlashData", data: null });
+        break;
+      }
+      const flashPtr = wasm._spectranetGetFlashData();
+      const flashSize = wasm._spectranetGetFlashSize();
+      if (flashPtr && flashSize > 0) {
+        const flashCopy = new Uint8Array(wasm.HEAPU8.buffer.slice(flashPtr, flashPtr + flashSize));
+        self.postMessage({ type: "spectranetFlashData", data: flashCopy.buffer }, [flashCopy.buffer]);
+      } else {
+        self.postMessage({ type: "spectranetFlashData", data: null });
+      }
+      break;
+    }
+
+    case "spectranetSetFlashData": {
+      if (!wasm || !msg.data) break;
+      const flashData = new Uint8Array(msg.data);
+      const flashBufPtr = wasm._malloc(flashData.length);
+      wasm.HEAPU8.set(flashData, flashBufPtr);
+      wasm._spectranetSetFlashData(flashBufPtr, flashData.length);
+      wasm._free(flashBufPtr);
+      break;
+    }
+
     case "spectranetGetFlashConfig": {
       if (!wasm) {
         self.postMessage({ type: "spectranetFlashConfigData", data: null });

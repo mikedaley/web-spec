@@ -26,7 +26,7 @@ import { UDGEditorWindow } from "./debug/udg-editor-window.js";
 import { FontEditorWindow } from "./debug/font-editor-window.js";
 import { SpectranetWindow } from "./debug/spectranet-window.js";
 import { NetworkManager } from "./spectranet/network-manager.js";
-import { saveFlashConfig, loadFlashConfig } from "./spectranet/spectranet-persistence.js";
+import { saveFlashData, loadFlashData } from "./spectranet/spectranet-persistence.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
@@ -281,7 +281,7 @@ class ZXSpectrumEmulator {
       window.addEventListener("beforeunload", () => {
         this.windowManager.saveState();
         if (localStorage.getItem("zxspec-spectranet-enabled") === "true") {
-          this.saveSpectranetFlashConfig();
+          this.saveSpectranetFlash();
         }
       });
 
@@ -1056,6 +1056,7 @@ class ZXSpectrumEmulator {
         this.screenWindow.setMachine(machineId);
         this.basicProgramWindow.setMachine(machineId);
         this.keyboardWindow.setMachine(machineId);
+        await this.reapplySpectranetState();
 
         // If running, reset and continue; otherwise just switch
         if (this.running) {
@@ -1081,6 +1082,7 @@ class ZXSpectrumEmulator {
       this.screenWindow.setMachine(machineId);
       this.basicProgramWindow.setMachine(machineId);
       this.keyboardWindow.setMachine(machineId);
+      this.reapplySpectranetState();
     };
 
     // Restore Issue number from localStorage
@@ -1130,20 +1132,20 @@ class ZXSpectrumEmulator {
       if (savedSpectranet) this.applySpectranetNetworkConfig();
       this.proxy.setSpectranetEnabled(savedSpectranet);
       spectranetToggleBtn.classList.toggle("active", savedSpectranet);
-      if (savedSpectranet) this.restoreSpectranetFlashConfig();
+      if (savedSpectranet) this.restoreSpectranetFlash();
 
       spectranetToggleBtn.addEventListener("click", async () => {
         const isEnabled = spectranetToggleBtn.classList.contains("active");
         const newEnabled = !isEnabled;
         if (isEnabled) {
-          await this.saveSpectranetFlashConfig();
+          await this.saveSpectranetFlash();
         }
         if (newEnabled) this.applySpectranetNetworkConfig();
         this.proxy.setSpectranetEnabled(newEnabled);
         spectranetToggleBtn.classList.toggle("active", newEnabled);
         localStorage.setItem("zxspec-spectranet-enabled", String(newEnabled));
         if (newEnabled) {
-          await this.restoreSpectranetFlashConfig();
+          await this.restoreSpectranetFlash();
         }
         this.closeAllMenus();
         this.refocusCanvas();
@@ -1151,25 +1153,36 @@ class ZXSpectrumEmulator {
     }
   }
 
-  async saveSpectranetFlashConfig() {
-    try {
-      const configData = await this.proxy.spectranetGetFlashConfig();
-      if (configData) {
-        await saveFlashConfig(configData);
-      }
-    } catch (error) {
-      console.error("Failed to save Spectranet flash config:", error);
+  async reapplySpectranetState() {
+    const enabled = localStorage.getItem("zxspec-spectranet-enabled") === "true";
+    if (enabled) {
+      this.applySpectranetNetworkConfig();
+    }
+    this.proxy.setSpectranetEnabled(enabled);
+    if (enabled) {
+      await this.restoreSpectranetFlash();
     }
   }
 
-  async restoreSpectranetFlashConfig() {
+  async saveSpectranetFlash() {
     try {
-      const configData = await loadFlashConfig();
-      if (configData) {
-        this.proxy.spectranetSetFlashConfig(configData);
+      const flashData = await this.proxy.spectranetGetFlashData();
+      if (flashData) {
+        await saveFlashData(flashData);
       }
     } catch (error) {
-      console.error("Failed to restore Spectranet flash config:", error);
+      console.error("Failed to save Spectranet flash:", error);
+    }
+  }
+
+  async restoreSpectranetFlash() {
+    try {
+      const flashData = await loadFlashData();
+      if (flashData) {
+        this.proxy.spectranetSetFlashData(flashData);
+      }
+    } catch (error) {
+      console.error("Failed to restore Spectranet flash:", error);
     }
   }
 
