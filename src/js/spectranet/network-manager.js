@@ -75,6 +75,18 @@ export class NetworkManager {
   }
 
   handleOpen(cmd) {
+    // Clean up any existing WebSocket on this socket index before reopening
+    const existing = this.sockets[cmd.socket];
+    if (existing) {
+      this.stopUdpKeepalive(cmd.socket);
+      if (existing.ws) {
+        existing.ws.onclose = null;
+        existing.ws.onerror = null;
+        existing.ws.onmessage = null;
+        existing.ws.close();
+      }
+    }
+
     this.sockets[cmd.socket] = {
       protocol: cmd.protocol,
       srcPort: cmd.srcPort,
@@ -144,9 +156,19 @@ export class NetworkManager {
 
     const ipStr = destIP.join('.');
 
-    // If the WebSocket is in CLOSING or CLOSED state, discard it so we reconnect
-    if (sock.ws && (sock.ws.readyState === WebSocket.CLOSING || sock.ws.readyState === WebSocket.CLOSED)) {
-      sock.ws = null;
+    // If the WebSocket is stale or points to a different destination, close and reconnect
+    if (sock.ws) {
+      if (sock.ws.readyState === WebSocket.CLOSING || sock.ws.readyState === WebSocket.CLOSED) {
+        sock.ws = null;
+      } else if (sock.udpDestIP && (ipStr !== sock.udpDestIP.join('.') || destPort !== sock.udpDestPort)) {
+        // Destination changed — close old WebSocket and create new one
+        this.stopUdpKeepalive(cmd.socket);
+        sock.ws.onclose = null;
+        sock.ws.onerror = null;
+        sock.ws.onmessage = null;
+        sock.ws.close();
+        sock.ws = null;
+      }
     }
 
     // Lazily open WebSocket on first send (or reconnect after close)
@@ -231,6 +253,9 @@ export class NetworkManager {
     this.stopUdpKeepalive(cmd.socket);
 
     if (sock.ws) {
+      sock.ws.onclose = null;
+      sock.ws.onerror = null;
+      sock.ws.onmessage = null;
       sock.ws.close();
       sock.ws = null;
     }

@@ -321,8 +321,9 @@ void W5100::handleSocketCommand(uint8_t socket, uint8_t cmd)
 
     case CMD_RECV: {
         // Fuse: rx_rsr -= (rx_rd - old_rx_rd); old_rx_rd = rx_rd
-        // Only valid in UDP or ESTABLISHED state
-        if (state == SOCK_UDP || state == SOCK_ESTABLISHED) {
+        // Valid in UDP, ESTABLISHED, or CLOSE_WAIT (server closed but
+        // buffered data may remain to be read)
+        if (state == SOCK_UDP || state == SOCK_ESTABLISHED || state == SOCK_CLOSE_WAIT) {
             uint16_t rxRd = (socketRegs_[base + Sn_RX_RD] << 8) | socketRegs_[base + Sn_RX_RD + 1];
             uint16_t rxRsr = (socketRegs_[base + Sn_RX_RSR] << 8) | socketRegs_[base + Sn_RX_RSR + 1];
             uint16_t consumed = rxRd - oldRxRd_[socket];
