@@ -39,7 +39,8 @@ enum class FlashState : uint8_t {
     ERASE_UNLOCK1,
     ERASE_UNLOCK2,
     ERASE_CMD,
-    PROGRAM
+    PROGRAM,
+    AUTOSELECT
 };
 
 class Spectranet {
@@ -181,7 +182,7 @@ private:
     bool nmiFlipFlop_ = false;
 
     // AM29F010 flash state machine
-    FlashState flashState_ = FlashState::IDLE;
+    mutable FlashState flashState_ = FlashState::IDLE;
 
     // Flash ROM (erased state = 0xFF) and SRAM
     std::array<uint8_t, FLASH_SIZE> flash_;

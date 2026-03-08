@@ -135,11 +135,21 @@ uint8_t Spectranet::memoryRead(uint16_t address) const
 
     if (address < 0x1000) {
         // Area fixed: Flash page 0
+        if (flashState_ == FlashState::AUTOSELECT) {
+            if (offset == 0x0000) return 0x01;  // AMD manufacturer ID
+            if (offset == 0x0001) return 0x20;  // AM29F010 device ID
+            return 0x00;
+        }
         return flash_[offset];
     }
     else if (address < 0x2000) {
         // Area A: mapped by pageA_
         if (pageA_ >= 0x00 && pageA_ <= 0x1F) {
+            if (flashState_ == FlashState::AUTOSELECT) {
+                if ((offset & 0xFF) == 0x00) return 0x01;
+                if ((offset & 0xFF) == 0x01) return 0x20;
+                return 0x00;
+            }
             return flash_[pageA_ * SNET_PAGE_SIZE + offset];
         }
         else if (pageA_ >= 0x40 && pageA_ <= 0x48) {
@@ -154,6 +164,11 @@ uint8_t Spectranet::memoryRead(uint16_t address) const
     else if (address < 0x3000) {
         // Area B: mapped by pageB_
         if (pageB_ >= 0x00 && pageB_ <= 0x1F) {
+            if (flashState_ == FlashState::AUTOSELECT) {
+                if ((offset & 0xFF) == 0x00) return 0x01;
+                if ((offset & 0xFF) == 0x01) return 0x20;
+                return 0x00;
+            }
             return flash_[pageB_ * SNET_PAGE_SIZE + offset];
         }
         else if (pageB_ >= 0x40 && pageB_ <= 0x48) {
@@ -412,12 +427,19 @@ void Spectranet::flashWrite(uint8_t page, uint16_t offset, uint8_t data)
                 flashState_ = FlashState::PROGRAM;
             } else if (data == 0x80) {
                 flashState_ = FlashState::ERASE_UNLOCK1;
+            } else if (data == 0x90) {
+                flashState_ = FlashState::AUTOSELECT;
             } else {
                 flashState_ = FlashState::IDLE;
             }
         } else {
             flashState_ = FlashState::IDLE;
         }
+        break;
+
+    case FlashState::AUTOSELECT:
+        // Writing 0xF0 (handled above) or any reset exits autoselect
+        flashState_ = FlashState::IDLE;
         break;
 
     case FlashState::ERASE_UNLOCK1:
