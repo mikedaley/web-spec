@@ -26,7 +26,7 @@ import { UDGEditorWindow } from "./debug/udg-editor-window.js";
 import { FontEditorWindow } from "./debug/font-editor-window.js";
 import { SpectranetWindow } from "./debug/spectranet-window.js";
 import { NetworkManager } from "./spectranet/network-manager.js";
-import { saveFlashData, loadFlashData, clearFlashData } from "./spectranet/spectranet-persistence.js";
+import { saveFlashData, loadFlashData } from "./spectranet/spectranet-persistence.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
@@ -1159,17 +1159,6 @@ class ZXSpectrumEmulator {
       });
     }
 
-    // Spectranet clear flash button
-    const clearFlashBtn = document.getElementById("btn-spectranet-clear-flash");
-    if (clearFlashBtn) {
-      clearFlashBtn.addEventListener("click", async () => {
-        this.spectranetFlashCleared_ = true;
-        await clearFlashData();
-        this.proxy.spectranetReloadROM();
-        this.closeAllMenus();
-        this.refocusCanvas();
-      });
-    }
   }
 
   async reapplySpectranetState() {
