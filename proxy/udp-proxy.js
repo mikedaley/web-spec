@@ -24,6 +24,8 @@
  *   IDLE_TIMEOUT_MS  - Close idle connections after this many ms (default: 30000)
  *   ALLOWED_PORTS    - Comma-separated list of allowed destination ports
  *                      (default: 53,16384 — DNS and TNFS)
+ *   ALLOW_PRIVATE    - Set to "true" to allow private/LAN IP destinations
+ *                      (for local development / LAN TNFS servers)
  */
 
 const { WebSocketServer } = require('ws');
@@ -42,6 +44,9 @@ const ALLOWED_ORIGINS_ENV = process.env.ALLOWED_ORIGINS || '';
 const ALLOWED_ORIGINS = new Set(
   ALLOWED_ORIGINS_ENV.split(',').map(o => o.trim()).filter(Boolean)
 );
+
+// Allow private/LAN IPs (for local development)
+const ALLOW_PRIVATE = process.env.ALLOW_PRIVATE === 'true';
 
 // Default: DNS (53) and TNFS (16384). Set to '*' to allow all ports.
 const ALLOWED_PORTS_ENV = process.env.ALLOWED_PORTS || '53,16384,32768';
@@ -175,7 +180,7 @@ wss.on('connection', (ws, req) => {
   }
 
   // --- Destination security checks ---
-  if (isPrivateIP(destIP)) {
+  if (!ALLOW_PRIVATE && isPrivateIP(destIP)) {
     console.warn(`[proxy] Rejected: private IP ${destIP} from ${clientIP}`);
     ws.close(1008, 'Private destinations not allowed');
     return;
