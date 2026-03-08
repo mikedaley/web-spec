@@ -8,6 +8,31 @@
 let wasm = null;
 let speedMultiplier = 1;
 
+// Per-socket overflow buffers for data that didn't fit in the W5100's 2KB RX buffer.
+// Flushed into the W5100 each frame as the Z80 consumes data.
+const rxOverflow = [[], [], [], []];
+
+function flushRxOverflow() {
+  if (!wasm || !wasm._isSpectranetEnabled()) return;
+  for (let s = 0; s < 4; s++) {
+    while (rxOverflow[s].length > 0) {
+      const chunk = rxOverflow[s][0];
+      const rxPtr = wasm._malloc(chunk.length);
+      wasm.HEAPU8.set(chunk, rxPtr);
+      const written = wasm._spectranetPushReceivedData(s, rxPtr, chunk.length);
+      wasm._free(rxPtr);
+      if (written === chunk.length) {
+        rxOverflow[s].shift();
+      } else if (written > 0) {
+        rxOverflow[s][0] = chunk.slice(written);
+        break;
+      } else {
+        break; // No space available
+      }
+    }
+  }
+}
+
 function pollSpectranetCommands() {
   if (!wasm._isSpectranetEnabled()) return;
 
@@ -271,6 +296,9 @@ function runFrames(count) {
   }
 
   self.postMessage({ type: "frame", framebuffer, signalBuffer, audio, sampleCount: sampleCount, state, recordedBlocks, beeperWaveform, ayRegisters, ayMutes, ayWaveforms, ayInternals }, transfer);
+
+  // Flush any buffered RX data into W5100 before polling new commands
+  flushRxOverflow();
 
   // Poll for Spectranet network commands after each frame
   pollSpectranetCommands();
@@ -846,8 +874,12 @@ self.onmessage = async function (e) {
       const rxData = new Uint8Array(msg.data);
       const rxPtr = wasm._malloc(rxData.length);
       wasm.HEAPU8.set(rxData, rxPtr);
-      wasm._spectranetPushReceivedData(msg.socket, rxPtr, rxData.length);
+      const written = wasm._spectranetPushReceivedData(msg.socket, rxPtr, rxData.length);
       wasm._free(rxPtr);
+      // Buffer any data that didn't fit in the W5100's 2KB RX buffer
+      if (written < rxData.length) {
+        rxOverflow[msg.socket].push(rxData.slice(written));
+      }
       break;
     }
 

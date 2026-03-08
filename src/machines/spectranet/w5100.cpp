@@ -510,9 +510,9 @@ void W5100::setSocketStatus(uint8_t socket, uint8_t status)
     }
 }
 
-void W5100::pushReceivedData(uint8_t socket, const uint8_t* data, uint16_t length)
+uint16_t W5100::pushReceivedData(uint8_t socket, const uint8_t* data, uint16_t length)
 {
-    if (socket >= 4 || !data || length == 0) return;
+    if (socket >= 4 || !data || length == 0) return 0;
 
     uint16_t base = socket * 0x100;
     uint16_t rxRsr = (socketRegs_[base + Sn_RX_RSR] << 8) | socketRegs_[base + Sn_RX_RSR + 1];
@@ -523,6 +523,8 @@ void W5100::pushReceivedData(uint8_t socket, const uint8_t* data, uint16_t lengt
     uint16_t offset = (oldRxRd_[socket] + rxRsr) & rxMask;
     uint16_t available = RX_SOCK_SIZE - rxRsr;
     uint16_t toWrite = (length < available) ? length : available;
+
+    if (toWrite == 0) return 0;
 
     // Two-chunk memcpy for circular buffer (matches Fuse, more efficient than byte loop)
     if (offset + toWrite <= RX_SOCK_SIZE) {
@@ -540,6 +542,16 @@ void W5100::pushReceivedData(uint8_t socket, const uint8_t* data, uint16_t lengt
 
     // Set RECV interrupt
     socketRegs_[base + Sn_IR] |= 0x04;
+
+    return toWrite;
+}
+
+uint16_t W5100::getRxAvailable(uint8_t socket) const
+{
+    if (socket >= 4) return 0;
+    uint16_t base = socket * 0x100;
+    uint16_t rxRsr = (socketRegs_[base + Sn_RX_RSR] << 8) | socketRegs_[base + Sn_RX_RSR + 1];
+    return RX_SOCK_SIZE - rxRsr;
 }
 
 uint8_t W5100::getSocketStatus(uint8_t socket) const

@@ -1352,11 +1352,20 @@ void spectranetClearPendingCommand() {
 }
 
 EMSCRIPTEN_KEEPALIVE
-void spectranetPushReceivedData(int socket, const uint8_t* data, int length) {
-    REQUIRE_MACHINE();
+int spectranetPushReceivedData(int socket, const uint8_t* data, int length) {
+    REQUIRE_MACHINE_OR(0);
     auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
-    if (spec) spec->getSpectranet().getW5100().pushReceivedData(
+    if (spec) return spec->getSpectranet().getW5100().pushReceivedData(
         static_cast<uint8_t>(socket), data, static_cast<uint16_t>(length));
+    return 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int spectranetGetRxAvailable(int socket) {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) return spec->getSpectranet().getW5100().getRxAvailable(static_cast<uint8_t>(socket));
+    return 0;
 }
 
 EMSCRIPTEN_KEEPALIVE

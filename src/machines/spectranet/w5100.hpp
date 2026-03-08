@@ -126,7 +126,8 @@ public:
 
     // JS-side updates
     void setSocketStatus(uint8_t socket, uint8_t status);
-    void pushReceivedData(uint8_t socket, const uint8_t* data, uint16_t length);
+    uint16_t pushReceivedData(uint8_t socket, const uint8_t* data, uint16_t length);
+    uint16_t getRxAvailable(uint8_t socket) const;
 
     // TX buffer access for JS to read outgoing data
     const uint8_t* getTxBuffer() const { return txBuffer_.data(); }
