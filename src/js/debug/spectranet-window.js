@@ -189,7 +189,7 @@ export class SpectranetWindow extends BaseWindow {
     let html = `
       <div class="spectranet-flash-item" data-id="__rom_default__">
         <div class="spectranet-flash-item-info">
-          <span class="spectranet-flash-item-name">Default ROM</span>
+          <span class="spectranet-flash-item-name">Default</span>
           <span class="spectranet-flash-item-date">Built-in firmware</span>
         </div>
         <div class="spectranet-flash-item-actions">
