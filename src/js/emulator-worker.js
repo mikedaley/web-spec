@@ -878,6 +878,8 @@ self.onmessage = async function (e) {
       wasm._free(rxPtr);
       // Buffer any data that didn't fit in the W5100's 2KB RX buffer
       if (written < rxData.length) {
+        const overflow = rxData.length - written;
+        console.log(`[SNET-W] RX sock=${msg.socket} len=${rxData.length} written=${written} overflow=${overflow} queued=${rxOverflow[msg.socket].length}`);
         rxOverflow[msg.socket].push(rxData.slice(written));
       }
       break;
@@ -885,6 +887,13 @@ self.onmessage = async function (e) {
 
     case "spectranetSetSocketStatus":
       if (wasm) wasm._spectranetSetSocketStatus(msg.socket, msg.status);
+      // Clear stale overflow data when a socket is closed
+      if (msg.status === 0x00 && msg.socket >= 0 && msg.socket < 4) {
+        if (rxOverflow[msg.socket].length > 0) {
+          console.log(`[SNET-W] clearing ${rxOverflow[msg.socket].length} overflow chunks for sock=${msg.socket}`);
+        }
+        rxOverflow[msg.socket] = [];
+      }
       break;
 
     case "spectranetSetNetworkConfig": {
