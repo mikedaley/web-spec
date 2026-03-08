@@ -160,6 +160,7 @@ public:
     const Spectranet& getSpectranet() const { return spectranet_; }
     bool isSpectranetEnabled() const { return spectranetEnabled_; }
     void setSpectranetEnabled(bool enabled) { spectranetEnabled_ = enabled; if (enabled) installOpcodeCallback(); }
+    virtual void reloadSpectranetROM() = 0;
 
     // Issue number (2 or 3) — affects EAR/MIC feedback in IO reads
     uint8_t getIssueNumber() const { return issueNumber_; }

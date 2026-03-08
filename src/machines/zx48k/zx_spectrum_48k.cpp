@@ -60,6 +60,13 @@ void ZXSpectrum48::reset()
     setupPaging();
 }
 
+void ZXSpectrum48::reloadSpectranetROM()
+{
+    if (roms::ROM_SPECTRANET_SIZE > 0) {
+        spectranet_.loadROM(roms::ROM_SPECTRANET, static_cast<uint32_t>(roms::ROM_SPECTRANET_SIZE));
+    }
+}
+
 // ============================================================================
 // Memory paging (48K: simple linear layout)
 // ============================================================================

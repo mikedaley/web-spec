@@ -59,3 +59,11 @@ export async function loadFlashData() {
     return null;
   }
 }
+
+export async function clearFlashData() {
+  try {
+    await db.remove(STORE_NAME, FLASH_KEY);
+  } catch (error) {
+    console.error("Error clearing Spectranet flash:", error);
+  }
+}

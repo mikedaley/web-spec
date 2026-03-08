@@ -636,6 +636,10 @@ export class EmulatorProxy {
     });
   }
 
+  spectranetReloadROM() {
+    this.worker.postMessage({ type: "spectranetReloadROM" });
+  }
+
   spectranetSetFlashData(data) {
     const buffer = new Uint8Array(data).buffer;
     this.worker.postMessage({ type: "spectranetSetFlashData", data: buffer }, [buffer]);

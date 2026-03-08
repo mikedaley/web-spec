@@ -405,7 +405,7 @@ void W5100::handleDHCPRequest(uint8_t socket)
     }
 
     // Build DHCP response (BOOTP reply)
-    // Assigned IP: 192.168.0.177, Server/Gateway: 192.168.0.1
+    // Assigned IP: 255.255.255.255, Server/Gateway: 192.168.0.1
     // Subnet: 255.255.255.0, DNS: 8.8.8.8
     uint8_t assignedIP[4] = {255, 255, 255, 255};
     uint8_t serverIP[4]   = {192, 168, 0, 1};

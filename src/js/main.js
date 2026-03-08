@@ -26,7 +26,7 @@ import { UDGEditorWindow } from "./debug/udg-editor-window.js";
 import { FontEditorWindow } from "./debug/font-editor-window.js";
 import { SpectranetWindow } from "./debug/spectranet-window.js";
 import { NetworkManager } from "./spectranet/network-manager.js";
-import { saveFlashData, loadFlashData } from "./spectranet/spectranet-persistence.js";
+import { saveFlashData, loadFlashData, clearFlashData } from "./spectranet/spectranet-persistence.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
@@ -42,6 +42,7 @@ import { MessagePanel } from "./ui/message-panel.js";
 
 class ZXSpectrumEmulator {
   constructor() {
+    this.spectranetFlashCleared_ = false;
     this.proxy = null;
     this.renderer = null;
     this.audioDriver = null;
@@ -280,7 +281,7 @@ class ZXSpectrumEmulator {
       // Save window state and Spectranet flash config on page unload
       window.addEventListener("beforeunload", () => {
         this.windowManager.saveState();
-        if (localStorage.getItem("zxspec-spectranet-enabled") === "true") {
+        if (localStorage.getItem("zxspec-spectranet-enabled") === "true" && !this.spectranetFlashCleared_) {
           this.saveSpectranetFlash();
         }
       });
@@ -1151,6 +1152,18 @@ class ZXSpectrumEmulator {
         this.refocusCanvas();
       });
     }
+
+    // Spectranet clear flash button
+    const clearFlashBtn = document.getElementById("btn-spectranet-clear-flash");
+    if (clearFlashBtn) {
+      clearFlashBtn.addEventListener("click", async () => {
+        this.spectranetFlashCleared_ = true;
+        await clearFlashData();
+        this.proxy.spectranetReloadROM();
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
   }
 
   async reapplySpectranetState() {
@@ -1165,6 +1178,7 @@ class ZXSpectrumEmulator {
   }
 
   async saveSpectranetFlash() {
+    if (this.spectranetFlashCleared_) return;
     try {
       const flashData = await this.proxy.spectranetGetFlashData();
       if (flashData) {

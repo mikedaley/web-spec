@@ -41,6 +41,9 @@ public:
     uint8_t coreDebugRead(uint16_t address) const override;
     void coreDebugWrite(uint16_t address, uint8_t data) override;
 
+    // Reload Spectranet ROM into flash (factory reset)
+    void reloadSpectranetROM() override;
+
     // Screen memory for display rendering
     uint8_t* getScreenMemory() override;
     const uint8_t* getScreenMemory() const override;

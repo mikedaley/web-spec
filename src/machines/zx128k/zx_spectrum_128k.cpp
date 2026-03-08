@@ -69,6 +69,13 @@ void ZXSpectrum128::reset()
     updatePaging();
 }
 
+void ZXSpectrum128::reloadSpectranetROM()
+{
+    if (roms::ROM_SPECTRANET_SIZE > 0) {
+        spectranet_.loadROM(roms::ROM_SPECTRANET, static_cast<uint32_t>(roms::ROM_SPECTRANET_SIZE));
+    }
+}
+
 // ============================================================================
 // Memory paging (128K: switchable ROM + RAM banks via port 0x7FFD)
 //

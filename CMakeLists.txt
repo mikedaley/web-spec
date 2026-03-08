@@ -280,6 +280,7 @@ if(EMSCRIPTEN)
                 \"_spectranetSetNetworkConfig\", \
                 \"_spectranetSetStaticIP\", \
                 \"_spectranetIsStaticIP\", \
+                \"_spectranetReloadROM\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \

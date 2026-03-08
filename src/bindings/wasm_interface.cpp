@@ -1461,6 +1461,13 @@ uint32_t spectranetGetFlashSize() {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void spectranetReloadROM() {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->reloadSpectranetROM();
+}
+
+EMSCRIPTEN_KEEPALIVE
 void spectranetSetFlashData(const uint8_t* data, uint32_t size) {
     REQUIRE_MACHINE();
     auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);

@@ -586,6 +586,35 @@ header {
   background: var(--overlay-hover);
 }
 
+/* Menu item row — pairs a menu-check-item with an action button */
+.header-menu-item-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.header-menu-item-row .header-menu-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.header-menu-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  background: none;
+  border: none;
+  border-left: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+}
+
+.header-menu-action-btn:hover {
+  background: var(--overlay-hover);
+  color: var(--accent-red);
+}
+
 /* Menu checkmark items */
 .menu-check-item {
   justify-content: flex-start;

@@ -400,8 +400,9 @@ void Spectranet::flashWrite(uint8_t page, uint16_t offset, uint8_t data)
 {
     uint16_t cmdAddr = offset & 0x7FF;  // A0-A10 only for command matching
 
-    // Writing 0xF0 at any time resets the state machine
-    if (data == 0xF0) {
+    // Writing 0xF0 resets the state machine (return to read mode),
+    // but NOT during byte program — the 4th write cycle is always data.
+    if (data == 0xF0 && flashState_ != FlashState::PROGRAM) {
         flashState_ = FlashState::IDLE;
         return;
     }

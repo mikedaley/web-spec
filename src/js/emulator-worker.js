@@ -963,6 +963,12 @@ self.onmessage = async function (e) {
       break;
     }
 
+    case "spectranetReloadROM": {
+      if (!wasm) break;
+      wasm._spectranetReloadROM();
+      break;
+    }
+
     case "spectranetSetFlashData": {
       if (!wasm || !msg.data) break;
       const flashData = new Uint8Array(msg.data);
