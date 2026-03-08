@@ -8,6 +8,13 @@
  */
 
 import { BaseWindow } from "../windows/base-window.js";
+import {
+  saveFlashSnapshot,
+  listFlashSnapshots,
+  loadFlashSnapshot,
+  deleteFlashSnapshot,
+  clearFlashData,
+} from "../spectranet/spectranet-persistence.js";
 import "../css/spectranet.css";
 
 // W5100 socket status names
@@ -39,6 +46,7 @@ export class SpectranetWindow extends BaseWindow {
 
     this.proxy = proxy;
     this.corsProxyUrl = localStorage.getItem("zxspec-spectranet-cors-proxy") || "wss://spectrem-proxy.retrotech71.co.uk";
+    this.snapshots = [];
   }
 
   renderContent() {
@@ -101,6 +109,18 @@ export class SpectranetWindow extends BaseWindow {
             <button class="spectranet-apply-btn" id="snet-apply-cors">Apply</button>
           </div>
         </div>
+
+        <div class="spectranet-section">
+          <div class="spectranet-section-title">Flash Storage</div>
+          <div class="spectranet-flash-storage">
+            <div class="spectranet-flash-save-row">
+              <input type="text" class="spectranet-config-input spectranet-flash-name-input" id="snet-flash-name"
+                     placeholder="Snapshot name" />
+              <button class="spectranet-apply-btn" id="snet-flash-save">Save</button>
+            </div>
+            <div class="spectranet-flash-list" id="snet-flash-list"></div>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -132,6 +152,98 @@ export class SpectranetWindow extends BaseWindow {
         }, 1500);
       });
     }
+
+    // Save flash snapshot
+    const saveBtn = this.element.querySelector("#snet-flash-save");
+    if (saveBtn) {
+      saveBtn.addEventListener("click", async () => {
+        const nameInput = this.element.querySelector("#snet-flash-name");
+        const name = nameInput?.value.trim();
+        if (!name) {
+          nameInput?.focus();
+          return;
+        }
+        try {
+          const flashData = await this.proxy.spectranetGetFlashData();
+          if (flashData) {
+            await saveFlashSnapshot(name, flashData);
+            nameInput.value = "";
+            await this.refreshSnapshotList();
+          }
+        } catch (error) {
+          console.error("Failed to save flash snapshot:", error);
+        }
+      });
+    }
+
+    // Initial snapshot list load
+    this.refreshSnapshotList();
+  }
+
+  async refreshSnapshotList() {
+    this.snapshots = await listFlashSnapshots();
+    const listEl = this.element?.querySelector("#snet-flash-list");
+    if (!listEl) return;
+
+    // Fixed ROM entry at top + user snapshots
+    let html = `
+      <div class="spectranet-flash-item" data-id="__rom_default__">
+        <div class="spectranet-flash-item-info">
+          <span class="spectranet-flash-item-name">Default ROM</span>
+          <span class="spectranet-flash-item-date">Built-in firmware</span>
+        </div>
+        <div class="spectranet-flash-item-actions">
+          <button class="spectranet-flash-action-btn snet-flash-load" title="Load">Load</button>
+        </div>
+      </div>`;
+
+    html += this.snapshots.map(snap => `
+      <div class="spectranet-flash-item" data-id="${snap.id}">
+        <div class="spectranet-flash-item-info">
+          <span class="spectranet-flash-item-name">${this.escapeAttr(snap.name)}</span>
+          <span class="spectranet-flash-item-date">${this.formatDate(snap.savedAt)}</span>
+        </div>
+        <div class="spectranet-flash-item-actions">
+          <button class="spectranet-flash-action-btn snet-flash-load" title="Load">Load</button>
+          <button class="spectranet-flash-action-btn snet-flash-delete" title="Delete">Del</button>
+        </div>
+      </div>
+    `).join("");
+
+    listEl.innerHTML = html;
+
+    // Bind action buttons
+    for (const item of listEl.querySelectorAll(".spectranet-flash-item")) {
+      const id = item.dataset.id;
+
+      item.querySelector(".snet-flash-load")?.addEventListener("click", async () => {
+        if (id === "__rom_default__") {
+          await clearFlashData();
+          this.proxy.spectranetReloadROM();
+          if (this.onFlashCleared) this.onFlashCleared();
+        } else {
+          const data = await loadFlashSnapshot(id);
+          if (data) {
+            this.proxy.spectranetSetFlashData(data);
+            if (this.onFlashLoaded) this.onFlashLoaded();
+          }
+        }
+      });
+
+      item.querySelector(".snet-flash-delete")?.addEventListener("click", async () => {
+        await deleteFlashSnapshot(id);
+        await this.refreshSnapshotList();
+      });
+    }
+
+    // Re-auto-size after list change
+    this.element.style.height = "auto";
+  }
+
+  formatDate(timestamp) {
+    const d = new Date(timestamp);
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" }) +
+      " " + d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
   }
 
   update(proxy) {

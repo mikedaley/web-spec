@@ -169,6 +169,12 @@ class ZXSpectrumEmulator {
       const corsProxy = localStorage.getItem("zxspec-spectranet-cors-proxy") || "wss://spectrem-proxy.retrotech71.co.uk";
       this.networkManager.setCorsProxyUrl(corsProxy);
       this.spectranetWindow.onCorsProxyUrlChanged = (url) => this.networkManager.setCorsProxyUrl(url);
+      this.spectranetWindow.onFlashLoaded = () => {
+        this.spectranetFlashCleared_ = false;
+      };
+      this.spectranetWindow.onFlashCleared = () => {
+        this.spectranetFlashCleared_ = true;
+      };
 
       // Create rule builder window (shared by BASIC and CPU debugger)
       this.ruleBuilderWindow = new RuleBuilderWindow();

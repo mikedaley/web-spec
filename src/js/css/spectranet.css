@@ -113,6 +113,10 @@
   background: var(--accent-blue-bg);
 }
 
+.spectranet-apply-btn:active {
+  transform: scale(0.95);
+}
+
 .spectranet-apply-btn-success {
   color: var(--accent-green);
   border-color: var(--accent-green);
@@ -146,4 +150,97 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* Flash storage */
+.spectranet-flash-storage {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.spectranet-flash-save-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.spectranet-flash-name-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.spectranet-flash-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+.spectranet-flash-empty {
+  color: var(--text-tertiary);
+  font-size: 11px;
+  font-style: italic;
+  padding: 4px 0;
+}
+
+.spectranet-flash-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  border: 1px solid var(--glass-border);
+  gap: 6px;
+}
+
+
+.spectranet-flash-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  flex: 1;
+}
+
+.spectranet-flash-item-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.spectranet-flash-item-date {
+  font-size: 9px;
+  color: var(--text-tertiary);
+}
+
+.spectranet-flash-item-actions {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.spectranet-flash-action-btn {
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-radius: 3px;
+  padding: 2px 5px;
+  color: var(--text-secondary);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.spectranet-flash-action-btn:hover {
+  color: var(--accent-blue);
+  border-color: var(--accent-blue-border);
+}
+
+.spectranet-flash-action-btn:active {
+  transform: scale(0.95);
+}
+
 
