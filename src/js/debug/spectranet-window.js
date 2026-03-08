@@ -39,9 +39,9 @@ export class SpectranetWindow extends BaseWindow {
       id: "spectranet",
       title: "Spectranet",
       defaultWidth: 340,
-      defaultHeight: 0,
+      defaultHeight: 520,
       defaultPosition: { x: 80, y: 80 },
-      resizeDirections: [],
+      resizeDirections: ["s"],
     });
 
     this.proxy = proxy;
@@ -131,8 +131,14 @@ export class SpectranetWindow extends BaseWindow {
   }
 
   onContentRendered() {
-    // Auto-size height to fit content
-    this.element.style.height = "auto";
+    // Insert TX/RX LEDs into window header
+    const closeBtn = this.headerElement.querySelector(".debug-window-close");
+    if (closeBtn) {
+      const ledContainer = document.createElement("span");
+      ledContainer.className = "spectranet-header-leds";
+      ledContainer.innerHTML = `<span class="spectranet-led" id="snet-tx-led">TX</span><span class="spectranet-led" id="snet-rx-led">RX</span>`;
+      closeBtn.parentNode.insertBefore(ledContainer, closeBtn);
+    }
 
     // Apply CORS proxy button
     const applyBtn = this.element.querySelector("#snet-apply-cors");
@@ -167,9 +173,10 @@ export class SpectranetWindow extends BaseWindow {
         try {
           const flashData = await this.proxy.spectranetGetFlashData();
           if (flashData) {
-            await saveFlashSnapshot(name, flashData);
+            const newId = await saveFlashSnapshot(name, flashData);
             nameInput.value = "";
-            await this.refreshSnapshotList();
+            if (newId) this.setActiveSnapshot(newId);
+            else await this.refreshSnapshotList();
           }
         } catch (error) {
           console.error("Failed to save flash snapshot:", error);
@@ -239,8 +246,22 @@ export class SpectranetWindow extends BaseWindow {
       });
     }
 
-    // Re-auto-size after list change
-    this.element.style.height = "auto";
+  }
+
+  flashTx() {
+    this.flashLed("snet-tx-led");
+  }
+
+  flashRx() {
+    this.flashLed("snet-rx-led");
+  }
+
+  flashLed(id) {
+    const el = this.element?.querySelector(`#${id}`);
+    if (!el) return;
+    el.classList.add("spectranet-led-on");
+    clearTimeout(el._ledTimer);
+    el._ledTimer = setTimeout(() => el.classList.remove("spectranet-led-on"), 100);
   }
 
   setActiveSnapshot(id) {

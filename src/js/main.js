@@ -175,6 +175,8 @@ class ZXSpectrumEmulator {
       this.spectranetWindow.onFlashCleared = () => {
         this.spectranetFlashCleared_ = true;
       };
+      this.networkManager.onTx = () => this.spectranetWindow.flashTx();
+      this.networkManager.onRx = () => this.spectranetWindow.flashRx();
 
       // Create rule builder window (shared by BASIC and CPU debugger)
       this.ruleBuilderWindow = new RuleBuilderWindow();

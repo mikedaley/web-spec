@@ -46,6 +46,8 @@ export class NetworkManager {
     this.sockets = [null, null, null, null];  // Per-socket state
     this.corsProxyUrl = '';  // Configurable CORS proxy URL
     this.udpWsCache = new Map();  // URL → { ws, keepaliveTimer, ttlTimer }
+    this.onTx = null;  // Callback fired on transmit activity
+    this.onRx = null;  // Callback fired on receive activity
 
     // Wire up the command handler
     this.proxy.onSpectranetCommand = (cmd) => this.handleCommand(cmd);
@@ -142,6 +144,7 @@ export class NetworkManager {
     if (sock.ws && cmd.txData) {
       if (sock.ws.readyState === WebSocket.OPEN) {
         sock.ws.send(cmd.txData);
+        if (this.onTx) this.onTx();
       } else {
         sock.tcpSendBuffer.push(cmd.txData);
       }
@@ -239,6 +242,7 @@ export class NetworkManager {
     if (cmd.txData) {
       if (sock.ws.readyState === WebSocket.OPEN) {
         sock.ws.send(cmd.txData);
+        if (this.onTx) this.onTx();
       } else if (sock.udpSendBuffer) {
         sock.udpSendBuffer.push(cmd.txData);
       } else {
@@ -316,6 +320,7 @@ export class NetworkManager {
       fullData.set(payload, 8);
 
       this.proxy.spectranetPushData(socketIdx, fullData);
+      if (this.onRx) this.onRx();
     };
 
     ws.onclose = () => {
@@ -406,16 +411,18 @@ export class NetworkManager {
 
       ws.onopen = () => {
         this.proxy.spectranetSetSocketStatus(socketIdx, SOCK_ESTABLISHED);
-        if (sock.tcpSendBuffer) {
+        if (sock.tcpSendBuffer && sock.tcpSendBuffer.length) {
           for (const buf of sock.tcpSendBuffer) {
             ws.send(buf);
           }
           sock.tcpSendBuffer = [];
+          if (this.onTx) this.onTx();
         }
       };
 
       ws.onmessage = (event) => {
         this.proxy.spectranetPushData(socketIdx, new Uint8Array(event.data));
+        if (this.onRx) this.onRx();
       };
 
       ws.onclose = (event) => {

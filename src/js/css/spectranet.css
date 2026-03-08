@@ -1,11 +1,49 @@
 /* Spectranet debug window styles */
 
+/* TX/RX activity LEDs in header */
+.spectranet-header-leds {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+  margin-right: 6px;
+}
+
+.spectranet-led {
+  font-family: var(--font-mono, monospace);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--text-tertiary);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--glass-border);
+  transition: color 0.05s, background 0.05s, border-color 0.05s;
+}
+
+.spectranet-led-on#snet-tx-led {
+  color: var(--accent-red);
+  background: var(--accent-red-bg, var(--bg-tertiary));
+  border-color: var(--accent-red-border, var(--accent-red));
+}
+
+.spectranet-led-on#snet-rx-led {
+  color: var(--accent-green);
+  background: var(--accent-green-bg, var(--bg-tertiary));
+  border-color: var(--accent-green-border, var(--accent-green));
+}
+
+#spectranet-window .debug-window-content {
+  overflow: hidden;
+}
+
 .spectranet-content {
   padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   font-size: 12px;
+  height: 100%;
+  min-height: 0;
 }
 
 .spectranet-section {
@@ -13,6 +51,7 @@
   border: 1px solid var(--glass-border);
   border-radius: 6px;
   padding: 8px;
+  flex-shrink: 0;
 }
 
 .spectranet-section-title {
@@ -152,16 +191,27 @@
 }
 
 /* Flash storage */
+.spectranet-content > .spectranet-section:last-child {
+  flex: 1 1 0;
+  min-height: 80px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .spectranet-flash-storage {
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1;
+  min-height: 0;
 }
 
 .spectranet-flash-save-row {
   display: flex;
   gap: 4px;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .spectranet-flash-name-input {
@@ -173,7 +223,8 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  max-height: 160px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
