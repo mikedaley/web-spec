@@ -195,6 +195,14 @@
   gap: 6px;
 }
 
+.spectranet-flash-item.spectranet-flash-active {
+  border-color: var(--accent-green);
+}
+
+.spectranet-flash-active .spectranet-flash-item-name {
+  color: var(--accent-green);
+}
+
 
 .spectranet-flash-item-info {
   display: flex;

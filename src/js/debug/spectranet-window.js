@@ -47,6 +47,7 @@ export class SpectranetWindow extends BaseWindow {
     this.proxy = proxy;
     this.corsProxyUrl = localStorage.getItem("zxspec-spectranet-cors-proxy") || "wss://spectrem-proxy.retrotech71.co.uk";
     this.snapshots = [];
+    this.activeSnapshotId = localStorage.getItem("zxspec-spectranet-active-flash") || "__rom_default__";
   }
 
   renderContent() {
@@ -186,8 +187,9 @@ export class SpectranetWindow extends BaseWindow {
     if (!listEl) return;
 
     // Fixed ROM entry at top + user snapshots
+    const active = this.activeSnapshotId;
     let html = `
-      <div class="spectranet-flash-item" data-id="__rom_default__">
+      <div class="spectranet-flash-item${active === "__rom_default__" ? " spectranet-flash-active" : ""}" data-id="__rom_default__">
         <div class="spectranet-flash-item-info">
           <span class="spectranet-flash-item-name">Default</span>
           <span class="spectranet-flash-item-date">Built-in firmware</span>
@@ -198,7 +200,7 @@ export class SpectranetWindow extends BaseWindow {
       </div>`;
 
     html += this.snapshots.map(snap => `
-      <div class="spectranet-flash-item" data-id="${snap.id}">
+      <div class="spectranet-flash-item${active === snap.id ? " spectranet-flash-active" : ""}" data-id="${snap.id}">
         <div class="spectranet-flash-item-info">
           <span class="spectranet-flash-item-name">${this.escapeAttr(snap.name)}</span>
           <span class="spectranet-flash-item-date">${this.formatDate(snap.savedAt)}</span>
@@ -228,6 +230,7 @@ export class SpectranetWindow extends BaseWindow {
             if (this.onFlashLoaded) this.onFlashLoaded();
           }
         }
+        this.setActiveSnapshot(id);
       });
 
       item.querySelector(".snet-flash-delete")?.addEventListener("click", async () => {
@@ -238,6 +241,12 @@ export class SpectranetWindow extends BaseWindow {
 
     // Re-auto-size after list change
     this.element.style.height = "auto";
+  }
+
+  setActiveSnapshot(id) {
+    this.activeSnapshotId = id;
+    localStorage.setItem("zxspec-spectranet-active-flash", id);
+    this.refreshSnapshotList();
   }
 
   formatDate(timestamp) {
