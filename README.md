@@ -13,6 +13,7 @@ A ZX Spectrum emulator running in the browser, built with C++/WebAssembly and va
 - **Snapshot loading** — SNA and Z80 formats
 - **Tape support** — TAP and TZX formats with instant load or real-time playback, transport controls, block browser, metadata display, and tape recording
 - **50Hz frame-accurate** timing (69,888 T-states per frame)
+- **Spectranet** Ethernet interface emulation — W5100 TCP/UDP sockets bridged to WebSockets via a configurable proxy, AM29F010 128KB flash with full programming/erase emulation, hardware trap mechanism, and persistent flash storage across sessions
 
 ### Debug Tools
 - **CPU Debugger** — Z80 register display, flags, disassembly, breakpoints, single-step execution, memory inspection
@@ -39,6 +40,7 @@ Place ROM files in the `roms/` directory before building WASM:
 - `48.rom` — ZX Spectrum 48K ROM (16KB, required)
 - `128-0.rom` — ZX Spectrum 128K ROM 0 (16KB, optional)
 - `128-1.rom` — ZX Spectrum 128K ROM 1 (16KB, optional)
+- `spectranet.rom` — Spectranet firmware (up to 128KB, optional)
 
 ROM files are embedded into the WASM binary at compile time.
 
@@ -128,7 +130,9 @@ src/
 │   ├── contention.cpp              # ULA memory contention timing
 │   ├── loaders/                    # SNA, Z80, TAP, TZX loaders
 │   ├── basic/                      # BASIC tokenizer, parser, variables, writer
-│   └── zx48k/                      # 48K-specific configuration
+│   ├── spectranet/                 # Spectranet Ethernet (W5100, flash, paging)
+│   ├── zx48k/                      # 48K-specific configuration
+│   └── zx128k/                     # 128K-specific configuration
 ├── bindings/
 │   └── wasm_interface.cpp          # WASM export glue
 └── js/                             # ES6 modules (no framework)
@@ -142,6 +146,7 @@ src/
     ├── tape/                       # Tape deck UI, IndexedDB persistence
     ├── snapshot/                   # Snapshot file loader UI
     ├── debug/                      # CPU debugger, stack viewer, BASIC editor
+    ├── spectranet/                 # Spectranet networking (WebSocket bridge, persistence)
     ├── windows/                    # BaseWindow, WindowManager
     ├── ui/                         # Theme manager
     ├── css/                        # Stylesheets with CSS custom properties
@@ -188,6 +193,17 @@ ctest --verbose
 ### Theme System
 
 Dark (default), light, and system modes. All accent colours come from the ZX Spectrum hardware palette. CSS custom properties are defined in `src/js/css/base.css` for both themes. Canvas drawing reads colours from `getComputedStyle()` to stay theme-aware.
+
+### Spectranet Emulation
+
+The Spectranet is an Ethernet interface for the ZX Spectrum, emulated here as a toggleable peripheral. It overlays 0x0000-0x3FFF with its own flash ROM, SRAM, and W5100 Ethernet controller when paged in. See the [Spectranet Emulation](https://github.com/mikedaley/web-spec/wiki/Spectranet-Emulation) wiki page for full technical details.
+
+**Key features:**
+- **W5100 Ethernet controller** — 4 independent TCP/UDP sockets bridged to browser WebSockets via a configurable proxy server
+- **AM29F010 flash** — 128KB flash with full programming and erase state machine; modules can be installed via the standard Spectranet `installer.tap`
+- **Hardware traps** — page-in (RST 0, RST 8), page-out (0x007C), CALL traps (0x3FF8-0x3FFF), and programmable NMI trap
+- **Persistent storage** — flash memory saved to IndexedDB across sessions; clear via the trash icon button in the Machine menu
+- **Debug window** — live paging state, socket status, and network configuration
 
 ## License
 
