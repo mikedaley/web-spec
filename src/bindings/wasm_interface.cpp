@@ -15,6 +15,7 @@
 #include "../machines/basic/sinclair_basic_writer.hpp"
 #include "../machines/basic/sinclair_basic_renumber.hpp"
 #include "../core/z80/z80_disassembler.hpp"
+#include "../core/z80/z80_assembler.hpp"
 #include "../core/debug/condition_evaluator.hpp"
 #include "../machines/loaders/z80_saver.hpp"
 #include "../machines/loaders/z80_loader.hpp"
@@ -1497,6 +1498,88 @@ void spectranetSetFlashConfig(const uint8_t* data, uint32_t size) {
         uint32_t copySize = (size < zxspec::Spectranet::getFlashConfigSize()) ? size : zxspec::Spectranet::getFlashConfigSize();
         std::memcpy(spec->getSpectranet().getFlashConfigData(), data, copySize);
     }
+}
+
+// ---------------------------------------------------------------------------
+// Z80 Assembler
+// ---------------------------------------------------------------------------
+
+static zxspec::AsmResult s_asmResult;
+static std::string s_asmErrorsJson;
+static std::string s_asmListingJson;
+
+EMSCRIPTEN_KEEPALIVE
+int assembleSource(const char* source, uint16_t defaultOrg) {
+    s_asmResult = zxspec::z80Assemble(source, defaultOrg);
+    return s_asmResult.success ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* assemblerGetOutput() {
+    return s_asmResult.output.data();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int assemblerGetOutputSize() {
+    return static_cast<int>(s_asmResult.output.size());
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint16_t assemblerGetOrigin() {
+    return s_asmResult.origin;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int assemblerGetErrorCount() {
+    return static_cast<int>(s_asmResult.errors.size());
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* assemblerGetErrors() {
+    s_asmErrorsJson = "[";
+    for (size_t i = 0; i < s_asmResult.errors.size(); i++) {
+        if (i > 0) s_asmErrorsJson += ",";
+        s_asmErrorsJson += "{\"line\":";
+        s_asmErrorsJson += std::to_string(s_asmResult.errors[i].line);
+        s_asmErrorsJson += ",\"message\":\"";
+        // Escape quotes in message
+        for (char c : s_asmResult.errors[i].message) {
+            if (c == '"') s_asmErrorsJson += "\\\"";
+            else if (c == '\\') s_asmErrorsJson += "\\\\";
+            else s_asmErrorsJson += c;
+        }
+        s_asmErrorsJson += "\"}";
+    }
+    s_asmErrorsJson += "]";
+    return s_asmErrorsJson.c_str();
+}
+
+EMSCRIPTEN_KEEPALIVE
+const char* assemblerGetListing() {
+    s_asmListingJson = "[";
+    for (size_t i = 0; i < s_asmResult.listing.size(); i++) {
+        auto& entry = s_asmResult.listing[i];
+        if (i > 0) s_asmListingJson += ",";
+        s_asmListingJson += "{\"line\":";
+        s_asmListingJson += std::to_string(entry.line);
+        s_asmListingJson += ",\"addr\":";
+        s_asmListingJson += std::to_string(entry.address);
+        s_asmListingJson += ",\"bytes\":[";
+        for (size_t j = 0; j < entry.bytes.size(); j++) {
+            if (j > 0) s_asmListingJson += ",";
+            s_asmListingJson += std::to_string(entry.bytes[j]);
+        }
+        s_asmListingJson += "],\"source\":\"";
+        for (char c : entry.source) {
+            if (c == '"') s_asmListingJson += "\\\"";
+            else if (c == '\\') s_asmListingJson += "\\\\";
+            else if (c == '\t') s_asmListingJson += "\\t";
+            else s_asmListingJson += c;
+        }
+        s_asmListingJson += "\"}";
+    }
+    s_asmListingJson += "]";
+    return s_asmListingJson.c_str();
 }
 
 } // extern "C"

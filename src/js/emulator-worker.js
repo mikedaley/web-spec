@@ -834,6 +834,47 @@ self.onmessage = async function (e) {
       break;
     }
 
+    case "assemble": {
+      if (!wasm) break;
+      const srcLen = wasm.lengthBytesUTF8(msg.source) + 1;
+      const srcPtr = wasm._malloc(srcLen);
+      wasm.stringToUTF8(msg.source, srcPtr, srcLen);
+      const ok = wasm._assembleSource(srcPtr, msg.org);
+      wasm._free(srcPtr);
+
+      const outputSize = wasm._assemblerGetOutputSize();
+      const origin = wasm._assemblerGetOrigin();
+      let outputData = null;
+      if (ok && outputSize > 0) {
+        const outPtr = wasm._assemblerGetOutput();
+        outputData = new Uint8Array(wasm.HEAPU8.buffer, outPtr, outputSize).slice();
+      }
+
+      const errCount = wasm._assemblerGetErrorCount();
+      let errors = [];
+      if (errCount > 0) {
+        const errJsonPtr = wasm._assemblerGetErrors();
+        const errJson = wasm.UTF8ToString(errJsonPtr);
+        try { errors = JSON.parse(errJson); } catch (e) { /* ignore */ }
+      }
+
+      const listingJsonPtr = wasm._assemblerGetListing();
+      const listingJson = wasm.UTF8ToString(listingJsonPtr);
+      let listing = [];
+      try { listing = JSON.parse(listingJson); } catch (e) { /* ignore */ }
+
+      self.postMessage({
+        type: "assembleResult",
+        id: msg.id,
+        success: ok !== 0,
+        origin,
+        output: outputData,
+        errors,
+        listing,
+      });
+      break;
+    }
+
     case "exportState": {
       if (!wasm) break;
       const sizePtr = wasm._malloc(4);

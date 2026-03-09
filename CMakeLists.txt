@@ -20,6 +20,7 @@ set(Z80_SOURCES
     src/core/z80/z80_opcodes_fdcb.cpp
     src/core/z80/z80_opcode_tables.cpp
     src/core/z80/z80_disassembler.cpp
+    src/core/z80/z80_assembler.cpp
 )
 
 # Source files - ZX Spectrum base class (shared display/audio/contention)
@@ -281,6 +282,13 @@ if(EMSCRIPTEN)
                 \"_spectranetSetStaticIP\", \
                 \"_spectranetIsStaticIP\", \
                 \"_spectranetReloadROM\", \
+                \"_assembleSource\", \
+                \"_assemblerGetOutput\", \
+                \"_assemblerGetOutputSize\", \
+                \"_assemblerGetOrigin\", \
+                \"_assemblerGetErrorCount\", \
+                \"_assemblerGetErrors\", \
+                \"_assemblerGetListing\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \

@@ -1,0 +1,235 @@
+/* Assembler window styles */
+
+.assembler-window {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  font-family: "Menlo", "Consolas", "Courier New", monospace;
+  font-size: 12px;
+}
+
+/* Toolbar */
+.asm-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--glass-border);
+  flex-shrink: 0;
+  background: var(--bg-secondary);
+}
+
+.asm-toolbar button {
+  padding: 3px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  background: var(--control-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.asm-toolbar button:hover {
+  background: var(--control-hover);
+}
+
+.asm-toolbar button.asm-assemble-btn {
+  background: var(--accent-green-bg);
+  border-color: var(--accent-green-border);
+  color: var(--text-primary);
+  font-weight: bold;
+}
+
+.asm-toolbar button.asm-assemble-btn:hover {
+  background: var(--accent-green-bg-stronger);
+}
+
+.asm-toolbar .asm-org-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.asm-toolbar .asm-org-label {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.asm-toolbar .asm-org-input {
+  width: 50px;
+  padding: 2px 4px;
+  font-family: "Menlo", "Consolas", "Courier New", monospace;
+  font-size: 11px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+  border-radius: 3px;
+  text-align: center;
+}
+
+/* Split pane: editor (top) + output (bottom) */
+.asm-split {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+.asm-editor-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 80px;
+  overflow: hidden;
+}
+
+.asm-editor-wrapper {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+
+.asm-line-numbers {
+  padding: 4px 6px 4px 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: right;
+  user-select: none;
+  overflow: hidden;
+  white-space: pre;
+  border-right: 1px solid var(--glass-border);
+  min-width: 30px;
+}
+
+.asm-source-editor {
+  flex: 1;
+  resize: none;
+  padding: 4px 8px;
+  font-family: "Menlo", "Consolas", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 16px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: none;
+  outline: none;
+  overflow-y: auto;
+  overflow-x: auto;
+  white-space: pre;
+  tab-size: 8;
+  -moz-tab-size: 8;
+}
+
+/* Horizontal splitter */
+.asm-splitter {
+  height: 4px;
+  background: var(--glass-border);
+  cursor: ns-resize;
+  flex-shrink: 0;
+}
+
+.asm-splitter:hover {
+  background: var(--accent-blue);
+}
+
+/* Output tabs */
+.asm-output-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 60px;
+  overflow: hidden;
+}
+
+.asm-output-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--glass-border);
+  background: var(--bg-secondary);
+  flex-shrink: 0;
+}
+
+.asm-output-tab {
+  padding: 3px 12px;
+  font-size: 11px;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  border-bottom: 2px solid transparent;
+}
+
+.asm-output-tab.active {
+  color: var(--accent-green);
+  border-bottom-color: var(--accent-green);
+}
+
+.asm-output-tab:hover:not(.active) {
+  color: var(--text-primary);
+}
+
+.asm-output-content {
+  flex: 1;
+  overflow: auto;
+  padding: 4px 8px;
+  font-size: 11px;
+  line-height: 16px;
+  background: var(--bg-primary);
+  white-space: pre;
+}
+
+/* Listing output */
+.asm-listing-line {
+  display: flex;
+  gap: 8px;
+}
+
+.asm-listing-addr {
+  color: var(--accent-blue);
+  min-width: 40px;
+}
+
+.asm-listing-bytes {
+  color: var(--accent-green);
+  min-width: 100px;
+}
+
+.asm-listing-source {
+  color: var(--text-secondary);
+}
+
+/* Error output */
+.asm-error-line {
+  color: var(--accent-red);
+}
+
+.asm-error-line .asm-error-linenum {
+  color: var(--accent-orange);
+  margin-right: 4px;
+}
+
+/* Status bar */
+.asm-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 8px;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--glass-border);
+  flex-shrink: 0;
+}
+
+.asm-status-success {
+  color: var(--accent-green);
+}
+
+.asm-status-error {
+  color: var(--accent-red);
+}

@@ -26,6 +26,7 @@ import { UDGEditorWindow } from "./debug/udg-editor-window.js";
 import { FontEditorWindow } from "./debug/font-editor-window.js";
 import { SpectranetWindow } from "./debug/spectranet-window.js";
 import { TNFSBrowserWindow } from "./debug/tnfs-browser-window.js";
+import { AssemblerWindow } from "./assembler/assembler-window.js";
 import { NetworkManager } from "./spectranet/network-manager.js";
 import { saveFlashData, loadFlashData } from "./spectranet/spectranet-persistence.js";
 
@@ -63,6 +64,7 @@ class ZXSpectrumEmulator {
     this.fontEditorWindow = null;
     this.spectranetWindow = null;
     this.tnfsBrowserWindow = null;
+    this.assemblerWindow = null;
     this.networkManager = null;
 
     this.snapshotLoader = null;
@@ -162,6 +164,11 @@ class ZXSpectrumEmulator {
       this.fontEditorWindow.create();
       this.windowManager.register(this.fontEditorWindow);
 
+      // Create assembler window
+      this.assemblerWindow = new AssemblerWindow(this.proxy);
+      this.assemblerWindow.create();
+      this.windowManager.register(this.assemblerWindow);
+
       // Create Spectranet debug window
       this.spectranetWindow = new SpectranetWindow(this.proxy);
       this.spectranetWindow.create();
@@ -233,6 +240,7 @@ class ZXSpectrumEmulator {
         { id: "keyboard", visible: false },
         { id: "udg-editor", visible: false },
         { id: "font-editor", visible: false },
+        { id: "assembler", visible: false },
         { id: "spectranet", visible: false },
         { id: "tnfs-browser", visible: false },
         { id: "save-states", visible: false },
@@ -451,6 +459,16 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // View menu > Auto Hide Header
+    const autoHideBtn = document.getElementById("btn-autohide-header");
+    if (autoHideBtn) {
+      autoHideBtn.addEventListener("click", () => {
+        this.toggleAutoHideHeader();
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
     // View menu > Display (opens display settings window)
     const displayBtn = document.getElementById("btn-display");
     if (displayBtn) {
@@ -551,6 +569,16 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // Dev menu > Assembler
+    const assemblerBtn = document.getElementById("btn-assembler");
+    if (assemblerBtn) {
+      assemblerBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("assembler");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
     // Dev menu > Font Editor
     const fontEditorBtn = document.getElementById("btn-font-editor");
     if (fontEditorBtn) {
@@ -614,6 +642,9 @@ class ZXSpectrumEmulator {
 
     // Theme selector
     this.setupThemeSelector();
+
+    // Restore auto-hide header preference
+    this.restoreAutoHideHeader();
   }
 
   /**
@@ -692,6 +723,7 @@ class ZXSpectrumEmulator {
       "btn-basic-editor": "basic-program",
       "btn-udg-editor": "udg-editor",
       "btn-font-editor": "font-editor",
+      "btn-assembler": "assembler",
       "btn-spectranet": "spectranet",
     };
 
@@ -701,6 +733,13 @@ class ZXSpectrumEmulator {
       const win = this.windowManager.getWindow(windowId);
       const isVisible = win && win.isVisible;
       btn.classList.toggle("active", isVisible);
+    }
+
+    // Update auto-hide header checkmark
+    const autoHideBtn = document.getElementById("btn-autohide-header");
+    if (autoHideBtn) {
+      const headerEl = document.querySelector("header");
+      autoHideBtn.classList.toggle("active", headerEl && headerEl.classList.contains("auto-hide"));
     }
 
     // Update autosave checkmark
@@ -1010,7 +1049,9 @@ class ZXSpectrumEmulator {
 
     // Show/hide header based on mouse proximity to top edge in fullscreen
     document.addEventListener("mousemove", (e) => {
-      if (!document.fullscreenElement || !headerEl) return;
+      if (!headerEl) return;
+      const shouldAutoReveal = document.fullscreenElement || headerEl.classList.contains("auto-hide");
+      if (!shouldAutoReveal) return;
 
       if (e.clientY <= triggerZone) {
         headerEl.classList.add("header-visible");
@@ -1021,6 +1062,35 @@ class ZXSpectrumEmulator {
         }
       }
     });
+  }
+
+  toggleAutoHideHeader() {
+    const headerEl = document.querySelector("header");
+    const app = document.getElementById("app");
+    if (!headerEl) return;
+
+    const isAutoHide = headerEl.classList.contains("auto-hide");
+    if (isAutoHide) {
+      headerEl.classList.remove("auto-hide", "header-visible");
+      app.classList.remove("header-auto-hide");
+      localStorage.setItem("zxspec-autohide-header", "false");
+    } else {
+      headerEl.classList.add("auto-hide");
+      headerEl.classList.remove("header-visible");
+      app.classList.add("header-auto-hide");
+      localStorage.setItem("zxspec-autohide-header", "true");
+    }
+  }
+
+  restoreAutoHideHeader() {
+    if (localStorage.getItem("zxspec-autohide-header") === "true") {
+      const headerEl = document.querySelector("header");
+      const app = document.getElementById("app");
+      if (headerEl) {
+        headerEl.classList.add("auto-hide");
+        app.classList.add("header-auto-hide");
+      }
+    }
   }
 
   setupThemeSelector() {

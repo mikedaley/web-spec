@@ -195,6 +195,21 @@ export class EmulatorProxy {
         break;
       }
 
+      case "assembleResult": {
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve({
+            success: msg.success,
+            origin: msg.origin,
+            output: msg.output,
+            errors: msg.errors,
+            listing: msg.listing,
+          });
+        }
+        break;
+      }
+
       case "exportStateResult": {
         const resolve = this._pendingRequests.get(msg.id);
         if (resolve) {
@@ -332,6 +347,14 @@ export class EmulatorProxy {
     return new Promise((resolve) => {
       this._pendingRequests.set(id, resolve);
       this.worker.postMessage({ type: "readMemory", addr, length, id });
+    });
+  }
+
+  assemble(source, org = 0x8000) {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "assemble", source, org, id });
     });
   }
 

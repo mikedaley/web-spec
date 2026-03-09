@@ -6,6 +6,7 @@
  */
 
 #include "z80_disassembler.hpp"
+#include "z80_tables.hpp"
 #include <cstdio>
 #include <cstring>
 #include <cstdlib>
@@ -24,9 +25,6 @@ static const char* MAIN[] = {
     "JR C,%r",    "ADD HL,SP",  "LD A,(%w)",  "DEC SP",     "INC A",      "DEC A",      "LD A,%b",    "CCF",
 };
 
-static const char* LD_REGS[] = { "B", "C", "D", "E", "H", "L", "(HL)", "A" };
-static const char* ALU_OPS[] = { "ADD A,", "ADC A,", "SUB ", "SBC A,", "AND ", "XOR ", "OR ", "CP " };
-
 // 0xC0-0xFF misc block
 static const char* MISC[] = {
     "RET NZ",     "POP BC",     "JP NZ,%w",   "JP %w",      "CALL NZ,%w", "PUSH BC",    "ADD A,%b",   "RST 00h",
@@ -38,43 +36,6 @@ static const char* MISC[] = {
     "RET P",      "POP AF",     "JP P,%w",    "DI",         "CALL P,%w",  "PUSH AF",    "OR %b",      "RST 30h",
     "RET M",      "LD SP,HL",   "JP M,%w",    "EI",         "CALL M,%w",  nullptr,       "CP %b",      "RST 38h",
 };
-
-static const char* CB_OPS[] = { "RLC", "RRC", "RL", "RR", "SLA", "SRA", "SLL", "SRL" };
-static const char* BIT_REGS[] = { "B", "C", "D", "E", "H", "L", "(HL)", "A" };
-
-// ED prefix opcodes (sparse)
-struct EdEntry { uint8_t code; const char* mnem; };
-static const EdEntry ED_TABLE[] = {
-    {0x40,"IN B,(C)"},  {0x41,"OUT (C),B"}, {0x42,"SBC HL,BC"}, {0x43,"LD (%w),BC"},
-    {0x44,"NEG"},       {0x45,"RETN"},      {0x46,"IM 0"},      {0x47,"LD I,A"},
-    {0x48,"IN C,(C)"},  {0x49,"OUT (C),C"}, {0x4A,"ADC HL,BC"}, {0x4B,"LD BC,(%w)"},
-    {0x4C,"NEG"},       {0x4D,"RETI"},      {0x4E,"IM 0"},      {0x4F,"LD R,A"},
-    {0x50,"IN D,(C)"},  {0x51,"OUT (C),D"}, {0x52,"SBC HL,DE"}, {0x53,"LD (%w),DE"},
-    {0x54,"NEG"},       {0x55,"RETN"},      {0x56,"IM 1"},      {0x57,"LD A,I"},
-    {0x58,"IN E,(C)"},  {0x59,"OUT (C),E"}, {0x5A,"ADC HL,DE"}, {0x5B,"LD DE,(%w)"},
-    {0x5C,"NEG"},       {0x5D,"RETN"},      {0x5E,"IM 2"},      {0x5F,"LD A,R"},
-    {0x60,"IN H,(C)"},  {0x61,"OUT (C),H"}, {0x62,"SBC HL,HL"}, {0x63,"LD (%w),HL"},
-    {0x64,"NEG"},       {0x65,"RETN"},      {0x67,"RRD"},
-    {0x68,"IN L,(C)"},  {0x69,"OUT (C),L"}, {0x6A,"ADC HL,HL"}, {0x6B,"LD HL,(%w)"},
-    {0x6C,"NEG"},       {0x6D,"RETN"},      {0x6F,"RLD"},
-    {0x70,"IN F,(C)"},  {0x71,"OUT (C),0"}, {0x72,"SBC HL,SP"}, {0x73,"LD (%w),SP"},
-    {0x74,"NEG"},       {0x75,"RETN"},
-    {0x78,"IN A,(C)"},  {0x79,"OUT (C),A"}, {0x7A,"ADC HL,SP"}, {0x7B,"LD SP,(%w)"},
-    {0x7C,"NEG"},       {0x7D,"RETN"},
-    {0xA0,"LDI"},       {0xA1,"CPI"},       {0xA2,"INI"},       {0xA3,"OUTI"},
-    {0xA8,"LDD"},       {0xA9,"CPD"},       {0xAA,"IND"},       {0xAB,"OUTD"},
-    {0xB0,"LDIR"},      {0xB1,"CPIR"},      {0xB2,"INIR"},      {0xB3,"OTIR"},
-    {0xB8,"LDDR"},      {0xB9,"CPDR"},      {0xBA,"INDR"},      {0xBB,"OTDR"},
-};
-static constexpr int ED_TABLE_SIZE = sizeof(ED_TABLE) / sizeof(ED_TABLE[0]);
-
-static const char* edLookup(uint8_t code)
-{
-    for (int i = 0; i < ED_TABLE_SIZE; i++) {
-        if (ED_TABLE[i].code == code) return ED_TABLE[i].mnem;
-    }
-    return nullptr;
-}
 
 // Formatting helpers
 static void formatByte(char* buf, uint8_t b)
@@ -192,13 +153,13 @@ DisasmResult z80Disassemble(uint16_t addr, ReadByteFunc readByte, void* ctx)
         uint8_t op2 = readByte(pc, ctx);
         bytes[byteCount++] = op2;
 
-        const char* reg = BIT_REGS[op2 & 7];
+        const char* reg = REG8_NAMES[op2 & 7];
         int group = (op2 >> 6) & 3;
         int bit = (op2 >> 3) & 7;
 
         char mnemonic[32];
         if (group == 0) {
-            snprintf(mnemonic, sizeof(mnemonic), "%s %s", CB_OPS[bit], reg);
+            snprintf(mnemonic, sizeof(mnemonic), "%s %s", CB_OP_NAMES[bit], reg);
         } else if (group == 1) {
             snprintf(mnemonic, sizeof(mnemonic), "BIT %d,%s", bit, reg);
         } else if (group == 2) {
@@ -235,11 +196,11 @@ DisasmResult z80Disassemble(uint16_t addr, ReadByteFunc readByte, void* ctx)
 
             int group = (op3 >> 6) & 3;
             int bit = (op3 >> 3) & 7;
-            const char* dstReg = BIT_REGS[op3 & 7];
+            const char* dstReg = REG8_NAMES[op3 & 7];
 
             char mnemonic[48];
             if (group == 0) {
-                const char* op = CB_OPS[bit];
+                const char* op = CB_OP_NAMES[bit];
                 if ((op3 & 7) == 6) {
                     snprintf(mnemonic, sizeof(mnemonic), "%s %s", op, memRef);
                 } else {
@@ -308,8 +269,8 @@ DisasmResult z80Disassemble(uint16_t addr, ReadByteFunc readByte, void* ctx)
         if (opcode == 0x76) {
             return makeResult("HALT", bytes, byteCount);
         }
-        const char* dst = LD_REGS[(opcode >> 3) & 7];
-        const char* src = LD_REGS[opcode & 7];
+        const char* dst = REG8_NAMES[(opcode >> 3) & 7];
+        const char* src = REG8_NAMES[opcode & 7];
         char mnemonic[24];
         snprintf(mnemonic, sizeof(mnemonic), "LD %s,%s", dst, src);
         return makeResult(mnemonic, bytes, byteCount);
@@ -317,8 +278,8 @@ DisasmResult z80Disassemble(uint16_t addr, ReadByteFunc readByte, void* ctx)
 
     // 0x80-0xBF: ALU operations
     if (opcode < 0xC0) {
-        const char* op = ALU_OPS[(opcode >> 3) & 7];
-        const char* reg = LD_REGS[opcode & 7];
+        const char* op = ALU_OP_NAMES[(opcode >> 3) & 7];
+        const char* reg = REG8_NAMES[opcode & 7];
         char mnemonic[24];
         snprintf(mnemonic, sizeof(mnemonic), "%s%s", op, reg);
         return makeResult(mnemonic, bytes, byteCount);
@@ -420,15 +381,15 @@ static DisasmResult disasmDDFD(uint8_t op2, const char* reg16, const char* rh, c
             if (dst == 6 && src == 6) return makeResult("HALT", bytes, byteCount);
             memRef(mem, sizeof(mem));
             if (dst == 6) {
-                snprintf(mnemonic, sizeof(mnemonic), "LD %s,%s", mem, LD_REGS[src]);
+                snprintf(mnemonic, sizeof(mnemonic), "LD %s,%s", mem, REG8_NAMES[src]);
             } else {
-                snprintf(mnemonic, sizeof(mnemonic), "LD %s,%s", LD_REGS[dst], mem);
+                snprintf(mnemonic, sizeof(mnemonic), "LD %s,%s", REG8_NAMES[dst], mem);
             }
             return makeResult(mnemonic, bytes, byteCount);
         }
 
-        const char* dstName = LD_REGS[dst];
-        const char* srcName = LD_REGS[src];
+        const char* dstName = REG8_NAMES[dst];
+        const char* srcName = REG8_NAMES[src];
         if (dst == 4) dstName = rh;
         if (dst == 5) dstName = rl;
         if (src == 4) srcName = rh;
@@ -440,14 +401,14 @@ static DisasmResult disasmDDFD(uint8_t op2, const char* reg16, const char* rh, c
 
     // 0x80-0xBF: ALU with (IX+d) or IXh/IXl
     if (op2 < 0xC0) {
-        const char* op = ALU_OPS[(op2 >> 3) & 7];
+        const char* op = ALU_OP_NAMES[(op2 >> 3) & 7];
         int src = op2 & 7;
         if (src == 6) {
             memRef(mem, sizeof(mem));
             snprintf(mnemonic, sizeof(mnemonic), "%s%s", op, mem);
             return makeResult(mnemonic, bytes, byteCount);
         }
-        const char* srcName = LD_REGS[src];
+        const char* srcName = REG8_NAMES[src];
         if (src == 4) srcName = rh;
         if (src == 5) srcName = rl;
         snprintf(mnemonic, sizeof(mnemonic), "%s%s", op, srcName);

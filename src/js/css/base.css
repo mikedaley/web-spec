@@ -335,6 +335,28 @@ header {
   transition: transform 0.25s ease, opacity 0.25s ease;
 }
 
+/* Auto-hide header: slides up when enabled */
+header.auto-hide {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+header.auto-hide.header-visible {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* When auto-hide is active, main content fills the space */
+#app.header-auto-hide main {
+  padding-top: 0;
+}
+
 /* In browser fullscreen, header slides up and hides */
 :fullscreen header {
   transform: translateY(-100%);
