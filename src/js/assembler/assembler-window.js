@@ -18,7 +18,7 @@ export class AssemblerWindow extends BaseWindow {
   constructor(proxy) {
     super({
       id: "assembler",
-      title: "Z80 Assembler",
+      title: "Z80 Assembler BETA",
       minWidth: 400,
       minHeight: 300,
       defaultWidth: 560,
