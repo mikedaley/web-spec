@@ -29,6 +29,7 @@ export class StateManager {
 
     this.autoSaveEnabled = false;
     this.autoSaveInterval = null;
+    this.autoSaveSuspended = false;
 
     this.onAutosave = null;
   }
@@ -55,7 +56,7 @@ export class StateManager {
 
     this.autoSavePending = false;
     this.autoSaveInterval = setInterval(() => {
-      if (this.emulator.isRunning() && !document.hidden && this.autoSaveEnabled && !this.autoSavePending) {
+      if (this.emulator.isRunning() && !document.hidden && this.autoSaveEnabled && !this.autoSavePending && !this.autoSaveSuspended) {
         this.autoSavePending = true;
         const doSave = () => {
           this.autoSavePending = false;
@@ -84,9 +85,18 @@ export class StateManager {
     }
   }
 
+  suspendAutoSave() {
+    this.autoSaveSuspended = true;
+  }
+
+  resumeAutoSave() {
+    this.autoSaveSuspended = false;
+  }
+
   async importStateData(stateData) {
     if (!stateData) return false;
 
+    this.suspendAutoSave();
     try {
       const result = await this.proxy.importState(stateData);
       if (result.success) {
@@ -112,6 +122,8 @@ export class StateManager {
     } catch (error) {
       console.error("Failed to import state:", error);
       return false;
+    } finally {
+      this.resumeAutoSave();
     }
   }
 

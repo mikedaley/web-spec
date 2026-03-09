@@ -137,6 +137,18 @@ export class AudioDriver {
         this.fallbackInterval = null;
       }
 
+      // Monitor AudioContext state changes so we can recover from suspension
+      this.audioContext.addEventListener("statechange", () => {
+        if (this.audioContext.state === "suspended" && this.running) {
+          console.log("AudioContext suspended, starting fallback timing");
+          this.startFallbackTiming();
+        } else if (this.audioContext.state === "running" && this.fallbackInterval) {
+          console.log("AudioContext resumed, stopping fallback timing");
+          clearInterval(this.fallbackInterval);
+          this.fallbackInterval = null;
+        }
+      });
+
       this.workletNode.port.postMessage({ type: "start" });
       this.running = true;
       console.log("Audio driver started with AudioWorklet");
@@ -169,13 +181,24 @@ export class AudioDriver {
           console.error("Failed to resume audio context:", e);
         }
       }
-
-      document.removeEventListener("click", resumeAudio);
-      document.removeEventListener("keydown", resumeAudio);
     };
 
     document.addEventListener("click", resumeAudio, { once: true });
     document.addEventListener("keydown", resumeAudio, { once: true });
+  }
+
+  /**
+   * Ensure the AudioContext is running. Call after user interactions
+   * (e.g., file picker) that may have caused suspension.
+   */
+  async ensureRunning() {
+    if (this.audioContext && this.audioContext.state === "suspended") {
+      try {
+        await this.audioContext.resume();
+      } catch (e) {
+        // Ignore — fallback timing will keep frames going
+      }
+    }
   }
 
   /**

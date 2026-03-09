@@ -158,24 +158,22 @@ export async function clearSlot(slotNumber) {
 }
 
 export async function getAllSlotInfo() {
-  const slots = [];
+  const promises = [];
   for (let i = 1; i <= SLOT_COUNT; i++) {
-    try {
-      const result = await db.get(STORE_NAME, slotKey(i));
-      if (result) {
-        slots.push({
-          slotNumber: i,
-          savedAt: result.savedAt,
-          thumbnail: result.thumbnail || null,
-          preview: result.preview || null,
-          name: result.name || `Slot ${i}`,
-        });
-      } else {
-        slots.push(null);
-      }
-    } catch (error) {
-      slots.push(null);
-    }
+    promises.push(
+      db.get(STORE_NAME, slotKey(i)).then((result) => {
+        if (result) {
+          return {
+            slotNumber: i,
+            savedAt: result.savedAt,
+            thumbnail: result.thumbnail || null,
+            preview: result.preview || null,
+            name: result.name || `Slot ${i}`,
+          };
+        }
+        return null;
+      }).catch(() => null)
+    );
   }
-  return slots;
+  return Promise.all(promises);
 }

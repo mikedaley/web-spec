@@ -15,6 +15,7 @@ import {
   updateSlotName,
 } from "./state-persistence.js";
 
+import { showToast } from "../ui/toast.js";
 import "../css/save-states.css";
 
 const SLOT_COUNT = 5;
@@ -268,7 +269,7 @@ export class SaveStatesWindow extends BaseWindow {
     if (!this.stateManager.emulator.isRunning()) return;
     const ok = await this.stateManager.saveToSlot(slot);
     if (ok) {
-      console.log(`Saved to slot ${slot}`);
+      showToast(`State saved to slot ${slot}`);
     }
     this.refreshSlots();
   }
@@ -276,13 +277,13 @@ export class SaveStatesWindow extends BaseWindow {
   async handleLoad(slot) {
     const ok = await this.stateManager.restoreFromSlot(slot);
     if (ok) {
-      console.log(`Loaded slot ${slot}`);
+      showToast(`State loaded from slot ${slot}`);
     }
   }
 
   async handleClear(slot) {
     await clearSlot(slot);
-    console.log(`Cleared slot ${slot}`);
+    showToast(`Slot ${slot} cleared`);
     this.refreshSlots();
   }
 
@@ -296,7 +297,7 @@ export class SaveStatesWindow extends BaseWindow {
   async handleLoadAutosave() {
     const ok = await this.stateManager.restoreState();
     if (ok) {
-      console.log("Loaded autosave");
+      showToast("Autosave state loaded");
     }
   }
 
@@ -347,13 +348,13 @@ export class SaveStatesWindow extends BaseWindow {
 
       const ok = await this.stateManager.restoreFromFileData(data);
       if (ok) {
-        console.log("State loaded from file");
+        showToast("State loaded from file");
       } else {
-        console.error("Failed to load state file");
+        showToast("Failed to load state file");
       }
     };
     reader.onerror = () => {
-      console.error("Failed to read file");
+      showToast("Failed to read file");
     };
     reader.readAsArrayBuffer(file);
   }

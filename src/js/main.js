@@ -39,6 +39,7 @@ import { StateManager } from "./state/state-manager.js";
 import { SaveStatesWindow } from "./state/save-states-window.js";
 import { VERSION } from "./config/version.js";
 import { MessagePanel } from "./ui/message-panel.js";
+import { showToast } from "./ui/toast.js";
 
 class ZXSpectrumEmulator {
   constructor() {
@@ -329,7 +330,7 @@ class ZXSpectrumEmulator {
         if (this.running) {
           this.proxy.reset();
           this.audioDriver.latestSamples = null;
-          console.log("Emulator reset");
+          showToast("Machine reset");
         }
         this.refocusCanvas();
       });
@@ -341,7 +342,7 @@ class ZXSpectrumEmulator {
       nmiBtn.addEventListener("click", () => {
         if (this.running) {
           this.proxy.triggerNMI();
-          console.log("NMI triggered");
+          showToast("NMI triggered");
         }
         this.refocusCanvas();
       });
@@ -350,13 +351,22 @@ class ZXSpectrumEmulator {
     // SNA snapshot loader
     this.snapshotLoader = new SnapshotLoader(this.proxy);
     this.snapshotLoader.init();
+    this.snapshotLoader.onBeforeLoad = () => {
+      if (this.stateManager) this.stateManager.suspendAutoSave();
+    };
     this.snapshotLoader.onLoaded = () => {
+      if (this.stateManager) this.stateManager.resumeAutoSave();
       if (!this.running) {
         this.running = true;
         this.renderer.setNoSignal(false);
         this.audioDriver.start();
         if (this.keyboardWindow) this.keyboardWindow.setRunning(true);
         this.updatePowerButton();
+      } else {
+        // AudioContext may have been suspended during file picker dialog;
+        // resume it and request an immediate frame so the snapshot displays instantly.
+        this.audioDriver.ensureRunning();
+        this.proxy.runFrames(1);
       }
     };
 
@@ -365,12 +375,14 @@ class ZXSpectrumEmulator {
       this.tapeWindow.setBlocks(blocks);
       this.tapeWindow.setMetadata(metadata);
       this.windowManager.showWindow("tape-window");
+      showToast("Tape loaded");
     };
 
     // TAP load error callback
     this.proxy.onTapLoadError = (error) => {
       this.tapeWindow.showError(error);
       this.windowManager.showWindow("tape-window");
+      showToast("Tape load error");
     };
 
     // File menu > Load Snapshot
@@ -400,6 +412,7 @@ class ZXSpectrumEmulator {
         const newEnabled = !this.stateManager.isAutoSaveEnabled();
         this.stateManager.setAutoSaveEnabled(newEnabled);
         autosaveToggle.classList.toggle("active", newEnabled);
+        showToast(`Auto save ${newEnabled ? "enabled" : "disabled"}`);
         this.closeAllMenus();
         this.refocusCanvas();
       });
@@ -1066,6 +1079,7 @@ class ZXSpectrumEmulator {
         this.basicProgramWindow.setMachine(machineId);
         this.keyboardWindow.setMachine(machineId);
         await this.reapplySpectranetState();
+        showToast(`Switched to ${machineId === 0 ? "ZX Spectrum 48K" : "ZX Spectrum 128K"}`);
 
         // If running, reset and continue; otherwise just switch
         if (this.running) {
@@ -1091,7 +1105,8 @@ class ZXSpectrumEmulator {
       this.screenWindow.setMachine(machineId);
       this.basicProgramWindow.setMachine(machineId);
       this.keyboardWindow.setMachine(machineId);
-      this.reapplySpectranetState();
+      // Do NOT call reapplySpectranetState() here — it sends setSpectranetEnabled
+      // to the worker which calls _reset(), wiping the just-loaded snapshot state.
     };
 
     // Restore Issue number from localStorage
@@ -1115,6 +1130,7 @@ class ZXSpectrumEmulator {
       this.proxy.setIssueNumber(issue);
       updateIssueChecks(issue);
       localStorage.setItem("zxspec-issue-number", String(issue));
+      showToast(`Issue ${issue} selected`);
       this.closeAllMenus();
       this.refocusCanvas();
     };
@@ -1129,6 +1145,7 @@ class ZXSpectrumEmulator {
         this.proxy.setAYEnabled(newEnabled);
         ayToggleBtn.classList.toggle("active", newEnabled);
         localStorage.setItem("zxspec-ay-enabled", String(newEnabled));
+        showToast(`AY sound chip ${newEnabled ? "enabled" : "disabled"}`);
         this.closeAllMenus();
         this.refocusCanvas();
       });
@@ -1156,6 +1173,7 @@ class ZXSpectrumEmulator {
         if (newEnabled) {
           await this.restoreSpectranetFlash();
         }
+        showToast(`Spectranet ${newEnabled ? "enabled" : "disabled"}`);
         this.closeAllMenus();
         this.refocusCanvas();
       });

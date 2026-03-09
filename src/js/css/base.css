@@ -2229,3 +2229,62 @@ html[data-mobile="true"][data-soft-keyboard="open"] .vkbd {
   border-color: var(--accent-blue-border);
   color: var(--accent-blue);
 }
+
+/* ── Toast Notifications ──────────────────────── */
+
+.toast-container {
+  position: fixed;
+  top: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--accent-blue-bg-stronger);
+  border: 1px solid var(--accent-blue-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg), 0 0 12px var(--accent-blue-bg-stronger);
+  color: var(--accent-blue);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 8px 16px;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: auto;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.toast-in {
+  animation: toast-enter 0.2s ease forwards;
+}
+
+.toast-out {
+  animation: toast-exit 0.15s ease forwards;
+}
+
+@keyframes toast-enter {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toast-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}

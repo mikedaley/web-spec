@@ -6,6 +6,7 @@
  */
 
 import { addToRecentTapes } from "../tape/tape-persistence.js";
+import { showToast } from "../ui/toast.js";
 
 const SNA_48K_SIZE = 49179;
 const SNA_128K_SIZE = 131103;
@@ -15,6 +16,7 @@ export class SnapshotLoader {
     this.proxy = proxy;
     this.fileInput = null;
     this.onLoaded = null;
+    this.onBeforeLoad = null;
   }
 
   init() {
@@ -34,7 +36,7 @@ export class SnapshotLoader {
     // Listen for snapshot loaded confirmation from worker
     this.proxy.onSnapshotLoaded = () => {
       if (this._pendingFileName) {
-        console.log(`Loaded snapshot: ${this._pendingFileName}`);
+        showToast(`Loaded ${this._pendingFileName}`);
         this._pendingFileName = null;
       }
       if (this.onLoaded) {
@@ -55,21 +57,23 @@ export class SnapshotLoader {
 
       if (ext === "sna") {
         if (data.length !== SNA_48K_SIZE && data.length !== SNA_128K_SIZE) {
-          console.error(`Invalid SNA file: expected ${SNA_48K_SIZE} or ${SNA_128K_SIZE} bytes, got ${data.length}`);
+          showToast("Invalid SNA file");
           return;
         }
+        if (this.onBeforeLoad) this.onBeforeLoad();
         this._pendingFileName = file.name;
         this.proxy.loadSnapshot("sna", data.buffer);
       } else if (ext === "z80") {
         if (data.length < 30) {
-          console.error(`Invalid Z80 file: too small (${data.length} bytes)`);
+          showToast("Invalid Z80 file");
           return;
         }
+        if (this.onBeforeLoad) this.onBeforeLoad();
         this._pendingFileName = file.name;
         this.proxy.loadSnapshot("z80", data.buffer);
       } else if (ext === "tzx") {
         if (data.length < 10) {
-          console.error(`Invalid TZX file: too small (${data.length} bytes)`);
+          showToast("Invalid TZX file");
           return;
         }
         this._pendingFileName = file.name;
@@ -77,14 +81,14 @@ export class SnapshotLoader {
         this.proxy.loadTZXTape(data.buffer);
       } else if (ext === "tap") {
         if (data.length < 2) {
-          console.error(`Invalid TAP file: too small (${data.length} bytes)`);
+          showToast("Invalid TAP file");
           return;
         }
         this._pendingFileName = file.name;
         addToRecentTapes(file.name, data);
         this.proxy.loadTAP(data.buffer);
       } else {
-        console.error(`Unsupported snapshot format: .${ext}`);
+        showToast(`Unsupported format: .${ext}`);
         return;
       }
     };

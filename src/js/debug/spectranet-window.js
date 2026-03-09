@@ -16,6 +16,7 @@ import {
   deleteFlashSnapshot,
   clearFlashData,
 } from "../spectranet/spectranet-persistence.js";
+import { showToast } from "../ui/toast.js";
 import "../css/spectranet.css";
 
 // W5100 socket status names
@@ -152,12 +153,7 @@ export class SpectranetWindow extends BaseWindow {
           if (this.onCorsProxyUrlChanged) this.onCorsProxyUrlChanged(this.corsProxyUrl);
         }
 
-        applyBtn.textContent = "Applied!";
-        applyBtn.classList.add("spectranet-apply-btn-success");
-        setTimeout(() => {
-          applyBtn.textContent = "Apply";
-          applyBtn.classList.remove("spectranet-apply-btn-success");
-        }, 1500);
+        showToast("CORS proxy URL applied");
       });
     }
 
@@ -178,6 +174,7 @@ export class SpectranetWindow extends BaseWindow {
             nameInput.value = "";
             if (newId) this.setActiveSnapshot(newId);
             else await this.refreshSnapshotList();
+            showToast(`Flash snapshot "${name}" saved`);
           }
         } catch (error) {
           console.error("Failed to save flash snapshot:", error);
@@ -226,6 +223,7 @@ export class SpectranetWindow extends BaseWindow {
     // Bind action buttons
     for (const item of listEl.querySelectorAll(".spectranet-flash-item")) {
       const id = item.dataset.id;
+      const itemName = item.querySelector(".spectranet-flash-item-name")?.textContent || id;
 
       item.querySelector(".snet-flash-load")?.addEventListener("click", async () => {
         if (id === "__rom_default__") {
@@ -240,6 +238,7 @@ export class SpectranetWindow extends BaseWindow {
           }
         }
         this.setActiveSnapshot(id);
+        showToast(`Flash "${itemName}" loaded`);
       });
 
       item.querySelector(".snet-flash-save")?.addEventListener("click", async () => {
@@ -248,6 +247,7 @@ export class SpectranetWindow extends BaseWindow {
           if (flashData) {
             await updateFlashSnapshot(id, flashData);
             await this.refreshSnapshotList();
+            showToast(`Flash "${itemName}" updated`);
           }
         } catch (error) {
           console.error("Failed to update flash snapshot:", error);
@@ -256,6 +256,7 @@ export class SpectranetWindow extends BaseWindow {
 
       item.querySelector(".snet-flash-delete")?.addEventListener("click", async () => {
         await deleteFlashSnapshot(id);
+        showToast(`Flash "${itemName}" deleted`);
         await this.refreshSnapshotList();
       });
     }
