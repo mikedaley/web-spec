@@ -13,8 +13,10 @@
  */
 
 const TNFS_PORT = 16384;
-const TNFS_TIMEOUT = 5000;
-const TNFS_RETRIES = 3;
+const TNFS_TIMEOUT = 3000;
+const TNFS_RETRIES = 2;
+const TNFS_STAT_TIMEOUT = 1500;
+const TNFS_STAT_RETRIES = 1;
 
 // TNFS commands
 const CMD_MOUNT    = 0x00;
@@ -66,6 +68,7 @@ export class TNFSClient {
     this.serverHost = null;
     this.proxyUrl = null;
     this._pendingRequests = new Map();
+    this.onProgress = null; // callback(current, total) for STAT progress
   }
 
   /**
@@ -151,12 +154,11 @@ export class TNFSClient {
     try {
       while (true) {
         const readResp = await this._sendCommand(CMD_READDIR, new Uint8Array([dirHandle]));
-        if (readResp.returnCode === TNFS_EOF) break;
-        if (readResp.returnCode !== TNFS_SUCCESS) {
-          throw new Error(this._errorMessage(readResp.returnCode));
-        }
+        if (readResp.returnCode !== TNFS_SUCCESS) break;
 
         const name = this._decodeString(readResp.data);
+        // Empty name also signals end of directory on some servers
+        if (!name) break;
         if (name !== "." && name !== "..") {
           entries.push({ name, isDir: false, size: 0 });
         }
@@ -170,20 +172,23 @@ export class TNFSClient {
       }
     }
 
-    // STAT each entry to get type and size
-    const statPromises = entries.map(async (entry) => {
+    // STAT each entry sequentially to get type and size.
+    // Sequential to avoid overwhelming the TNFS server with UDP packets.
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      if (this.onProgress) this.onProgress(i + 1, entries.length);
       try {
         const fullPath = path.endsWith("/") ? path + entry.name : path + "/" + entry.name;
         const stat = await this.stat(fullPath);
         entry.isDir = stat.isDir;
         entry.size = stat.size;
       } catch (e) {
-        // If stat fails, keep defaults
+        // If stat fails, infer type from name (no extension = likely directory)
+        if (!entry.name.includes(".") || entry.name.startsWith(".")) {
+          entry.isDir = true;
+        }
       }
-      return entry;
-    });
-
-    await Promise.all(statPromises);
+    }
 
     // Sort: directories first, then alphabetical
     entries.sort((a, b) => {
@@ -203,15 +208,20 @@ export class TNFSClient {
     if (!this.connected) throw new Error("Not connected");
 
     const pathBytes = this._encodeString(path);
-    const resp = await this._sendCommand(CMD_STAT, pathBytes);
+    const resp = await this._sendCommand(CMD_STAT, pathBytes, {
+      timeout: TNFS_STAT_TIMEOUT,
+      retries: TNFS_STAT_RETRIES,
+    });
     if (resp.returnCode !== TNFS_SUCCESS) {
       throw new Error(this._errorMessage(resp.returnCode));
     }
 
     // Parse stat response: mode(2) + uid(2) + gid(2) + size(4) + atime(4) + mtime(4) + ctime(4)
     const data = resp.data;
+    if (data.length < 10) throw new Error("Invalid stat response");
     const mode = data[0] | (data[1] << 8);
-    const size = data[4] | (data[5] << 8) | (data[6] << 16) | (data[7] << 24);
+    // size is at offset 6: after mode(2) + uid(2) + gid(2)
+    const size = data[6] | (data[7] << 8) | (data[8] << 16) | (data[9] << 24);
 
     return {
       isDir: (mode & S_IFMT) === S_IFDIR,
@@ -371,7 +381,10 @@ export class TNFSClient {
     this._pendingRequests.clear();
   }
 
-  _sendCommand(command, payload) {
+  _sendCommand(command, payload, options) {
+    const timeout = (options && options.timeout) || TNFS_TIMEOUT;
+    const maxRetries = (options && options.retries !== undefined) ? options.retries : TNFS_RETRIES;
+
     return new Promise((resolve, reject) => {
       if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
         reject(new Error("Not connected"));
@@ -400,7 +413,7 @@ export class TNFSClient {
       const attemptSend = () => {
         timer = setTimeout(() => {
           retries++;
-          if (retries >= TNFS_RETRIES) {
+          if (retries >= maxRetries) {
             cleanup();
             reject(new Error("Request timed out"));
           } else {
@@ -408,7 +421,7 @@ export class TNFSClient {
             this.ws.send(packet);
             attemptSend();
           }
-        }, TNFS_TIMEOUT);
+        }, timeout);
       };
 
       this._pendingRequests.set(seq, {

@@ -136,6 +136,10 @@ export class TNFSBrowserWindow extends BaseWindow {
     this.error = null;
     this._updateUI();
 
+    this.client.onProgress = (current, total) => {
+      this._setStatus(`Scanning ${current}/${total}...`);
+    };
+
     try {
       this.entries = await this.client.listDirectory(this.currentPath);
       this.loading = false;
@@ -147,6 +151,8 @@ export class TNFSBrowserWindow extends BaseWindow {
       this.loading = false;
       this._updateUI();
       this._setStatus(`Error: ${err.message}`);
+    } finally {
+      this.client.onProgress = null;
     }
   }
 
