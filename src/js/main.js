@@ -270,6 +270,9 @@ class ZXSpectrumEmulator {
       this.inputHandler = new InputHandler(this.proxy);
       this.inputHandler.init();
 
+      // Set up global drag-and-drop for file loading
+      this.setupDragAndDrop();
+
       // Set up theme manager
       this.themeManager = new ThemeManager();
 
@@ -1484,6 +1487,32 @@ class ZXSpectrumEmulator {
     return this.running;
   }
 
+  setupDragAndDrop() {
+    const validExtensions = new Set(["sna", "z80", "tap", "tzx"]);
+
+    // Prevent default browser behaviour for drag events globally
+    document.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "copy";
+    });
+
+    document.addEventListener("drop", (e) => {
+      e.preventDefault();
+
+      const file = e.dataTransfer.files[0];
+      if (!file) return;
+
+      const ext = file.name.split(".").pop().toLowerCase();
+      if (!validExtensions.has(ext)) {
+        showToast(`Unsupported file: .${ext}`);
+        return;
+      }
+
+      if (this.snapshotLoader) {
+        this.snapshotLoader.loadFile(file);
+      }
+    });
+  }
 
   start() {
     if (this.running) return;
