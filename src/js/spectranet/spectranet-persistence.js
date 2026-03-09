@@ -121,6 +121,22 @@ export async function loadFlashSnapshot(id) {
   }
 }
 
+export async function updateFlashSnapshot(id, data) {
+  try {
+    const existing = await db.get(SNAPSHOTS_STORE, id);
+    if (!existing) return false;
+    await db.put(SNAPSHOTS_STORE, {
+      ...existing,
+      data: new Uint8Array(data),
+      savedAt: Date.now(),
+    });
+    return true;
+  } catch (error) {
+    console.error("Error updating flash snapshot:", error);
+    return false;
+  }
+}
+
 export async function deleteFlashSnapshot(id) {
   try {
     await db.remove(SNAPSHOTS_STORE, id);

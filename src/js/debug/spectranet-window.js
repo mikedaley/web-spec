@@ -10,6 +10,7 @@
 import { BaseWindow } from "../windows/base-window.js";
 import {
   saveFlashSnapshot,
+  updateFlashSnapshot,
   listFlashSnapshots,
   loadFlashSnapshot,
   deleteFlashSnapshot,
@@ -213,6 +214,7 @@ export class SpectranetWindow extends BaseWindow {
           <span class="spectranet-flash-item-date">${this.formatDate(snap.savedAt)}</span>
         </div>
         <div class="spectranet-flash-item-actions">
+          <button class="spectranet-flash-action-btn snet-flash-save" title="Save current flash to this snapshot">Save</button>
           <button class="spectranet-flash-action-btn snet-flash-load" title="Load">Load</button>
           <button class="spectranet-flash-action-btn snet-flash-delete" title="Delete">Del</button>
         </div>
@@ -238,6 +240,18 @@ export class SpectranetWindow extends BaseWindow {
           }
         }
         this.setActiveSnapshot(id);
+      });
+
+      item.querySelector(".snet-flash-save")?.addEventListener("click", async () => {
+        try {
+          const flashData = await this.proxy.spectranetGetFlashData();
+          if (flashData) {
+            await updateFlashSnapshot(id, flashData);
+            await this.refreshSnapshotList();
+          }
+        } catch (error) {
+          console.error("Failed to update flash snapshot:", error);
+        }
       });
 
       item.querySelector(".snet-flash-delete")?.addEventListener("click", async () => {
