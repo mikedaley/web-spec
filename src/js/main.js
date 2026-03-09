@@ -1074,6 +1074,18 @@ class ZXSpectrumEmulator {
       headerEl.classList.remove("auto-hide", "header-visible");
       app.classList.remove("header-auto-hide");
       localStorage.setItem("zxspec-autohide-header", "false");
+
+      // Push any windows that would be under the header back down
+      const headerHeight = headerEl.offsetHeight;
+      if (this.windowManager) {
+        for (const win of this.windowManager.windows.values()) {
+          if (win.currentY < headerHeight) {
+            win.currentY = headerHeight;
+            win.element.style.top = `${headerHeight}px`;
+            win.updateEdgeDistances();
+          }
+        }
+      }
     } else {
       headerEl.classList.add("auto-hide");
       headerEl.classList.remove("header-visible");

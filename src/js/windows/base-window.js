@@ -214,9 +214,9 @@ export class BaseWindow {
     let x = e.clientX - this.dragOffset.x;
     let y = e.clientY - this.dragOffset.y;
 
-    // Get header height to prevent dragging under it
+    // Get header height to prevent dragging under it (0 when auto-hidden)
     const header = document.querySelector("header");
-    const minY = header ? header.offsetHeight : 0;
+    const minY = header && !header.classList.contains("auto-hide") ? header.offsetHeight : 0;
 
     // Keep window on screen, below header
     const maxX = window.innerWidth - this.element.offsetWidth;
@@ -291,9 +291,9 @@ export class BaseWindow {
     const dy = e.clientY - this.resizeStart.y;
     const dir = this.resizeDirection;
 
-    // Get header height for bounds checking
+    // Get header height for bounds checking (0 when auto-hidden)
     const header = document.querySelector("header");
-    const minTop = header ? header.offsetHeight : 0;
+    const minTop = header && !header.classList.contains("auto-hide") ? header.offsetHeight : 0;
     const maxBottom = window.innerHeight;
 
     let newWidth = this.resizeStart.width;
@@ -478,9 +478,9 @@ export class BaseWindow {
     const width = this.currentWidth;
     const height = this.currentHeight;
 
-    // Get header height to prevent windows going under it
+    // Get header height to prevent windows going under it (0 when auto-hidden)
     const header = document.querySelector("header");
-    const minTop = header ? header.offsetHeight : 0;
+    const minTop = header && !header.classList.contains("auto-hide") ? header.offsetHeight : 0;
     const maxBottom = viewportHeight;
 
     let newLeft = this.currentX;
