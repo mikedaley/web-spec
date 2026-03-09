@@ -25,6 +25,7 @@ import { KeyboardWindow } from "./input/keyboard-window.js";
 import { UDGEditorWindow } from "./debug/udg-editor-window.js";
 import { FontEditorWindow } from "./debug/font-editor-window.js";
 import { SpectranetWindow } from "./debug/spectranet-window.js";
+import { TNFSBrowserWindow } from "./debug/tnfs-browser-window.js";
 import { NetworkManager } from "./spectranet/network-manager.js";
 import { saveFlashData, loadFlashData } from "./spectranet/spectranet-persistence.js";
 
@@ -61,6 +62,7 @@ class ZXSpectrumEmulator {
     this.udgEditorWindow = null;
     this.fontEditorWindow = null;
     this.spectranetWindow = null;
+    this.tnfsBrowserWindow = null;
     this.networkManager = null;
 
     this.snapshotLoader = null;
@@ -179,6 +181,11 @@ class ZXSpectrumEmulator {
       this.networkManager.onTx = () => this.spectranetWindow.flashTx();
       this.networkManager.onRx = () => this.spectranetWindow.flashRx();
 
+      // Create TNFS browser window (snapshotLoader wired later in setupMenus)
+      this.tnfsBrowserWindow = new TNFSBrowserWindow(null);
+      this.tnfsBrowserWindow.create();
+      this.windowManager.register(this.tnfsBrowserWindow);
+
       // Create rule builder window (shared by BASIC and CPU debugger)
       this.ruleBuilderWindow = new RuleBuilderWindow();
       this.ruleBuilderWindow.create();
@@ -227,6 +234,7 @@ class ZXSpectrumEmulator {
         { id: "udg-editor", visible: false },
         { id: "font-editor", visible: false },
         { id: "spectranet", visible: false },
+        { id: "tnfs-browser", visible: false },
         { id: "save-states", visible: false },
       ]);
 
@@ -370,6 +378,9 @@ class ZXSpectrumEmulator {
       }
     };
 
+    // Wire TNFS browser window to snapshot loader (window was created in init())
+    this.tnfsBrowserWindow.snapshotLoader = this.snapshotLoader;
+
     // TAP loaded callback - show tape window with block list
     this.proxy.onTapLoaded = (blocks, metadata) => {
       this.tapeWindow.setBlocks(blocks);
@@ -462,6 +473,16 @@ class ZXSpectrumEmulator {
     if (keyboardBtn) {
       keyboardBtn.addEventListener("click", () => {
         this.windowManager.toggleWindow("keyboard");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
+    // View menu > TNFS Browser
+    const tnfsBrowserBtn = document.getElementById("btn-tnfs-browser");
+    if (tnfsBrowserBtn) {
+      tnfsBrowserBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("tnfs-browser");
         this.closeAllMenus();
         this.refocusCanvas();
       });
@@ -662,6 +683,7 @@ class ZXSpectrumEmulator {
       "btn-sound-debug": "sound-debug",
       "btn-memory-map": "memory-map",
       "btn-keyboard": "keyboard",
+      "btn-tnfs-browser": "tnfs-browser",
       "btn-z80-debug": "cpu-debugger",
       "btn-stack-viewer": "stack-viewer",
       "btn-basic-editor": "basic-program",
@@ -1584,6 +1606,11 @@ class ZXSpectrumEmulator {
     if (this.stateManager) {
       this.stateManager.destroy();
       this.stateManager = null;
+    }
+
+    if (this.tnfsBrowserWindow) {
+      this.tnfsBrowserWindow.destroy();
+      this.tnfsBrowserWindow = null;
     }
 
     if (this.snapshotLoader) {
