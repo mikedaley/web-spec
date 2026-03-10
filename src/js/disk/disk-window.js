@@ -58,6 +58,7 @@ export class DiskWindow extends BaseWindow {
   }
 
   restoreState(state) {
+    this._restoring = true;
     if (state.graphicsHidden) {
       this._graphicsHidden = true;
       this.contentElement.classList.add("hide-graphics");
@@ -70,8 +71,14 @@ export class DiskWindow extends BaseWindow {
     }
     if (state.currentFilename) {
       this._currentFilename = state.currentFilename;
+      this._updateNameDisplay();
     }
     super.restoreState(state);
+    this._restoring = false;
+    // Fit height after restore — element is now visible so offsetHeight works
+    if (this.isVisible) {
+      this._fitToContent();
+    }
   }
 
   renderContent() {
@@ -109,7 +116,7 @@ export class DiskWindow extends BaseWindow {
             <button class="disk-blank" id="disk-blank-btn" title="Insert Blank Disk">Blank</button>
             <button class="disk-eject" id="disk-eject-btn" disabled title="Eject Disk">Eject</button>
           </div>
-          <div class="drive-controls">
+          <div class="drive-controls drive-controls-secondary">
             <button class="disk-save" id="disk-save-btn" disabled title="Save Disk Image">Save</button>
             <div class="disk-wp-row">
               <span class="disk-wp-text">WP</span>
@@ -230,14 +237,24 @@ export class DiskWindow extends BaseWindow {
 
   _fitToContent() {
     if (!this.element) return;
+    const savedX = this.currentX;
+    const savedY = this.currentY;
     this.element.style.height = "auto";
     const newHeight = this.element.offsetHeight;
+    if (newHeight === 0) return; // Element is hidden, skip
     this.element.style.height = `${newHeight}px`;
     this.currentHeight = newHeight;
     this.minHeight = newHeight;
     this.maxHeight = newHeight;
     this.updateEdgeDistances();
     this.constrainToViewport();
+    if (this._restoring) {
+      // Preserve restored position
+      this.currentX = savedX;
+      this.currentY = savedY;
+      this.element.style.left = `${savedX}px`;
+      this.element.style.top = `${savedY}px`;
+    }
   }
 
   // Called each frame by the render loop

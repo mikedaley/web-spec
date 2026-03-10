@@ -266,7 +266,28 @@
                                 <span class="menu-check">&#10003;</span>
                                 <span>AY Sound Chip</span>
                             </button>
-                            <div class="header-menu-separator"></div>
+                        </div>
+                    </div>
+
+                    <!-- Peripherals menu -->
+                    <div class="header-menu-container desktop-only" id="peripherals-menu-container">
+                        <button class="header-menu-trigger" id="btn-peripherals-menu">
+                            <span>Peripherals</span>
+                            <svg
+                                class="menu-chevron"
+                                viewBox="0 0 12 12"
+                                width="10"
+                                height="10"
+                            >
+                                <path
+                                    d="M3 5l3 3 3-3"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="1.5"
+                                />
+                            </svg>
+                        </button>
+                        <div class="header-menu" id="peripherals-menu">
                             <button
                                 class="header-menu-item menu-check-item"
                                 id="btn-spectranet-toggle"
@@ -425,6 +446,13 @@
                                 <span class="menu-check">&#10003;</span>
                                 <span>TNFS Browser</span>
                             </button>
+                            <button
+                                class="header-menu-item menu-check-item"
+                                id="btn-spectranet"
+                            >
+                                <span class="menu-check">&#10003;</span>
+                                <span>Spectranet Monitor</span>
+                            </button>
                         </div>
                     </div>
 
@@ -488,13 +516,6 @@
                             >
                                 <span class="menu-check">&#10003;</span>
                                 <span>Assembler</span>
-                            </button>
-                            <button
-                                class="header-menu-item menu-check-item"
-                                id="btn-spectranet"
-                            >
-                                <span class="menu-check">&#10003;</span>
-                                <span>Spectranet</span>
                             </button>
                         </div>
                     </div>

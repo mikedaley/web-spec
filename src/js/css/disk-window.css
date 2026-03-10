@@ -167,6 +167,12 @@
   gap: 6px;
 }
 
+.drive-controls-secondary {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--glass-border-subtle);
+}
+
 .disk-insert,
 .disk-blank,
 .disk-eject,
@@ -292,67 +298,73 @@
 }
 
 .recent-dropdown {
-  display: none;
   position: absolute;
-  bottom: 100%;
+  bottom: calc(100% + 6px);
   left: 0;
-  min-width: 280px;
-  max-height: 300px;
+  right: 0;
+  min-width: 300px;
+  max-height: 320px;
   overflow-y: auto;
-  margin-bottom: 4px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
   z-index: 1000;
+  padding: 4px 0;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
 }
 
 .recent-dropdown.open {
-  display: block;
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
 }
 
 .recent-item {
-  padding: var(--space-sm) var(--space-md);
-  font-family: var(--font-mono);
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  font-family: var(--font-sans);
   font-size: 0.8125rem;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   cursor: pointer;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  border-bottom: 1px solid var(--glass-border-subtle);
-  transition: background 0.15s;
+  transition: background 0.1s;
 }
 
-.recent-item:last-child {
-  border-bottom: none;
-}
-
-.recent-item:hover:not(.empty) {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
+.recent-item:hover:not(.empty):not(.recent-clear) {
+  background: var(--overlay-hover);
 }
 
 .recent-item.empty {
   color: var(--text-muted);
   font-style: italic;
   cursor: default;
+  justify-content: center;
 }
 
 .recent-separator {
   height: 1px;
-  background: var(--border-default);
-  margin: var(--space-xs) 0;
+  background: var(--glass-border);
+  margin: 4px 0;
 }
 
 .recent-item.recent-clear {
   color: var(--text-muted);
-  text-align: center;
+  font-size: 0.75rem;
+  justify-content: center;
 }
 
 .recent-item.recent-clear:hover {
   color: var(--accent-red);
-  background: var(--bg-tertiary);
+  background: var(--overlay-hover);
 }
 
 .recent-dropdown::-webkit-scrollbar {
@@ -364,7 +376,7 @@
 }
 
 .recent-dropdown::-webkit-scrollbar-thumb {
-  background: var(--border-default);
+  background: var(--glass-border);
   border-radius: 3px;
 }
 
