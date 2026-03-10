@@ -17,6 +17,7 @@ import { SnapshotLoader } from "./snapshot/snapshot-loader.js";
 import { CPUDebuggerWindow } from "./debug/cpu-debugger-window.js";
 import { StackViewerWindow } from "./debug/stack-viewer-window.js";
 import { TapeWindow } from "./tape/tape-window.js";
+import { DiskWindow } from "./disk/disk-window.js";
 import { SoundWindow } from "./audio/sound-window.js";
 import { BasicProgramWindow } from "./debug/basic-program-window.js";
 import { RuleBuilderWindow } from "./debug/rule-builder-window.js";
@@ -129,6 +130,11 @@ class ZXSpectrumEmulator {
       this.tapeWindow = new TapeWindow(this.proxy);
       this.tapeWindow.create();
       this.windowManager.register(this.tapeWindow);
+
+      // Create disk drive window (+3 only, but always available)
+      this.diskWindow = new DiskWindow(this.proxy);
+      this.diskWindow.create();
+      this.windowManager.register(this.diskWindow);
 
       // Set up audio driver (before window registration so sound window can be created)
       this.audioDriver = new AudioDriver(this.proxy);
@@ -244,6 +250,7 @@ class ZXSpectrumEmulator {
         { id: "spectranet", visible: false },
         { id: "tnfs-browser", visible: false },
         { id: "save-states", visible: false },
+        { id: "disk-window", visible: false },
       ]);
 
       // Load saved window state (overrides defaults if present)
@@ -389,6 +396,11 @@ class ZXSpectrumEmulator {
       }
     };
 
+    this.snapshotLoader.onDiskLoaded = (filename) => {
+      this.diskWindow.setFilename(filename);
+      showToast(`Disk loaded: ${filename}`);
+    };
+
     // Wire TNFS browser window to snapshot loader (window was created in init())
     this.tnfsBrowserWindow.snapshotLoader = this.snapshotLoader;
 
@@ -405,6 +417,17 @@ class ZXSpectrumEmulator {
       this.tapeWindow.showError(error);
       this.windowManager.showWindow("tape-window");
       showToast("Tape load error");
+    };
+
+    // Disk inserted callback
+    this.proxy.onDiskInserted = (drive) => {
+      this.windowManager.showWindow("disk-window");
+      showToast("Disk inserted");
+    };
+
+    // Disk ejected callback
+    this.proxy.onDiskEjected = (drive) => {
+      showToast("Disk ejected");
     };
 
     // File menu > Load Snapshot
@@ -524,6 +547,16 @@ class ZXSpectrumEmulator {
     if (tapePlayerBtn) {
       tapePlayerBtn.addEventListener("click", () => {
         this.windowManager.toggleWindow("tape-window");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
+    // View menu > Disk Drive
+    const diskDriveBtn = document.getElementById("btn-disk-drive");
+    if (diskDriveBtn) {
+      diskDriveBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("disk-window");
         this.closeAllMenus();
         this.refocusCanvas();
       });
@@ -714,6 +747,7 @@ class ZXSpectrumEmulator {
     const windowMap = {
       "btn-display": "display-settings",
       "btn-tape-player": "tape-window",
+      "btn-disk-drive": "disk-window",
       "btn-sound-debug": "sound-debug",
       "btn-memory-map": "memory-map",
       "btn-keyboard": "keyboard",
@@ -1186,7 +1220,7 @@ class ZXSpectrumEmulator {
         this.basicProgramWindow.setMachine(machineId);
         this.keyboardWindow.setMachine(machineId);
         await this.reapplySpectranetState();
-        const machineNames = { 0: "ZX Spectrum 48K", 1: "ZX Spectrum 128K", 2: "ZX Spectrum 128K +2" };
+        const machineNames = { 0: "ZX Spectrum 48K", 1: "ZX Spectrum 128K", 2: "ZX Spectrum 128K +2", 3: "ZX Spectrum 128K +2A", 4: "ZX Spectrum +3" };
         showToast(`Switched to ${machineNames[machineId] || "Unknown"}`);
 
 
@@ -1572,7 +1606,7 @@ class ZXSpectrumEmulator {
   }
 
   setupDragAndDrop() {
-    const validExtensions = new Set(["sna", "z80", "tap", "tzx"]);
+    const validExtensions = new Set(["sna", "z80", "tap", "tzx", "dsk"]);
 
     // Prevent default browser behaviour for drag events globally
     document.addEventListener("dragover", (e) => {
@@ -1589,6 +1623,19 @@ class ZXSpectrumEmulator {
       const ext = file.name.split(".").pop().toLowerCase();
       if (!validExtensions.has(ext)) {
         showToast(`Unsupported file: .${ext}`);
+        return;
+      }
+
+      // DSK files go to the disk window
+      if (ext === "dsk") {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const data = new Uint8Array(ev.target.result);
+          const buffer = data.buffer.slice(0);
+          this.proxy.diskInsert(0, buffer);
+          this.diskWindow.setFilename(file.name);
+        };
+        reader.readAsArrayBuffer(file);
         return;
       }
 

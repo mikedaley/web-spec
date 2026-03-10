@@ -16,6 +16,8 @@ export class EmulatorProxy {
     this.onTapLoaded = null;
     this.onTapLoadError = null;
     this.onTapeRecordComplete = null;
+    this.onDiskInserted = null;
+    this.onDiskEjected = null;
     this.onBasicBreakpointHit = null;
     this.onSpectranetCommand = null;
     this.onStateUpdate = null;
@@ -106,6 +108,25 @@ export class EmulatorProxy {
         const resolve = this._pendingRequests.get("spectranetFlashConfig");
         if (resolve) {
           this._pendingRequests.delete("spectranetFlashConfig");
+          resolve(msg.data ? new Uint8Array(msg.data) : null);
+        }
+        break;
+      }
+
+      case "diskInserted":
+        this.state = msg.state;
+        if (this.onDiskInserted) this.onDiskInserted(msg.drive);
+        break;
+
+      case "diskEjected":
+        this.state = msg.state;
+        if (this.onDiskEjected) this.onDiskEjected(msg.drive);
+        break;
+
+      case "diskExportData": {
+        const resolve = this._pendingRequests.get("diskExport");
+        if (resolve) {
+          this._pendingRequests.delete("diskExport");
           resolve(msg.data ? new Uint8Array(msg.data) : null);
         }
         break;
@@ -678,6 +699,33 @@ export class EmulatorProxy {
   spectranetSetFlashConfig(data) {
     const buffer = new Uint8Array(data).buffer;
     this.worker.postMessage({ type: "spectranetSetFlashConfig", data: buffer }, [buffer]);
+  }
+
+  // Disk drive (FDC) - +3 only
+  diskInsert(drive, arrayBuffer) {
+    this.worker.postMessage(
+      { type: "diskInsert", drive, data: arrayBuffer },
+      [arrayBuffer],
+    );
+  }
+
+  diskInsertEmpty(drive = 0) {
+    this.worker.postMessage({ type: "diskInsertEmpty", drive });
+  }
+
+  diskEject(drive = 0) {
+    this.worker.postMessage({ type: "diskEject", drive });
+  }
+
+  diskSetWriteProtected(drive, wp) {
+    this.worker.postMessage({ type: "diskSetWriteProtected", drive, wp });
+  }
+
+  diskExport(drive = 0) {
+    return new Promise((resolve) => {
+      this._pendingRequests.set("diskExport", resolve);
+      this.worker.postMessage({ type: "diskExport", drive });
+    });
   }
 
   destroy() {

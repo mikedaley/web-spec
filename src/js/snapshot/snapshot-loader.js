@@ -6,6 +6,7 @@
  */
 
 import { addToRecentTapes } from "../tape/tape-persistence.js";
+import { addToRecentDisks } from "../disk/disk-persistence.js";
 import { showToast } from "../ui/toast.js";
 
 const SNA_48K_SIZE = 49179;
@@ -22,7 +23,7 @@ export class SnapshotLoader {
   init() {
     this.fileInput = document.createElement("input");
     this.fileInput.type = "file";
-    this.fileInput.accept = ".sna,.z80";
+    this.fileInput.accept = ".sna,.z80,.dsk";
     this.fileInput.style.display = "none";
     document.body.appendChild(this.fileInput);
 
@@ -87,6 +88,15 @@ export class SnapshotLoader {
         this._pendingFileName = file.name;
         addToRecentTapes(file.name, data);
         this.proxy.loadTAP(data.buffer);
+      } else if (ext === "dsk") {
+        if (data.length < 256) {
+          showToast("Invalid DSK file");
+          return;
+        }
+        this._pendingFileName = file.name;
+        addToRecentDisks(file.name, data);
+        this.proxy.diskInsert(0, data.buffer);
+        if (this.onDiskLoaded) this.onDiskLoaded(file.name);
       } else {
         showToast(`Unsupported format: .${ext}`);
         return;

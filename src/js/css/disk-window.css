@@ -1,0 +1,192 @@
+/* ============================================
+   DISK DRIVE WINDOW
+   ============================================ */
+
+.disk-window-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 8px;
+  gap: 8px;
+}
+
+/* ---- Drive Section ---- */
+.disk-drive-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+}
+
+.disk-drive-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.disk-drive-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: 0.05em;
+}
+
+.disk-motor-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--glass-border);
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.disk-motor-indicator.active {
+  background: var(--accent-green);
+  box-shadow: 0 0 6px var(--accent-green-bg-stronger);
+}
+
+.disk-filename {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 6px;
+  background: var(--bg-primary);
+  border: 1px solid var(--glass-border);
+  border-radius: 3px;
+  min-height: 20px;
+  line-height: 20px;
+}
+
+.disk-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.disk-track-display {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.03em;
+}
+
+.disk-wp-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.disk-wp-label input[type="checkbox"] {
+  width: 12px;
+  height: 12px;
+  accent-color: var(--accent-red);
+  cursor: pointer;
+}
+
+/* ---- Controls ---- */
+.disk-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.disk-btn-row {
+  display: flex;
+  gap: 4px;
+}
+
+.disk-btn {
+  flex: 1;
+  padding: 5px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+  text-align: center;
+}
+
+.disk-btn:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  border-color: var(--accent-blue-border-light);
+}
+
+.disk-btn:active:not(:disabled) {
+  background: var(--accent-blue-bg);
+}
+
+.disk-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ---- Recent Dropdown ---- */
+.disk-recent-dropdown {
+  display: none;
+  flex-direction: column;
+  max-height: 200px;
+  overflow-y: auto;
+  background: var(--bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+}
+
+.disk-recent-dropdown.open {
+  display: flex;
+}
+
+.disk-recent-item {
+  display: block;
+  width: 100%;
+  padding: 5px 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--glass-border);
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.disk-recent-item:hover {
+  background: var(--bg-tertiary);
+}
+
+.disk-recent-item:last-child {
+  border-bottom: none;
+}
+
+.disk-recent-clear {
+  color: var(--accent-red);
+  font-weight: 600;
+}
+
+.disk-recent-empty {
+  padding: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-align: center;
+}

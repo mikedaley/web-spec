@@ -136,6 +136,11 @@ function getState() {
     spectranetSocket1Status: wasm._spectranetGetSocketStatus(1),
     spectranetSocket2Status: wasm._spectranetGetSocketStatus(2),
     spectranetSocket3Status: wasm._spectranetGetSocketStatus(3),
+    diskInserted: wasm._diskIsInserted(0) !== 0,
+    diskModified: wasm._diskIsModified(0) !== 0,
+    diskWriteProtected: wasm._diskIsWriteProtected(0) !== 0,
+    diskMotorOn: wasm._diskIsMotorOn() !== 0,
+    diskCurrentTrack: wasm._diskGetCurrentTrack(0),
   };
 }
 
@@ -1043,6 +1048,58 @@ self.onmessage = async function (e) {
       wasm.HEAPU8.set(cfgData, cfgBufPtr);
       wasm._spectranetSetFlashConfig(cfgBufPtr, cfgData.length);
       wasm._free(cfgBufPtr);
+      break;
+    }
+
+    // ========================================================================
+    // Disk drive (FDC) commands - +3 only
+    // ========================================================================
+
+    case "diskInsert": {
+      if (!wasm || !msg.data) break;
+      const diskData = new Uint8Array(msg.data);
+      const diskPtr = wasm._malloc(diskData.length);
+      wasm.HEAPU8.set(diskData, diskPtr);
+      wasm._diskInsert(msg.drive || 0, diskPtr, diskData.length);
+      wasm._free(diskPtr);
+      self.postMessage({ type: "diskInserted", drive: msg.drive || 0, state: getState() });
+      break;
+    }
+
+    case "diskInsertEmpty": {
+      if (!wasm) break;
+      wasm._diskInsertEmpty(msg.drive || 0);
+      self.postMessage({ type: "diskInserted", drive: msg.drive || 0, state: getState() });
+      break;
+    }
+
+    case "diskEject": {
+      if (!wasm) break;
+      wasm._diskEject(msg.drive || 0);
+      self.postMessage({ type: "diskEjected", drive: msg.drive || 0, state: getState() });
+      break;
+    }
+
+    case "diskSetWriteProtected": {
+      if (!wasm) break;
+      wasm._diskSetWriteProtected(msg.drive || 0, msg.wp ? 1 : 0);
+      self.postMessage({ type: "stateUpdate", state: getState() });
+      break;
+    }
+
+    case "diskExport": {
+      if (!wasm) {
+        self.postMessage({ type: "diskExportData", drive: msg.drive || 0, data: null });
+        break;
+      }
+      const exportPtr = wasm._diskExportData(msg.drive || 0);
+      const exportSize = wasm._diskExportDataSize(msg.drive || 0);
+      if (exportPtr && exportSize > 0) {
+        const exportCopy = new Uint8Array(wasm.HEAPU8.buffer.slice(exportPtr, exportPtr + exportSize));
+        self.postMessage({ type: "diskExportData", drive: msg.drive || 0, data: exportCopy.buffer }, [exportCopy.buffer]);
+      } else {
+        self.postMessage({ type: "diskExportData", drive: msg.drive || 0, data: null });
+      }
       break;
     }
   }

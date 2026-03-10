@@ -10,6 +10,8 @@
 #include "../machines/zx48k/zx_spectrum_48k.hpp"
 #include "../machines/zx128k/zx_spectrum_128k.hpp"
 #include "../machines/zxplus2/zx_spectrum_plus2.hpp"
+#include "../machines/zxplus2a/zx_spectrum_plus2a.hpp"
+#include "../machines/zxplus3/zx_spectrum_plus3.hpp"
 #include "../machines/basic/sinclair_basic_tokenizer.hpp"
 #include "../machines/basic/sinclair_basic_parser.hpp"
 #include "../machines/basic/sinclair_basic_variables.hpp"
@@ -45,6 +47,12 @@ void initMachine(int machineId) {
       break;
     case 2:
       g_machine = new zxspec::zxplus2::ZXSpectrumPlus2();
+      break;
+    case 3:
+      g_machine = new zxspec::zxplus2a::ZXSpectrumPlus2A();
+      break;
+    case 4:
+      g_machine = new zxspec::zxplus3::ZXSpectrumPlus3();
       break;
     case 0:
     default:
@@ -461,9 +469,10 @@ int detectSnapshotMachine(const uint8_t* data, int size, const char* format) {
     } else if (additionalHeaderLength == 54 || additionalHeaderLength == 55) {
       // v3
       if (hardwareType == 0 || hardwareType == 1 || hardwareType == 3) return 0; // 48K
-      if (hardwareType >= 4 && hardwareType <= 8) return 1; // 128K variants
+      if (hardwareType == 4 || hardwareType == 5 || hardwareType == 6) return 1; // 128K
+      if (hardwareType == 7 || hardwareType == 8) return 4; // +3
       if (hardwareType == 12) return 2; // +2
-      if (hardwareType == 13) return 1; // +2A (falls back to 128K for now)
+      if (hardwareType == 13) return 3; // +2A
     }
     return -1;
   }
@@ -1585,6 +1594,85 @@ const char* assemblerGetListing() {
     }
     s_asmListingJson += "]";
     return s_asmListingJson.c_str();
+}
+
+// ============================================================================
+// Disk drive (FDC) - +3 only
+// ============================================================================
+
+// Helper to get the +3 machine instance (returns nullptr if not a +3)
+static zxspec::zxplus3::ZXSpectrumPlus3* getPlus3() {
+    if (!g_machine || g_machine->getId() != 4) return nullptr;
+    return static_cast<zxspec::zxplus3::ZXSpectrumPlus3*>(g_machine);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void diskInsert(int drive, const uint8_t* data, uint32_t size) {
+    auto* p3 = getPlus3();
+    if (p3) p3->insertDisk(drive, data, size);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void diskInsertEmpty(int drive) {
+    auto* p3 = getPlus3();
+    if (p3) p3->insertEmptyDisk(drive);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void diskEject(int drive) {
+    auto* p3 = getPlus3();
+    if (p3) p3->ejectDisk(drive);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskIsInserted(int drive) {
+    auto* p3 = getPlus3();
+    return (p3 && p3->hasDisk(drive)) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskIsModified(int drive) {
+    auto* p3 = getPlus3();
+    return (p3 && p3->isDiskModified(drive)) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void diskSetWriteProtected(int drive, int wp) {
+    auto* p3 = getPlus3();
+    if (p3) p3->setDiskWriteProtected(drive, wp != 0);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskIsWriteProtected(int drive) {
+    auto* p3 = getPlus3();
+    return (p3 && p3->isDiskWriteProtected(drive)) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* diskExportData(int drive) {
+    auto* p3 = getPlus3();
+    if (!p3) return nullptr;
+    return p3->exportDiskData(drive);
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint32_t diskExportDataSize(int drive) {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->exportDiskDataSize(drive);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskIsMotorOn() {
+    auto* p3 = getPlus3();
+    return (p3 && p3->getFDC().isMotorOn()) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskGetCurrentTrack(int drive) {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->getFDC().getCurrentTrack(drive);
 }
 
 } // extern "C"
