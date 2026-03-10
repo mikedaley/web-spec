@@ -53,6 +53,11 @@ set(ZX128K_SOURCES
     src/machines/zx128k/zx_spectrum_128k.cpp
 )
 
+# Source files - ZX Spectrum 128K +2 variant
+set(ZXPLUS2_SOURCES
+    src/machines/zxplus2/zx_spectrum_plus2.cpp
+)
+
 # Source files - Spectranet Ethernet interface
 set(SPECTRANET_SOURCES
     src/machines/spectranet/spectranet.cpp
@@ -68,6 +73,7 @@ set(CORE_SOURCES
     ${ZXSPECTRUM_BASE_SOURCES}
     ${ZX48K_SOURCES}
     ${ZX128K_SOURCES}
+    ${ZXPLUS2_SOURCES}
     ${SPECTRANET_SOURCES}
     ${DEBUG_SOURCES}
     src/bindings/wasm_interface.cpp
@@ -82,6 +88,8 @@ add_custom_command(
             ${CMAKE_SOURCE_DIR}/roms/48.rom
             ${CMAKE_SOURCE_DIR}/roms/128-0.rom
             ${CMAKE_SOURCE_DIR}/roms/128-1.rom
+            ${CMAKE_SOURCE_DIR}/roms/plus2-0.ROM
+            ${CMAKE_SOURCE_DIR}/roms/plus2-1.ROM
             ${CMAKE_SOURCE_DIR}/roms/spectranet.rom
     COMMENT "Generating ROM data arrays"
 )
@@ -102,6 +110,7 @@ if(EMSCRIPTEN)
         ${CMAKE_SOURCE_DIR}/src/machines/loaders
         ${CMAKE_SOURCE_DIR}/src/machines/zx48k
         ${CMAKE_SOURCE_DIR}/src/machines/zx128k
+        ${CMAKE_SOURCE_DIR}/src/machines/zxplus2
         ${CMAKE_SOURCE_DIR}/src/machines/spectranet
         ${CMAKE_SOURCE_DIR}/src/machines/basic
         ${CMAKE_SOURCE_DIR}/src/core/debug

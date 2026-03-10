@@ -52,6 +52,8 @@ generate_array() {
 generate_array "$ROM_DIR/48.rom" "ROM_48K"
 generate_array "$ROM_DIR/128-0.rom" "ROM_128K_0"
 generate_array "$ROM_DIR/128-1.rom" "ROM_128K_1"
+generate_array "$ROM_DIR/plus2-0.ROM" "ROM_PLUS2_0"
+generate_array "$ROM_DIR/plus2-1.ROM" "ROM_PLUS2_1"
 generate_array "$ROM_DIR/spectranet.rom" "ROM_SPECTRANET"
 
 # Close namespace

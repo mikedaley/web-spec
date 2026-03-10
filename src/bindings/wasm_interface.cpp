@@ -9,6 +9,7 @@
 #include "../machines/zx_spectrum.hpp"
 #include "../machines/zx48k/zx_spectrum_48k.hpp"
 #include "../machines/zx128k/zx_spectrum_128k.hpp"
+#include "../machines/zxplus2/zx_spectrum_plus2.hpp"
 #include "../machines/basic/sinclair_basic_tokenizer.hpp"
 #include "../machines/basic/sinclair_basic_parser.hpp"
 #include "../machines/basic/sinclair_basic_variables.hpp"
@@ -41,6 +42,9 @@ void initMachine(int machineId) {
   switch (machineId) {
     case 1:
       g_machine = new zxspec::zx128k::ZXSpectrum128();
+      break;
+    case 2:
+      g_machine = new zxspec::zxplus2::ZXSpectrumPlus2();
       break;
     case 0:
     default:
@@ -458,7 +462,8 @@ int detectSnapshotMachine(const uint8_t* data, int size, const char* format) {
       // v3
       if (hardwareType == 0 || hardwareType == 1 || hardwareType == 3) return 0; // 48K
       if (hardwareType >= 4 && hardwareType <= 8) return 1; // 128K variants
-      if (hardwareType == 12 || hardwareType == 13) return 1; // +2, +2A
+      if (hardwareType == 12) return 2; // +2
+      if (hardwareType == 13) return 1; // +2A (falls back to 128K for now)
     }
     return -1;
   }

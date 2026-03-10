@@ -1186,7 +1186,9 @@ class ZXSpectrumEmulator {
         this.basicProgramWindow.setMachine(machineId);
         this.keyboardWindow.setMachine(machineId);
         await this.reapplySpectranetState();
-        showToast(`Switched to ${machineId === 0 ? "ZX Spectrum 48K" : "ZX Spectrum 128K"}`);
+        const machineNames = { 0: "ZX Spectrum 48K", 1: "ZX Spectrum 128K", 2: "ZX Spectrum 128K +2" };
+        showToast(`Switched to ${machineNames[machineId] || "Unknown"}`);
+
 
         // If running, reset and continue; otherwise just switch
         if (this.running) {
