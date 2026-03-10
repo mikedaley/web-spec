@@ -578,10 +578,7 @@ export class SpectranetWindow extends BaseWindow {
       }
     }
 
-    if (config.autoboot !== null && config.autoboot !== undefined && config.autoboot !== 0xFF) {
-      html += heading("Autoboot");
-      html += row("Boot from", `Mount ${config.autoboot}`);
-    }
+    html += row("Autoboot", config.autoboot !== null && config.autoboot !== undefined && config.autoboot !== 0xFF ? "Yes" : "No");
 
     this.tooltip.innerHTML = html;
     this.positionTooltip(e);
