@@ -1675,4 +1675,19 @@ int diskGetCurrentTrack(int drive) {
     return p3->getFDC().getCurrentTrack(drive);
 }
 
+EMSCRIPTEN_KEEPALIVE
+int diskGetFDCPhase() {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->getFDC().getPhase();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskIsReadMode() {
+    auto* p3 = getPlus3();
+    if (!p3) return 1;
+    if (!p3->getFDC().isInExecution()) return 1;
+    return p3->getFDC().isExecutionRead() ? 1 : 0;
+}
+
 } // extern "C"

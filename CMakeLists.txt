@@ -328,6 +328,8 @@ if(EMSCRIPTEN)
                 \"_diskExportDataSize\", \
                 \"_diskIsMotorOn\", \
                 \"_diskGetCurrentTrack\", \
+                \"_diskGetFDCPhase\", \
+                \"_diskIsReadMode\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \

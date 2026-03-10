@@ -101,6 +101,19 @@
   --canvas-line: #1a1a2a;
   --screen-surround: #c8b89a;
 
+  /* Disk surface visualization */
+  --disk-bg: #161b22;
+  --disk-medium: #1a1308;
+  --disk-sector-line: rgba(255,255,255,0.08);
+  --disk-ghost-outline: rgba(255,255,255,0.06);
+  --disk-ghost-sector: rgba(255,255,255,0.03);
+  --disk-ghost-hub: rgba(210,208,200,0.08);
+  --disk-hub-ring: rgba(210,208,200,0.85);
+  --disk-hub-edge: rgba(255,255,255,0.12);
+  --disk-hub-edge-inner: rgba(255,255,255,0.08);
+  --disk-hole-edge: rgba(0,0,0,0.3);
+  --disk-edge: rgba(255,255,255,0.06);
+
   /* Sound channel waveform / meter colors — Spectrum bright palette */
   --channel-a: #00FFFF;
   --channel-b: #00FF00;
@@ -233,6 +246,19 @@ html[data-theme="light"] {
   --canvas-bg: #f0f2f5;
   --canvas-line: #d0d7de;
   --screen-surround: #c8b89a;
+
+  /* Disk surface visualization */
+  --disk-bg: #e8ecf0;
+  --disk-medium: #2a2010;
+  --disk-sector-line: rgba(0,0,0,0.06);
+  --disk-ghost-outline: rgba(0,0,0,0.08);
+  --disk-ghost-sector: rgba(0,0,0,0.03);
+  --disk-ghost-hub: rgba(180,178,170,0.15);
+  --disk-hub-ring: rgba(210,208,200,0.9);
+  --disk-hub-edge: rgba(0,0,0,0.08);
+  --disk-hub-edge-inner: rgba(0,0,0,0.06);
+  --disk-hole-edge: rgba(0,0,0,0.15);
+  --disk-edge: rgba(0,0,0,0.08);
 
   /* Sound channel waveform / meter colors — Spectrum normal palette (legible on light bg) */
   --channel-a: #0000CD;

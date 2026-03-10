@@ -141,6 +141,8 @@ function getState() {
     diskWriteProtected: wasm._diskIsWriteProtected(0) !== 0,
     diskMotorOn: wasm._diskIsMotorOn() !== 0,
     diskCurrentTrack: wasm._diskGetCurrentTrack(0),
+    diskFDCPhase: wasm._diskGetFDCPhase(),
+    diskReadMode: wasm._diskIsReadMode() !== 0,
   };
 }
 

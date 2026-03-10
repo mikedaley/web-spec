@@ -50,6 +50,9 @@ public:
 
     // FDC state for status queries
     uint8_t getCurrentTrack(int drive) const { return currentTrack_[drive & 1]; }
+    int getPhase() const { return static_cast<int>(phase_); }
+    bool isExecutionRead() const { return executionRead_; }
+    bool isInExecution() const { return phase_ == Phase::Execution; }
 
 private:
     // FDC operating phases
