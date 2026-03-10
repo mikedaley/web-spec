@@ -88,6 +88,37 @@ uint32_t ULAContention::ioContention(uint32_t tstates) const
 // The number after the colon is the T-states to advance.
 void ULAContention::applyIOContention(Z80& z80, uint16_t address, bool contended) const
 {
+    // The +2A/+3 Amstrad ASIC has a simpler IO contention model than the
+    // original ULA. It does not arbitrate the data bus for even (ULA) ports,
+    // so there is no distinction between even and odd ports:
+    //   Contended address (any port):   C:1, C:1, C:1, C:1
+    //   Uncontended address (any port): N:4
+    if (altContention_)
+    {
+        if (contended)
+        {
+            z80.addContentionTStates(ioContention(z80.getTStates()));
+            z80.addTStates(1);
+            z80.addContentionTStates(ioContention(z80.getTStates()));
+            z80.addTStates(1);
+            z80.addContentionTStates(ioContention(z80.getTStates()));
+            z80.addTStates(1);
+            z80.addContentionTStates(ioContention(z80.getTStates()));
+            z80.addTStates(1);
+        }
+        else
+        {
+            z80.addTStates(4);
+        }
+        return;
+    }
+
+    // 48K / 128K / +2: the original ULA arbitrates the data bus for even
+    // (ULA-owned) ports, producing four distinct patterns:
+    //   Contended + even port:    C:1, C:3
+    //   Contended + odd port:     C:1, C:1, C:1, C:1
+    //   Uncontended + even port:  N:1, C:3
+    //   Uncontended + odd port:   N:4
     bool evenPort = (address & 0x01) == 0;
 
     if (contended)

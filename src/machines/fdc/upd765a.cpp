@@ -151,9 +151,11 @@ uint8_t UPD765A::readData()
             if (dataIndex_ >= static_cast<int>(dataBuffer_.size())) {
                 // Try to advance to next sector
                 if (!advanceToNextSector()) {
-                    // All sectors read - enter result phase
-                    uint8_t st0 = ST0_IC_NORMAL | (xferSide_ << 2) | xferDrive_;
-                    setResult7(st0, 0, 0, xferTrack_, xferSide_, xferSector_, xferSizeCode_);
+                    // End of cylinder: µPD765A reports abnormal termination with EN flag.
+                    // R field = next sector (the one that wasn't found).
+                    uint8_t st0 = ST0_IC_ABNORMAL | (xferSide_ << 2) | xferDrive_;
+                    setResult7(st0, ST1_EN, 0, xferTrack_, xferSide_,
+                               static_cast<uint8_t>(xferSector_ + 1), xferSizeCode_);
                     phase_ = Phase::Result;
                 }
             }
@@ -238,13 +240,14 @@ void UPD765A::writeData(uint8_t data)
                 }
 
                 if (!advanceToNextSector()) {
-                    uint8_t st0 = ST0_IC_NORMAL | (xferSide_ << 2) | xferDrive_;
-                    uint8_t st1 = 0;
+                    // End of cylinder: abnormal termination with EN flag
+                    uint8_t st0 = ST0_IC_ABNORMAL | (xferSide_ << 2) | xferDrive_;
+                    uint8_t st1 = ST1_EN;
                     if (sector && disk_[drive]->isWriteProtected()) {
-                        st0 = ST0_IC_ABNORMAL | (xferSide_ << 2) | xferDrive_;
-                        st1 = ST1_NW;
+                        st1 |= ST1_NW;
                     }
-                    setResult7(st0, st1, 0, xferTrack_, xferSide_, xferSector_, xferSizeCode_);
+                    setResult7(st0, st1, 0, xferTrack_, xferSide_,
+                               static_cast<uint8_t>(xferSector_ + 1), xferSizeCode_);
                     phase_ = Phase::Result;
                 }
             }
@@ -460,9 +463,10 @@ void UPD765A::cmdReadID()
         return;
     }
 
-    // Return the first sector's ID on the current track
-    // A real FDC would rotate through sectors, but this is sufficient for +3DOS
-    const DiskSector& sec = track->sectors[0];
+    // Simulate disk rotation: return successive sector IDs on each call
+    int secIdx = readIdIndex_ % static_cast<int>(track->sectors.size());
+    readIdIndex_++;
+    const DiskSector& sec = track->sectors[secIdx];
     uint8_t st0 = ST0_IC_NORMAL | (side << 2) | drive;
     setResult7(st0, 0, 0, sec.track, sec.side, sec.sectorId, sec.sizeCode);
     phase_ = Phase::Result;
@@ -511,6 +515,7 @@ void UPD765A::cmdRecalibrate()
 {
     int drive = commandBuffer_[1] & 0x03;
     currentTrack_[drive] = 0;
+    readIdIndex_ = 0;
 
     // Set up interrupt status for Sense Interrupt Status
     seekCompleted_[drive] = true;
@@ -604,6 +609,7 @@ void UPD765A::cmdSeek()
     uint8_t newTrack = commandBuffer_[2];
 
     currentTrack_[drive] = newTrack;
+    readIdIndex_ = 0;
 
     // Set up interrupt status
     seekCompleted_[drive] = true;

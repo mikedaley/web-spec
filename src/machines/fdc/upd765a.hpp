@@ -140,6 +140,9 @@ private:
     DiskImage* disk_[2] = { nullptr, nullptr };
     uint8_t currentTrack_[2] = { 0, 0 };
 
+    // Simulated disk rotation index for READ ID
+    int readIdIndex_ = 0;
+
     // Interrupt status (for Sense Interrupt Status)
     bool seekCompleted_[2] = { false, false };
     uint8_t seekResultST0_[2] = { 0, 0 };
