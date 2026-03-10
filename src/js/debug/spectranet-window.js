@@ -42,6 +42,7 @@ const NET = {
 const MOUNT_BASE = CFG_PAGE + 0x0D00;
 const MOUNT_STRIDE = 0x80;
 const MOUNT_FIELDS = { POINT: 0x00, PROTO: 0x01, HOST: 0x07, PATH: 0x30, USER: 0x60, PASS: 0x70 };
+const MOUNT_PROTO_LEN = 0x07 - 0x01; // 6 bytes (null-terminated string, e.g. "tnfs")
 const MOUNT_HOST_LEN = 0x30 - 0x07;  // 41 bytes
 const MOUNT_PATH_LEN = 0x60 - 0x30;  // 48 bytes
 const MOUNT_USER_LEN = 0x70 - 0x60;  // 16 bytes
@@ -67,12 +68,12 @@ function parseMounts(data) {
   const mounts = [];
   for (let i = 0; i < 4; i++) {
     const base = MOUNT_BASE + i * MOUNT_STRIDE;
+    const proto = readFlashString(data, base + MOUNT_FIELDS.PROTO, MOUNT_PROTO_LEN);
     const host = readFlashString(data, base + MOUNT_FIELDS.HOST, MOUNT_HOST_LEN);
-    if (!host) continue;  // Unconfigured slot (all 0xFF or 0x00)
+    if (!proto && !host) continue;  // Unconfigured slot (all 0xFF or 0x00)
     const path = readFlashString(data, base + MOUNT_FIELDS.PATH, MOUNT_PATH_LEN);
     const user = readFlashString(data, base + MOUNT_FIELDS.USER, MOUNT_USER_LEN);
-    const proto = data[base + MOUNT_FIELDS.PROTO];
-    mounts.push({ index: i, host, path: path || "/", user: user || null, proto });
+    mounts.push({ index: i, proto: proto || "tnfs", host: host || "", path: path || "/", user: user || null });
   }
   return mounts;
 }
@@ -81,10 +82,10 @@ function parseConfigSections(data) {
   // Config section binary format (from Spectranet configdata.asm):
   //   2-byte total size (LE), then sections:
   //     2-byte section ID (LE), 2-byte section size (LE), then items
-  //   Item types by ID bit pattern:
-  //     0x00-0x3F (bits 7:6 = 00): string — 1-byte ID + null-terminated string
-  //     0x80-0xBF (bits 7:6 = 10): byte   — 1-byte ID + 1-byte value
-  //     0xC0-0xFF (bits 7:6 = 11): word   — 1-byte ID + 2-byte value (LE)
+  //   Item types by ID bit pattern (Z80 checks bit 7, then bit 6):
+  //     0x00-0x7F (bit 7 = 0): string — 1-byte ID + null-terminated string
+  //     0x80-0xBF (bit 7 = 1, bit 6 = 0): byte — 1-byte ID + 1-byte value
+  //     0xC0-0xFF (bit 7 = 1, bit 6 = 1): word — 1-byte ID + 2-byte value (LE)
   const result = { autoboot: null, automountUrls: [] };
   const base = CFG_SECTIONS_BASE;
   if (data.length < base + 4) return result;
@@ -107,8 +108,8 @@ function parseConfigSections(data) {
       while (itemPos < sectionEnd) {
         const id = data[itemPos++];
         if (id === 0xFF) break;
-        if ((id & 0xC0) === 0x00) {
-          // String item — read null-terminated string
+        if ((id & 0x80) === 0x00) {
+          // String item (0x00-0x7F) — read null-terminated string
           let str = "";
           while (itemPos < sectionEnd && data[itemPos] !== 0) {
             str += String.fromCharCode(data[itemPos++]);
@@ -557,8 +558,8 @@ export class SpectranetWindow extends BaseWindow {
     html += row("Mode", config.staticIp ? "Static" : "DHCP");
     if (config.disableRst8) html += row("RST8 Traps", "Disabled");
 
-    // Build a merged view: automount URLs are the authoritative source,
-    // fall back to the fixed mount table for any slots not in the config sections
+    // Merge both sources: automount URLs (config sections) and fixed mount table.
+    // Show automount URL when available, otherwise fall back to mount table fields.
     const hasMounts = config.mounts.length > 0 || config.automountUrls.length > 0;
     if (hasMounts) {
       html += heading("Filesystems");
@@ -571,7 +572,7 @@ export class SpectranetWindow extends BaseWindow {
         if (url) {
           html += row(`Mount ${idx}`, url);
         } else if (mt) {
-          html += row(`Mount ${idx}`, `${mt.host}:${mt.path}`);
+          html += row(`Mount ${idx}`, `${mt.proto}://${mt.host}${mt.path}`);
         }
         if (mt?.user) html += row(`  User`, mt.user);
       }
