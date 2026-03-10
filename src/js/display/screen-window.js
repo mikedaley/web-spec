@@ -12,6 +12,7 @@ const MACHINE_NAMES = {
   1: "ZX Spectrum 128K",
   2: "ZX Spectrum 128K +2",
   3: "ZX Spectrum 128K +2A",
+  5: "ZX81",
 };
 
 export class ScreenWindow extends BaseWindow {

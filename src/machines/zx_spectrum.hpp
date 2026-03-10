@@ -155,6 +155,10 @@ public:
     bool isAYEnabled() const { return ayEnabled_; }
     void setAYEnabled(bool enabled) { ayEnabled_ = enabled; }
 
+    // SpecDrum 8-bit DAC peripheral
+    bool isSpecdrumEnabled() const { return specdrumEnabled_; }
+    void setSpecdrumEnabled(bool enabled) { specdrumEnabled_ = enabled; if (!enabled) audio_.setSpecdrumLevel(0.0f); }
+
     // Spectranet Ethernet interface
     Spectranet& getSpectranet() { return spectranet_; }
     const Spectranet& getSpectranet() const { return spectranet_; }
@@ -272,6 +276,9 @@ protected:
     bool ayEnabled_ = false;
     int ayMixOffset_ = 0;
 
+    // SpecDrum 8-bit DAC
+    bool specdrumEnabled_ = false;
+
     // Spectranet Ethernet interface
     Spectranet spectranet_;
     bool spectranetEnabled_ = false;
@@ -362,6 +369,45 @@ protected:
     void decodePulsesToTap();
 
     int muteFrames_ = 0;
+
+    // ---- CPU instruction trace ----
+    static constexpr uint32_t TRACE_BUFFER_SIZE = 10000;
+
+    struct TraceEntry {
+        uint16_t pc;
+        uint16_t sp;
+        uint16_t af;
+        uint16_t bc;
+        uint16_t de;
+        uint16_t hl;
+        uint16_t ix;
+        uint16_t iy;
+        uint16_t af_;
+        uint16_t bc_;
+        uint16_t de_;
+        uint16_t hl_;
+        uint8_t  i;
+        uint8_t  r;
+        uint8_t  iff1;
+        uint8_t  im;
+        uint8_t  bytes[4];
+    };  // 32 bytes
+
+    bool traceEnabled_ = false;
+    std::vector<TraceEntry> traceBuffer_;
+    uint32_t traceWriteIndex_ = 0;
+    uint32_t traceEntryCount_ = 0;  // capped at TRACE_BUFFER_SIZE
+
+    void traceRecordInstruction(uint16_t address);
+
+public:
+    void setTraceEnabled(bool enabled);
+    bool getTraceEnabled() const { return traceEnabled_; }
+    const TraceEntry* getTraceBuffer() const { return traceBuffer_.data(); }
+    uint32_t getTraceWriteIndex() const { return traceWriteIndex_; }
+    uint32_t getTraceEntryCount() const { return traceEntryCount_; }
+    static constexpr uint32_t getTraceEntrySize() { return sizeof(TraceEntry); }
+    static constexpr uint32_t getTraceMaxEntries() { return TRACE_BUFFER_SIZE; }
 
 private:
     // Static callbacks bridging Z80's C-style callbacks to virtual methods

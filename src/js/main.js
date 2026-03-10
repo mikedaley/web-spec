@@ -28,6 +28,7 @@ import { FontEditorWindow } from "./debug/font-editor-window.js";
 import { SpectranetWindow } from "./debug/spectranet-window.js";
 import { TNFSBrowserWindow } from "./debug/tnfs-browser-window.js";
 import { AssemblerWindow } from "./assembler/assembler-window.js";
+import { CPUTraceWindow } from "./debug/cpu-trace-window.js";
 import { NetworkManager } from "./spectranet/network-manager.js";
 import { saveFlashData, loadFlashData } from "./spectranet/spectranet-persistence.js";
 
@@ -125,6 +126,11 @@ class ZXSpectrumEmulator {
       this.stackViewerWindow = new StackViewerWindow();
       this.stackViewerWindow.create();
       this.windowManager.register(this.stackViewerWindow);
+
+      // Create CPU trace window
+      this.cpuTraceWindow = new CPUTraceWindow();
+      this.cpuTraceWindow.create();
+      this.windowManager.register(this.cpuTraceWindow);
 
       // Create tape player window
       this.tapeWindow = new TapeWindow(this.proxy);
@@ -239,6 +245,7 @@ class ZXSpectrumEmulator {
         { id: "display-settings", visible: false },
         { id: "cpu-debugger", visible: false },
         { id: "stack-viewer", visible: false },
+        { id: "cpu-trace", visible: false },
         { id: "sound-debug", visible: false },
         { id: "basic-program", visible: false },
         { id: "rule-builder", visible: false },
@@ -582,6 +589,16 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // Dev menu > CPU Trace
+    const cpuTraceBtn = document.getElementById("btn-cpu-trace");
+    if (cpuTraceBtn) {
+      cpuTraceBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("cpu-trace");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
     // Dev menu > BASIC Editor
     const basicEditorBtn = document.getElementById("btn-basic-editor");
     if (basicEditorBtn) {
@@ -754,6 +771,7 @@ class ZXSpectrumEmulator {
       "btn-tnfs-browser": "tnfs-browser",
       "btn-z80-debug": "cpu-debugger",
       "btn-stack-viewer": "stack-viewer",
+      "btn-cpu-trace": "cpu-trace",
       "btn-basic-editor": "basic-program",
       "btn-udg-editor": "udg-editor",
       "btn-font-editor": "font-editor",
@@ -1220,7 +1238,7 @@ class ZXSpectrumEmulator {
         this.basicProgramWindow.setMachine(machineId);
         this.keyboardWindow.setMachine(machineId);
         await this.reapplySpectranetState();
-        const machineNames = { 0: "ZX Spectrum 48K", 1: "ZX Spectrum 128K", 2: "ZX Spectrum 128K +2", 3: "ZX Spectrum 128K +2A", 4: "ZX Spectrum +3" };
+        const machineNames = { 0: "ZX Spectrum 48K", 1: "ZX Spectrum 128K", 2: "ZX Spectrum 128K +2", 3: "ZX Spectrum 128K +2A", 4: "ZX Spectrum +3", 5: "ZX81" };
         showToast(`Switched to ${machineNames[machineId] || "Unknown"}`);
 
 
@@ -1289,6 +1307,25 @@ class ZXSpectrumEmulator {
         ayToggleBtn.classList.toggle("active", newEnabled);
         localStorage.setItem("zxspec-ay-enabled", String(newEnabled));
         showToast(`AY sound chip ${newEnabled ? "enabled" : "disabled"}`);
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
+    // SpecDrum toggle
+    const specdrumToggleBtn = document.getElementById("btn-specdrum-toggle");
+    if (specdrumToggleBtn) {
+      const savedSpecdrum = localStorage.getItem("zxspec-specdrum-enabled") === "true";
+      this.proxy.setSpecdrumEnabled(savedSpecdrum);
+      specdrumToggleBtn.classList.toggle("active", savedSpecdrum);
+
+      specdrumToggleBtn.addEventListener("click", () => {
+        const isEnabled = specdrumToggleBtn.classList.contains("active");
+        const newEnabled = !isEnabled;
+        this.proxy.setSpecdrumEnabled(newEnabled);
+        specdrumToggleBtn.classList.toggle("active", newEnabled);
+        localStorage.setItem("zxspec-specdrum-enabled", String(newEnabled));
+        showToast(`SpecDrum ${newEnabled ? "enabled" : "disabled"}`);
         this.closeAllMenus();
         this.refocusCanvas();
       });
@@ -1756,6 +1793,11 @@ class ZXSpectrumEmulator {
     if (this.cpuDebuggerWindow) {
       this.cpuDebuggerWindow.destroy();
       this.cpuDebuggerWindow = null;
+    }
+
+    if (this.cpuTraceWindow) {
+      this.cpuTraceWindow.destroy();
+      this.cpuTraceWindow = null;
     }
 
     if (this.saveStatesWindow) {

@@ -20,6 +20,7 @@ enum MachineType {
     eZXSpectrum128_2  = 2,
     eZXSpectrum128_2A = 3,
     eZXSpectrum128_3  = 4,
+    eZX81             = 5,
 };
 
 struct MachineInfo {
@@ -98,6 +99,9 @@ static const MachineInfo machines[] = {
     { 36, 70908, 14362, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 20, 24, 32768, 131072, false, "ZX Spectrum 128K +2",  eZXSpectrum128_2 },
     { 32, 70908, 14365, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 20, 24, 65536, 131072,  true, "ZX Spectrum 128K +2A", eZXSpectrum128_2A },
     { 32, 70908, 14365, 228, 12768, 1596, 43776, 128, 4, 56, 7, 256, 192, 448, 311, 32,  true,  true, 20, 24, 65536, 131072,  true, "ZX Spectrum +3",       eZXSpectrum128_3 },
+    // ZX81: 3.25 MHz CPU, 207 T-states/line, 312 lines/frame = 64,584 T-states/frame
+    // No AY, no paging, no contention. 8KB ROM + 16KB RAM (with RAM pack)
+    { 32, 64584, 13248, 207, 11592, 1656, 39744, 128, 4, 56, 8, 256, 192, 414, 312, 32, false, false,  0,  0,  8192,  16384, false, "ZX81",                 eZX81 },
 };
 
 // Maximum sizes for shared arrays (accommodate all machine variants)

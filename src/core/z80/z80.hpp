@@ -51,6 +51,7 @@ public:
     using IoWriteFunc = std::function<void(uint16_t address, uint8_t data, void* param)>;
     using ContentionFunc = std::function<void(uint16_t address, uint32_t tstates, void* param)>;
     using OpcodeCallback = std::function<bool(uint8_t opcode, uint16_t address, void* param)>;
+    using OpcodeFetchFunc = std::function<uint8_t(uint16_t address, void* param)>;
     using RetnCallback = std::function<void()>;
 
 private:
@@ -133,6 +134,7 @@ public:
     uint32_t execute(uint32_t numTStates = 0, uint32_t intTStates = 32);
 
     void registerOpcodeCallback(OpcodeCallback callback);
+    void registerOpcodeFetchCallback(OpcodeFetchFunc callback);
     void registerRetnCallback(RetnCallback callback);
     void signalInterrupt();
 
@@ -163,6 +165,7 @@ public:
     void resetTStates() { m_CPURegisters.TStates = 0; }
     void resetTStates(uint32_t tstatesPerFrame) { m_CPURegisters.TStates -= tstatesPerFrame; }
 
+    uint8_t z80OpcodeFetch(uint16_t address);
     uint8_t z80MemRead(uint16_t address, uint32_t tstates = 3);
     void z80MemWrite(uint16_t address, uint8_t data, uint32_t tstates = 3);
     uint8_t z80IORead(uint16_t address);
@@ -816,6 +819,7 @@ protected:
     ContentionFunc m_MemContentionHandling;
     ContentionFunc m_NoMreqContentionHandling;
     OpcodeCallback m_OpcodeCallback;
+    OpcodeFetchFunc m_OpcodeFetch;
     RetnCallback m_RetnCallback;
 };
 

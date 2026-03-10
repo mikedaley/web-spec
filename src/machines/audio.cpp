@@ -30,6 +30,7 @@ void Audio::reset()
     earBit_ = 0;
     micBit_ = 0;
     tapeEarBit_ = 0;
+    specdrumLevel_ = 0.0f;
     sampleIndex_ = 0;
     tsCounter_ = 0.0;
     outputLevel_ = 0.0;
@@ -50,9 +51,10 @@ void Audio::reset()
 void Audio::update(int32_t tStates)
 {
     // Current output level: beeper contributes BEEPER_VOLUME when EAR bit is set,
-    // tape playback adds TAPE_VOLUME when active
+    // tape playback adds TAPE_VOLUME when active, SpecDrum DAC adds its level
     float level = (earBit_ ? BEEPER_VOLUME : 0.0f)
-               + (tapeEarBit_ ? TAPE_VOLUME : 0.0f);
+               + (tapeEarBit_ ? TAPE_VOLUME : 0.0f)
+               + specdrumLevel_;
 
     for (int32_t i = 0; i < tStates; i++)
     {

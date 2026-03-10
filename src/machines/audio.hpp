@@ -29,6 +29,10 @@ public:
 
     void setTapeEarBit(uint8_t bit) { tapeEarBit_ = bit; }
 
+    // SpecDrum 8-bit DAC output (added to beeper level each T-state)
+    void setSpecdrumLevel(float level) { specdrumLevel_ = level; }
+    float getSpecdrumLevel() const { return specdrumLevel_; }
+
     const float* getBuffer() const { return sampleBuffer_; }
     float* getMutableBuffer() { return sampleBuffer_; }
     int getSampleCount() const { return sampleIndex_; }
@@ -46,6 +50,7 @@ private:
     uint8_t earBit_ = 0;
     uint8_t micBit_ = 0;
     uint8_t tapeEarBit_ = 0;
+    float specdrumLevel_ = 0.0f;
 
     float sampleBuffer_[MAX_SAMPLES_PER_FRAME]{};
     int sampleIndex_ = 0;

@@ -206,6 +206,15 @@ export class EmulatorProxy {
         break;
       }
 
+      case "traceDataResult": {
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve(msg);
+        }
+        break;
+      }
+
       case "evaluateConditionResult":
       case "evaluateExpressionResult": {
         const resolve = this._pendingRequests.get(msg.id);
@@ -335,6 +344,13 @@ export class EmulatorProxy {
   loadTZXTape(arrayBuffer) {
     this.worker.postMessage(
       { type: "loadTZXTape", data: arrayBuffer },
+      [arrayBuffer],
+    );
+  }
+
+  loadP(arrayBuffer) {
+    this.worker.postMessage(
+      { type: "loadP", data: arrayBuffer },
       [arrayBuffer],
     );
   }
@@ -480,6 +496,14 @@ export class EmulatorProxy {
 
   setAYEnabled(enabled) {
     this.worker.postMessage({ type: "setAYEnabled", enabled });
+  }
+
+  isSpecdrumEnabled() {
+    return this.state.specdrumEnabled ?? false;
+  }
+
+  setSpecdrumEnabled(enabled) {
+    this.worker.postMessage({ type: "setSpecdrumEnabled", enabled });
   }
 
   getIssueNumber() {
@@ -725,6 +749,18 @@ export class EmulatorProxy {
     return new Promise((resolve) => {
       this._pendingRequests.set("diskExport", resolve);
       this.worker.postMessage({ type: "diskExport", drive });
+    });
+  }
+
+  traceEnable(enable) {
+    this.worker.postMessage({ type: "traceEnable", enable });
+  }
+
+  traceGetData() {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "traceGetData", id });
     });
   }
 

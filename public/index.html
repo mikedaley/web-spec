@@ -236,6 +236,15 @@
                                 <span class="menu-check">&#10003;</span>
                                 <span>ZX Spectrum +3</span>
                             </button>
+                            <!-- ZX81 temporarily hidden while display emulation is in progress
+                            <button
+                                class="header-menu-item menu-check-item"
+                                data-machine="5"
+                            >
+                                <span class="menu-check">&#10003;</span>
+                                <span>ZX81</span>
+                            </button>
+                            -->
                             <div class="header-menu-separator"></div>
                             <div
                                 class="header-menu-section-label"
@@ -288,6 +297,13 @@
                             </svg>
                         </button>
                         <div class="header-menu" id="peripherals-menu">
+                            <button
+                                class="header-menu-item menu-check-item"
+                                id="btn-specdrum-toggle"
+                            >
+                                <span class="menu-check">&#10003;</span>
+                                <span>SpecDrum</span>
+                            </button>
                             <button
                                 class="header-menu-item menu-check-item"
                                 id="btn-spectranet-toggle"
@@ -488,6 +504,13 @@
                             >
                                 <span class="menu-check">&#10003;</span>
                                 <span>Stack Viewer</span>
+                            </button>
+                            <button
+                                class="header-menu-item menu-check-item"
+                                id="btn-cpu-trace"
+                            >
+                                <span class="menu-check">&#10003;</span>
+                                <span>CPU Trace</span>
                             </button>
                             <button
                                 class="header-menu-item menu-check-item"

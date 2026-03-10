@@ -70,6 +70,11 @@ set(ZXPLUS3_SOURCES
     src/machines/fdc/disk_image.cpp
 )
 
+# Source files - ZX81
+set(ZX81_SOURCES
+    src/machines/zx81/zx81.cpp
+)
+
 # Source files - Spectranet Ethernet interface
 set(SPECTRANET_SOURCES
     src/machines/spectranet/spectranet.cpp
@@ -88,6 +93,7 @@ set(CORE_SOURCES
     ${ZXPLUS2_SOURCES}
     ${ZXPLUS2A_SOURCES}
     ${ZXPLUS3_SOURCES}
+    ${ZX81_SOURCES}
     ${SPECTRANET_SOURCES}
     ${DEBUG_SOURCES}
     src/bindings/wasm_interface.cpp
@@ -107,6 +113,7 @@ add_custom_command(
             ${CMAKE_SOURCE_DIR}/roms/plus2a.rom
             ${CMAKE_SOURCE_DIR}/roms/plus3.rom
             ${CMAKE_SOURCE_DIR}/roms/spectranet.rom
+            ${CMAKE_SOURCE_DIR}/roms/zx81.rom
     COMMENT "Generating ROM data arrays"
 )
 
@@ -129,6 +136,7 @@ if(EMSCRIPTEN)
         ${CMAKE_SOURCE_DIR}/src/machines/zxplus2
         ${CMAKE_SOURCE_DIR}/src/machines/zxplus2a
         ${CMAKE_SOURCE_DIR}/src/machines/zxplus3
+        ${CMAKE_SOURCE_DIR}/src/machines/zx81
         ${CMAKE_SOURCE_DIR}/src/machines/fdc
         ${CMAKE_SOURCE_DIR}/src/machines/spectranet
         ${CMAKE_SOURCE_DIR}/src/machines/basic
@@ -191,6 +199,7 @@ if(EMSCRIPTEN)
                 \"_loadTZX\", \
                 \"_loadTAP\", \
                 \"_loadTZXTape\", \
+                \"_loadP\", \
                 \"_tapePlay\", \
                 \"_tapeStop\", \
                 \"_tapeRewind\", \
@@ -252,6 +261,8 @@ if(EMSCRIPTEN)
                 \"_getAYEnvHolding\", \
                 \"_getAYEnvAttack\", \
                 \"_getAYChannelOutput\", \
+                \"_isSpecdrumEnabled\", \
+                \"_setSpecdrumEnabled\", \
                 \"_getIssueNumber\", \
                 \"_setIssueNumber\", \
                 \"_basicTokenize\", \
@@ -330,6 +341,13 @@ if(EMSCRIPTEN)
                 \"_diskGetCurrentTrack\", \
                 \"_diskGetFDCPhase\", \
                 \"_diskIsReadMode\", \
+                \"_traceEnable\", \
+                \"_traceIsEnabled\", \
+                \"_traceGetBuffer\", \
+                \"_traceGetEntryCount\", \
+                \"_traceGetWriteIndex\", \
+                \"_traceGetEntrySize\", \
+                \"_traceGetMaxEntries\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \

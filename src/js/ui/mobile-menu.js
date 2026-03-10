@@ -37,6 +37,7 @@ export class MobileMenu {
     const machineId = parseInt(localStorage.getItem('zxspec-machine-id') || '0', 10);
     const is48k = machineId === 0;
     const ayEnabled = localStorage.getItem('zxspec-ay-enabled') === 'true';
+    const specdrumEnabled = localStorage.getItem('zxspec-specdrum-enabled') === 'true';
     const spectranetEnabled = localStorage.getItem('zxspec-spectranet-enabled') === 'true';
     const autosaveEnabled = em.stateManager ? em.stateManager.isAutoSaveEnabled() : false;
 
@@ -61,12 +62,20 @@ export class MobileMenu {
           <span class="menu-check">&#10003;</span>
           <span class="menu-item-label">ZX Spectrum 128K</span>
         </button>
+        <button class="mobile-menu-item${machineId === 5 ? ' active' : ''}" data-mobile-machine="5">
+          <span class="menu-check">&#10003;</span>
+          <span class="menu-item-label">ZX81</span>
+        </button>
         ${is48k ? `
         <button class="mobile-menu-item option-48k-mobile" id="mobile-ay-toggle">
           <span class="menu-check">&#10003;</span>
           <span class="menu-item-label">AY Sound Chip</span>
         </button>
         ` : ''}
+        <button class="mobile-menu-item${specdrumEnabled ? ' active' : ''}" id="mobile-specdrum-toggle">
+          <span class="menu-check">&#10003;</span>
+          <span class="menu-item-label">SpecDrum</span>
+        </button>
         <button class="mobile-menu-item${spectranetEnabled ? ' active' : ''}" id="mobile-spectranet-toggle">
           <span class="menu-check">&#10003;</span>
           <span class="menu-item-label">Spectranet</span>
@@ -230,6 +239,19 @@ export class MobileMenu {
         em.proxy.setAYEnabled(newEnabled);
         ayToggle.classList.toggle('active', newEnabled);
         localStorage.setItem('zxspec-ay-enabled', String(newEnabled));
+        this.close();
+      });
+    }
+
+    // SpecDrum toggle
+    const specdrumToggle = this._element.querySelector('#mobile-specdrum-toggle');
+    if (specdrumToggle) {
+      specdrumToggle.addEventListener('click', () => {
+        const isEnabled = specdrumToggle.classList.contains('active');
+        const newEnabled = !isEnabled;
+        em.proxy.setSpecdrumEnabled(newEnabled);
+        specdrumToggle.classList.toggle('active', newEnabled);
+        localStorage.setItem('zxspec-specdrum-enabled', String(newEnabled));
         this.close();
       });
     }

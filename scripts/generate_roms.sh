@@ -57,6 +57,7 @@ generate_array "$ROM_DIR/plus2-1.ROM" "ROM_PLUS2_1"
 generate_array "$ROM_DIR/plus2a.rom" "ROM_PLUS2A"
 generate_array "$ROM_DIR/plus3.rom" "ROM_PLUS3"
 generate_array "$ROM_DIR/spectranet.rom" "ROM_SPECTRANET"
+generate_array "$ROM_DIR/zx81.rom" "ROM_ZX81"
 
 # Close namespace
 echo "} // namespace roms" >> "$OUTPUT_FILE"

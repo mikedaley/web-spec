@@ -12,6 +12,7 @@
 #include "../machines/zxplus2/zx_spectrum_plus2.hpp"
 #include "../machines/zxplus2a/zx_spectrum_plus2a.hpp"
 #include "../machines/zxplus3/zx_spectrum_plus3.hpp"
+#include "../machines/zx81/zx81.hpp"
 #include "../machines/basic/sinclair_basic_tokenizer.hpp"
 #include "../machines/basic/sinclair_basic_parser.hpp"
 #include "../machines/basic/sinclair_basic_variables.hpp"
@@ -53,6 +54,9 @@ void initMachine(int machineId) {
       break;
     case 4:
       g_machine = new zxspec::zxplus3::ZXSpectrumPlus3();
+      break;
+    case 5:
+      g_machine = new zxspec::zx81::ZX81();
       break;
     case 0:
     default:
@@ -515,6 +519,15 @@ void loadTZXTape(const uint8_t* data, int size) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void loadP(const uint8_t* data, int size) {
+  if (!g_machine) return;
+  // Only ZX81 supports .P files (machine ID 5)
+  if (g_machine->getId() == 5) {
+    static_cast<zxspec::zx81::ZX81*>(g_machine)->loadP(data, static_cast<uint32_t>(size));
+  }
+}
+
+EMSCRIPTEN_KEEPALIVE
 void tapePlay() {
   REQUIRE_MACHINE();
   g_machine->tapePlay();
@@ -869,6 +882,24 @@ void setAYEnabled(int enabled) {
   REQUIRE_MACHINE();
   auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
   if (spec) spec->setAYEnabled(enabled != 0);
+}
+
+// ============================================================================
+// SpecDrum DAC Peripheral
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+int isSpecdrumEnabled() {
+  REQUIRE_MACHINE_OR(0);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec ? (spec->isSpecdrumEnabled() ? 1 : 0) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void setSpecdrumEnabled(int enabled) {
+  REQUIRE_MACHINE();
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  if (spec) spec->setSpecdrumEnabled(enabled != 0);
 }
 
 // ============================================================================
@@ -1688,6 +1719,56 @@ int diskIsReadMode() {
     if (!p3) return 1;
     if (!p3->getFDC().isInExecution()) return 1;
     return p3->getFDC().isExecutionRead() ? 1 : 0;
+}
+
+// ============================================================================
+// CPU Instruction Trace
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+void traceEnable(int enable) {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec) spec->setTraceEnabled(enable != 0);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int traceIsEnabled() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec && spec->getTraceEnabled() ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* traceGetBuffer() {
+    REQUIRE_MACHINE_OR(nullptr);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (!spec) return nullptr;
+    return reinterpret_cast<const uint8_t*>(spec->getTraceBuffer());
+}
+
+EMSCRIPTEN_KEEPALIVE
+int traceGetEntryCount() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? static_cast<int>(spec->getTraceEntryCount()) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int traceGetWriteIndex() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return spec ? static_cast<int>(spec->getTraceWriteIndex()) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int traceGetEntrySize() {
+    return static_cast<int>(zxspec::ZXSpectrum::getTraceEntrySize());
+}
+
+EMSCRIPTEN_KEEPALIVE
+int traceGetMaxEntries() {
+    return static_cast<int>(zxspec::ZXSpectrum::getTraceMaxEntries());
 }
 
 } // extern "C"

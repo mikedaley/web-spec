@@ -23,7 +23,7 @@ export class SnapshotLoader {
   init() {
     this.fileInput = document.createElement("input");
     this.fileInput.type = "file";
-    this.fileInput.accept = ".sna,.z80,.dsk";
+    this.fileInput.accept = ".sna,.z80,.dsk,.p";
     this.fileInput.style.display = "none";
     document.body.appendChild(this.fileInput);
 
@@ -88,6 +88,14 @@ export class SnapshotLoader {
         this._pendingFileName = file.name;
         addToRecentTapes(file.name, data);
         this.proxy.loadTAP(data.buffer);
+      } else if (ext === "p") {
+        if (data.length < 1) {
+          showToast("Invalid .P file");
+          return;
+        }
+        if (this.onBeforeLoad) this.onBeforeLoad();
+        this._pendingFileName = file.name;
+        this.proxy.loadP(data.buffer);
       } else if (ext === "dsk") {
         if (data.length < 256) {
           showToast("Invalid DSK file");

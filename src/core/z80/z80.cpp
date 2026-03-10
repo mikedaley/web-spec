@@ -54,9 +54,31 @@ void Z80::registerOpcodeCallback(OpcodeCallback callback)
     m_OpcodeCallback = callback;
 }
 
+void Z80::registerOpcodeFetchCallback(OpcodeFetchFunc callback)
+{
+    m_OpcodeFetch = callback;
+}
+
 void Z80::registerRetnCallback(RetnCallback callback)
 {
     m_RetnCallback = callback;
+}
+
+uint8_t Z80::z80OpcodeFetch(uint16_t address)
+{
+    z80MemContention(address, 4);
+
+    if (m_OpcodeFetch)
+    {
+        return m_OpcodeFetch(address, m_Param);
+    }
+
+    if (m_MemRead)
+    {
+        return m_MemRead(address, m_Param);
+    }
+
+    return 0;
 }
 
 uint8_t Z80::z80MemRead(uint16_t address, uint32_t tstates)
@@ -131,13 +153,17 @@ uint32_t Z80::execute(uint32_t numTStates, uint32_t intTStates)
             // NMI only clears IFF1; IFF2 is preserved so RETN can
             // restore the interrupt state (IFF1 = IFF2).
             m_CPURegisters.IFF1 = 0;
-            z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
-            z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
 
+            // When breaking out of HALT, advance PC past the HALT opcode
+            // so the return address points to the next instruction.
             if (m_CPURegisters.Halted)
             {
                 m_CPURegisters.Halted = false;
+                m_CPURegisters.regPC++;
             }
+
+            z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 8) & 0xff);
+            z80MemWrite(--m_CPURegisters.regSP, (m_CPURegisters.regPC >> 0) & 0xff);
 
             m_CPURegisters.regPC = 0x0066;
         }
@@ -203,7 +229,7 @@ uint32_t Z80::execute(uint32_t numTStates, uint32_t intTStates)
 
         Z80OpcodeTable *table = &Main_Opcodes;
 
-        uint8_t opcode = z80MemRead(m_CPURegisters.regPC, 4);
+        uint8_t opcode = z80OpcodeFetch(m_CPURegisters.regPC);
 
         m_CPURegisters.regPC++;
         m_CPURegisters.regR = (m_CPURegisters.regR & 0x80) | ((m_CPURegisters.regR + 1) & 0x7f);
@@ -213,14 +239,14 @@ uint32_t Z80::execute(uint32_t numTStates, uint32_t intTStates)
             case 0xcb:
                 table = &CB_Opcodes;
 
-                opcode = z80MemRead(m_CPURegisters.regPC, 4);
+                opcode = z80OpcodeFetch(m_CPURegisters.regPC);
                 m_CPURegisters.regPC++;
                 m_CPURegisters.regR = (m_CPURegisters.regR & 0x80) | ((m_CPURegisters.regR + 1) & 0x7f);
                 break;
 
             case 0xdd:
 
-                opcode = z80MemRead(m_CPURegisters.regPC, 4);
+                opcode = z80OpcodeFetch(m_CPURegisters.regPC);
                 m_CPURegisters.regPC++;
                 m_CPURegisters.regR = (m_CPURegisters.regR & 0x80) | ((m_CPURegisters.regR + 1) & 0x7f);
 
@@ -244,14 +270,14 @@ uint32_t Z80::execute(uint32_t numTStates, uint32_t intTStates)
             case 0xed:
                 table = &ED_Opcodes;
 
-                opcode = z80MemRead(m_CPURegisters.regPC, 4);
+                opcode = z80OpcodeFetch(m_CPURegisters.regPC);
                 m_CPURegisters.regPC++;
                 m_CPURegisters.regR = (m_CPURegisters.regR & 0x80) | ((m_CPURegisters.regR + 1) & 0x7f);
                 break;
 
             case 0xfd:
 
-                opcode = z80MemRead(m_CPURegisters.regPC, 4);
+                opcode = z80OpcodeFetch(m_CPURegisters.regPC);
                 m_CPURegisters.regPC++;
                 m_CPURegisters.regR = (m_CPURegisters.regR & 0x80) | ((m_CPURegisters.regR + 1) & 0x7f);
 

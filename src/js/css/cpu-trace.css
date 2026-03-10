@@ -1,0 +1,139 @@
+/*
+ * cpu-trace.css - CPU instruction trace window styles
+ *
+ * Written by
+ *  Mike Daley <michael_daley@icloud.com>
+ */
+
+.cpu-trace {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  font-family: "Berkeley Mono", "JetBrains Mono", "Fira Code", monospace;
+  font-size: 11px;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  user-select: text;
+}
+
+.cpu-trace-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--glass-border);
+  flex-shrink: 0;
+}
+
+.cpu-trace-btn {
+  background: var(--control-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--glass-border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.cpu-trace-btn:hover {
+  background: var(--control-bg-hover, var(--glass-bg-hover));
+}
+
+.cpu-trace-btn.active {
+  background: var(--accent-blue);
+  color: var(--bg-primary);
+  border-color: var(--accent-blue);
+}
+
+.cpu-trace-status {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-left: auto;
+}
+
+.cpu-trace-header {
+  display: flex;
+  padding: 2px 8px;
+  border-bottom: 1px solid var(--glass-border);
+  font-size: 10px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+  gap: 0;
+}
+
+.cpu-trace-header span {
+  flex-shrink: 0;
+}
+
+.cpu-trace-col-num { width: 44px; text-align: right; padding-right: 6px; }
+.cpu-trace-col-addr { width: 40px; }
+.cpu-trace-col-bytes { width: 80px; }
+.cpu-trace-col-mnemonic { width: 120px; }
+.cpu-trace-col-af { width: 40px; }
+.cpu-trace-col-bc { width: 40px; }
+.cpu-trace-col-de { width: 40px; }
+.cpu-trace-col-hl { width: 40px; }
+.cpu-trace-col-sp { width: 40px; }
+.cpu-trace-col-ix { width: 40px; }
+.cpu-trace-col-iy { width: 40px; }
+.cpu-trace-col-flags { width: 52px; }
+
+.cpu-trace-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  position: relative;
+}
+
+.cpu-trace-row {
+  display: flex;
+  padding: 0 8px;
+  line-height: 16px;
+  height: 16px;
+  gap: 0;
+  white-space: nowrap;
+}
+
+.cpu-trace-row:nth-child(odd) {
+  background: var(--bg-secondary, var(--glass-bg));
+}
+
+.cpu-trace-row:hover {
+  background: var(--overlay-hover, rgba(255, 255, 255, 0.05));
+}
+
+.cpu-trace-row span {
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.cpu-trace-row .cpu-trace-col-num {
+  color: var(--text-tertiary, var(--text-secondary));
+}
+
+.cpu-trace-row .cpu-trace-col-addr {
+  color: var(--accent-blue);
+}
+
+.cpu-trace-row .cpu-trace-col-bytes {
+  color: var(--text-secondary);
+}
+
+.cpu-trace-row .cpu-trace-col-mnemonic {
+  color: var(--accent-green);
+}
+
+.cpu-trace-row .cpu-trace-col-flags {
+  color: var(--accent-purple);
+  letter-spacing: 1px;
+}
+
+.cpu-trace-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--text-secondary);
+  font-size: 12px;
+}

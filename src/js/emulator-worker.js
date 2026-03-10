@@ -121,6 +121,7 @@ function getState() {
     tapeIsRecording: wasm._tapeIsRecording(),
     tapeRecordBlockCount: wasm._tapeRecordGetBlockCount(),
     ayEnabled: wasm._isAYEnabled(),
+    specdrumEnabled: !!wasm._isSpecdrumEnabled(),
     issueNumber: wasm._getIssueNumber(),
     pagingRegister: wasm._getPagingRegister(),
     hasBasicProgram: wasm._hasBasicProgram() !== 0,
@@ -578,6 +579,26 @@ self.onmessage = async function (e) {
       break;
     }
 
+    case "loadP": {
+      if (!wasm) break;
+      // .P files require ZX81 (machine ID 5) — auto-switch if needed
+      let pMachineSwitched = false;
+      if (wasm._getMachineId() !== 5) {
+        wasm._initMachine(5);
+        pMachineSwitched = true;
+      }
+      const pData = new Uint8Array(msg.data);
+      const pPtr = wasm._malloc(pData.length);
+      wasm.HEAPU8.set(pData, pPtr);
+      wasm._loadP(pPtr, pData.length);
+      wasm._free(pPtr);
+      if (pMachineSwitched) {
+        self.postMessage({ type: "machineSwitched", machineId: 5 });
+      }
+      self.postMessage({ type: "snapshotLoaded", state: getState() });
+      break;
+    }
+
     case "tapePlay":
       if (wasm) {
         wasm._tapePlay();
@@ -684,6 +705,10 @@ self.onmessage = async function (e) {
 
     case "setAYEnabled":
       if (wasm) wasm._setAYEnabled(msg.enabled ? 1 : 0);
+      break;
+
+    case "setSpecdrumEnabled":
+      if (wasm) wasm._setSpecdrumEnabled(msg.enabled ? 1 : 0);
       break;
 
     case "setIssueNumber":
@@ -1102,6 +1127,32 @@ self.onmessage = async function (e) {
       } else {
         self.postMessage({ type: "diskExportData", drive: msg.drive || 0, data: null });
       }
+      break;
+    }
+
+    case "traceEnable": {
+      if (!wasm) break;
+      wasm._traceEnable(msg.enable ? 1 : 0);
+      break;
+    }
+
+    case "traceGetData": {
+      if (!wasm) {
+        self.postMessage({ type: "traceDataResult", id: msg.id, data: null, entryCount: 0, writeIndex: 0, entrySize: 32, maxEntries: 10000 });
+        break;
+      }
+      const entryCount = wasm._traceGetEntryCount();
+      const writeIndex = wasm._traceGetWriteIndex();
+      const entrySize = wasm._traceGetEntrySize();
+      const maxEntries = wasm._traceGetMaxEntries();
+      const bufPtr = wasm._traceGetBuffer();
+      let data = null;
+      if (bufPtr && entryCount > 0) {
+        const totalBytes = maxEntries * entrySize;
+        data = new Uint8Array(wasm.HEAPU8.buffer, bufPtr, totalBytes).slice();
+      }
+      const transfer = data ? [data.buffer] : [];
+      self.postMessage({ type: "traceDataResult", id: msg.id, data, entryCount, writeIndex, entrySize, maxEntries }, transfer);
       break;
     }
   }

@@ -38,7 +38,15 @@ uint8_t ZXSpectrum::ioReadCallback(uint16_t addr, void* param)
 
 void ZXSpectrum::ioWriteCallback(uint16_t addr, uint8_t data, void* param)
 {
-    static_cast<ZXSpectrum*>(param)->coreIOWrite(addr, data);
+    auto* self = static_cast<ZXSpectrum*>(param);
+
+    // SpecDrum DAC: all ports ending in 0xDF
+    if (self->specdrumEnabled_ && (addr & 0xFF) == 0xDF)
+    {
+        self->audio_.setSpecdrumLevel(((static_cast<float>(data) / 255.0f) * 2.0f - 1.0f) * 0.5f);
+    }
+
+    self->coreIOWrite(addr, data);
 }
 
 void ZXSpectrum::contentionCallback(uint16_t addr, uint32_t ts, void* param)
@@ -445,7 +453,7 @@ void ZXSpectrum::removeBreakpoint(uint16_t addr)
     breakpoints_.erase(addr);
     disabledBreakpoints_.erase(addr);
 
-    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_) {
+    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !traceEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     } else {
         installOpcodeCallback();
@@ -624,7 +632,7 @@ void ZXSpectrum::clearBasicBreakpointMode()
     basicBreakpointLines_.clear();
 
     // If no other reasons to keep the callback, remove it
-    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && !spectranetEnabled_) {
+    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && !spectranetEnabled_ && !traceEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     }
 }
@@ -651,6 +659,11 @@ void ZXSpectrum::installOpcodeCallback()
 {
     z80_->registerOpcodeCallback(
         [this](uint8_t opcode, uint16_t address, void* /*param*/) -> bool {
+            // CPU instruction trace
+            if (traceEnabled_) {
+                traceRecordInstruction(address);
+            }
+
             // Spectranet hardware traps
             if (spectranetEnabled_) {
                 if (spectranet_.isPagedIn()) {
@@ -774,6 +787,62 @@ void ZXSpectrum::installOpcodeCallback()
             }
             return false;
         });
+}
+
+// ============================================================================
+// CPU instruction trace
+// ============================================================================
+
+void ZXSpectrum::setTraceEnabled(bool enabled)
+{
+    if (enabled && traceBuffer_.empty()) {
+        traceBuffer_.resize(TRACE_BUFFER_SIZE);
+    }
+    if (enabled && !traceEnabled_) {
+        traceWriteIndex_ = 0;
+        traceEntryCount_ = 0;
+    }
+    traceEnabled_ = enabled;
+
+    // Ensure the opcode callback is installed/uninstalled as needed
+    if (enabled) {
+        installOpcodeCallback();
+    } else if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_
+               && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_) {
+        z80_->registerOpcodeCallback(nullptr);
+    }
+}
+
+void ZXSpectrum::traceRecordInstruction(uint16_t address)
+{
+    auto& e = traceBuffer_[traceWriteIndex_];
+    e.pc  = address;
+    e.sp  = z80_->getRegister(Z80::WordReg::SP);
+    e.af  = z80_->getRegister(Z80::WordReg::AF);
+    e.bc  = z80_->getRegister(Z80::WordReg::BC);
+    e.de  = z80_->getRegister(Z80::WordReg::DE);
+    e.hl  = z80_->getRegister(Z80::WordReg::HL);
+    e.ix  = z80_->getRegister(Z80::WordReg::IX);
+    e.iy  = z80_->getRegister(Z80::WordReg::IY);
+    e.af_ = z80_->getRegister(Z80::WordReg::AltAF);
+    e.bc_ = z80_->getRegister(Z80::WordReg::AltBC);
+    e.de_ = z80_->getRegister(Z80::WordReg::AltDE);
+    e.hl_ = z80_->getRegister(Z80::WordReg::AltHL);
+    e.i    = z80_->getRegister(Z80::ByteReg::I);
+    e.r    = z80_->getRegister(Z80::ByteReg::R);
+    e.iff1 = z80_->getIFF1();
+    e.im   = z80_->getIMMode();
+
+    // Read up to 4 bytes at PC for display
+    e.bytes[0] = coreDebugRead(address);
+    e.bytes[1] = coreDebugRead(static_cast<uint16_t>(address + 1));
+    e.bytes[2] = coreDebugRead(static_cast<uint16_t>(address + 2));
+    e.bytes[3] = coreDebugRead(static_cast<uint16_t>(address + 3));
+
+    traceWriteIndex_ = (traceWriteIndex_ + 1) % TRACE_BUFFER_SIZE;
+    if (traceEntryCount_ < TRACE_BUFFER_SIZE) {
+        traceEntryCount_++;
+    }
 }
 
 // ============================================================================
@@ -933,7 +1002,7 @@ void ZXSpectrum::tapeEject()
     tapeInstantLoad_ = false;
 
     // Remove opcode callback if no breakpoints remain
-    if (breakpoints_.empty() && !spectranetEnabled_) {
+    if (breakpoints_.empty() && !spectranetEnabled_ && !traceEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     }
 }
