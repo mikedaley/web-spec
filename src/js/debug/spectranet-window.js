@@ -183,7 +183,7 @@ export class SpectranetWindow extends BaseWindow {
     super({
       id: "spectranet",
       title: "Spectranet",
-      defaultWidth: 340,
+      defaultWidth: 400,
       defaultHeight: 520,
       defaultPosition: { x: 80, y: 80 },
       resizeDirections: ["s"],
