@@ -12,8 +12,13 @@ const MACHINE_NAMES = {
   1: "ZX Spectrum 128K",
   2: "ZX Spectrum 128K +2",
   3: "ZX Spectrum 128K +2A",
+  4: "ZX Spectrum +3",
   5: "ZX81",
 };
+
+// Machines 0,1,2 use tape; machines 3,4 use disk
+const TAPE_MACHINES = new Set([0, 1, 2]);
+const DISK_MACHINES = new Set([3, 4]);
 
 export class ScreenWindow extends BaseWindow {
   constructor(renderer) {
@@ -33,13 +38,43 @@ export class ScreenWindow extends BaseWindow {
     // 352x288 = 48px border on all four sides around 256x192 paper
     this._aspect = renderer.width / renderer.height;
     this._viewportLocked = false;
+    this._machineId = 0;
+    this._onMediaButtonClick = null; // callback set by main.js
   }
 
   /**
-   * Update the window title to reflect the current machine.
+   * Update the window title and media shortcut button to reflect the current machine.
    */
   setMachine(machineId) {
+    this._machineId = machineId;
     this.setTitle(MACHINE_NAMES[machineId] || "Screen");
+    this._updateMediaButton();
+  }
+
+  _updateMediaButton() {
+    if (!this._mediaBtn) return;
+    if (TAPE_MACHINES.has(this._machineId)) {
+      this._mediaBtn.style.display = "";
+      this._mediaBtn.title = "Tape Player";
+      this._mediaBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="4" width="20" height="16" rx="2"/>
+        <circle cx="8" cy="12" r="2.5"/><circle cx="16" cy="12" r="2.5"/>
+        <path d="M10.5 12h3"/>
+        <path d="M7 17h10"/>
+      </svg>`;
+    } else if (DISK_MACHINES.has(this._machineId)) {
+      this._mediaBtn.style.display = "";
+      this._mediaBtn.title = "Disk Drive";
+      this._mediaBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="2" width="18" height="20" rx="2"/>
+        <rect x="7" y="2" width="10" height="8" rx="1"/>
+        <rect x="9" y="4" width="6" height="4" rx="0.5"/>
+        <circle cx="12" cy="16" r="2.5"/>
+        <circle cx="12" cy="16" r="0.5" fill="currentColor"/>
+      </svg>`;
+    } else {
+      this._mediaBtn.style.display = "none";
+    }
   }
 
   renderContent() {
@@ -47,10 +82,23 @@ export class ScreenWindow extends BaseWindow {
   }
 
   /**
-   * After create(), inject the viewport lock button into the header and
-   * set up a ResizeObserver so the canvas tracks container size.
+   * After create(), inject the viewport lock button and media shortcut
+   * into the header, and set up a ResizeObserver so the canvas tracks
+   * container size.
    */
   onContentRendered() {
+    // Media shortcut button (tape or disk)
+    // Appended to the window element (not the header) so it remains
+    // accessible in chromeless/fullscreen mode, like the lock button.
+    this._mediaBtn = document.createElement("button");
+    this._mediaBtn.className = "screen-window-media";
+    this._mediaBtn.addEventListener("mousedown", (e) => e.stopPropagation());
+    this._mediaBtn.addEventListener("click", () => {
+      if (this._onMediaButtonClick) this._onMediaButtonClick(this._machineId);
+    });
+    this.element.appendChild(this._mediaBtn);
+    this._updateMediaButton();
+
     // Viewport lock button (expand/compress arrows)
     this._lockBtn = document.createElement("button");
     this._lockBtn.className = "screen-window-lock";

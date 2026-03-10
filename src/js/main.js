@@ -109,6 +109,15 @@ class ZXSpectrumEmulator {
 
       // Create screen window
       this.screenWindow = new ScreenWindow(this.renderer);
+      this.screenWindow._onMediaButtonClick = (machineId) => {
+        // Tape machines (48K, 128K, +2) toggle tape window; disk machines (+2A, +3) toggle disk window
+        if (machineId <= 2) {
+          this.windowManager.toggleWindow("tape-window");
+        } else if (machineId === 3 || machineId === 4) {
+          this.windowManager.toggleWindow("disk-window");
+        }
+        this.refocusCanvas();
+      };
       this.screenWindow.create();
       this.windowManager.register(this.screenWindow);
 

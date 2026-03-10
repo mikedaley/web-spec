@@ -1329,6 +1329,49 @@ main {
   display: block;
 }
 
+/* Media shortcut button — floats in top-right of screen window, left of lock button */
+.screen-window-media {
+  position: absolute;
+  top: 3px;
+  right: 26px;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  opacity: 0.5;
+  transition: opacity 0.15s, color 0.15s, background 0.15s, border-color 0.15s;
+}
+
+.screen-window-media:hover {
+  opacity: 1;
+  color: var(--accent-blue);
+  background: var(--overlay-hover);
+  border-color: var(--overlay-white-10);
+}
+
+/* In chromeless mode, media button fades in on hover like the lock button */
+.debug-window.chromeless .screen-window-media {
+  opacity: 0;
+  background: var(--glass-bg);
+  border-color: var(--glass-border);
+  transition: opacity 0.2s;
+}
+
+.debug-window.chromeless:hover .screen-window-media {
+  opacity: 0.7;
+}
+
+.debug-window.chromeless .screen-window-media:hover {
+  opacity: 1;
+}
+
 /* Viewport lock button — floats in top-right of screen window */
 .screen-window-lock {
   position: absolute;
@@ -1850,7 +1893,8 @@ html[data-mobile="true"] body {
   display: none;
 }
 
-.debug-window.mobile-screen .screen-window-lock {
+.debug-window.mobile-screen .screen-window-lock,
+.debug-window.mobile-screen .screen-window-media {
   display: none;
 }
 
