@@ -86,6 +86,18 @@
   position: relative;
 }
 
+.cpu-trace-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.cpu-trace-viewport {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+}
+
 .cpu-trace-row {
   display: flex;
   padding: 0 8px;
@@ -95,12 +107,8 @@
   white-space: nowrap;
 }
 
-.cpu-trace-row:nth-child(odd) {
-  background: var(--bg-secondary, var(--glass-bg));
-}
-
 .cpu-trace-row:hover {
-  background: var(--overlay-hover, rgba(255, 255, 255, 0.05));
+  background: var(--overlay-hover, rgba(255, 255, 255, 0.05)) !important;
 }
 
 .cpu-trace-row span {

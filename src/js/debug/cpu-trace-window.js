@@ -253,7 +253,7 @@ function disasmZ80(bytes, pc) {
 // ============================================================================
 
 const ROW_HEIGHT = 16;
-const VISIBLE_BUFFER = 50; // extra rows to render beyond viewport
+const OVERSCAN = 10; // extra rows above/below viewport
 
 export class CPUTraceWindow extends BaseWindow {
   constructor() {
@@ -278,6 +278,10 @@ export class CPUTraceWindow extends BaseWindow {
     this._fetchPending = false;
     this._lastFetchTime = 0;
     this._fetchInterval = 200; // ms between fetches
+    this._scrollRAF = null;
+    this._renderedStart = -1;
+    this._renderedEnd = -1;
+    this._rowPool = [];
   }
 
   renderContent() {
@@ -306,7 +310,10 @@ export class CPUTraceWindow extends BaseWindow {
           <span class="cpu-trace-col-flags">Flags</span>
         </div>
         <div class="cpu-trace-list" id="trace-list">
-          <div class="cpu-trace-empty">Click "Start" to begin tracing</div>
+          <div class="cpu-trace-spacer" id="trace-spacer">
+            <div class="cpu-trace-viewport" id="trace-viewport"></div>
+          </div>
+          <div class="cpu-trace-empty" id="trace-empty">Click "Start" to begin tracing</div>
         </div>
       </div>
     `;
@@ -327,6 +334,9 @@ export class CPUTraceWindow extends BaseWindow {
 
   onContentRendered() {
     this._listEl = this.contentElement.querySelector("#trace-list");
+    this._spacerEl = this.contentElement.querySelector("#trace-spacer");
+    this._viewportEl = this.contentElement.querySelector("#trace-viewport");
+    this._emptyEl = this.contentElement.querySelector("#trace-empty");
     this._statusEl = this.contentElement.querySelector("#trace-status");
     this._toggleBtn = this.contentElement.querySelector("#trace-toggle");
     this._clearBtn = this.contentElement.querySelector("#trace-clear");
@@ -347,7 +357,13 @@ export class CPUTraceWindow extends BaseWindow {
       this._traceData = null;
       this._entryCount = 0;
       this._writeIndex = 0;
-      this._listEl.innerHTML = `<div class="cpu-trace-empty">${this._enabled ? "Recording..." : 'Click "Start" to begin tracing'}</div>`;
+      this._renderedStart = -1;
+      this._renderedEnd = -1;
+      this._viewportEl.innerHTML = "";
+      this._rowPool.length = 0;
+      this._spacerEl.style.height = "0px";
+      this._emptyEl.style.display = "";
+      this._emptyEl.textContent = this._enabled ? "Recording..." : 'Click "Start" to begin tracing';
       this._statusEl.textContent = "0 instructions";
       // Re-enable tracing to reset the buffer on the C++ side
       if (this._proxy && this._enabled) {
@@ -358,6 +374,15 @@ export class CPUTraceWindow extends BaseWindow {
 
     this._autoScrollCb.addEventListener("change", () => {
       this._autoScroll = this._autoScrollCb.checked;
+    });
+
+    this._listEl.addEventListener("scroll", () => {
+      if (!this._scrollRAF) {
+        this._scrollRAF = requestAnimationFrame(() => {
+          this._scrollRAF = null;
+          this._renderVisible();
+        });
+      }
     });
   }
 
@@ -398,63 +423,122 @@ export class CPUTraceWindow extends BaseWindow {
     return s;
   }
 
+  _getOrderedIndex(i) {
+    // Map display index i (0 = oldest) to circular buffer index
+    const startIdx = this._entryCount >= this._maxEntries
+      ? this._writeIndex
+      : 0;
+    return (startIdx + i) % this._maxEntries;
+  }
+
+  _createRow() {
+    const row = document.createElement("div");
+    row.className = "cpu-trace-row";
+    // Pre-create spans with class names for column layout
+    const cols = ["num", "addr", "bytes", "mnemonic", "af", "bc", "de", "hl", "sp", "ix", "iy", "flags"];
+    const spans = {};
+    for (const col of cols) {
+      const span = document.createElement("span");
+      span.className = `cpu-trace-col-${col}`;
+      row.appendChild(span);
+      spans[col] = span;
+    }
+    row._spans = spans;
+    return row;
+  }
+
+  _updateRow(row, i) {
+    const bufIdx = this._getOrderedIndex(i);
+    const entry = this._readEntry(bufIdx);
+    if (!entry) return;
+
+    const disasm = disasmZ80(entry.bytes, entry.pc);
+    const mn = disasm ? disasm.mn : "???";
+    const instrLen = disasm ? disasm.len : 1;
+    const bytesStr = entry.bytes.slice(0, instrLen)
+      .map(b => b.toString(16).toUpperCase().padStart(2, "0"))
+      .join(" ");
+
+    const s = row._spans;
+    s.num.textContent = (i + 1).toString();
+    s.addr.textContent = entry.pc.toString(16).toUpperCase().padStart(4, "0");
+    s.bytes.textContent = bytesStr;
+    s.mnemonic.textContent = mn;
+    s.af.textContent = entry.af.toString(16).toUpperCase().padStart(4, "0");
+    s.bc.textContent = entry.bc.toString(16).toUpperCase().padStart(4, "0");
+    s.de.textContent = entry.de.toString(16).toUpperCase().padStart(4, "0");
+    s.hl.textContent = entry.hl.toString(16).toUpperCase().padStart(4, "0");
+    s.sp.textContent = entry.sp.toString(16).toUpperCase().padStart(4, "0");
+    s.ix.textContent = entry.ix.toString(16).toUpperCase().padStart(4, "0");
+    s.iy.textContent = entry.iy.toString(16).toUpperCase().padStart(4, "0");
+    s.flags.textContent = this._formatFlags(entry.af & 0xFF);
+
+    // Alternate row shading based on display index
+    row.style.background = (i & 1) ? "" : "var(--bg-secondary, var(--glass-bg))";
+  }
+
+  _renderVisible() {
+    if (!this._traceData || this._entryCount === 0) return;
+
+    const count = this._entryCount;
+    const scrollTop = this._listEl.scrollTop;
+    const viewHeight = this._listEl.clientHeight;
+
+    // Determine which rows are visible
+    let startRow = Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN;
+    let endRow = Math.ceil((scrollTop + viewHeight) / ROW_HEIGHT) + OVERSCAN;
+    if (startRow < 0) startRow = 0;
+    if (endRow > count) endRow = count;
+
+    // Skip re-render if the visible range hasn't changed
+    if (startRow === this._renderedStart && endRow === this._renderedEnd) return;
+    this._renderedStart = startRow;
+    this._renderedEnd = endRow;
+
+    const neededRows = endRow - startRow;
+
+    // Grow or shrink the row pool
+    while (this._rowPool.length < neededRows) {
+      const row = this._createRow();
+      this._rowPool.push(row);
+    }
+
+    // Update row content and position
+    const fragment = document.createDocumentFragment();
+    for (let i = 0; i < neededRows; i++) {
+      const row = this._rowPool[i];
+      const displayIdx = startRow + i;
+      this._updateRow(row, displayIdx);
+      row.style.position = "absolute";
+      row.style.top = (displayIdx * ROW_HEIGHT) + "px";
+      row.style.width = "100%";
+      fragment.appendChild(row);
+    }
+
+    this._viewportEl.innerHTML = "";
+    this._viewportEl.appendChild(fragment);
+  }
+
   _renderRows() {
     if (!this._traceData || this._entryCount === 0) return;
 
-    // Build ordered list of entries (oldest first)
     const count = this._entryCount;
-    const startIdx = count >= this._maxEntries
-      ? this._writeIndex  // oldest entry is at writeIndex (it was overwritten next)
-      : 0;
+    const totalHeight = count * ROW_HEIGHT;
 
-    const html = [];
-    for (let i = 0; i < count; i++) {
-      const bufIdx = (startIdx + i) % this._maxEntries;
-      const entry = this._readEntry(bufIdx);
-      if (!entry) continue;
+    // Update spacer to reflect total content height
+    this._spacerEl.style.height = totalHeight + "px";
+    this._emptyEl.style.display = "none";
 
-      const disasm = disasmZ80(entry.bytes, entry.pc);
-      const mn = disasm ? disasm.mn : "???";
-      const instrLen = disasm ? disasm.len : 1;
-      const bytesStr = entry.bytes.slice(0, instrLen)
-        .map(b => b.toString(16).toUpperCase().padStart(2, "0"))
-        .join(" ");
-
-      const num = (i + 1).toString();
-      const addr = entry.pc.toString(16).toUpperCase().padStart(4, "0");
-      const af = entry.af.toString(16).toUpperCase().padStart(4, "0");
-      const bc = entry.bc.toString(16).toUpperCase().padStart(4, "0");
-      const de = entry.de.toString(16).toUpperCase().padStart(4, "0");
-      const hl = entry.hl.toString(16).toUpperCase().padStart(4, "0");
-      const sp = entry.sp.toString(16).toUpperCase().padStart(4, "0");
-      const ix = entry.ix.toString(16).toUpperCase().padStart(4, "0");
-      const iy = entry.iy.toString(16).toUpperCase().padStart(4, "0");
-      const flags = this._formatFlags(entry.af & 0xFF);
-
-      html.push(
-        `<div class="cpu-trace-row">` +
-        `<span class="cpu-trace-col-num">${num}</span>` +
-        `<span class="cpu-trace-col-addr">${addr}</span>` +
-        `<span class="cpu-trace-col-bytes">${bytesStr}</span>` +
-        `<span class="cpu-trace-col-mnemonic">${mn}</span>` +
-        `<span class="cpu-trace-col-af">${af}</span>` +
-        `<span class="cpu-trace-col-bc">${bc}</span>` +
-        `<span class="cpu-trace-col-de">${de}</span>` +
-        `<span class="cpu-trace-col-hl">${hl}</span>` +
-        `<span class="cpu-trace-col-sp">${sp}</span>` +
-        `<span class="cpu-trace-col-ix">${ix}</span>` +
-        `<span class="cpu-trace-col-iy">${iy}</span>` +
-        `<span class="cpu-trace-col-flags">${flags}</span>` +
-        `</div>`
-      );
-    }
-
-    this._listEl.innerHTML = html.join("");
     this._statusEl.textContent = `${count.toLocaleString()} instructions`;
 
     if (this._autoScroll) {
-      this._listEl.scrollTop = this._listEl.scrollHeight;
+      this._listEl.scrollTop = totalHeight;
     }
+
+    // Force re-render by invalidating cached range
+    this._renderedStart = -1;
+    this._renderedEnd = -1;
+    this._renderVisible();
   }
 
   update(proxy) {
