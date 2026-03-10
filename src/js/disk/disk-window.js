@@ -416,6 +416,26 @@ export class DiskWindow extends BaseWindow {
     if (!data) return;
     const filename = this._currentFilename || "disk.dsk";
     const blob = new Blob([data], { type: "application/octet-stream" });
+
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName: filename,
+          types: [{
+            description: "Disk Image",
+            accept: { "application/octet-stream": [".dsk"] },
+          }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        return;
+      } catch (e) {
+        if (e.name === "AbortError") return;
+      }
+    }
+
+    // Fallback for browsers without File System Access API
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
