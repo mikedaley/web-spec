@@ -137,6 +137,21 @@ export async function updateFlashSnapshot(id, data) {
   }
 }
 
+export async function renameFlashSnapshot(id, newName) {
+  try {
+    const existing = await db.get(SNAPSHOTS_STORE, id);
+    if (!existing) return false;
+    await db.put(SNAPSHOTS_STORE, {
+      ...existing,
+      name: newName,
+    });
+    return true;
+  } catch (error) {
+    console.error("Error renaming flash snapshot:", error);
+    return false;
+  }
+}
+
 export async function deleteFlashSnapshot(id) {
   try {
     await db.remove(SNAPSHOTS_STORE, id);

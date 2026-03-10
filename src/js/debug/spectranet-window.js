@@ -14,10 +14,152 @@ import {
   listFlashSnapshots,
   loadFlashSnapshot,
   deleteFlashSnapshot,
+  renameFlashSnapshot,
   clearFlashData,
 } from "../spectranet/spectranet-persistence.js";
 import { showToast } from "../ui/toast.js";
 import "../css/spectranet.css";
+
+// Flash config page layout (page 0x1F, from Spectranet flashconf.inc)
+// Config sections:  page offset 0x0000-0x0CFF (module key-value configs)
+// Mount table:      page offset 0x0D00-0x0EFF (4 mounts x 128 bytes)
+// Network config:   page offset 0x0F00-0x0FFF
+const CFG_PAGE = 0x1F * 4096;  // Absolute start of config page in 128KB flash
+
+// Network config offsets (absolute in flash)
+const NET = {
+  GATEWAY:       CFG_PAGE + 0x0F00,
+  SUBNET:        CFG_PAGE + 0x0F04,
+  MAC:           CFG_PAGE + 0x0F08,
+  IP:            CFG_PAGE + 0x0F0E,
+  INITFLAGS:     CFG_PAGE + 0x0F12,
+  HOSTNAME:      CFG_PAGE + 0x0F13,
+  PRIMARY_DNS:   CFG_PAGE + 0x0F24,
+  SECONDARY_DNS: CFG_PAGE + 0x0F28,
+};
+
+// Mount table: 4 entries starting at page offset 0x0D00, each 0x80 bytes
+const MOUNT_BASE = CFG_PAGE + 0x0D00;
+const MOUNT_STRIDE = 0x80;
+const MOUNT_FIELDS = { POINT: 0x00, PROTO: 0x01, HOST: 0x07, PATH: 0x30, USER: 0x60, PASS: 0x70 };
+const MOUNT_HOST_LEN = 0x30 - 0x07;  // 41 bytes
+const MOUNT_PATH_LEN = 0x60 - 0x30;  // 48 bytes
+const MOUNT_USER_LEN = 0x70 - 0x60;  // 16 bytes
+
+// Config section system: starts at page offset 0x0000
+const CFG_SECTIONS_BASE = CFG_PAGE;
+const AM_SECTION_ID = 0x01FF;   // Automount config section
+const AM_FS0 = 0x00;            // Automount URL keys (string items)
+const AM_FS3 = 0x03;
+const AM_AUTOBOOT = 0x81;       // Autoboot key (byte item)
+
+function readFlashString(data, offset, maxLen) {
+  let s = "";
+  for (let i = 0; i < maxLen; i++) {
+    const b = data[offset + i];
+    if (b === 0 || b === 0xFF) break;
+    s += String.fromCharCode(b);
+  }
+  return s;
+}
+
+function parseMounts(data) {
+  const mounts = [];
+  for (let i = 0; i < 4; i++) {
+    const base = MOUNT_BASE + i * MOUNT_STRIDE;
+    const host = readFlashString(data, base + MOUNT_FIELDS.HOST, MOUNT_HOST_LEN);
+    if (!host) continue;  // Unconfigured slot (all 0xFF or 0x00)
+    const path = readFlashString(data, base + MOUNT_FIELDS.PATH, MOUNT_PATH_LEN);
+    const user = readFlashString(data, base + MOUNT_FIELDS.USER, MOUNT_USER_LEN);
+    const proto = data[base + MOUNT_FIELDS.PROTO];
+    mounts.push({ index: i, host, path: path || "/", user: user || null, proto });
+  }
+  return mounts;
+}
+
+function parseConfigSections(data) {
+  // Config section binary format (from Spectranet configdata.asm):
+  //   2-byte total size (LE), then sections:
+  //     2-byte section ID (LE), 2-byte section size (LE), then items
+  //   Item types by ID bit pattern:
+  //     0x00-0x3F (bits 7:6 = 00): string — 1-byte ID + null-terminated string
+  //     0x80-0xBF (bits 7:6 = 10): byte   — 1-byte ID + 1-byte value
+  //     0xC0-0xFF (bits 7:6 = 11): word   — 1-byte ID + 2-byte value (LE)
+  const result = { autoboot: null, automountUrls: [] };
+  const base = CFG_SECTIONS_BASE;
+  if (data.length < base + 4) return result;
+
+  const totalSize = data[base] | (data[base + 1] << 8);
+  if (totalSize === 0 || totalSize === 0xFFFF || totalSize > 0x0CFF) return result;
+
+  let pos = base + 2;
+  const end = base + 2 + totalSize;
+
+  while (pos + 4 <= end) {
+    const sectionId = data[pos] | (data[pos + 1] << 8);
+    const sectionSize = data[pos + 2] | (data[pos + 3] << 8);
+    if (sectionId === 0xFFFF || sectionSize === 0xFFFF) break;
+
+    const sectionEnd = pos + 4 + sectionSize;
+    if (sectionId === AM_SECTION_ID) {
+      // Parse items within the automount section
+      let itemPos = pos + 4;
+      while (itemPos < sectionEnd) {
+        const id = data[itemPos++];
+        if (id === 0xFF) break;
+        if ((id & 0xC0) === 0x00) {
+          // String item — read null-terminated string
+          let str = "";
+          while (itemPos < sectionEnd && data[itemPos] !== 0) {
+            str += String.fromCharCode(data[itemPos++]);
+          }
+          itemPos++;  // Skip null terminator
+          if (id >= AM_FS0 && id <= AM_FS3 && str) {
+            result.automountUrls.push({ index: id, url: str });
+          }
+        } else if ((id & 0xC0) === 0x80) {
+          // Byte item
+          if (itemPos < sectionEnd) {
+            if (id === AM_AUTOBOOT) result.autoboot = data[itemPos];
+            itemPos++;
+          }
+        } else {
+          // Word item (0xC0-0xFF)
+          itemPos += 2;
+        }
+      }
+    }
+    pos = sectionEnd;
+  }
+  return result;
+}
+
+function parseFlashConfig(data) {
+  if (!data || data.length < CFG_PAGE + 0x0F2C) return null;
+
+  const ip = (o) => `${data[o]}.${data[o + 1]}.${data[o + 2]}.${data[o + 3]}`;
+  const mac = (o) => Array.from(data.slice(o, o + 6), b => b.toString(16).toUpperCase().padStart(2, "0")).join(":");
+  const hostname = readFlashString(data, NET.HOSTNAME, 16);
+  const flags = data[NET.INITFLAGS];
+
+  const mounts = parseMounts(data);
+  const sections = parseConfigSections(data);
+
+  return {
+    ip: ip(NET.IP),
+    gateway: ip(NET.GATEWAY),
+    subnet: ip(NET.SUBNET),
+    primaryDns: ip(NET.PRIMARY_DNS),
+    secondaryDns: ip(NET.SECONDARY_DNS),
+    mac: mac(NET.MAC),
+    hostname: hostname || "(none)",
+    staticIp: (flags & 0x02) !== 0,
+    disableRst8: (flags & 0x04) !== 0,
+    mounts,
+    automountUrls: sections.automountUrls,
+    autoboot: sections.autoboot,
+  };
+}
 
 // W5100 socket status names
 const SOCK_STATUS_NAMES = {
@@ -50,6 +192,9 @@ export class SpectranetWindow extends BaseWindow {
     this.corsProxyUrl = localStorage.getItem("zxspec-spectranet-cors-proxy") || "wss://spectrem-proxy.retrotech71.co.uk";
     this.snapshots = [];
     this.activeSnapshotId = localStorage.getItem("zxspec-spectranet-active-flash") || "__rom_default__";
+    this.configCache = new Map();
+    this.tooltip = null;
+    this.tooltipHoverTimer = null;
   }
 
   renderContent() {
@@ -182,6 +327,11 @@ export class SpectranetWindow extends BaseWindow {
       });
     }
 
+    // Create config tooltip element
+    this.tooltip = document.createElement("div");
+    this.tooltip.className = "spectranet-flash-tooltip";
+    document.body.appendChild(this.tooltip);
+
     // Initial snapshot list load
     this.refreshSnapshotList();
   }
@@ -213,6 +363,7 @@ export class SpectranetWindow extends BaseWindow {
         <div class="spectranet-flash-item-actions">
           <button class="spectranet-flash-action-btn snet-flash-save" title="Save current flash to this snapshot">Save</button>
           <button class="spectranet-flash-action-btn snet-flash-load" title="Load">Load</button>
+          <button class="spectranet-flash-action-btn snet-flash-rename" title="Rename">Ren</button>
           <button class="spectranet-flash-action-btn snet-flash-delete" title="Delete">Del</button>
         </div>
       </div>
@@ -246,6 +397,7 @@ export class SpectranetWindow extends BaseWindow {
           const flashData = await this.proxy.spectranetGetFlashData();
           if (flashData) {
             await updateFlashSnapshot(id, flashData);
+            this.configCache.delete(id);
             await this.refreshSnapshotList();
             showToast(`Flash "${itemName}" updated`);
           }
@@ -254,11 +406,53 @@ export class SpectranetWindow extends BaseWindow {
         }
       });
 
+      item.querySelector(".snet-flash-rename")?.addEventListener("click", () => {
+        const nameEl = item.querySelector(".spectranet-flash-item-name");
+        if (!nameEl) return;
+
+        const input = document.createElement("input");
+        input.type = "text";
+        input.className = "spectranet-config-input spectranet-flash-rename-input";
+        input.value = itemName;
+        nameEl.replaceWith(input);
+        input.focus();
+        input.select();
+
+        const commit = async () => {
+          const newName = input.value.trim();
+          if (newName && newName !== itemName) {
+            await renameFlashSnapshot(id, newName);
+            showToast(`Renamed to "${newName}"`);
+          }
+          await this.refreshSnapshotList();
+        };
+
+        input.addEventListener("keydown", (e) => {
+          if (e.key === "Enter") { e.preventDefault(); commit(); }
+          if (e.key === "Escape") { e.preventDefault(); this.refreshSnapshotList(); }
+        });
+        input.addEventListener("blur", commit);
+      });
+
       item.querySelector(".snet-flash-delete")?.addEventListener("click", async () => {
         await deleteFlashSnapshot(id);
+        this.configCache.delete(id);
         showToast(`Flash "${itemName}" deleted`);
         await this.refreshSnapshotList();
       });
+
+      // Hover tooltip for snapshot config
+      if (id !== "__rom_default__") {
+        item.addEventListener("mouseenter", (e) => {
+          clearTimeout(this.tooltipHoverTimer);
+          this.tooltipHoverTimer = setTimeout(() => this.showConfigTooltip(id, e), 400);
+        });
+        item.addEventListener("mousemove", (e) => this.positionTooltip(e));
+        item.addEventListener("mouseleave", () => {
+          clearTimeout(this.tooltipHoverTimer);
+          this.hideConfigTooltip();
+        });
+      }
     }
 
   }
@@ -333,6 +527,80 @@ export class SpectranetWindow extends BaseWindow {
 
   hex16(v) {
     return (v ?? 0).toString(16).toUpperCase().padStart(4, "0");
+  }
+
+  async showConfigTooltip(id, e) {
+    if (!this.tooltip) return;
+
+    let config = this.configCache.get(id);
+    if (!config) {
+      const data = await loadFlashSnapshot(id);
+      if (!data) return;
+      config = parseFlashConfig(data);
+      if (!config) return;
+      this.configCache.set(id, config);
+    }
+
+    const row = (label, value) =>
+      `<div class="spectranet-tooltip-row"><span class="spectranet-tooltip-label">${label}</span><span class="spectranet-tooltip-value">${this.escapeAttr(value)}</span></div>`;
+    const heading = (text) =>
+      `<div class="spectranet-tooltip-heading">${text}</div>`;
+
+    let html = heading("Network");
+    html += row("Hostname", config.hostname);
+    html += row("IP", config.ip);
+    html += row("Gateway", config.gateway);
+    html += row("Subnet", config.subnet);
+    html += row("DNS", config.primaryDns);
+    html += row("DNS 2", config.secondaryDns);
+    html += row("MAC", config.mac);
+    html += row("Mode", config.staticIp ? "Static" : "DHCP");
+    if (config.disableRst8) html += row("RST8 Traps", "Disabled");
+
+    // Build a merged view: automount URLs are the authoritative source,
+    // fall back to the fixed mount table for any slots not in the config sections
+    const hasMounts = config.mounts.length > 0 || config.automountUrls.length > 0;
+    if (hasMounts) {
+      html += heading("Filesystems");
+      const urlMap = new Map(config.automountUrls.map(u => [u.index, u.url]));
+      const mountMap = new Map(config.mounts.map(m => [m.index, m]));
+      const allIndices = new Set([...urlMap.keys(), ...mountMap.keys()]);
+      for (const idx of [...allIndices].sort()) {
+        const url = urlMap.get(idx);
+        const mt = mountMap.get(idx);
+        if (url) {
+          html += row(`Mount ${idx}`, url);
+        } else if (mt) {
+          html += row(`Mount ${idx}`, `${mt.host}:${mt.path}`);
+        }
+        if (mt?.user) html += row(`  User`, mt.user);
+      }
+    }
+
+    if (config.autoboot !== null && config.autoboot !== undefined && config.autoboot !== 0xFF) {
+      html += heading("Autoboot");
+      html += row("Boot from", `Mount ${config.autoboot}`);
+    }
+
+    this.tooltip.innerHTML = html;
+    this.positionTooltip(e);
+    this.tooltip.classList.add("spectranet-flash-tooltip-visible");
+  }
+
+  positionTooltip(e) {
+    if (!this.tooltip) return;
+    const pad = 12;
+    let x = e.clientX + pad;
+    let y = e.clientY + pad;
+    const rect = this.tooltip.getBoundingClientRect();
+    if (x + rect.width > window.innerWidth) x = e.clientX - rect.width - pad;
+    if (y + rect.height > window.innerHeight) y = e.clientY - rect.height - pad;
+    this.tooltip.style.left = `${x}px`;
+    this.tooltip.style.top = `${y}px`;
+  }
+
+  hideConfigTooltip() {
+    if (this.tooltip) this.tooltip.classList.remove("spectranet-flash-tooltip-visible");
   }
 
   getState() {

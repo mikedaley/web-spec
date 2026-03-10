@@ -302,4 +302,70 @@
   transform: scale(0.95);
 }
 
+.spectranet-flash-rename-input {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 4px;
+  width: 100%;
+  min-width: 0;
+}
+
+/* Flash config hover tooltip */
+.spectranet-flash-tooltip {
+  position: fixed;
+  z-index: 100000;
+  pointer-events: none;
+  background: var(--bg-secondary);
+  border: 1px solid var(--accent-blue-border);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  min-width: 180px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  box-shadow: var(--shadow-lg, 0 4px 12px rgba(0, 0, 0, 0.3));
+}
+
+.spectranet-flash-tooltip-visible {
+  opacity: 1;
+}
+
+.spectranet-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 1px 0;
+}
+
+.spectranet-tooltip-label {
+  color: var(--text-secondary);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.spectranet-tooltip-value {
+  font-family: var(--font-mono, monospace);
+  color: var(--accent-green);
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.spectranet-tooltip-heading {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--accent-blue);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 0 2px;
+  border-top: 1px solid var(--glass-border);
+  margin-top: 2px;
+}
+
+.spectranet-tooltip-heading:first-child {
+  border-top: none;
+  margin-top: 0;
+  padding-top: 0;
+}
+
 
