@@ -1722,12 +1722,21 @@ class ZXSpectrumEmulator {
   }
 
   startRenderLoop() {
-    const render = () => {
+    let lastIdleDrawTime = 0;
+    const IDLE_DRAW_INTERVAL = 20; // ~50Hz when emulator is off (matches Spectrum frame rate)
+
+    const render = (timestamp) => {
       if (!this.running) {
-        this.renderer.draw();
+        // Throttle to ~10fps when powered off (no-signal static animation)
+        if (timestamp - lastIdleDrawTime >= IDLE_DRAW_INTERVAL) {
+          lastIdleDrawTime = timestamp;
+          this.renderer.draw();
+          this.windowManager.updateAll(this.proxy);
+        }
+      } else {
+        // When running, debug windows update at display refresh rate
+        this.windowManager.updateAll(this.proxy);
       }
-      // Always update debug windows (needed for stepping when paused)
-      this.windowManager.updateAll(this.proxy);
       this.animFrameId = requestAnimationFrame(render);
     };
 

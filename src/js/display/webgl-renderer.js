@@ -456,11 +456,12 @@ export class WebGLRenderer {
     // Update time for animated effects
     this.time += 0.016;
 
-    // Update burn-in accumulation
-    this.updateBurnIn();
-
-    // Decode composite signal (fills compositeDecodeFBO)
-    this.decodeComposite();
+    // Skip burn-in and composite decode in no-signal mode — the shader
+    // early-returns before sampling those textures, so the work is wasted.
+    if (this.crtParams.noSignal < 0.5) {
+      this.updateBurnIn();
+      this.decodeComposite();
+    }
 
     gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT);
