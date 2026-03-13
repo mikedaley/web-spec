@@ -818,17 +818,27 @@ html[data-theme="light"] .kbd-ext-above {
   display: block;
 }
 
-/* E+CapsShift: number row — hide numbers (match keyword-caps behaviour) */
+/* E+CapsShift: number row — small number top-left, colour name centered */
 .kbd-container[data-shift-mode="extended-caps"] .kbd-section-0 .kbd-main {
-  opacity: 0;
+  opacity: 0.5;
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  transform: none;
+  font-size: 11px;
+  line-height: 13px;
+  z-index: 1;
 }
 
-/* E+CapsShift: dim off-key labels (but keep number row above-text/arrows highlighted) */
-.kbd-container[data-shift-mode="extended-caps"] .kbd-section-1 .kbd-above-text,
-.kbd-container[data-shift-mode="extended-caps"] .kbd-section-2 .kbd-above-text,
-.kbd-container[data-shift-mode="extended-caps"] .kbd-section-3 .kbd-above-text,
+.kbd-container[data-shift-mode="extended-caps"] .kbd-section-0 .kbd-ext-color {
+  display: block;
+}
+
+/* E+CapsShift: dim all off-key labels */
+.kbd-container[data-shift-mode="extended-caps"] .kbd-above-text,
 .kbd-container[data-shift-mode="extended-caps"] .kbd-color-name,
 .kbd-container[data-shift-mode="extended-caps"] .kbd-below-text,
+.kbd-container[data-shift-mode="extended-caps"] .kbd-arrow-svg,
 .kbd-container[data-shift-mode="extended-caps"] .kbd-space-break,
 .kbd-container[data-shift-mode="extended-caps"] .kbd-space-label {
   opacity: 0.35;
