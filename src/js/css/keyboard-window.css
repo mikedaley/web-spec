@@ -591,9 +591,20 @@ html[data-theme="light"] .kbd-sym-char {
 .kbd-container[data-shift-mode="keyword"] .kbd-sym-char,
 .kbd-container[data-shift-mode="keyword"] .kbd-graphic,
 .kbd-container[data-shift-mode="keyword-caps"] .kbd-sym-char,
-.kbd-container[data-shift-mode="keyword-caps"] .kbd-graphic,
-.kbd-container[data-shift-mode="keyword-caps"] .kbd-section-0 .kbd-main {
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-graphic {
   opacity: 0;
+}
+
+/* K+CapsShift: number row — small number top-left */
+.kbd-container[data-shift-mode="keyword-caps"] .kbd-section-0 .kbd-main {
+  opacity: 0.5;
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  transform: none;
+  font-size: 11px;
+  line-height: 13px;
+  z-index: 1;
 }
 
 /* K mode: off-key labels dimmed */
