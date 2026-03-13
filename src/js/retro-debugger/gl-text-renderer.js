@@ -147,7 +147,7 @@ varying vec4 v_color;
 void main() {
   vec4 s = texture2D(u_tex, v_uv);
   float a = max(s.r, max(s.g, s.b));
-  if (a < 0.1) discard;
+  if (a < 0.01) discard;
   gl_FragColor = vec4(v_color.rgb, v_color.a * a);
 }
 `;
@@ -207,6 +207,17 @@ export class GLTextRenderer {
     });
     if (!gl) throw new Error("WebGL not available for retro debugger");
     this.gl = gl;
+
+    // Load JetBrains Mono font for atlas rendering
+    try {
+      const font = new FontFace("JetBrains Mono", "url(fonts/jetbrains-mono-regular.woff2)");
+      await font.load();
+      document.fonts.add(font);
+      this._fontFamily = "JetBrains Mono";
+    } catch (e) {
+      // Fallback to system monospace if font fails to load
+      this._fontFamily = "monospace";
+    }
 
     // Compile programs
     this._solidProg = this._createProgram(VERT_SRC, FRAG_SOLID_SRC);
@@ -497,39 +508,27 @@ export class GLTextRenderer {
     const atlasW = ATLAS_COLS * cellW;
     const atlasH = ATLAS_ROWS * cellH;
 
-    // Pixel scale: how many screen pixels per font pixel
-    const pxW = Math.floor(cellW / 8);
-    const pxH = Math.floor(cellH / 8);
-    // Offset to centre the glyph in the cell
-    const offX = Math.floor((cellW - pxW * 8) / 2);
-    const offY = Math.floor((cellH - pxH * 8) / 2);
-
     const canvas = document.createElement("canvas");
     canvas.width = atlasW;
     canvas.height = atlasH;
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, atlasW, atlasH);
+
+    // Use JetBrains Mono (or fallback monospace) rendered via Canvas 2D text API.
+    // Size the font to fill the cell height with some padding.
+    const fontSize = Math.floor(cellH * 0.85);
+    const fontFamily = this._fontFamily || "monospace";
+    ctx.font = `${fontSize}px "${fontFamily}"`;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "center";
     ctx.fillStyle = "#fff";
 
-    // Render each character by painting scaled pixels from the bitmap data
-    for (let code = 0; code < 128; code++) {
-      const fontIdx = code - 32; // ZX_FONT_DATA starts at ASCII 32
-      if (fontIdx < 0 || fontIdx >= 96) continue;
-
+    for (let code = 32; code < 128; code++) {
       const col = code % ATLAS_COLS;
       const row = Math.floor(code / ATLAS_COLS);
-      const cx = col * cellW + offX;
-      const cy = row * cellH + offY;
-
-      for (let py = 0; py < 8; py++) {
-        const byte = ZX_FONT_DATA[fontIdx * 8 + py];
-        if (byte === 0) continue;
-        for (let px = 0; px < 8; px++) {
-          if (byte & (0x80 >> px)) {
-            ctx.fillRect(cx + px * pxW, cy + py * pxH, pxW, pxH);
-          }
-        }
-      }
+      const cx = col * cellW + Math.floor(cellW / 2);
+      const cy = row * cellH + Math.floor(cellH / 2);
+      ctx.fillText(String.fromCharCode(code), cx, cy);
     }
 
     return canvas;

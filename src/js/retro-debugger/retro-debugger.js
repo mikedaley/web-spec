@@ -110,7 +110,7 @@ const MIN_PANEL = {
   regs:    { cols: 28, rows: 14 },
   hex:     { cols: 56, rows: 8 },
   stack:   { cols: 16, rows: 8 },
-  ay:      { cols: 28, rows: 10 },
+  ay:      { cols: 58, rows: 5 },
   memmap:  { cols: 40, rows: 6 },
   status:  { cols: 40, rows: 8 },
 };
@@ -1460,6 +1460,12 @@ export class RetroDebugger {
 
     const mixer = r[7];
 
+    // Left half: channel info
+    const leftCol = col;
+    // Right half starts after a vertical divider
+    const divCol = col + 30;
+    const rightCol = divCol + 2;
+
     for (const ch of channels) {
       if (this._rowVisible(win, y)) {
         const freq = ch.tone > 0 ? AY_CLOCK / (16 * ch.tone) : 0;
@@ -1467,15 +1473,15 @@ export class RetroDebugger {
         const toneOn = !(mixer & (ch.name === "A" ? 1 : ch.name === "B" ? 2 : 4));
         const noiseOn = !(mixer & (ch.name === "A" ? 8 : ch.name === "B" ? 16 : 32));
 
-        this._clipText(win, col, y, "CH-" + ch.name, ...ch.col);
-        this._clipText(win, col + 5, y, "T", ...(toneOn ? C.GREEN : C.DIM_RED));
-        this._clipText(win, col + 6, y, "N", ...(noiseOn ? C.YELLOW : C.DIM_RED));
+        this._clipText(win, leftCol, y, "CH-" + ch.name, ...ch.col);
+        this._clipText(win, leftCol + 5, y, "T", ...(toneOn ? C.GREEN : C.DIM_RED));
+        this._clipText(win, leftCol + 6, y, "N", ...(noiseOn ? C.YELLOW : C.DIM_RED));
 
         const freqStr = freq > 0 ? Math.round(freq).toString().padStart(5) + "Hz" : "  ---  ";
-        this._clipText(win, col + 8, y, freqStr, ...C.WHITE);
-        this._clipText(win, col + 16, y, note.padStart(3), ...C.YELLOW);
+        this._clipText(win, leftCol + 8, y, freqStr, ...C.WHITE);
+        this._clipText(win, leftCol + 16, y, note.padStart(3), ...C.YELLOW);
 
-        const barX = (col + 20) * this._charW;
+        const barX = (leftCol + 20) * this._charW;
         const barY = y * this._charH + 2;
         const barMaxW = 9 * this._charW;
         const barH = this._charH - 4;
@@ -1483,31 +1489,44 @@ export class RetroDebugger {
         const fillW = ch.env ? barMaxW : (ch.vol / 15) * barMaxW;
         const [cr, cg, cb] = ch.col;
         this._clipFillRect(win, barX, barY, fillW, barH, cr * 0.7, cg * 0.7, cb * 0.7, 0.9);
-        this._clipText(win, col + 20, y, ch.env ? "ENV" : String(ch.vol).padStart(2), ...(ch.env ? C.MAGENTA : C.WHITE));
+        this._clipText(win, leftCol + 20, y, ch.env ? "ENV" : String(ch.vol).padStart(2), ...(ch.env ? C.MAGENTA : C.WHITE));
       }
       y++;
     }
 
-    this._hline(win, y - win.row); y++;
+    // Vertical divider between left and right sections
+    const divX = divCol * this._charW;
+    const divY0 = (win.row + TITLE_H) * this._charH;
+    const divH = 3 * this._charH;
+    const [dar, dag, dab] = win.accentCol;
+    this._clipFillRect(win, divX, divY0, 1, divH, dar * 0.4, dag * 0.4, dab * 0.4, 0.8);
 
-    if (this._rowVisible(win, y)) {
-      this._clipText(win, col, y, "NOISE:", ...C.DIM_CYAN);
-      this._clipText(win, col + 7, y, String(r[6] & 0x1F).padStart(2), ...C.WHITE);
-      const noiseFreq = (r[6] & 0x1F) > 0 ? AY_CLOCK / (16 * (r[6] & 0x1F)) : 0;
-      this._clipText(win, col + 11, y, noiseFreq > 0 ? Math.round(noiseFreq) + "Hz" : "---", ...C.MID_GREY);
+    // Right side: noise, envelope, shape, LFSR
+    // Labels at +0 (7 chars wide), values at +7, secondary values aligned at +11
+    let ry = win.row + TITLE_H;
+    const lbl = rightCol;      // label column
+    const val = rightCol + 7;  // primary value column
+    const val2 = rightCol + 10; // secondary value column
+
+    if (this._rowVisible(win, ry)) {
+      const noisePeriod = r[6] & 0x1F;
+      const noiseFreq = noisePeriod > 0 ? AY_CLOCK / (16 * noisePeriod) : 0;
+      this._clipText(win, lbl, ry,  "NOISE:", ...C.DIM_CYAN);
+      this._clipText(win, val, ry,  String(noisePeriod).padStart(2), ...C.WHITE);
+      this._clipText(win, val2, ry, noiseFreq > 0 ? Math.round(noiseFreq).toString().padStart(5) + "Hz" : "  ---  ", ...C.MID_GREY);
     }
-    y++;
+    ry++;
 
-    if (this._rowVisible(win, y)) {
-      this._clipText(win, col, y, "ENV:  ", ...C.DIM_CYAN);
+    if (this._rowVisible(win, ry)) {
       const envPeriod = r[11] | (r[12] << 8);
       const envFreq = envPeriod > 0 ? AY_CLOCK / (256 * envPeriod) : 0;
-      this._clipText(win, col + 6, y, "P=" + String(envPeriod).padStart(5), ...C.WHITE);
-      this._clipText(win, col + 14, y, envFreq > 0 ? Math.round(envFreq * 10) / 10 + "Hz" : "---", ...C.MID_GREY);
+      this._clipText(win, lbl, ry,  "ENV:  ", ...C.DIM_CYAN);
+      this._clipText(win, val, ry,  String(envPeriod).padStart(5), ...C.WHITE);
+      this._clipText(win, val + 5, ry, envFreq > 0 ? (" " + (Math.round(envFreq * 10) / 10) + "Hz").padStart(8) : "     ---", ...C.MID_GREY);
     }
-    y++;
+    ry++;
 
-    if (this._rowVisible(win, y)) {
+    if (this._rowVisible(win, ry)) {
       const envShape = r[13] & 0x0F;
       const shapes = [
         "\\___","\\___","\\___","\\___",
@@ -1515,17 +1534,14 @@ export class RetroDebugger {
         "\\\\\\\\","\\___","\\/\\/","\\^^",
         "////","/^^^","/\\/\\","/___",
       ];
-      this._clipText(win, col, y, "SHAPE:", ...C.DIM_CYAN);
-      this._clipText(win, col + 7, y, String(envShape).padStart(2), ...C.WHITE);
-      this._clipText(win, col + 10, y, shapes[envShape] || "????", ...C.MAGENTA);
-    }
+      this._clipText(win, lbl, ry,  "SHAPE:", ...C.DIM_CYAN);
+      this._clipText(win, val, ry,  String(envShape).padStart(2), ...C.WHITE);
+      this._clipText(win, val2, ry, shapes[envShape] || "????", ...C.MAGENTA);
 
-    const internals = p.getAYInternals();
-    if (internals) {
-      y++;
-      if (this._rowVisible(win, y)) {
-        this._clipText(win, col, y, "LFSR:", ...C.DIM_CYAN);
-        this._clipText(win, col + 6, y, "$" + (internals.noiseLFSR & 0xFFFF).toString(16).toUpperCase().padStart(4, "0"), ...C.MID_GREY);
+      const internals = p.getAYInternals();
+      if (internals) {
+        this._clipText(win, val2 + 6, ry, "LFSR:", ...C.DIM_CYAN);
+        this._clipText(win, val2 + 12, ry, "$" + (internals.noiseLFSR & 0xFFFF).toString(16).toUpperCase().padStart(4, "0"), ...C.MID_GREY);
       }
     }
 
