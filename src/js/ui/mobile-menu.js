@@ -158,8 +158,14 @@ export class MobileMenu {
         <button class="mobile-menu-item" data-mobile-window="font-editor">
           <span class="menu-item-label">Font Editor</span>
         </button>
+        <button class="mobile-menu-item" data-mobile-window="memory-heatmap">
+          <span class="menu-item-label">Memory Heat Map</span>
+        </button>
         <button class="mobile-menu-item" data-mobile-window="spectranet">
           <span class="menu-item-label">Spectranet</span>
+        </button>
+        <button class="mobile-menu-item" id="mobile-retro-debugger">
+          <span class="menu-item-label">Retro Debugger</span>
         </button>
       </div>
 
@@ -316,6 +322,15 @@ export class MobileMenu {
         this._windowManager.showWindowMobile(windowId);
       });
     });
+
+    // Retro Debugger
+    const retroDebuggerBtn = this._element.querySelector('#mobile-retro-debugger');
+    if (retroDebuggerBtn) {
+      retroDebuggerBtn.addEventListener('click', () => {
+        this.close();
+        if (this._emulator.retroDebugger) this._emulator.retroDebugger.toggle();
+      });
+    }
 
     // Reset layout
     const resetBtn = this._element.querySelector('#mobile-reset-layout');

@@ -107,6 +107,7 @@ export class InputHandler {
     // prematurely when only one key is lifted.
     this._bitRefCount = new Array(8 * 5).fill(0);
 
+    this._enabled = true;
     this._onKeyDown = (e) => this.handleKeyDown(e);
     this._onKeyUp = (e) => this.handleKeyUp(e);
     this._onBlur = () => this.releaseAllKeys();
@@ -137,7 +138,13 @@ export class InputHandler {
     window.addEventListener("blur", this._onBlur);
   }
 
+  setEnabled(enabled) {
+    this._enabled = enabled;
+    if (!enabled) this.releaseAllKeys();
+  }
+
   handleKeyDown(event) {
+    if (!this._enabled) return;
     // Don't intercept typing in input fields
     const tag = event.target.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || event.target.isContentEditable) return;
@@ -163,6 +170,7 @@ export class InputHandler {
   }
 
   handleKeyUp(event) {
+    if (!this._enabled) return;
     const tag = event.target.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || event.target.isContentEditable) return;
 

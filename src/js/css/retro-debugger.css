@@ -1,0 +1,25 @@
+/*
+ * retro-debugger.css - Full-screen retro debugger overlay
+ */
+
+.retro-debugger-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10000;
+  display: none;
+  background: #000;
+}
+
+.retro-debugger-overlay.visible {
+  display: block;
+}
+
+.retro-debugger-overlay canvas {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}

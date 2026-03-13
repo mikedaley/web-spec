@@ -829,6 +829,15 @@ self.onmessage = async function (e) {
       break;
     }
 
+    case "disassembleAroundPC": {
+      if (!wasm) break;
+      const daPtr = wasm._disassembleAroundPC(msg.pc, msg.rowsBefore, msg.rowsAfter);
+      const daSize = wasm._disassembleGetSize();
+      const daData = new Uint8Array(wasm.HEAPU8.buffer, daPtr, daSize).slice();
+      self.postMessage({ type: "disassembleAroundPCResult", id: msg.id, data: daData }, [daData.buffer]);
+      break;
+    }
+
     case "getDisplayDimensions":
       if (wasm) {
         self.postMessage({

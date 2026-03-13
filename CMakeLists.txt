@@ -289,6 +289,7 @@ if(EMSCRIPTEN)
                 \"_clearTempBreakpoint\", \
                 \"_disassembleAt\", \
                 \"_disassembleGetSize\", \
+                \"_disassembleAroundPC\", \
                 \"_getInstructionLength\", \
                 \"_basicRenumberProgram\", \
                 \"_basicRenumberGetResult\", \

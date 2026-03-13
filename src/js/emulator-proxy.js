@@ -206,6 +206,15 @@ export class EmulatorProxy {
         break;
       }
 
+      case "disassembleAroundPCResult": {
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve(msg.data);
+        }
+        break;
+      }
+
       case "traceDataResult": {
         const resolve = this._pendingRequests.get(msg.id);
         if (resolve) {
@@ -576,6 +585,14 @@ export class EmulatorProxy {
     return new Promise((resolve) => {
       this._pendingRequests.set(id, resolve);
       this.worker.postMessage({ type: "disassemble", addr, count, id });
+    });
+  }
+
+  disassembleAroundPC(pc, rowsBefore, rowsAfter) {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "disassembleAroundPC", pc, rowsBefore, rowsAfter, id });
     });
   }
 

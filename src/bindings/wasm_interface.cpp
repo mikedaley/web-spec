@@ -1164,8 +1164,8 @@ const char* basicAutoRenumberGetResult() {
 //   uint8_t  bytes[4] (4 bytes)
 //   uint8_t  mnemonicLen (1 byte)
 //   char     mnemonic[32] (32 bytes, null-padded)
-// Total: 40 bytes per instruction, max 64 instructions = 2560 bytes
-static uint8_t s_disasmBuf[64 * 40];
+// Total: 40 bytes per instruction, max 256 instructions = 10240 bytes
+static uint8_t s_disasmBuf[256 * 40];
 static int s_disasmBufSize = 0;
 
 static uint8_t disasmReadByte(uint16_t addr, void* ctx)
@@ -1178,7 +1178,7 @@ EMSCRIPTEN_KEEPALIVE
 const uint8_t* disassembleAt(uint16_t addr, int count) {
     REQUIRE_MACHINE_OR(nullptr);
     if (count < 1) count = 1;
-    if (count > 64) count = 64;
+    if (count > 256) count = 256;
 
     int offset = 0;
     uint16_t pc = addr;
@@ -1214,6 +1214,101 @@ const uint8_t* disassembleAt(uint16_t addr, int count) {
 EMSCRIPTEN_KEEPALIVE
 int disassembleGetSize() {
     return s_disasmBufSize;
+}
+
+// Write one 40-byte disasm record into s_disasmBuf at the given offset.
+// Returns new offset.
+static int writeDisasmRecord(int offset, uint16_t addr, const zxspec::DisasmResult& result) {
+    s_disasmBuf[offset++] = addr & 0xFF;
+    s_disasmBuf[offset++] = (addr >> 8) & 0xFF;
+    s_disasmBuf[offset++] = result.length;
+    for (int j = 0; j < 4; j++) {
+        s_disasmBuf[offset++] = result.bytes[j];
+    }
+    int mnLen = static_cast<int>(result.mnemonic.size());
+    if (mnLen > 31) mnLen = 31;
+    s_disasmBuf[offset++] = static_cast<uint8_t>(mnLen);
+    memcpy(s_disasmBuf + offset, result.mnemonic.c_str(), mnLen);
+    memset(s_disasmBuf + offset + mnLen, 0, 32 - mnLen);
+    offset += 32;
+    return offset;
+}
+
+// Disassemble around PC with accurate backward disassembly.
+// Returns rowsBefore instructions before PC, the PC instruction itself,
+// and rowsAfter instructions after PC.
+//
+// Backward strategy: step back one instruction at a time by trying
+// candidate addresses (target-1 .. target-4) and checking which one
+// produces an instruction whose length lands exactly on the target.
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* disassembleAroundPC(uint16_t pc, int rowsBefore, int rowsAfter) {
+    REQUIRE_MACHINE_OR(nullptr);
+    if (rowsBefore < 0) rowsBefore = 0;
+    if (rowsAfter < 0) rowsAfter = 0;
+    int totalMax = rowsBefore + 1 + rowsAfter;
+    if (totalMax > 256) {
+        // Scale down proportionally
+        rowsBefore = std::min(rowsBefore, 127);
+        rowsAfter = std::min(rowsAfter, 127);
+        totalMax = rowsBefore + 1 + rowsAfter;
+    }
+
+    // --- Backward pass: find rowsBefore instructions ending at PC ---
+    // Store addresses in reverse order, then flip.
+    struct BackEntry {
+        uint16_t addr;
+        zxspec::DisasmResult result;
+    };
+    std::vector<BackEntry> backEntries;
+    backEntries.reserve(rowsBefore);
+
+    uint16_t target = pc;
+    for (int i = 0; i < rowsBefore; i++) {
+        bool found = false;
+        // Try instruction lengths 1-4: does an instruction at (target - tryLen)
+        // have exactly tryLen bytes, meaning it ends at target?
+        for (int tryLen = 1; tryLen <= 4; tryLen++) {
+            uint16_t candidate = (target - tryLen) & 0xFFFF;
+            auto result = zxspec::z80Disassemble(candidate, disasmReadByte, g_machine);
+            if (result.length == tryLen) {
+                backEntries.push_back({ candidate, result });
+                target = candidate;
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            // No instruction of length 1-4 ends at target.
+            // Fall back to disassembling from target-1.
+            uint16_t candidate = (target - 1) & 0xFFFF;
+            auto result = zxspec::z80Disassemble(candidate, disasmReadByte, g_machine);
+            backEntries.push_back({ candidate, result });
+            target = candidate;
+        }
+    }
+
+    // backEntries is in reverse order (closest to PC first) — reverse it
+    std::reverse(backEntries.begin(), backEntries.end());
+
+    // --- Write results to buffer ---
+    int offset = 0;
+
+    // Before-PC instructions
+    for (auto& e : backEntries) {
+        offset = writeDisasmRecord(offset, e.addr, e.result);
+    }
+
+    // PC instruction + forward
+    uint16_t addr = pc;
+    for (int i = 0; i < 1 + rowsAfter; i++) {
+        auto result = zxspec::z80Disassemble(addr, disasmReadByte, g_machine);
+        offset = writeDisasmRecord(offset, addr, result);
+        addr = (addr + result.length) & 0xFFFF;
+    }
+
+    s_disasmBufSize = offset;
+    return s_disasmBuf;
 }
 
 EMSCRIPTEN_KEEPALIVE

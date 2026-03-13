@@ -29,6 +29,8 @@ import { SpectranetWindow } from "./debug/spectranet-window.js";
 import { TNFSBrowserWindow } from "./debug/tnfs-browser-window.js";
 import { AssemblerWindow } from "./assembler/assembler-window.js";
 import { CPUTraceWindow } from "./debug/cpu-trace-window.js";
+import { MemoryHeatmapWindow } from "./debug/memory-heatmap-window.js";
+import { RetroDebugger } from "./retro-debugger/retro-debugger.js";
 import { NetworkManager } from "./spectranet/network-manager.js";
 import { saveFlashData, loadFlashData } from "./spectranet/spectranet-persistence.js";
 
@@ -67,7 +69,9 @@ class ZXSpectrumEmulator {
     this.spectranetWindow = null;
     this.tnfsBrowserWindow = null;
     this.assemblerWindow = null;
+    this.memoryHeatmapWindow = null;
     this.networkManager = null;
+    this.retroDebugger = null;
 
     this.snapshotLoader = null;
     this.themeManager = null;
@@ -190,6 +194,11 @@ class ZXSpectrumEmulator {
       this.assemblerWindow.create();
       this.windowManager.register(this.assemblerWindow);
 
+      // Create memory heat map window
+      this.memoryHeatmapWindow = new MemoryHeatmapWindow();
+      this.memoryHeatmapWindow.create();
+      this.windowManager.register(this.memoryHeatmapWindow);
+
       // Create Spectranet debug window
       this.spectranetWindow = new SpectranetWindow(this.proxy);
       this.spectranetWindow.create();
@@ -263,6 +272,7 @@ class ZXSpectrumEmulator {
         { id: "udg-editor", visible: false },
         { id: "font-editor", visible: false },
         { id: "assembler", visible: false },
+        { id: "memory-heatmap", visible: false },
         { id: "spectranet", visible: false },
         { id: "tnfs-browser", visible: false },
         { id: "save-states", visible: false },
@@ -300,6 +310,10 @@ class ZXSpectrumEmulator {
       // Set up input handler
       this.inputHandler = new InputHandler(this.proxy);
       this.inputHandler.init();
+
+      // Set up retro debugger (full-screen WebGL debug overlay)
+      this.retroDebugger = new RetroDebugger(this);
+      await this.retroDebugger.init();
 
       // Set up global drag-and-drop for file loading
       this.setupDragAndDrop();
@@ -638,6 +652,16 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // Dev menu > Memory Heat Map
+    const memoryHeatmapBtn = document.getElementById("btn-memory-heatmap");
+    if (memoryHeatmapBtn) {
+      memoryHeatmapBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("memory-heatmap");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
     // Dev menu > Font Editor
     const fontEditorBtn = document.getElementById("btn-font-editor");
     if (fontEditorBtn) {
@@ -645,6 +669,15 @@ class ZXSpectrumEmulator {
         this.windowManager.toggleWindow("font-editor");
         this.closeAllMenus();
         this.refocusCanvas();
+      });
+    }
+
+    // Dev menu > Retro Debugger
+    const retroDebuggerBtn = document.getElementById("btn-retro-debugger");
+    if (retroDebuggerBtn) {
+      retroDebuggerBtn.addEventListener("click", () => {
+        this.closeAllMenus();
+        if (this.retroDebugger) this.retroDebugger.toggle();
       });
     }
 
@@ -785,6 +818,7 @@ class ZXSpectrumEmulator {
       "btn-udg-editor": "udg-editor",
       "btn-font-editor": "font-editor",
       "btn-assembler": "assembler",
+      "btn-memory-heatmap": "memory-heatmap",
       "btn-spectranet": "spectranet",
     };
 
@@ -850,10 +884,17 @@ class ZXSpectrumEmulator {
       }
     });
 
-    // Close menus on Escape
+    // Close menus on Escape, toggle retro debugger on backtick
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
         this.closeAllMenus();
+      }
+      if (e.key === "`" && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        const tag = e.target.tagName;
+        if (tag !== "INPUT" && tag !== "TEXTAREA" && !e.target.isContentEditable) {
+          e.preventDefault();
+          if (this.retroDebugger) this.retroDebugger.toggle();
+        }
       }
     });
 
@@ -1717,6 +1758,10 @@ class ZXSpectrumEmulator {
       this.renderer.updateTexture(framebuffer);
       if (signalBuffer) this.renderer.updateSignalTexture(signalBuffer);
       this.renderer.draw();
+      // Pass framebuffer to retro debugger if active
+      if (this.retroDebugger) {
+        this.retroDebugger.updateFramebuffer(framebuffer);
+      }
     }
     this.windowManager.updateAll(this.proxy);
   }
