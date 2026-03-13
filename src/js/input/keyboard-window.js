@@ -821,8 +821,8 @@ export class KeyboardWindow extends BaseWindow {
         this.saveSettings();
       });
       fontWrap.addEventListener('mousedown', (e) => e.stopPropagation());
-      // Insert before the Dynamic toggle
-      const dynamicWrap = this.headerElement.querySelector('.kbd-highlight-wrap');
+      // Insert before the Dynamic toggle (to its left)
+      const dynamicWrap = this.headerElement.querySelector('.kbd-highlight-wrap:not(.kbd-font-wrap)');
       if (dynamicWrap) {
         dynamicWrap.parentNode.insertBefore(fontWrap, dynamicWrap);
       } else {

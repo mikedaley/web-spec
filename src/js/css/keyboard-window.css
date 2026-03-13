@@ -11,8 +11,11 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  margin-left: auto;
   margin-right: 8px;
+}
+
+.kbd-font-wrap {
+  margin-left: auto;
 }
 
 .kbd-highlight-label {
