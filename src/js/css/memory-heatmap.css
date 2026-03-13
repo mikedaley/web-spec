@@ -81,7 +81,8 @@
   font-size: 11px;
 }
 
-.memory-heatmap-width-input {
+.memory-heatmap-width-input,
+.memory-heatmap-fade-input {
   background: var(--input-bg);
   color: var(--text-primary);
   border: 1px solid var(--control-border);
@@ -93,18 +94,22 @@
   text-align: center;
 }
 
-.memory-heatmap-width-input:focus {
+.memory-heatmap-width-input:focus,
+.memory-heatmap-fade-input:focus {
   outline: none;
   border-color: var(--accent-blue-border);
 }
 
 .memory-heatmap-width-input::-webkit-inner-spin-button,
-.memory-heatmap-width-input::-webkit-outer-spin-button {
+.memory-heatmap-width-input::-webkit-outer-spin-button,
+.memory-heatmap-fade-input::-webkit-inner-spin-button,
+.memory-heatmap-fade-input::-webkit-outer-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
 
-.memory-heatmap-width-input {
+.memory-heatmap-width-input,
+.memory-heatmap-fade-input {
   -moz-appearance: textfield;
 }
 
