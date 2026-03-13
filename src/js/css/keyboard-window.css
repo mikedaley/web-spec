@@ -788,17 +788,17 @@ html[data-theme="light"] .kbd-ext-above {
 }
 
 /* EXTENDED + CAPS SHIFT: hide on-key content */
-.kbd-container[data-shift-mode="extended-shift"] .kbd-sym-char,
-.kbd-container[data-shift-mode="extended-shift"] .kbd-keyword,
-.kbd-container[data-shift-mode="extended-shift"] .kbd-graphic {
+.kbd-container[data-shift-mode="extended-caps"] .kbd-sym-char,
+.kbd-container[data-shift-mode="extended-caps"] .kbd-keyword,
+.kbd-container[data-shift-mode="extended-caps"] .kbd-graphic {
   opacity: 0;
 }
 
-/* E+shift: letter rows — small letter top-left, red label centered */
+/* E+CapsShift: letter rows — small letter top-left, red label centered */
 /* Exclude ENTER (kbd-key-center) and shift keys (data-shift) from repositioning */
-.kbd-container[data-shift-mode="extended-shift"] .kbd-section-1 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main,
-.kbd-container[data-shift-mode="extended-shift"] .kbd-section-2 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main,
-.kbd-container[data-shift-mode="extended-shift"] .kbd-section-3 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main {
+.kbd-container[data-shift-mode="extended-caps"] .kbd-section-1 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main,
+.kbd-container[data-shift-mode="extended-caps"] .kbd-section-2 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main,
+.kbd-container[data-shift-mode="extended-caps"] .kbd-section-3 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main {
   opacity: 0.5;
   position: absolute;
   top: 2px;
@@ -809,25 +809,79 @@ html[data-theme="light"] .kbd-ext-above {
   z-index: 1;
 }
 
-.kbd-container[data-shift-mode="extended-shift"] .kbd-section-1 .kbd-ext-below,
-.kbd-container[data-shift-mode="extended-shift"] .kbd-section-2 .kbd-ext-below,
-.kbd-container[data-shift-mode="extended-shift"] .kbd-section-3 .kbd-ext-below {
+.kbd-container[data-shift-mode="extended-caps"] .kbd-section-1 .kbd-ext-below,
+.kbd-container[data-shift-mode="extended-caps"] .kbd-section-2 .kbd-ext-below,
+.kbd-container[data-shift-mode="extended-caps"] .kbd-section-3 .kbd-ext-below {
   display: block;
 }
 
-/* E+shift: number row — hide numbers (match keyword-caps behaviour) */
-.kbd-container[data-shift-mode="extended-shift"] .kbd-section-0 .kbd-main {
+/* E+CapsShift: number row — hide numbers (match keyword-caps behaviour) */
+.kbd-container[data-shift-mode="extended-caps"] .kbd-section-0 .kbd-main {
   opacity: 0;
 }
 
-/* EXTENDED + CAPS SHIFT: dim off-key labels (but keep number row above-text/arrows highlighted) */
-.kbd-container[data-shift-mode="extended-shift"] .kbd-section-1 .kbd-above-text,
-.kbd-container[data-shift-mode="extended-shift"] .kbd-section-2 .kbd-above-text,
-.kbd-container[data-shift-mode="extended-shift"] .kbd-section-3 .kbd-above-text,
-.kbd-container[data-shift-mode="extended-shift"] .kbd-color-name,
-.kbd-container[data-shift-mode="extended-shift"] .kbd-below-text,
-.kbd-container[data-shift-mode="extended-shift"] .kbd-space-break,
-.kbd-container[data-shift-mode="extended-shift"] .kbd-space-label {
+/* E+CapsShift: dim off-key labels (but keep number row above-text/arrows highlighted) */
+.kbd-container[data-shift-mode="extended-caps"] .kbd-section-1 .kbd-above-text,
+.kbd-container[data-shift-mode="extended-caps"] .kbd-section-2 .kbd-above-text,
+.kbd-container[data-shift-mode="extended-caps"] .kbd-section-3 .kbd-above-text,
+.kbd-container[data-shift-mode="extended-caps"] .kbd-color-name,
+.kbd-container[data-shift-mode="extended-caps"] .kbd-below-text,
+.kbd-container[data-shift-mode="extended-caps"] .kbd-space-break,
+.kbd-container[data-shift-mode="extended-caps"] .kbd-space-label {
+  opacity: 0.35;
+}
+
+/* EXTENDED + SYMBOL SHIFT: hide on-key content */
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-sym-char,
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-keyword,
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-graphic {
+  opacity: 0;
+}
+
+/* E+SymbolShift: letter rows — small letter top-left, red label centered */
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-section-1 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main,
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-section-2 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main,
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-section-3 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main {
+  opacity: 0.5;
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  transform: none;
+  font-size: 11px;
+  line-height: 13px;
+  z-index: 1;
+}
+
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-section-1 .kbd-ext-below,
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-section-2 .kbd-ext-below,
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-section-3 .kbd-ext-below {
+  display: block;
+}
+
+/* E+SymbolShift: number row — small number top-left, red command centered */
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-section-0 .kbd-main {
+  opacity: 0.5;
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  transform: none;
+  font-size: 11px;
+  line-height: 13px;
+  z-index: 1;
+}
+
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-section-0 .kbd-ext-below {
+  display: block;
+  font-size: 11px;
+}
+
+/* E+SymbolShift: dim off-key labels */
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-above-text,
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-color-name,
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-below-text,
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-arrow-svg,
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-space-break,
+.kbd-container[data-shift-mode="extended-symbol"] .kbd-space-label {
   opacity: 0.35;
 }
 

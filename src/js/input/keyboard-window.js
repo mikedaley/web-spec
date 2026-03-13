@@ -1320,7 +1320,7 @@ export class KeyboardWindow extends BaseWindow {
     } else if (capsHeld && modeName !== 'E' && modeName !== 'K' && modeName !== 'G') {
       cssMode = 'caps-shift';
     } else if (modeName === 'E') {
-      cssMode = (capsHeld || symHeld) ? 'extended-shift' : 'extended';
+      cssMode = capsHeld ? 'extended-caps' : symHeld ? 'extended-symbol' : 'extended';
     } else if (modeName === 'G') {
       cssMode = 'graphics';
     } else if (modeName === 'K') {
