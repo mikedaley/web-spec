@@ -119,6 +119,10 @@ function makeLeaf(windowId) {
   return { type: "leaf", windowId, col: 0, row: 0, cols: 0, rows: 0 };
 }
 
+function makeTabs(windowIds, activeIndex = 0) {
+  return { type: "tabs", windowIds: [...windowIds], activeIndex, col: 0, row: 0, cols: 0, rows: 0 };
+}
+
 function makeSplit(direction, ratio, first, second) {
   return {
     type: "split", direction, ratio, first, second,
@@ -129,6 +133,12 @@ function makeSplit(direction, ratio, first, second) {
 
 function computeMinSize(node, axis) {
   if (node.type === "leaf") return MIN_PANEL[node.windowId]?.[axis] || 6;
+  if (node.type === "tabs") {
+    // Tabs node: use the max min-size across all tabbed windows
+    let m = 6;
+    for (const wid of node.windowIds) m = Math.max(m, MIN_PANEL[wid]?.[axis] || 6);
+    return m;
+  }
   const splitAxis = node.direction === SPLIT_V ? "cols" : "rows";
   if (axis === splitAxis) {
     return computeMinSize(node.first, axis) + computeMinSize(node.second, axis) + DIVIDER_SIZE;
@@ -138,6 +148,10 @@ function computeMinSize(node, axis) {
 
 function layoutTree(node, col, row, cols, rows) {
   if (node.type === "leaf") {
+    node.col = col; node.row = row; node.cols = cols; node.rows = rows;
+    return;
+  }
+  if (node.type === "tabs") {
     node.col = col; node.row = row; node.cols = cols; node.rows = rows;
     return;
   }
@@ -175,6 +189,7 @@ function layoutTree(node, col, row, cols, rows) {
 
 function collectLeaves(node, out) {
   if (node.type === "leaf") { out.push(node); return; }
+  if (node.type === "tabs") { out.push(node); return; }
   collectLeaves(node.first, out);
   collectLeaves(node.second, out);
 }
@@ -219,6 +234,9 @@ function findParentOf(root, windowId, parent = null, childKey = null) {
   if (root.type === "leaf") {
     return root.windowId === windowId ? { parent, childKey } : null;
   }
+  if (root.type === "tabs") {
+    return root.windowIds.includes(windowId) ? { parent, childKey, tabNode: root } : null;
+  }
   return findParentOf(root.first, windowId, root, "first") ||
          findParentOf(root.second, windowId, root, "second");
 }
@@ -227,7 +245,30 @@ function findParentOf(root, windowId, parent = null, childKey = null) {
 // Returns the new root (may change if the detached leaf was a direct child of root).
 function detachLeaf(root, windowId) {
   const info = findParentOf(root, windowId);
-  if (!info || !info.parent) return root; // can't detach the root itself
+  if (!info) return root;
+
+  // If the window is inside a tabs node, remove it from the tab group
+  if (info.tabNode) {
+    const tabs = info.tabNode;
+    const idx = tabs.windowIds.indexOf(windowId);
+    if (idx < 0) return root;
+    tabs.windowIds.splice(idx, 1);
+    if (tabs.activeIndex >= tabs.windowIds.length) tabs.activeIndex = tabs.windowIds.length - 1;
+
+    // If only one tab left, convert tabs node back to a leaf
+    if (tabs.windowIds.length === 1) {
+      const remainingId = tabs.windowIds[0];
+      const leaf = makeLeaf(remainingId);
+      if (!info.parent) {
+        // tabs was root
+        return leaf;
+      }
+      info.parent[info.childKey] = leaf;
+    }
+    return root;
+  }
+
+  if (!info.parent) return root; // can't detach the root leaf itself
 
   const parent = info.parent;
   const sibling = info.childKey === "first" ? parent.second : parent.first;
@@ -245,35 +286,68 @@ function detachLeaf(root, windowId) {
 // Find parent of a specific node (not by windowId, by reference)
 function findParentOfNode(root, target, parent = null, childKey = null) {
   if (root === target) return parent ? { parent, childKey } : null;
-  if (root.type === "leaf") return null;
+  if (root.type === "leaf" || root.type === "tabs") return null;
   return findParentOfNode(root.first, target, root, "first") ||
          findParentOfNode(root.second, target, root, "second");
 }
 
-// Insert a leaf next to a target leaf by creating a new split.
-// zone: "left" | "right" | "top" | "bottom"
+// Insert a leaf next to a target by creating a new split, or into a tab group for "center".
+// zone: "left" | "right" | "top" | "bottom" | "center"
 // Returns the new root (may change if target was root).
 function insertLeafAtTarget(root, targetWindowId, newWindowId, zone) {
+  // Center zone → create or extend a tab group
+  if (zone === "center") {
+    const targetNode = findLeafNode(root, targetWindowId);
+    if (!targetNode) return root;
+
+    if (targetNode.type === "tabs") {
+      // Already a tabs node — add the new window
+      targetNode.windowIds.push(newWindowId);
+      targetNode.activeIndex = targetNode.windowIds.length - 1;
+    } else {
+      // Convert leaf to tabs
+      const newTabs = makeTabs([targetWindowId, newWindowId], 1);
+      const parentInfo = findParentOf(root, targetWindowId);
+      if (!parentInfo || !parentInfo.parent) {
+        return newTabs; // target was root
+      }
+      parentInfo.parent[parentInfo.childKey] = newTabs;
+    }
+    return root;
+  }
+
+  // Edge zones → create a new split
   const direction = (zone === "left" || zone === "right") ? SPLIT_V : SPLIT_H;
   const newLeaf = makeLeaf(newWindowId);
 
-  // Find the target leaf node
-  const targetLeaf = findLeafNode(root, targetWindowId);
-  if (!targetLeaf) return root;
+  // Find the target node (could be leaf or tabs)
+  const targetNode = findLeafNode(root, targetWindowId);
+  if (!targetNode) return root;
 
-  // Create new split: the new window goes first or second depending on zone
+  // For tabs nodes, we split the whole tab group, not an individual tab.
+  // We need to find the node itself in the tree and replace it.
+  const nodeToReplace = targetNode.type === "tabs" ? targetNode : null;
+
+  // Create new split
   let newSplit;
   if (zone === "left" || zone === "top") {
-    newSplit = makeSplit(direction, 0.5, newLeaf, makeLeaf(targetWindowId));
+    newSplit = makeSplit(direction, 0.5, newLeaf, nodeToReplace || makeLeaf(targetWindowId));
   } else {
-    newSplit = makeSplit(direction, 0.5, makeLeaf(targetWindowId), newLeaf);
+    newSplit = makeSplit(direction, 0.5, nodeToReplace || makeLeaf(targetWindowId), newLeaf);
+  }
+
+  if (nodeToReplace) {
+    // Replace the tabs node with the new split
+    const parentInfo = findParentOfNode(root, nodeToReplace);
+    if (!parentInfo) return newSplit; // was root
+    parentInfo.parent[parentInfo.childKey] = newSplit;
+    return root;
   }
 
   // Replace the target leaf with the new split
   const parentInfo = findParentOf(root, targetWindowId);
   if (!parentInfo || !parentInfo.parent) {
-    // Target is the root
-    return newSplit;
+    return newSplit; // target was root
   }
   parentInfo.parent[parentInfo.childKey] = newSplit;
   return root;
@@ -281,7 +355,21 @@ function insertLeafAtTarget(root, targetWindowId, newWindowId, zone) {
 
 function findLeafNode(root, windowId) {
   if (root.type === "leaf") return root.windowId === windowId ? root : null;
+  if (root.type === "tabs") return root.windowIds.includes(windowId) ? root : null;
   return findLeafNode(root.first, windowId) || findLeafNode(root.second, windowId);
+}
+
+// Find the tabs node containing a given windowId, or null
+function findTabsNode(root, windowId) {
+  if (root.type === "tabs") return root.windowIds.includes(windowId) ? root : null;
+  if (root.type === "leaf") return null;
+  return findTabsNode(root.first, windowId) || findTabsNode(root.second, windowId);
+}
+
+// Get the active windowId from a node (leaf or tabs)
+function nodeActiveId(node) {
+  if (node.type === "tabs") return node.windowIds[node.activeIndex];
+  return node.windowId;
 }
 
 // Determine drop zone from mouse position within a panel.
@@ -309,12 +397,14 @@ function getDropZone(px, py, panelX, panelY, panelW, panelH) {
 
 function serializeTree(node) {
   if (node.type === "leaf") return { t: "l", w: node.windowId };
+  if (node.type === "tabs") return { t: "tb", w: node.windowIds, ai: node.activeIndex };
   return { t: "s", d: node.direction, r: node.ratio, a: serializeTree(node.first), b: serializeTree(node.second) };
 }
 
 function deserializeTree(data) {
   if (!data || typeof data !== "object") return null;
   if (data.t === "l") return makeLeaf(data.w);
+  if (data.t === "tb") return makeTabs(data.w, data.ai || 0);
   if (data.t === "s") {
     const first = deserializeTree(data.a);
     const second = deserializeTree(data.b);
@@ -579,13 +669,31 @@ export class RetroDebugger {
     layoutTree(this._rootNode, 0, 0, this._gridCols, this._gridRows);
     const leaves = [];
     collectLeaves(this._rootNode, leaves);
-    for (const leaf of leaves) {
-      const win = this._windowMap[leaf.windowId];
-      if (!win) continue;
-      win.col = leaf.col;
-      win.row = leaf.row;
-      win.cols = leaf.cols;
-      win.rows = leaf.rows;
+
+    // Track which windows are visible (active tab or standalone leaf)
+    const visibleSet = new Set();
+    for (const node of leaves) {
+      if (node.type === "tabs") {
+        const activeId = node.windowIds[node.activeIndex];
+        for (const wid of node.windowIds) {
+          const win = this._windowMap[wid];
+          if (!win) continue;
+          // All tabs share the same region but only active is drawn
+          win.col = node.col;
+          win.row = node.row;
+          win.cols = node.cols;
+          win.rows = node.rows;
+        }
+        if (activeId) visibleSet.add(activeId);
+      } else {
+        const win = this._windowMap[node.windowId];
+        if (!win) continue;
+        win.col = node.col;
+        win.row = node.row;
+        win.cols = node.cols;
+        win.rows = node.rows;
+        visibleSet.add(node.windowId);
+      }
     }
 
     // 2. Draw dividers (behind windows)
@@ -596,8 +704,16 @@ export class RetroDebugger {
 
     // 4. Draw all panels
     for (const win of this._windows) {
-      if (!win.visible || win.cols <= 0 || win.rows <= 0) continue;
-      this._drawWindowFrame(win);
+      if (!visibleSet.has(win.id) || win.cols <= 0 || win.rows <= 0) continue;
+
+      // Check if this window is inside a tabs node — draw tab bar instead of normal frame
+      const tabsNode = findTabsNode(this._rootNode, win.id);
+      if (tabsNode) {
+        this._drawTabBar(tabsNode, win);
+      } else {
+        this._drawWindowFrame(win);
+      }
+
       switch (win.id) {
         case "screen":  this._drawScreenPanel(win);  break;
         case "disasm":  this._drawDisasm(win);       break;
@@ -653,7 +769,7 @@ export class RetroDebugger {
   // ── Docking layout helpers ────────────────────────────────────
 
   _drawDividers(node) {
-    if (node.type === "leaf") return;
+    if (node.type === "leaf" || node.type === "tabs") return;
     const R = this._renderer;
     const cw = this._charW, ch = this._charH;
     const isHovered = this._hoveredDivider === node;
@@ -705,7 +821,7 @@ export class RetroDebugger {
   }
 
   _findDividerAtPos(node, px, py) {
-    if (node.type === "leaf") return null;
+    if (node.type === "leaf" || node.type === "tabs") return null;
     const cw = this._charW, ch = this._charH;
 
     // Check children first (deeper dividers take priority)
@@ -737,6 +853,16 @@ export class RetroDebugger {
       const x = node.col * cw, y = node.row * ch;
       const w = node.cols * cw, h = node.rows * ch;
       if (px >= x && px < x + w && py >= y && py < y + h) return node;
+      return null;
+    }
+    if (node.type === "tabs") {
+      const cw = this._charW, ch = this._charH;
+      const x = node.col * cw, y = node.row * ch;
+      const w = node.cols * cw, h = node.rows * ch;
+      if (px >= x && px < x + w && py >= y && py < y + h) {
+        // Return the tabs node itself — callers use .windowId which we alias to the active tab
+        return node;
+      }
       return null;
     }
     return this._findLeafAtPos(node.second, px, py) ||
@@ -847,7 +973,7 @@ export class RetroDebugger {
     R.fillRect(zx + zw - b, zy, b, zh, ar, ag, ab, 0.8);      // right
 
     // Zone label
-    const label = dt.zone.toUpperCase();
+    const label = dt.zone === "center" ? "TAB" : dt.zone.toUpperCase();
     const labelCol = Math.round((zx + zw / 2) / cw) - Math.floor(label.length / 2);
     const labelRow = Math.round((zy + zh / 2) / ch);
     R.drawText(labelCol, labelRow, label, 1, 1, 1, 0.7);
@@ -886,6 +1012,78 @@ export class RetroDebugger {
       R.drawText(tx, win.row, win.title, 1, 1, 1);
     } else {
       R.drawText(tx, win.row, win.title, ar, ag, ab);
+    }
+  }
+
+  // ── Tab bar drawing ──────────────────────────────────────────────
+
+  _drawTabBar(tabsNode, activeWin) {
+    const R = this._renderer;
+    const cw = this._charW, ch = this._charH;
+    const x = activeWin.col * cw, y = activeWin.row * ch;
+    const w = activeWin.cols * cw, h = activeWin.rows * ch;
+    const [ar, ag, ab] = activeWin.accentCol;
+
+    // Background
+    R.fillRect(x, y, w, h, ...C.BG, WIN_BG_ALPHA);
+
+    // Borders
+    R.fillRect(x, y, w, 1, ar * 0.7, ag * 0.7, ab * 0.7, WIN_BORDER_ALPHA);
+    R.fillRect(x, y + h - 1, w, 1, ar * 0.3, ag * 0.3, ab * 0.3, WIN_BORDER_ALPHA);
+    R.fillRect(x, y, 1, h, ar * 0.5, ag * 0.5, ab * 0.5, WIN_BORDER_ALPHA);
+    R.fillRect(x + w - 1, y, 1, h, ar * 0.5, ag * 0.5, ab * 0.5, WIN_BORDER_ALPHA);
+
+    // Tab bar background
+    const focused = this._focusedWindow === activeWin;
+    R.fillRect(x, y, w, ch, ...C.DARK_GREY, 0.95);
+
+    // Draw individual tabs
+    let tabX = x;
+    for (let i = 0; i < tabsNode.windowIds.length; i++) {
+      const wid = tabsNode.windowIds[i];
+      const tabWin = this._windowMap[wid];
+      if (!tabWin) continue;
+
+      const isActive = (i === tabsNode.activeIndex);
+      const [tr, tg, tb] = tabWin.accentCol;
+      const label = " " + tabWin.title + " ";
+      const tabW = label.length * cw;
+
+      // Tab background
+      if (isActive) {
+        const tbMul = focused ? 0.35 : 0.20;
+        R.fillRect(tabX, y, tabW, ch, tr * tbMul, tg * tbMul, tb * tbMul, 1.0);
+        // Active accent line under tab
+        const lineMul = focused ? 1.0 : 0.7;
+        R.fillRect(tabX, y + ch - 1, tabW, 1, tr * lineMul, tg * lineMul, tb * lineMul, 0.9);
+      } else {
+        R.fillRect(tabX, y, tabW, ch, ...C.BG, 0.95);
+        // Dim accent dot
+        R.fillRect(tabX, y + ch - 1, tabW, 1, tr * 0.25, tg * 0.25, tb * 0.25, 0.6);
+      }
+
+      // Tab separator
+      if (i > 0) {
+        R.fillRect(tabX, y + 2, 1, ch - 4, ...C.BORDER, 0.5);
+      }
+
+      // Tab text
+      const tabCol = Math.round(tabX / cw);
+      if (isActive && focused) {
+        R.drawText(tabCol, activeWin.row, label, 1, 1, 1);
+      } else if (isActive) {
+        R.drawText(tabCol, activeWin.row, label, tr, tg, tb);
+      } else {
+        R.drawText(tabCol, activeWin.row, label, tr * 0.5, tg * 0.5, tb * 0.5, 0.7);
+      }
+
+      // Register tab click area as a button
+      this._buttons.push({
+        x: tabX, y: y, w: tabW, h: ch,
+        action: { type: "switchTab", tabsNode, index: i },
+      });
+
+      tabX += tabW;
     }
   }
 
@@ -1538,12 +1736,24 @@ export class RetroDebugger {
   _handleMouseDown(e) {
     const pos = this._screenToCanvas(e.clientX, e.clientY);
 
-    // 1. Button clicks first
+    // 1. Button clicks first — but for tab buttons, also set up dock drag
     for (const btn of this._buttons) {
       if (pos.x >= btn.x && pos.x < btn.x + btn.w &&
           pos.y >= btn.y && pos.y < btn.y + btn.h) {
         this._setEmuFocus(false);
-        this._executeAction(btn.action);
+
+        if (btn.action && btn.action.type === "switchTab") {
+          // Switch tab immediately, but also set up dock drag on this tab
+          this._executeAction(btn.action);
+          const dragId = btn.action.tabsNode.windowIds[btn.action.index];
+          if (dragId) {
+            this._dockDragging = { windowId: dragId, startX: pos.x, startY: pos.y };
+            this._dockDragActive = false;
+            this._dockDragPos = { x: pos.x, y: pos.y };
+          }
+        } else {
+          this._executeAction(btn.action);
+        }
         return;
       }
     }
@@ -1559,8 +1769,9 @@ export class RetroDebugger {
     // 3. Panel click
     const leaf = this._findLeafAtPos(this._rootNode, pos.x, pos.y);
     if (leaf) {
-      const win = this._windowMap[leaf.windowId];
-      if (leaf.windowId === "screen") {
+      const activeId = nodeActiveId(leaf);
+      const win = this._windowMap[activeId];
+      if (activeId === "screen") {
         this._focusedWindow = win;
         this._setEmuFocus(true);
       } else if (win) {
@@ -1569,11 +1780,12 @@ export class RetroDebugger {
       }
 
       // Check if click is on title bar — start potential dock drag
-      if (win) {
+      // (Tab bar drags are handled above in the button click section)
+      if (win && leaf.type !== "tabs") {
         const cw = this._charW, ch = this._charH;
         const titleY = win.row * ch;
         if (pos.y >= titleY && pos.y < titleY + ch) {
-          this._dockDragging = { windowId: leaf.windowId, startX: pos.x, startY: pos.y };
+          this._dockDragging = { windowId: activeId, startX: pos.x, startY: pos.y };
           this._dockDragActive = false;
           this._dockDragPos = { x: pos.x, y: pos.y };
         }
@@ -1606,14 +1818,15 @@ export class RetroDebugger {
       if (this._dockDragActive) {
         // Find drop target
         const leaf = this._findLeafAtPos(this._rootNode, pos.x, pos.y);
-        if (leaf && leaf.windowId !== this._dockDragging.windowId) {
-          const targetWin = this._windowMap[leaf.windowId];
+        const targetId = leaf ? nodeActiveId(leaf) : null;
+        if (leaf && targetId !== this._dockDragging.windowId) {
+          const targetWin = this._windowMap[targetId];
           if (targetWin) {
             const cw = this._charW, ch = this._charH;
             const zone = getDropZone(pos.x, pos.y,
               targetWin.col * cw, targetWin.row * ch,
               targetWin.cols * cw, targetWin.rows * ch);
-            this._dockDropTarget = { windowId: leaf.windowId, zone };
+            this._dockDropTarget = { windowId: targetId, zone };
           }
         } else {
           this._dockDropTarget = null;
@@ -1630,7 +1843,7 @@ export class RetroDebugger {
 
     // Track hover for scroll/key routing
     const leaf = this._findLeafAtPos(this._rootNode, pos.x, pos.y);
-    this._hoverWindow = leaf ? (this._windowMap[leaf.windowId] || null) : null;
+    this._hoverWindow = leaf ? (this._windowMap[nodeActiveId(leaf)] || null) : null;
 
     // Divider hover detection for cursor
     const divNode = this._findDividerAtPos(this._rootNode, pos.x, pos.y);
@@ -1648,19 +1861,9 @@ export class RetroDebugger {
       const srcId = this._dockDragging.windowId;
       const dt = this._dockDropTarget;
 
-      if (dt.zone === "center") {
-        // Swap: exchange the two leaves' windowIds in the tree
-        const srcLeaf = findLeafNode(this._rootNode, srcId);
-        const targetLeaf = findLeafNode(this._rootNode, dt.windowId);
-        if (srcLeaf && targetLeaf) {
-          srcLeaf.windowId = dt.windowId;
-          targetLeaf.windowId = srcId;
-        }
-      } else {
-        // Detach source, insert at target
-        this._rootNode = detachLeaf(this._rootNode, srcId);
-        this._rootNode = insertLeafAtTarget(this._rootNode, dt.windowId, srcId, dt.zone);
-      }
+      // Detach source first, then insert at target (or into tabs for center)
+      this._rootNode = detachLeaf(this._rootNode, srcId);
+      this._rootNode = insertLeafAtTarget(this._rootNode, dt.windowId, srcId, dt.zone);
       this._saveLayout();
     }
 
@@ -1696,6 +1899,26 @@ export class RetroDebugger {
   }
 
   _executeAction(action) {
+    // Object-style actions (tab switching, etc.)
+    if (action && typeof action === "object") {
+      switch (action.type) {
+        case "switchTab":
+          action.tabsNode.activeIndex = action.index;
+          // Focus the newly active tab's window
+          const activeId = action.tabsNode.windowIds[action.index];
+          if (activeId) {
+            const win = this._windowMap[activeId];
+            if (win) {
+              this._focusedWindow = win;
+              this._setEmuFocus(activeId === "screen");
+            }
+          }
+          this._saveLayout();
+          break;
+      }
+      return;
+    }
+
     const p = this._proxy;
     if (!p) return;
     switch (action) {
