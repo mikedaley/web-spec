@@ -207,7 +207,7 @@
 }
 
 .reg-value {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--accent-green);
   font-family: var(--font-mono);

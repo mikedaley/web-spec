@@ -225,3 +225,12 @@
   height: 8px;
   border-radius: 2px;
 }
+
+.memory-heatmap-legend-sep {
+  display: inline-block;
+  width: 1px;
+  height: 10px;
+  background: var(--text-muted);
+  opacity: 0.4;
+  margin: 0 2px;
+}

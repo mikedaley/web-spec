@@ -23,12 +23,16 @@ namespace zxspec {
 
 uint8_t ZXSpectrum::memReadCallback(uint16_t addr, void* param)
 {
-    return static_cast<ZXSpectrum*>(param)->coreMemoryRead(addr);
+    auto* self = static_cast<ZXSpectrum*>(param);
+    if (self->accessTrackingEnabled_) self->accessFlags_[addr] |= 0x02;
+    return self->coreMemoryRead(addr);
 }
 
 void ZXSpectrum::memWriteCallback(uint16_t addr, uint8_t data, void* param)
 {
-    static_cast<ZXSpectrum*>(param)->coreMemoryWrite(addr, data);
+    auto* self = static_cast<ZXSpectrum*>(param);
+    if (self->accessTrackingEnabled_) self->accessFlags_[addr] |= 0x01;
+    self->coreMemoryWrite(addr, data);
 }
 
 uint8_t ZXSpectrum::ioReadCallback(uint16_t addr, void* param)
@@ -185,6 +189,7 @@ void ZXSpectrum::reset()
 void ZXSpectrum::runFrame()
 {
     if (paused_) return;
+    if (accessTrackingEnabled_) clearAccessFlags();
 
     // Instant load: run CPU at full host speed until tape finishes loading.
     // No audio, no display, no contention — just blast through all tape pulses.

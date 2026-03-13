@@ -370,6 +370,12 @@ protected:
 
     int muteFrames_ = 0;
 
+    // ---- Memory access tracking (for debug heatmap) ----
+    // Per-address flags: bit 0 = written, bit 1 = read.
+    // Cleared at the start of each frame by clearAccessFlags().
+    uint8_t accessFlags_[65536] = {};
+    bool accessTrackingEnabled_ = false;
+
     // ---- CPU instruction trace ----
     static constexpr uint32_t TRACE_BUFFER_SIZE = 10000;
 
@@ -401,6 +407,12 @@ protected:
     void traceRecordInstruction(uint16_t address);
 
 public:
+    // Memory access tracking
+    void setAccessTrackingEnabled(bool enabled) { accessTrackingEnabled_ = enabled; }
+    bool getAccessTrackingEnabled() const { return accessTrackingEnabled_; }
+    const uint8_t* getAccessFlags() const { return accessFlags_; }
+    void clearAccessFlags() { std::memset(accessFlags_, 0, sizeof(accessFlags_)); }
+
     void setTraceEnabled(bool enabled);
     bool getTraceEnabled() const { return traceEnabled_; }
     const TraceEntry* getTraceBuffer() const { return traceBuffer_.data(); }

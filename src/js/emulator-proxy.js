@@ -141,6 +141,15 @@ export class EmulatorProxy {
         break;
       }
 
+      case "accessFlagsData": {
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve(msg.data);
+        }
+        break;
+      }
+
       case "basicTokenizeResult": {
         const resolve = this._pendingRequests.get(msg.id);
         if (resolve) {
@@ -394,6 +403,18 @@ export class EmulatorProxy {
       this._pendingRequests.set(id, resolve);
       this.worker.postMessage({ type: "readMemory", addr, length, id });
     });
+  }
+
+  readAccessFlags() {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "readAccessFlags", id });
+    });
+  }
+
+  setAccessTracking(enabled) {
+    this.worker.postMessage({ type: "setAccessTracking", enabled });
   }
 
   assemble(source, org = 0x8000) {

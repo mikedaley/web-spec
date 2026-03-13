@@ -178,6 +178,8 @@ if(EMSCRIPTEN)
                 \"_getTStates\", \
                 \"_readMemory\", \
                 \"_writeMemory\", \
+                \"_setAccessTracking\", \
+                \"_getAccessFlags\", \
                 \"_isPaused\", \
                 \"_setPaused\", \
                 \"_stepInstruction\", \

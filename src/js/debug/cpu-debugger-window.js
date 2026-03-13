@@ -26,13 +26,17 @@ export class CPUDebuggerWindow extends BaseWindow {
 
     this.breakpointManager = new BreakpointManager();
     this.prevValues = {};
+    this.prevFlags = 0;
+    this.prevPC = -1;
     this.elements = null;
+    this._regElements = null;  // cached register DOM refs
+    this._flagElements = null; // cached flag DOM refs
     this.proxySynced = false;
     this.activeTab = "breakpoints";
     this.followPC = true;
     this.disasmBaseAddr = 0;
     this.lastUpdateTime = 0;
-    this.updateInterval = 1000 / 5; // 5 updates per second
+    this.updateInterval = 1000 / 60; // 60 updates per second
     this._proxy = null;
     this._disasmCache = null;
     this._memoryPending = false;
@@ -266,7 +270,32 @@ export class CPUDebuggerWindow extends BaseWindow {
     });
   }
 
+  _cacheRegElements() {
+    const REG_NAMES = [
+      "af", "bc", "de", "hl", "ix", "iy", "sp", "pc",
+      "i", "r", "im", "iff1", "iff2", "ts",
+      "alt-af", "alt-bc", "alt-de", "alt-hl",
+    ];
+    const FLAG_BITS = { S: 0x80, Z: 0x40, H: 0x10, PV: 0x04, N: 0x02, C: 0x01 };
+
+    this._regElements = [];
+    for (const name of REG_NAMES) {
+      const el = this.contentElement.querySelector(`#reg-${name}`);
+      if (el) {
+        this._regElements.push({ name, el, digits: parseInt(el.dataset.digits) || 4 });
+      }
+    }
+
+    this._flagElements = [];
+    for (const [name, bit] of Object.entries(FLAG_BITS)) {
+      const el = this.contentElement.querySelector(`#flag-${name}`);
+      if (el) this._flagElements.push({ el, bit });
+    }
+  }
+
   updateRegisters(proxy) {
+    if (!this._regElements) this._cacheRegElements();
+
     const regs = {
       af: proxy.getAF(), bc: proxy.getBC(), de: proxy.getDE(), hl: proxy.getHL(),
       ix: proxy.getIX(), iy: proxy.getIY(), sp: proxy.getSP(), pc: proxy.getPC(),
@@ -276,27 +305,30 @@ export class CPUDebuggerWindow extends BaseWindow {
       "alt-de": proxy.getAltDE(), "alt-hl": proxy.getAltHL(),
     };
 
-    for (const [name, value] of Object.entries(regs)) {
-      const el = this.contentElement.querySelector(`#reg-${name}`);
-      if (!el) continue;
-      const digits = parseInt(el.dataset.digits) || 4;
+    const prev = this.prevValues;
+    for (let i = 0; i < this._regElements.length; i++) {
+      const { name, el, digits } = this._regElements[i];
+      const value = regs[name];
+      const key = `reg-${name}`;
+      if (prev[key] === value) continue; // no change — skip DOM write
       const hex = value.toString(16).toUpperCase().padStart(digits, "0");
-      const changed = this.prevValues[`reg-${name}`] !== undefined && this.prevValues[`reg-${name}`] !== value;
       el.textContent = hex;
-      if (changed) {
+      if (prev[key] !== undefined) {
         el.classList.remove("changed");
         void el.offsetWidth; // force reflow to restart animation
         el.classList.add("changed");
       }
-      this.prevValues[`reg-${name}`] = value;
+      prev[key] = value;
     }
 
-    // Update flags from F register
+    // Update flags from F register — only when F changes
     const f = regs.af & 0xFF;
-    const flagBits = { S: 0x80, Z: 0x40, H: 0x10, PV: 0x04, N: 0x02, C: 0x01 };
-    for (const [name, bit] of Object.entries(flagBits)) {
-      const el = this.contentElement.querySelector(`#flag-${name}`);
-      if (el) el.classList.toggle("active", (f & bit) !== 0);
+    if (f !== this.prevFlags) {
+      this.prevFlags = f;
+      for (let i = 0; i < this._flagElements.length; i++) {
+        const fg = this._flagElements[i];
+        fg.el.classList.toggle("active", (f & fg.bit) !== 0);
+      }
     }
   }
 
@@ -739,6 +771,12 @@ export class CPUDebuggerWindow extends BaseWindow {
 
     this.updateStatus(proxy, running);
     this.updateRegisters(proxy);
-    this.requestDisassemblyMemory();
+
+    // Only request disassembly when PC changes or in manual scroll mode
+    const pc = proxy.getPC();
+    if (pc !== this.prevPC || !this.followPC) {
+      this.prevPC = pc;
+      this.requestDisassemblyMemory();
+    }
   }
 }

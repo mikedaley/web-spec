@@ -332,6 +332,22 @@ void writeMemory(uint16_t address, uint8_t data) {
 }
 
 // ============================================================================
+// Memory Access Tracking (debug heatmap)
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+void setAccessTracking(bool enabled) {
+  REQUIRE_MACHINE();
+  static_cast<zxspec::ZXSpectrum*>(g_machine)->setAccessTrackingEnabled(enabled);
+}
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* getAccessFlags() {
+  REQUIRE_MACHINE_OR(nullptr);
+  return static_cast<zxspec::ZXSpectrum*>(g_machine)->getAccessFlags();
+}
+
+// ============================================================================
 // Execution Control
 // ============================================================================
 

@@ -459,6 +459,22 @@ self.onmessage = async function (e) {
       break;
     }
 
+    case "readAccessFlags": {
+      if (!wasm) break;
+      const ptr = wasm._getAccessFlags();
+      if (ptr) {
+        const flags = new Uint8Array(wasm.HEAPU8.buffer, ptr, 65536);
+        const copy = new Uint8Array(65536);
+        copy.set(flags);
+        self.postMessage({ type: "accessFlagsData", id: msg.id, data: copy }, [copy.buffer]);
+      }
+      break;
+    }
+
+    case "setAccessTracking":
+      if (wasm) wasm._setAccessTracking(msg.enabled);
+      break;
+
     case "writeMemory":
       if (wasm) wasm._writeMemory(msg.addr, msg.value);
       break;

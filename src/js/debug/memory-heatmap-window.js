@@ -140,22 +140,10 @@ function buildThermalLUT(style) {
 }
 
 /**
- * Build a 256-entry activity LUT: dark→red→orange→yellow→white
+ * Build a 256-entry LUT from a list of gradient stops [{pos, col}].
  */
-function buildActivityLUT(style) {
+function buildGradientLUT(stops) {
   const lut = new Uint32Array(256);
-  const cDark   = [10, 10, 10];
-  const cRed    = hexToRGB(style.getPropertyValue("--accent-red").trim() || "#FF0000");
-  const cOrange = hexToRGB(style.getPropertyValue("--accent-orange").trim() || "#FFFF00");
-  const cWhite  = [255, 255, 255];
-
-  const stops = [
-    { pos: 0,   col: cDark   },
-    { pos: 85,  col: cRed    },
-    { pos: 170, col: cOrange },
-    { pos: 255, col: cWhite  },
-  ];
-
   for (let i = 0; i < 256; i++) {
     let s0 = stops[0], s1 = stops[1];
     for (let s = 1; s < stops.length; s++) {
@@ -167,6 +155,42 @@ function buildActivityLUT(style) {
     lut[i] = rgbToABGR(rgb[0], rgb[1], rgb[2]);
   }
   return lut;
+}
+
+/**
+ * Build read LUT: dark→cyan (stays saturated at peak)
+ */
+function buildReadLUT(style) {
+  const cDark = [10, 10, 10];
+  const cCyan = hexToRGB(style.getPropertyValue("--accent-blue").trim() || "#00FFFF");
+  return buildGradientLUT([
+    { pos: 0,   col: cDark },
+    { pos: 255, col: cCyan },
+  ]);
+}
+
+/**
+ * Build write LUT: dark→red (stays saturated at peak)
+ */
+function buildWriteLUT(style) {
+  const cDark = [10, 10, 10];
+  const cRed  = hexToRGB(style.getPropertyValue("--accent-red").trim() || "#FF0000");
+  return buildGradientLUT([
+    { pos: 0,   col: cDark },
+    { pos: 255, col: cRed  },
+  ]);
+}
+
+/**
+ * Build read+write LUT: dark→magenta (stays saturated at peak)
+ */
+function buildReadWriteLUT(style) {
+  const cDark    = [10, 10, 10];
+  const cMagenta = hexToRGB(style.getPropertyValue("--accent-purple").trim() || "#FF00FF");
+  return buildGradientLUT([
+    { pos: 0,   col: cDark    },
+    { pos: 255, col: cMagenta },
+  ]);
 }
 
 /**
@@ -291,9 +315,10 @@ export class MemoryHeatmapWindow extends BaseWindow {
 
     // Memory data
     this._memoryData = null;
-    this._prevMemoryData = null;
-    this._activityDecay = new Uint8Array(TOTAL_BYTES);
+    this._readDecay = new Uint8Array(TOTAL_BYTES);
+    this._writeDecay = new Uint8Array(TOTAL_BYTES);
     this._entropyBlocks = null; // Uint8Array, lazy-init
+    this._accessTrackingActive = false;
 
     // Throttle
     this._lastFetch = 0;
@@ -308,7 +333,9 @@ export class MemoryHeatmapWindow extends BaseWindow {
     this._fgColour = 0xFF00FF00;
     this._bgColour = 0xFF0A0A0A;
     this._thermalLUT = null;
-    this._activityLUT = null;
+    this._readLUT = null;
+    this._writeLUT = null;
+    this._readWriteLUT = null;
     this._entropyLUT = null;
     this._asciiLUT = null;
 
@@ -451,6 +478,7 @@ export class MemoryHeatmapWindow extends BaseWindow {
       tabs.forEach(t => t.classList.toggle("selected", t.dataset.mode === mode));
     }
 
+    this._renderLegend();
     this._draw();
     this._drawMinimap();
   }
@@ -471,7 +499,9 @@ export class MemoryHeatmapWindow extends BaseWindow {
 
     // Build mode-specific LUTs
     this._thermalLUT = buildThermalLUT(style);
-    this._activityLUT = buildActivityLUT(style);
+    this._readLUT = buildReadLUT(style);
+    this._writeLUT = buildWriteLUT(style);
+    this._readWriteLUT = buildReadWriteLUT(style);
     this._entropyLUT = buildEntropyLUT(style);
     this._asciiLUT = buildASCIILUT(style);
 
@@ -513,12 +543,30 @@ export class MemoryHeatmapWindow extends BaseWindow {
     const el = this.contentElement?.querySelector(".memory-heatmap-legend");
     if (!el) return;
     const style = getComputedStyle(document.documentElement);
-    el.innerHTML = this._regions.map(r => {
-      const colour = style.getPropertyValue(r.cssVar).trim() || "#888";
-      return `<span class="memory-heatmap-legend-item">` +
-        `<span class="memory-heatmap-legend-swatch" style="background:${colour}"></span>` +
-        `${r.label}</span>`;
-    }).join("");
+
+    let html = "";
+
+    // Activity colour legend when in activity mode
+    if (this._mode === "activity") {
+      const readCol = style.getPropertyValue("--accent-blue").trim() || "#00FFFF";
+      const writeCol = style.getPropertyValue("--accent-red").trim() || "#FF0000";
+      const bothCol = style.getPropertyValue("--accent-purple").trim() || "#FF00FF";
+      const swatch = (col, label) =>
+        `<span class="memory-heatmap-legend-item">` +
+        `<span class="memory-heatmap-legend-swatch" style="background:${col}"></span>` +
+        `${label}</span>`;
+      html += swatch(readCol, "Read") + swatch(writeCol, "Write") + swatch(bothCol, "Read+Write");
+    } else {
+      // Region legend (non-activity modes only)
+      html += this._regions.map(r => {
+        const colour = style.getPropertyValue(r.cssVar).trim() || "#888";
+        return `<span class="memory-heatmap-legend-item">` +
+          `<span class="memory-heatmap-legend-swatch" style="background:${colour}"></span>` +
+          `${r.label}</span>`;
+      }).join("");
+    }
+
+    el.innerHTML = html;
   }
 
   // ── Grid width ─────────────────────────────────────────────────
@@ -672,8 +720,9 @@ export class MemoryHeatmapWindow extends BaseWindow {
       const ch = val >= 0x20 && val <= 0x7E ? String.fromCharCode(val) : "·";
       extra = `  '${ch}'`;
     } else if (this._mode === "activity") {
-      const act = this._activityDecay[addr];
-      extra = `  act:${act}`;
+      const rv = this._readDecay[addr];
+      const wv = this._writeDecay[addr];
+      extra = `  R:${rv} W:${wv}`;
     } else if (this._mode === "entropy") {
       const blockIdx = Math.floor(addr / ENTROPY_BLOCK);
       const ent = this._entropyBlocks ? (this._entropyBlocks[blockIdx] / 255 * 8).toFixed(2) : "?";
@@ -694,24 +743,25 @@ export class MemoryHeatmapWindow extends BaseWindow {
 
   // ── Activity & entropy computation ─────────────────────────────
 
-  _updateActivityDecay(newData) {
-    const decay = this._activityDecay;
-    const prev = this._prevMemoryData;
+  _updateActivityDecay(accessFlags) {
+    if (!accessFlags) return;
+    const rd = this._readDecay;
+    const wd = this._writeDecay;
 
-    if (prev) {
-      for (let i = 0; i < TOTAL_BYTES; i++) {
-        if (newData[i] !== prev[i]) {
-          decay[i] = 255; // flash on change
-        } else if (decay[i] > 0) {
-          decay[i] = Math.max(0, decay[i] - DECAY_RATE);
-        }
+    for (let i = 0; i < TOTAL_BYTES; i++) {
+      const f = accessFlags[i];
+      // bit 1 = read, bit 0 = write
+      if (f & 0x02) {
+        rd[i] = 255;
+      } else if (rd[i] > 0) {
+        rd[i] = (rd[i] > DECAY_RATE) ? rd[i] - DECAY_RATE : 0;
+      }
+      if (f & 0x01) {
+        wd[i] = 255;
+      } else if (wd[i] > 0) {
+        wd[i] = (wd[i] > DECAY_RATE) ? wd[i] - DECAY_RATE : 0;
       }
     }
-    // Keep a copy of current memory for next comparison
-    if (!this._prevMemoryData) {
-      this._prevMemoryData = new Uint8Array(TOTAL_BYTES);
-    }
-    this._prevMemoryData.set(newData);
   }
 
   _computeEntropy(data) {
@@ -743,7 +793,7 @@ export class MemoryHeatmapWindow extends BaseWindow {
       switch (this._mode) {
         case "bits":     this._drawBitView(); break;
         case "thermal":  this._drawSolidView(this._thermalLUT, "value"); break;
-        case "activity": this._drawSolidView(this._activityLUT, "activity"); break;
+        case "activity": this._drawActivityView(); break;
         case "ascii":    this._drawSolidView(this._asciiLUT, "value"); break;
         case "entropy":  this._drawSolidView(this._entropyLUT, "entropy"); break;
       }
@@ -861,7 +911,7 @@ export class MemoryHeatmapWindow extends BaseWindow {
             idx = mem[addr];
             break;
           case "activity":
-            idx = this._activityDecay[addr];
+            idx = 0;
             break;
           case "entropy": {
             const block = Math.floor(addr / ENTROPY_BLOCK);
@@ -872,6 +922,76 @@ export class MemoryHeatmapWindow extends BaseWindow {
             idx = mem[addr];
         }
         data32[pixBase + c] = lut[idx];
+      }
+    }
+
+    this._offscreenCtx.putImageData(imgData, 0, 0);
+
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = "#000";
+    ctx.fillRect(0, 0, cw, ch);
+
+    const offsetX = -(this._panX - startCol) * cellW;
+    const offsetY = -(this._panY - startRow) * cellH;
+    ctx.drawImage(
+      this._offscreen,
+      0, 0, texW, texH,
+      offsetX, offsetY,
+      visCols * cellW, visRows * cellH
+    );
+  }
+
+  // ── Activity view (read/write split colours) ───────────────────
+
+  _drawActivityView() {
+    const cw = this._canvas.width;
+    const ch = this._canvas.height;
+    const ctx = this._ctx;
+    const cellW = this._getCellWidth();
+    const cellH = this._getCellHeight();
+
+    const startCol = Math.floor(this._panX);
+    const startRow = Math.floor(this._panY);
+    const endCol = Math.min(this._gridCols, Math.ceil(this._panX + cw / cellW));
+    const endRow = Math.min(this._gridRows, Math.ceil(this._panY + ch / cellH));
+    const visCols = endCol - startCol;
+    const visRows = endRow - startRow;
+    if (visCols <= 0 || visRows <= 0) return;
+
+    const texW = visCols;
+    const texH = visRows;
+    if (this._offscreen.width !== texW || this._offscreen.height !== texH) {
+      this._offscreen.width = texW;
+      this._offscreen.height = texH;
+    }
+
+    const imgData = this._offscreenCtx.createImageData(texW, texH);
+    const data32 = new Uint32Array(imgData.data.buffer);
+    const rd = this._readDecay;
+    const wd = this._writeDecay;
+    const rLUT = this._readLUT;
+    const wLUT = this._writeLUT;
+    const rwLUT = this._readWriteLUT;
+
+    for (let r = 0; r < visRows; r++) {
+      const row = startRow + r;
+      const memBase = row * this._gridCols + startCol;
+      const pixBase = r * texW;
+      for (let c = 0; c < visCols; c++) {
+        const addr = memBase + c;
+        if (addr >= TOTAL_BYTES) { data32[pixBase + c] = 0xFF000000; continue; }
+        const rv = rd[addr];
+        const wv = wd[addr];
+        if (rv > 0 && wv > 0) {
+          // Both read and write — use the stronger value through the blend LUT
+          data32[pixBase + c] = rwLUT[Math.max(rv, wv)];
+        } else if (wv > 0) {
+          data32[pixBase + c] = wLUT[wv];
+        } else if (rv > 0) {
+          data32[pixBase + c] = rLUT[rv];
+        } else {
+          data32[pixBase + c] = 0xFF0A0A0A; // dark background
+        }
       }
     }
 
@@ -988,9 +1108,14 @@ export class MemoryHeatmapWindow extends BaseWindow {
         break;
       }
       case "activity": {
-        const act = this._activityDecay[addr];
-        if (act > 0) {
-          const abgr = this._activityLUT[act];
+        const rv = this._readDecay[addr];
+        const wv = this._writeDecay[addr];
+        if (rv > 0 || wv > 0) {
+          let lut, idx;
+          if (rv > 0 && wv > 0) { lut = this._readWriteLUT; idx = Math.max(rv, wv); }
+          else if (wv > 0) { lut = this._writeLUT; idx = wv; }
+          else { lut = this._readLUT; idx = rv; }
+          const abgr = lut[idx];
           const r = abgr & 0xFF;
           const g = (abgr >> 8) & 0xFF;
           const b = (abgr >> 16) & 0xFF;
@@ -1095,7 +1220,7 @@ export class MemoryHeatmapWindow extends BaseWindow {
   _getLUTForMode() {
     switch (this._mode) {
       case "thermal":  return this._thermalLUT;
-      case "activity": return this._activityLUT;
+      case "activity": return this._writeLUT; // fallback for minimap
       case "ascii":    return this._asciiLUT;
       case "entropy":  return this._entropyLUT;
       default:         return null; // bits mode uses special rendering
@@ -1111,7 +1236,12 @@ export class MemoryHeatmapWindow extends BaseWindow {
       return rgbToABGR(0, bright, 0); // green brightness
     }
     if (this._mode === "activity") {
-      return lut[this._activityDecay[addr]];
+      const rv = this._readDecay[addr];
+      const wv = this._writeDecay[addr];
+      if (rv > 0 && wv > 0) return this._readWriteLUT[Math.max(rv, wv)];
+      if (wv > 0) return this._writeLUT[wv];
+      if (rv > 0) return this._readLUT[rv];
+      return 0xFF0A0A0A;
     }
     if (this._mode === "entropy") {
       const block = Math.floor(addr / ENTROPY_BLOCK);
@@ -1130,7 +1260,13 @@ export class MemoryHeatmapWindow extends BaseWindow {
   // ── Update (called each frame by WindowManager) ────────────────
 
   update(proxy) {
-    if (!this.isVisible || !proxy) return;
+    if (!this.isVisible || !proxy) {
+      if (this._accessTrackingActive && proxy) {
+        this._accessTrackingActive = false;
+        proxy.setAccessTracking(false);
+      }
+      return;
+    }
 
     // Detect machine change
     const mid = proxy.getMachineId();
@@ -1142,15 +1278,27 @@ export class MemoryHeatmapWindow extends BaseWindow {
       this._renderLegend();
     }
 
+    // Enable/disable C++ access tracking based on activity mode
+    const needsTracking = this._mode === "activity";
+    if (needsTracking !== this._accessTrackingActive) {
+      this._accessTrackingActive = needsTracking;
+      proxy.setAccessTracking(needsTracking);
+    }
+
     const now = performance.now();
     if (now - this._lastFetch < FETCH_INTERVAL) return;
     this._lastFetch = now;
 
-    proxy.readMemory(0, TOTAL_BYTES).then((data) => {
+    // Fetch memory data (always needed for all modes)
+    const memPromise = proxy.readMemory(0, TOTAL_BYTES);
+    // Fetch access flags only when in activity mode
+    const flagsPromise = needsTracking ? proxy.readAccessFlags() : Promise.resolve(null);
+
+    Promise.all([memPromise, flagsPromise]).then(([data, accessFlags]) => {
       if (!data) return;
 
-      // Update activity tracking
-      this._updateActivityDecay(data);
+      // Update activity tracking from C++ access flags
+      this._updateActivityDecay(accessFlags);
 
       // Update entropy
       if (this._mode === "entropy") {
