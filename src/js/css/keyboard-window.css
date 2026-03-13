@@ -548,10 +548,21 @@ html[data-theme="light"] .kbd-sym-char {
   text-transform: none;
 }
 
-/* K mode + keyword-caps: hide main letter on letter rows so keyword is visible */
-.kbd-container[data-shift-mode="keyword"] .kbd-section-1 .kbd-main,
-.kbd-container[data-shift-mode="keyword"] .kbd-section-2 .kbd-main,
-.kbd-container[data-shift-mode="keyword"] .kbd-section-3 .kbd-main,
+/* K mode: letter rows — small letter top-left (same as E mode) */
+.kbd-container[data-shift-mode="keyword"] .kbd-section-1 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main,
+.kbd-container[data-shift-mode="keyword"] .kbd-section-2 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main,
+.kbd-container[data-shift-mode="keyword"] .kbd-section-3 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main {
+  opacity: 0.5;
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  transform: none;
+  font-size: 11px;
+  line-height: 13px;
+  z-index: 1;
+}
+
+/* keyword-caps: hide main letter on letter rows so keyword is visible */
 .kbd-container[data-shift-mode="keyword-caps"] .kbd-section-1 .kbd-main,
 .kbd-container[data-shift-mode="keyword-caps"] .kbd-section-2 .kbd-main,
 .kbd-container[data-shift-mode="keyword-caps"] .kbd-section-3 .kbd-main {
@@ -621,9 +632,30 @@ html[data-theme="light"] .kbd-sym-char {
   opacity: 0.35;
 }
 
-/* Symbol mode: hide main letter */
-.kbd-container[data-shift-mode="symbol"] .kbd-main {
-  opacity: 0;
+/* Symbol mode: letter rows — small letter top-left (same as E/K mode) */
+.kbd-container[data-shift-mode="symbol"] .kbd-section-1 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main,
+.kbd-container[data-shift-mode="symbol"] .kbd-section-2 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main,
+.kbd-container[data-shift-mode="symbol"] .kbd-section-3 .kbd-key:not(.kbd-key-center):not([data-shift]) .kbd-main {
+  opacity: 0.5;
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  transform: none;
+  font-size: 11px;
+  line-height: 13px;
+  z-index: 1;
+}
+
+/* Symbol mode: number row — small number top-left */
+.kbd-container[data-shift-mode="symbol"] .kbd-section-0 .kbd-main {
+  opacity: 0.5;
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  transform: none;
+  font-size: 11px;
+  line-height: 13px;
+  z-index: 1;
 }
 
 /* Symbol mode: sym-chars centered and large with dark pill background */
@@ -783,20 +815,9 @@ html[data-theme="light"] .kbd-ext-above {
   display: block;
 }
 
-/* E+shift: number row — small number top-left, red below label centered */
+/* E+shift: number row — hide numbers (match keyword-caps behaviour) */
 .kbd-container[data-shift-mode="extended-shift"] .kbd-section-0 .kbd-main {
-  opacity: 0.5;
-  position: absolute;
-  top: 2px;
-  left: 4px;
-  transform: none;
-  font-size: 11px;
-  line-height: 13px;
-  z-index: 1;
-}
-
-.kbd-container[data-shift-mode="extended-shift"] .kbd-section-0 .kbd-ext-below {
-  display: block;
+  opacity: 0;
 }
 
 /* EXTENDED + CAPS SHIFT: dim all off-key labels */
