@@ -820,11 +820,12 @@ html[data-theme="light"] .kbd-ext-above {
   opacity: 0;
 }
 
-/* EXTENDED + CAPS SHIFT: dim all off-key labels */
-.kbd-container[data-shift-mode="extended-shift"] .kbd-above-text,
+/* EXTENDED + CAPS SHIFT: dim off-key labels (but keep number row above-text/arrows highlighted) */
+.kbd-container[data-shift-mode="extended-shift"] .kbd-section-1 .kbd-above-text,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-section-2 .kbd-above-text,
+.kbd-container[data-shift-mode="extended-shift"] .kbd-section-3 .kbd-above-text,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-color-name,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-below-text,
-.kbd-container[data-shift-mode="extended-shift"] .kbd-arrow-svg,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-space-break,
 .kbd-container[data-shift-mode="extended-shift"] .kbd-space-label {
   opacity: 0.35;
