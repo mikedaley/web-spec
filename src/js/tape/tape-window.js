@@ -32,6 +32,7 @@ export class TapeWindow extends BaseWindow {
     this._blocks = [];
     this._metadata = null;
     this._infoPanelOpen = false;
+    this._infoPanelHeight = null; // null = use default
     this._cassettePanelOpen = false;
     this._lastCurrentBlock = -1;
     this._lastIsPlaying = false;
@@ -55,6 +56,7 @@ export class TapeWindow extends BaseWindow {
       "#tape-speed-checkbox",
     )?.checked;
     state.infoPanelOpen = this._infoPanelOpen;
+    state.infoPanelHeight = this._infoPanelHeight;
     state.cassettePanelOpen = this._cassettePanelOpen;
     state.currentFilename = this._currentFilename;
     state.filenameRenamed = this._filenameRenamed;
@@ -71,6 +73,9 @@ export class TapeWindow extends BaseWindow {
         this._proxy.tapeSetInstantLoad(true);
         this._updateSpeedSwitch(true);
       }
+    }
+    if (state.infoPanelHeight != null) {
+      this._infoPanelHeight = state.infoPanelHeight;
     }
     if (state.infoPanelOpen) {
       this._infoPanelOpen = true;
@@ -230,6 +235,7 @@ export class TapeWindow extends BaseWindow {
           <span>Tape Info</span>
         </div>
         <div class="tape-info-panel hidden" id="tape-info-panel">
+          <div class="tape-info-resize-handle" id="tape-info-resize-handle"></div>
           <div class="tape-info-content" id="tape-info-content"></div>
         </div>
       </div>
@@ -510,6 +516,30 @@ export class TapeWindow extends BaseWindow {
       this._applyInfoPanelState();
     });
 
+    // Info panel resize handle
+    const resizeHandle = this.contentElement.querySelector(
+      "#tape-info-resize-handle",
+    );
+    resizeHandle.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      const content = this.contentElement.querySelector("#tape-info-content");
+      const startY = e.clientY;
+      const startHeight = content.offsetHeight;
+      const onMouseMove = (ev) => {
+        const delta = startY - ev.clientY;
+        const newHeight = Math.max(60, startHeight + delta);
+        content.style.maxHeight = newHeight + "px";
+        content.style.height = newHeight + "px";
+        this._infoPanelHeight = newHeight;
+      };
+      const onMouseUp = () => {
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
+      };
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    });
+
     // Cassette visualization toggle
     const cassetteToggle = this.contentElement.querySelector(
       "#tape-cassette-toggle",
@@ -734,6 +764,13 @@ export class TapeWindow extends BaseWindow {
     if (this._infoPanelOpen) {
       panel.classList.remove("hidden");
       toggle.classList.add("open");
+      if (this._infoPanelHeight != null) {
+        const content = this.contentElement.querySelector("#tape-info-content");
+        if (content) {
+          content.style.maxHeight = this._infoPanelHeight + "px";
+          content.style.height = this._infoPanelHeight + "px";
+        }
+      }
     } else {
       panel.classList.add("hidden");
       toggle.classList.remove("open");

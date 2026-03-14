@@ -378,10 +378,37 @@
 .tape-info-panel {
   border-top: 1px solid var(--glass-border-subtle);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .tape-info-panel.hidden {
   display: none;
+}
+
+.tape-info-resize-handle {
+  height: 4px;
+  cursor: ns-resize;
+  background: transparent;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.tape-info-resize-handle::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--glass-border);
+  transition: background 0.15s;
+}
+
+.tape-info-resize-handle:hover::after {
+  background: var(--text-muted);
 }
 
 .tape-info-content {
