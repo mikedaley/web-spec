@@ -128,6 +128,14 @@ bool Z80Loader::load(ZXSpectrum& machine, const uint8_t* data, uint32_t size)
             machine.setPagingRegister(data[35]);
         }
 
+        // Restore port 0x1FFD for +2A/+3 snapshots (byte 36 in header)
+        bool isPlus2AOrPlus3 = (version == 3) &&
+            (hardwareType == V3_HW_PLUS2A || hardwareType == V3_HW_PLUS3 || hardwareType == V3_HW_PLUS3_ALT);
+        if (isPlus2AOrPlus3 && size > 36)
+        {
+            machine.setPagingRegister1FFD(data[36]);
+        }
+
         uint32_t offset = 32 + additionalHeaderLength;
 
         while (offset < size)

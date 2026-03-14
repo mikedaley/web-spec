@@ -147,6 +147,13 @@ void ZXSpectrumPlus2A::setPagingRegister(uint8_t value)
     updatePaging();
 }
 
+void ZXSpectrumPlus2A::setPagingRegister1FFD(uint8_t value)
+{
+    pagingRegister1FFD_ = value;
+    specialPaging_ = (value & 0x01) != 0;
+    updatePaging();
+}
+
 void ZXSpectrumPlus2A::writeRamBank(uint8_t bank, uint16_t offset, uint8_t data)
 {
     if (bank < 8 && offset < MEM_PAGE_SIZE)

@@ -90,6 +90,16 @@ public:
     bool hasTempBreakpoint() const { return tempBreakpointActive_; }
     void clearTempBreakpoint();
 
+    // Beam breakpoints
+    int32_t addBeamBreakpoint(int16_t scanline, int16_t hTs);
+    void removeBeamBreakpoint(int32_t id);
+    void enableBeamBreakpoint(int32_t id, bool enabled);
+    void clearAllBeamBreakpoints();
+    bool isBeamBreakpointHit() const { return beamBreakHit_; }
+    int32_t getBeamBreakpointHitId() const { return beamBreakHitId_; }
+    int16_t getBeamBreakHitScanline() const { return beamBreakHitScanline_; }
+    int16_t getBeamBreakHitHTs() const { return beamBreakHitHTs_; }
+
     // BASIC breakpoint support
     enum class BasicBpMode { OFF, STEP, RUN };
     void setBasicBreakpointStep();
@@ -127,6 +137,10 @@ public:
     uint8_t getIFF2() const override { return z80_->getIFF2(); }
     uint8_t getIM() const override { return z80_->getIMMode(); }
     uint32_t getTStates() const override { return z80_->getTStates(); }
+    void getBeamPosition(int32_t& pixelX, int32_t& pixelY) const override;
+    bool isInVBL() const override;
+    bool isInHBLANK() const override;
+    void getBeamScanline(uint32_t& scanline, uint32_t& hTs) const override;
     uint16_t getAltAF() const override { return z80_->getRegister(Z80::WordReg::AltAF); }
     uint16_t getAltBC() const override { return z80_->getRegister(Z80::WordReg::AltBC); }
     uint16_t getAltDE() const override { return z80_->getRegister(Z80::WordReg::AltDE); }
@@ -239,6 +253,8 @@ public:
     // 128K paging support (base returns defaults for 48K)
     virtual uint8_t getPagingRegister() const { return 0; }
     virtual void setPagingRegister(uint8_t /*value*/) {}
+    virtual uint8_t getPagingRegister1FFD() const { return 0; }
+    virtual void setPagingRegister1FFD(uint8_t /*value*/) {}
     virtual void writeRamBank(uint8_t /*bank*/, uint16_t /*offset*/, uint8_t /*data*/) {}
     virtual uint8_t readRamBank(uint8_t /*bank*/, uint16_t offset) const {
         return readMemory(0x4000 + offset);
@@ -309,6 +325,23 @@ protected:
     // Temp breakpoint for step-over / step-out
     bool tempBreakpointActive_ = false;
     uint16_t tempBreakpointAddr_ = 0;
+
+    // Beam breakpoint support
+    struct BeamBreakpoint {
+        int16_t scanline;           // -1 = any (wildcard)
+        int16_t hTs;                // -1 = any (wildcard)
+        bool enabled;
+        int32_t id;
+        uint32_t lastFireFrame;     // Frame for per-frame re-fire prevention
+        int16_t lastFireScanline;   // Scanline for per-scanline re-fire prevention
+    };
+    static constexpr size_t MAX_BEAM_BREAKPOINTS = 16;
+    std::vector<BeamBreakpoint> beamBreakpoints_;
+    int32_t beamBreakNextId_ = 1;
+    bool beamBreakHit_ = false;
+    int32_t beamBreakHitId_ = -1;
+    int16_t beamBreakHitScanline_ = -1;
+    int16_t beamBreakHitHTs_ = -1;
 
     // BASIC breakpoint state
     BasicBpMode basicBpMode_ = BasicBpMode::OFF;

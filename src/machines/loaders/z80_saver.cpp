@@ -10,6 +10,7 @@
 
 #include "z80_saver.hpp"
 #include "../zx_spectrum.hpp"
+#include "../machine_info.hpp"
 #include <cstring>
 
 namespace zxspec {
@@ -25,7 +26,8 @@ uint32_t Z80Saver::save(const ZXSpectrum& machine, uint8_t* buffer, uint32_t buf
     const Z80* cpu = machine.getCPU();
     if (!cpu) return 0;
 
-    bool is128K = machine.getId() == 1;
+    int machineId = machine.getId();
+    bool is128K = machineId != eZXSpectrum48;
 
     // Calculate required size: header + pages
     // Each page: 3 bytes header + 16384 bytes data (uncompressed)
@@ -84,12 +86,30 @@ uint32_t Z80Saver::save(const ZXSpectrum& machine, uint8_t* buffer, uint32_t buf
     writeLE16(buffer + 32, machine.getPC());          // Actual PC
 
     // Hardware type: v3 encoding
-    buffer[34] = is128K ? 4 : 0;
+    uint8_t hwType = 0;
+    switch (machineId)
+    {
+    case eZXSpectrum48:     hwType = 0;  break;
+    case eZXSpectrum128:    hwType = 4;  break;
+    case eZXSpectrum128_2:  hwType = 12; break;
+    case eZXSpectrum128_2A: hwType = 13; break;
+    case eZXSpectrum128_3:  hwType = 7;  break;
+    default:                hwType = 0;  break;
+    }
+    buffer[34] = hwType;
 
-    // Paging register (128K only)
+    // Paging register (128K+ only)
     buffer[35] = machine.getPagingRegister();
 
-    // Bytes 36-85: zeros (unused v3 fields) - already zeroed by memset
+    // Port 0x1FFD for +2A/+3 (stored in byte 86, the first byte after the standard v3 header)
+    // The Z80 v3 format has unused bytes 36-85; we use byte 86 (offset from header start)
+    // which is within the additional header area for our 54-byte additional header
+    if (machineId == eZXSpectrum128_2A || machineId == eZXSpectrum128_3)
+    {
+        buffer[36] = machine.getPagingRegister1FFD();
+    }
+
+    // Bytes 37-85: zeros (unused v3 fields) - already zeroed by memset
 
     // --- Memory pages ---
     uint32_t offset = TOTAL_HEADER_SIZE;

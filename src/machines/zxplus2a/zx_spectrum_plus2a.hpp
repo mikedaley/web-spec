@@ -55,6 +55,8 @@ public:
     // Paging state (exposed for debug/snapshot loaders)
     uint8_t getPagingRegister() const override { return pagingRegister_; }
     void setPagingRegister(uint8_t value) override;
+    uint8_t getPagingRegister1FFD() const override { return pagingRegister1FFD_; }
+    void setPagingRegister1FFD(uint8_t value) override;
     void writeRamBank(uint8_t bank, uint16_t offset, uint8_t data) override;
     uint8_t readRamBank(uint8_t bank, uint16_t offset) const override;
 
