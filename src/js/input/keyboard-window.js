@@ -767,42 +767,13 @@ export class KeyboardWindow extends BaseWindow {
   }
 
   onContentRendered() {
-    // Add highlight toggle to header (before close button)
+    // Add toggles group container to header (before close button)
     const closeBtn = this.headerElement.querySelector('.debug-window-close');
-    if (closeBtn && !this.headerElement.querySelector('.kbd-highlight-wrap')) {
-      const wrap = document.createElement('div');
-      wrap.className = 'kbd-highlight-wrap';
-      wrap.innerHTML = `<span class="kbd-highlight-label">Dynamic</span><label class="kbd-highlight-toggle"><input type="checkbox"${this._dynamicHighlight ? ' checked' : ''}><span class="kbd-toggle-slider"></span></label>`;
-      wrap.querySelector('input').addEventListener('change', (e) => {
-        e.stopPropagation();
-        this._dynamicHighlight = e.target.checked;
-        const container = this.contentElement?.querySelector('.kbd-container');
-        if (container && !this._dynamicHighlight) {
-          delete container.dataset.shiftMode;
-          this._physCapsHeld = false;
-          this._physSymbolHeld = false;
-        }
-        // Hide/show custom font toggle and disable custom font when dynamic is off
-        const fontWrapEl = this.headerElement?.querySelector('.kbd-font-wrap');
-        if (fontWrapEl) {
-          fontWrapEl.style.display = this._dynamicHighlight ? '' : 'none';
-        }
-        if (!this._dynamicHighlight && this._customFont) {
-          this._customFont = false;
-          const fontInput = this.headerElement?.querySelector('.kbd-font-wrap input');
-          if (fontInput) fontInput.checked = false;
-          if (container) container.classList.remove('kbd-custom-font');
-          this._clearFontCanvases();
-        }
-        if (this.onStateChange) this.onStateChange();
-        this.saveSettings();
-      });
-      wrap.addEventListener('mousedown', (e) => e.stopPropagation());
-      closeBtn.parentNode.insertBefore(wrap, closeBtn);
-    }
+    if (closeBtn && !this.headerElement.querySelector('.kbd-toggles-group')) {
+      const group = document.createElement('div');
+      group.className = 'kbd-toggles-group';
 
-    // Add custom font toggle to header
-    if (closeBtn && !this.headerElement.querySelector('.kbd-font-wrap')) {
+      // Custom font toggle (left)
       const fontWrap = document.createElement('div');
       fontWrap.className = 'kbd-highlight-wrap kbd-font-wrap';
       fontWrap.innerHTML = `<span class="kbd-highlight-label">Custom Font</span><label class="kbd-highlight-toggle"><input type="checkbox"${this._customFont ? ' checked' : ''}><span class="kbd-toggle-slider"></span></label>`;
@@ -823,17 +794,40 @@ export class KeyboardWindow extends BaseWindow {
         this.saveSettings();
       });
       fontWrap.addEventListener('mousedown', (e) => e.stopPropagation());
-      // Insert before the Dynamic toggle (to its left)
-      const dynamicWrap = this.headerElement.querySelector('.kbd-highlight-wrap:not(.kbd-font-wrap)');
-      if (dynamicWrap) {
-        dynamicWrap.parentNode.insertBefore(fontWrap, dynamicWrap);
-      } else {
-        closeBtn.parentNode.insertBefore(fontWrap, closeBtn);
-      }
-      // Hide font toggle if dynamic mode is off
       if (!this._dynamicHighlight) {
         fontWrap.style.display = 'none';
       }
+
+      // Dynamic toggle (right)
+      const wrap = document.createElement('div');
+      wrap.className = 'kbd-highlight-wrap';
+      wrap.innerHTML = `<span class="kbd-highlight-label">Dynamic</span><label class="kbd-highlight-toggle"><input type="checkbox"${this._dynamicHighlight ? ' checked' : ''}><span class="kbd-toggle-slider"></span></label>`;
+      wrap.querySelector('input').addEventListener('change', (e) => {
+        e.stopPropagation();
+        this._dynamicHighlight = e.target.checked;
+        const container = this.contentElement?.querySelector('.kbd-container');
+        if (container && !this._dynamicHighlight) {
+          delete container.dataset.shiftMode;
+          this._physCapsHeld = false;
+          this._physSymbolHeld = false;
+        }
+        // Hide/show custom font toggle and disable custom font when dynamic is off
+        fontWrap.style.display = this._dynamicHighlight ? '' : 'none';
+        if (!this._dynamicHighlight && this._customFont) {
+          this._customFont = false;
+          const fontInput = fontWrap.querySelector('input');
+          if (fontInput) fontInput.checked = false;
+          if (container) container.classList.remove('kbd-custom-font');
+          this._clearFontCanvases();
+        }
+        if (this.onStateChange) this.onStateChange();
+        this.saveSettings();
+      });
+      wrap.addEventListener('mousedown', (e) => e.stopPropagation());
+
+      group.appendChild(fontWrap);
+      group.appendChild(wrap);
+      closeBtn.parentNode.insertBefore(group, closeBtn);
     }
 
     this.contentElement.querySelectorAll(".kbd-key").forEach((el) => {

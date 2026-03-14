@@ -7,15 +7,17 @@
 
 /* ── Header toggle switch ── */
 
+.kbd-toggles-group {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+}
+
 .kbd-highlight-wrap {
   display: flex;
   align-items: center;
   gap: 5px;
   margin-right: 8px;
-}
-
-.kbd-font-wrap {
-  margin-left: auto;
 }
 
 .kbd-highlight-label {
