@@ -16,12 +16,21 @@
  *   Row 7: SPACE, SYMBOL SHIFT, M, N, B    (port 0x7FFE)
  */
 
+const STORAGE_KEY = "zxspec-key-mappings";
+
+// Spectrum matrix positions for the shift keys
+const CAPS_SHIFT_MATRIX = [0, 0];   // row 0, bit 0
+const SYMBOL_SHIFT_MATRIX = [7, 1]; // row 7, bit 1
+
+// Default physical key codes for the two shift keys
+const DEFAULT_CAPS_SHIFT_CODES = ["ShiftLeft", "ShiftRight"];
+const DEFAULT_SYMBOL_SHIFT_CODES = ["ControlLeft", "ControlRight"];
+
+// Base key map — everything except the shift keys (which are configurable)
 // Each entry: [row, bit] pairs. Keys needing a modifier have two pairs.
 // Bit 0 is the leftmost key in each row above.
-const KEY_MAP = {
-  // Row 0: CAPS SHIFT(0,0) Z(0,1) X(0,2) C(0,3) V(0,4)
-  ShiftLeft: [[0, 0]],
-  ShiftRight: [[0, 0]],
+const BASE_KEY_MAP = {
+  // Row 0: Z(0,1) X(0,2) C(0,3) V(0,4)
   KeyZ: [[0, 1]],
   KeyX: [[0, 2]],
   KeyC: [[0, 3]],
@@ -69,10 +78,8 @@ const KEY_MAP = {
   KeyJ: [[6, 3]],
   KeyH: [[6, 4]],
 
-  // Row 7: SPACE(7,0) SYMBOL SHIFT(7,1) M(7,2) N(7,3) B(7,4)
+  // Row 7: SPACE(7,0) M(7,2) N(7,3) B(7,4)
   Space: [[7, 0]],
-  ControlLeft: [[7, 1]],
-  ControlRight: [[7, 1]],
   KeyM: [[7, 2]],
   KeyN: [[7, 3]],
   KeyB: [[7, 4]],
@@ -96,6 +103,25 @@ const KEY_MAP = {
   Equal: [[7, 1], [6, 1]],        // = = SS + L
 };
 
+// Friendly label for a key code
+function keyCodeLabel(code) {
+  if (!code) return "—";
+  return code
+    .replace("ShiftLeft", "Left Shift")
+    .replace("ShiftRight", "Right Shift")
+    .replace("ControlLeft", "Left Ctrl")
+    .replace("ControlRight", "Right Ctrl")
+    .replace("AltLeft", "Left Alt")
+    .replace("AltRight", "Right Alt")
+    .replace("MetaLeft", "Left Meta")
+    .replace("MetaRight", "Right Meta")
+    .replace("Key", "")
+    .replace("Digit", "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2");
+}
+
+export { CAPS_SHIFT_MATRIX, SYMBOL_SHIFT_MATRIX, keyCodeLabel };
+
 export class InputHandler {
   constructor(proxy) {
     this.proxy = proxy;
@@ -111,10 +137,84 @@ export class InputHandler {
     this._onKeyDown = (e) => this.handleKeyDown(e);
     this._onKeyUp = (e) => this.handleKeyUp(e);
     this._onBlur = () => this.releaseAllKeys();
+
+    // Configurable shift key codes
+    this._capsShiftCodes = [...DEFAULT_CAPS_SHIFT_CODES];
+    this._symbolShiftCodes = [...DEFAULT_SYMBOL_SHIFT_CODES];
+
+    this._loadMappings();
+    this._rebuildKeyMap();
   }
 
   _bitIndex(row, bit) {
     return row * 5 + bit;
+  }
+
+  // Build the active KEY_MAP from base map + current shift key assignments
+  _rebuildKeyMap() {
+    this._keyMap = { ...BASE_KEY_MAP };
+    for (const code of this._capsShiftCodes) {
+      this._keyMap[code] = [CAPS_SHIFT_MATRIX];
+    }
+    for (const code of this._symbolShiftCodes) {
+      this._keyMap[code] = [SYMBOL_SHIFT_MATRIX];
+    }
+  }
+
+  _loadMappings() {
+    try {
+      const json = localStorage.getItem(STORAGE_KEY);
+      if (!json) return;
+      const data = JSON.parse(json);
+      if (Array.isArray(data.capsShift) && data.capsShift.length > 0) {
+        this._capsShiftCodes = data.capsShift;
+      }
+      if (Array.isArray(data.symbolShift) && data.symbolShift.length > 0) {
+        this._symbolShiftCodes = data.symbolShift;
+      }
+    } catch { /* ignore corrupt data */ }
+  }
+
+  _saveMappings() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({
+      capsShift: this._capsShiftCodes,
+      symbolShift: this._symbolShiftCodes,
+    }));
+  }
+
+  // Public API for getting/setting shift key codes
+  getCapsShiftCodes() { return [...this._capsShiftCodes]; }
+  getSymbolShiftCodes() { return [...this._symbolShiftCodes]; }
+  getKeyMap() { return this._keyMap; }
+
+  setCapsShiftCodes(codes) {
+    this.releaseAllKeys();
+    this._capsShiftCodes = [...codes];
+    this._rebuildKeyMap();
+    this._saveMappings();
+  }
+
+  setSymbolShiftCodes(codes) {
+    this.releaseAllKeys();
+    this._symbolShiftCodes = [...codes];
+    this._rebuildKeyMap();
+    this._saveMappings();
+  }
+
+  resetToDefaults() {
+    this.releaseAllKeys();
+    this._capsShiftCodes = [...DEFAULT_CAPS_SHIFT_CODES];
+    this._symbolShiftCodes = [...DEFAULT_SYMBOL_SHIFT_CODES];
+    this._rebuildKeyMap();
+    this._saveMappings();
+  }
+
+  isCapsShiftCode(code) {
+    return this._capsShiftCodes.includes(code);
+  }
+
+  isSymbolShiftCode(code) {
+    return this._symbolShiftCodes.includes(code);
   }
 
   init() {
@@ -149,7 +249,7 @@ export class InputHandler {
     const tag = event.target.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || event.target.isContentEditable) return;
 
-    const mapping = KEY_MAP[event.code];
+    const mapping = this._keyMap[event.code];
     if (!mapping) return;
 
     event.preventDefault();
@@ -174,7 +274,7 @@ export class InputHandler {
     const tag = event.target.tagName;
     if (tag === "INPUT" || tag === "TEXTAREA" || event.target.isContentEditable) return;
 
-    const mapping = KEY_MAP[event.code];
+    const mapping = this._keyMap[event.code];
     if (!mapping) return;
 
     event.preventDefault();
@@ -194,7 +294,7 @@ export class InputHandler {
 
   releaseAllKeys() {
     for (const code of this.pressedKeys) {
-      const mapping = KEY_MAP[code];
+      const mapping = this._keyMap[code];
       if (!mapping) continue;
       for (const [row, bit] of mapping) {
         this.proxy.keyUp(row, bit);

@@ -542,7 +542,7 @@ KEYBOARD_LAYOUTS[0] = [
 KEYBOARD_LAYOUTS[1] = KEYBOARD_LAYOUTS[0];
 
 export class KeyboardWindow extends BaseWindow {
-  constructor(proxy) {
+  constructor(proxy, inputHandler) {
     super({
       id: "keyboard",
       title: "Keyboard",
@@ -553,6 +553,7 @@ export class KeyboardWindow extends BaseWindow {
     });
 
     this.proxy = proxy;
+    this._inputHandler = inputHandler;
     this._machineId = parseInt(localStorage.getItem("zxspec-machine-id") || "0", 10);
     this._keyElements = new Map();
     this._naturalWidth = 0;
@@ -739,6 +740,7 @@ export class KeyboardWindow extends BaseWindow {
     }
 
     html += "</div>";
+
     return html;
   }
 
@@ -1337,28 +1339,30 @@ export class KeyboardWindow extends BaseWindow {
   // --- Physical keyboard highlighting ---
 
   _handleKeyDown(e) {
-    const mapping = KEY_MAP[e.code];
+    const keyMap = this._inputHandler ? this._inputHandler.getKeyMap() : KEY_MAP;
+    const mapping = keyMap[e.code];
     if (!mapping) return;
     this._pressedCodes.add(e.code);
     for (const [row, bit] of mapping) {
       const el = this._keyElements.get(`${row},${bit}`);
       if (el) el.classList.add("pressed");
     }
-    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+    if (this._inputHandler?.isCapsShiftCode(e.code)) {
       this._physCapsHeld = true;
-    } else if (e.code === 'ControlLeft' || e.code === 'ControlRight') {
+    } else if (this._inputHandler?.isSymbolShiftCode(e.code)) {
       this._physSymbolHeld = true;
     }
   }
 
   _handleKeyUp(e) {
-    const mapping = KEY_MAP[e.code];
+    const keyMap = this._inputHandler ? this._inputHandler.getKeyMap() : KEY_MAP;
+    const mapping = keyMap[e.code];
     if (!mapping) return;
     this._pressedCodes.delete(e.code);
     for (const [row, bit] of mapping) {
       // Only remove pressed if no other held key maps to this same row,bit
       const stillHeld = [...this._pressedCodes].some(code => {
-        const m = KEY_MAP[code];
+        const m = keyMap[code];
         return m && m.some(([r, b]) => r === row && b === bit);
       });
       if (!stillHeld) {
@@ -1366,9 +1370,9 @@ export class KeyboardWindow extends BaseWindow {
         if (el) el.classList.remove("pressed");
       }
     }
-    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+    if (this._inputHandler?.isCapsShiftCode(e.code)) {
       this._physCapsHeld = false;
-    } else if (e.code === 'ControlLeft' || e.code === 'ControlRight') {
+    } else if (this._inputHandler?.isSymbolShiftCode(e.code)) {
       this._physSymbolHeld = false;
     }
   }

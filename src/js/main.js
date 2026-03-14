@@ -23,6 +23,7 @@ import { BasicProgramWindow } from "./debug/basic-program-window.js";
 import { RuleBuilderWindow } from "./debug/rule-builder-window.js";
 import { MemoryMapWindow } from "./debug/memory-map-window.js";
 import { KeyboardWindow } from "./input/keyboard-window.js";
+import { SettingsWindow } from "./ui/settings-window.js";
 import { UDGEditorWindow } from "./debug/udg-editor-window.js";
 import { FontEditorWindow } from "./debug/font-editor-window.js";
 import { SpectranetWindow } from "./debug/spectranet-window.js";
@@ -174,8 +175,16 @@ class ZXSpectrumEmulator {
       this.memoryMapWindow.create();
       this.windowManager.register(this.memoryMapWindow);
 
+      // Create input handler (before keyboard/settings windows so it can be passed in)
+      this.inputHandler = new InputHandler(this.proxy);
+
+      // Create settings window
+      this.settingsWindow = new SettingsWindow(this.inputHandler);
+      this.settingsWindow.create();
+      this.windowManager.register(this.settingsWindow);
+
       // Create keyboard window
-      this.keyboardWindow = new KeyboardWindow(this.proxy);
+      this.keyboardWindow = new KeyboardWindow(this.proxy, this.inputHandler);
       this.keyboardWindow.create();
       this.windowManager.register(this.keyboardWindow);
 
@@ -269,6 +278,7 @@ class ZXSpectrumEmulator {
         { id: "rule-builder", visible: false },
         { id: "memory-map", visible: false },
         { id: "keyboard", visible: false },
+        { id: "settings", visible: false },
         { id: "udg-editor", visible: false },
         { id: "font-editor", visible: false },
         { id: "assembler", visible: false },
@@ -307,8 +317,7 @@ class ZXSpectrumEmulator {
         this.audioDriver.setDebugMute(this.proxy.isPaused());
       };
 
-      // Set up input handler
-      this.inputHandler = new InputHandler(this.proxy);
+      // Initialize input handler (created earlier, init needs DOM)
       this.inputHandler.init();
 
       // Set up retro debugger (full-screen WebGL debug overlay)
@@ -493,11 +502,19 @@ class ZXSpectrumEmulator {
       });
     }
 
-    // File menu > Reset Layout
-    const resetLayoutBtn = document.getElementById("btn-reset-layout");
-    if (resetLayoutBtn) {
-      resetLayoutBtn.addEventListener("click", () => {
+    // File menu > Settings
+    const settingsBtn = document.getElementById("btn-settings");
+    if (settingsBtn) {
+      settingsBtn.addEventListener("click", () => {
         this.closeAllMenus();
+        this.windowManager.showWindow("settings");
+        this.refocusCanvas();
+      });
+    }
+
+    // Wire reset layout callback on settings window
+    if (this.settingsWindow) {
+      this.settingsWindow.onResetLayout = () => {
         const keysToRemove = [];
         for (let i = 0; i < localStorage.length; i++) {
           const key = localStorage.key(i);
@@ -509,7 +526,7 @@ class ZXSpectrumEmulator {
           localStorage.removeItem(key);
         }
         window.location.reload();
-      });
+      };
     }
 
     // View menu > Auto Hide Header
