@@ -68,6 +68,8 @@ export class WebGLRenderer {
       bezelSpillReach: 0.66,
       bezelSpillIntensity: 0.31,
       compositeBlend: 0.0,
+      beamX: -1.0,
+      beamY: -1.0,
     };
 
     // Time for animated effects
@@ -209,6 +211,8 @@ export class WebGLRenderer {
       bezelSpillIntensity: gl.getUniformLocation(this.program, "u_bezelSpillIntensity"),
       compositeTexture: gl.getUniformLocation(this.program, "u_compositeTexture"),
       compositeBlend: gl.getUniformLocation(this.program, "u_compositeBlend"),
+      beamX: gl.getUniformLocation(this.program, "u_beamX"),
+      beamY: gl.getUniformLocation(this.program, "u_beamY"),
     };
 
     // Get burn-in program uniform locations
@@ -521,6 +525,8 @@ export class WebGLRenderer {
     gl.uniform1f(this.uniforms.bezelSpillReach, this.crtParams.bezelSpillReach);
     gl.uniform1f(this.uniforms.bezelSpillIntensity, this.crtParams.bezelSpillIntensity);
     gl.uniform1f(this.uniforms.compositeBlend, this.crtParams.compositeBlend);
+    gl.uniform1f(this.uniforms.beamX, this.crtParams.beamX);
+    gl.uniform1f(this.uniforms.beamY, this.crtParams.beamY);
 
     // Draw main CRT pass
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);

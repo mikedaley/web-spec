@@ -98,6 +98,10 @@ public:
     virtual uint8_t getIFF2() const = 0;
     virtual uint8_t getIM() const = 0;
     virtual uint32_t getTStates() const = 0;
+    virtual void getBeamPosition(int32_t& pixelX, int32_t& pixelY) const = 0;
+    virtual bool isInVBL() const = 0;
+    virtual bool isInHBLANK() const = 0;
+    virtual void getBeamScanline(uint32_t& scanline, uint32_t& hTs) const = 0;
     virtual uint16_t getAltAF() const = 0;
     virtual uint16_t getAltBC() const = 0;
     virtual uint16_t getAltDE() const = 0;

@@ -204,6 +204,11 @@ export class BaseWindow {
       x: e.clientX - rect.left,
       y: e.clientY - rect.top,
     };
+    // Cache dimensions at drag start to avoid layout thrashing during mousemove
+    const header = document.querySelector("header");
+    this._dragMinY = header && !header.classList.contains("auto-hide") ? header.offsetHeight : 0;
+    this._dragElWidth = this.element.offsetWidth;
+    this._dragElHeight = this.element.offsetHeight;
     e.preventDefault();
   }
 
@@ -214,15 +219,11 @@ export class BaseWindow {
     let x = e.clientX - this.dragOffset.x;
     let y = e.clientY - this.dragOffset.y;
 
-    // Get header height to prevent dragging under it (0 when auto-hidden)
-    const header = document.querySelector("header");
-    const minY = header && !header.classList.contains("auto-hide") ? header.offsetHeight : 0;
-
-    // Keep window on screen, below header
-    const maxX = window.innerWidth - this.element.offsetWidth;
-    const maxY = window.innerHeight - this.element.offsetHeight;
+    // Keep window on screen, below header (using cached values)
+    const maxX = window.innerWidth - this._dragElWidth;
+    const maxY = window.innerHeight - this._dragElHeight;
     x = Math.max(0, Math.min(x, maxX));
-    y = Math.max(minY, Math.min(y, maxY));
+    y = Math.max(this._dragMinY, Math.min(y, maxY));
 
     this.element.style.left = `${x}px`;
     this.element.style.top = `${y}px`;

@@ -44,6 +44,7 @@ export class CPUDebuggerWindow extends BaseWindow {
     // condition/conditionRules per address: Map<addr, {condition, conditionRules}>
     this._bpConditions = new Map();
     this._loadConditions();
+    this.beamBreakpoints = [];
   }
 
   renderContent() {
@@ -128,6 +129,15 @@ export class CPUDebuggerWindow extends BaseWindow {
           </div>
         </div>
 
+        <div class="cpu-dbg-section">
+          <span class="cpu-dbg-section-label">BEAM</span>
+          <div class="cpu-dbg-beam-row">
+            <span class="beam-item" title="Current scanline"><span class="beam-label">SCAN</span> <span class="beam-value" id="beam-scan">--</span></span>
+            <span class="beam-item" title="Horizontal T-state within scanline"><span class="beam-label">H</span> <span class="beam-value" id="beam-hts">--</span></span>
+            <span class="beam-badge beam-badge-idle" id="beam-badge">--</span>
+          </div>
+        </div>
+
         <div class="cpu-dbg-disasm">
           <div class="cpu-dbg-disasm-bar">
             <input type="text" id="disasm-goto-input" placeholder="Address (hex)" spellcheck="false">
@@ -140,6 +150,7 @@ export class CPUDebuggerWindow extends BaseWindow {
         <div class="cpu-dbg-tabs">
           <div class="cpu-dbg-tab-bar">
             <button class="cpu-dbg-tab active" data-tab="breakpoints">Breakpoints <span class="cpu-dbg-tab-count" id="bp-tab-count">0</span></button>
+            <button class="cpu-dbg-tab" data-tab="beam">Beam <span class="cpu-dbg-tab-count" id="beam-tab-count">0</span></button>
           </div>
           <div class="cpu-dbg-tab-content active" data-tab="breakpoints">
             <div class="cpu-dbg-tab-toolbar">
@@ -147,6 +158,21 @@ export class CPUDebuggerWindow extends BaseWindow {
               <button class="cpu-dbg-add-btn" id="cpu-dbg-bp-add" title="Add breakpoint">+</button>
             </div>
             <div class="cpu-bp-list" id="cpu-dbg-bp-list"></div>
+          </div>
+          <div class="cpu-dbg-tab-content" data-tab="beam">
+            <div class="cpu-dbg-tab-toolbar">
+              <select id="beam-mode-select" class="beam-mode-select">
+                <option value="vbl">VBL Start</option>
+                <option value="hblank">HBLANK</option>
+                <option value="scanline">Scanline</option>
+                <option value="hts">H T-state</option>
+                <option value="scanhts">Scan + HTs</option>
+              </select>
+              <input type="text" id="beam-scan-input" class="beam-input" placeholder="Scanline">
+              <input type="text" id="beam-hts-input" class="beam-input" placeholder="HTs">
+              <button class="cpu-dbg-add-btn" id="beam-add-btn" title="Add beam breakpoint">+</button>
+            </div>
+            <div class="cpu-beam-list" id="beam-list"></div>
           </div>
         </div>
       </div>
@@ -182,6 +208,8 @@ export class CPUDebuggerWindow extends BaseWindow {
     this.cacheElements();
     this.setupHandlers();
     this.renderBreakpointList();
+    this._renderBeamList();
+    this._updateBeamInputVisibility();
   }
 
   cacheElements() {
@@ -203,6 +231,12 @@ export class CPUDebuggerWindow extends BaseWindow {
       bpAdd: el.querySelector("#cpu-dbg-bp-add"),
       bpList: el.querySelector("#cpu-dbg-bp-list"),
       bpTabCount: el.querySelector("#bp-tab-count"),
+      beamModeSelect: el.querySelector("#beam-mode-select"),
+      beamScanInput: el.querySelector("#beam-scan-input"),
+      beamHtsInput: el.querySelector("#beam-hts-input"),
+      beamAddBtn: el.querySelector("#beam-add-btn"),
+      beamList: el.querySelector("#beam-list"),
+      beamTabCount: el.querySelector("#beam-tab-count"),
     };
   }
 
@@ -267,6 +301,16 @@ export class CPUDebuggerWindow extends BaseWindow {
       if (regValue && this._proxy?.isPaused?.()) {
         this.startRegisterEdit(regValue);
       }
+    });
+
+    // Beam breakpoint controls
+    this.elements.beamModeSelect.addEventListener("change", () => this._updateBeamInputVisibility());
+    this.elements.beamAddBtn.addEventListener("click", () => this._handleAddBeamBreakpoint());
+    this.elements.beamScanInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") this._handleAddBeamBreakpoint();
+    });
+    this.elements.beamHtsInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") this._handleAddBeamBreakpoint();
     });
   }
 
@@ -418,12 +462,12 @@ export class CPUDebuggerWindow extends BaseWindow {
     const data = this._disasmCache;
     const pc = this._proxy.getPC();
 
-    // Unpack binary buffer: 40 bytes per instruction
-    // [0-1] addr LE, [2] length, [3-6] bytes[4], [7] mnemonicLen, [8-39] mnemonic[32]
+    // Unpack binary buffer: 42 bytes per instruction
+    // [0-1] addr LE, [2] length, [3-6] bytes[4], [7] mnemonicLen, [8-39] mnemonic[32], [40] tStates, [41] tStatesAlt
     let html = "";
     let offset = 0;
 
-    for (let i = 0; i < DISASM_LINES && offset + 40 <= data.length; i++) {
+    for (let i = 0; i < DISASM_LINES && offset + 42 <= data.length; i++) {
       const instrAddr = data[offset] | (data[offset + 1] << 8);
       const instrLen = data[offset + 2];
       const instrBytes = [];
@@ -435,7 +479,9 @@ export class CPUDebuggerWindow extends BaseWindow {
       for (let j = 0; j < mnLen; j++) {
         mnemonic += String.fromCharCode(data[offset + 8 + j]);
       }
-      offset += 40;
+      const tStates = data[offset + 40];
+      const tStatesAlt = data[offset + 41];
+      offset += 42;
 
       const isCurrent = instrAddr === pc;
       const hasBp = this.breakpointManager.has(instrAddr);
@@ -458,6 +504,8 @@ export class CPUDebuggerWindow extends BaseWindow {
       html += `<div class="cpu-disasm-addr">${addrStr}</div>`;
       html += `<div class="cpu-disasm-bytes">${bytesStr}</div>`;
       html += `<div class="cpu-disasm-mnemonic">${this.colorizeMnemonic(mnemonic)}</div>`;
+      const tsStr = tStatesAlt ? `${tStates}/${tStatesAlt}` : `${tStates}`;
+      html += `<div class="cpu-disasm-tstates">${tsStr}</div>`;
       html += `</div>`;
     }
 
@@ -755,28 +803,276 @@ export class CPUDebuggerWindow extends BaseWindow {
     if (!this.proxySynced) {
       this.proxySynced = true;
       this.breakpointManager.syncToProxy(proxy);
+      this._loadBeamBreakpoints();
     }
 
     const emulator = window.zxspec;
     const running = emulator?.isRunning() ?? false;
     const paused = proxy.isPaused();
 
-    // Always update immediately when paused (stepping needs instant feedback),
-    // otherwise throttle to 5 updates per second while running
-    if (!paused && running) {
-      const now = performance.now();
+    // Throttle updates: when paused, only update when state changes (stepping);
+    // when running, throttle to ~60 updates per second.
+    const now = performance.now();
+    if (paused) {
+      const pc = proxy.getPC();
+      if (pc === this._lastPausedPC && this._pausedUpdated) return;
+      this._lastPausedPC = pc;
+      this._pausedUpdated = true;
+    } else if (running) {
       if (now - this.lastUpdateTime < this.updateInterval) return;
-      this.lastUpdateTime = now;
+      this._pausedUpdated = false;
+    } else {
+      this._pausedUpdated = false;
     }
+    this.lastUpdateTime = now;
 
     this.updateStatus(proxy, running);
     this.updateRegisters(proxy);
+    this._updateBeam(proxy, paused);
+    this._checkBeamBreakpointHit(proxy, paused);
 
     // Only request disassembly when PC changes or in manual scroll mode
     const pc = proxy.getPC();
     if (pc !== this.prevPC || !this.followPC) {
       this.prevPC = pc;
       this.requestDisassemblyMemory();
+    }
+  }
+
+  _checkBeamBreakpointHit(proxy, paused) {
+    if (!paused || this.beamBreakpoints.length === 0) {
+      // Clear any hit highlights when running
+      if (!paused && this._beamHitId !== undefined) {
+        this._beamHitId = undefined;
+        this._renderBeamList();
+      }
+      return;
+    }
+    proxy.isBeamBreakpointHit().then(result => {
+      if (!result || !result.hit) return;
+      if (this._beamHitId === result.hitId) return;
+      this._beamHitId = result.hitId;
+      this._renderBeamList();
+      // Highlight the hit item
+      const list = this.elements.beamList;
+      if (list) {
+        const item = list.querySelector(`.cpu-beam-item[data-id="${result.hitId}"]`);
+        if (item) item.classList.add("hit");
+      }
+    });
+  }
+
+  _cacheBeamElements() {
+    this._beamEls = {
+      scan: this.contentElement.querySelector("#beam-scan"),
+      hTs: this.contentElement.querySelector("#beam-hts"),
+      badge: this.contentElement.querySelector("#beam-badge"),
+    };
+  }
+
+  _updateBeam(proxy, paused) {
+    if (!this._beamEls) this._cacheBeamElements();
+    const els = this._beamEls;
+    if (!els.scan) return;
+
+    proxy.getBeamPosition().then(pos => {
+      if (!pos) return;
+      els.scan.textContent = pos.scanline;
+      els.hTs.textContent = pos.hTs;
+
+      const badge = els.badge;
+      if (pos.inVBL) {
+        badge.textContent = "VBL";
+        badge.className = "beam-badge beam-badge-vbl";
+      } else if (pos.inHBLANK) {
+        badge.textContent = "HBLANK";
+        badge.className = "beam-badge beam-badge-hblank";
+      } else {
+        badge.textContent = "VISIBLE";
+        badge.className = "beam-badge beam-badge-visible";
+      }
+    });
+  }
+
+  // ---- Beam Breakpoints ----
+
+  _updateBeamInputVisibility() {
+    const mode = this.elements.beamModeSelect.value;
+    const scanInput = this.elements.beamScanInput;
+    const htsInput = this.elements.beamHtsInput;
+
+    switch (mode) {
+      case "vbl":
+      case "hblank":
+        scanInput.style.display = "none";
+        htsInput.style.display = "none";
+        break;
+      case "scanline":
+        scanInput.style.display = "";
+        scanInput.placeholder = "Scanline";
+        htsInput.style.display = "none";
+        break;
+      case "hts":
+        scanInput.style.display = "none";
+        htsInput.style.display = "";
+        htsInput.placeholder = "H T-state";
+        break;
+      case "scanhts":
+        scanInput.style.display = "";
+        scanInput.placeholder = "Scanline";
+        htsInput.style.display = "";
+        htsInput.placeholder = "H T-state";
+        break;
+    }
+  }
+
+  async _handleAddBeamBreakpoint() {
+    if (!this._proxy) return;
+    const mode = this.elements.beamModeSelect.value;
+    let scanline = -1;
+    let hTs = -1;
+
+    switch (mode) {
+      case "vbl":
+        scanline = 0;
+        hTs = 0;
+        break;
+      case "hblank":
+        scanline = -1;
+        hTs = 176;  // TOTAL_WIDTH / 2 = start of HBLANK
+        break;
+      case "scanline":
+        scanline = parseInt(this.elements.beamScanInput.value, 10);
+        if (isNaN(scanline) || scanline < 0) return;
+        hTs = -1;
+        break;
+      case "hts":
+        scanline = -1;
+        hTs = parseInt(this.elements.beamHtsInput.value, 10);
+        if (isNaN(hTs) || hTs < 0) return;
+        break;
+      case "scanhts":
+        scanline = parseInt(this.elements.beamScanInput.value, 10);
+        hTs = parseInt(this.elements.beamHtsInput.value, 10);
+        if (isNaN(scanline) || isNaN(hTs) || scanline < 0 || hTs < 0) return;
+        break;
+    }
+
+    const id = await this._proxy.addBeamBreakpoint(scanline, hTs);
+    if (id < 0) return;
+
+    this.beamBreakpoints.push({ id, scanline, hTs, enabled: true, mode });
+    this._saveBeamBreakpoints();
+    this._renderBeamList();
+    this.elements.beamScanInput.value = "";
+    this.elements.beamHtsInput.value = "";
+  }
+
+  _renderBeamList() {
+    const list = this.elements.beamList;
+    if (!list) return;
+
+    if (this.beamBreakpoints.length === 0) {
+      list.innerHTML = '<div class="cpu-dbg-empty-state">No beam breakpoints set</div>';
+    } else {
+      list.innerHTML = this.beamBreakpoints.map(bp => {
+        const { typeLabel, typeClass, detail } = this._beamBpDisplay(bp);
+        return `
+          <div class="cpu-beam-item" data-id="${bp.id}">
+            <span class="beam-enable"><input type="checkbox" ${bp.enabled ? "checked" : ""}></span>
+            <span class="beam-type ${typeClass}">${typeLabel}</span>
+            <span class="beam-detail">${detail}</span>
+            <button class="beam-remove" title="Remove">&times;</button>
+          </div>`;
+      }).join("");
+
+      list.querySelectorAll(".beam-enable input").forEach(cb => {
+        cb.addEventListener("change", (e) => {
+          const item = e.target.closest(".cpu-beam-item");
+          const id = parseInt(item.dataset.id, 10);
+          const bp = this.beamBreakpoints.find(b => b.id === id);
+          if (bp) {
+            bp.enabled = e.target.checked;
+            this._proxy.enableBeamBreakpoint(id, bp.enabled);
+            this._saveBeamBreakpoints();
+          }
+        });
+      });
+
+      list.querySelectorAll(".beam-remove").forEach(btn => {
+        btn.addEventListener("click", (e) => {
+          const item = e.target.closest(".cpu-beam-item");
+          const id = parseInt(item.dataset.id, 10);
+          this._proxy.removeBeamBreakpoint(id);
+          this.beamBreakpoints = this.beamBreakpoints.filter(b => b.id !== id);
+          this._saveBeamBreakpoints();
+          this._renderBeamList();
+        });
+      });
+    }
+
+    const count = this.elements.beamTabCount;
+    if (count) {
+      count.textContent = this.beamBreakpoints.length;
+      count.classList.toggle("has-items", this.beamBreakpoints.length > 0);
+    }
+  }
+
+  _beamBpDisplay(bp) {
+    switch (bp.mode) {
+      case "vbl":
+        return { typeLabel: "VBL", typeClass: "beam-type-vbl", detail: "Scanline 0" };
+      case "hblank":
+        return { typeLabel: "HBL", typeClass: "beam-type-hbl", detail: `HTs ${bp.hTs}` };
+      case "scanline":
+        return { typeLabel: "SCAN", typeClass: "beam-type-scan", detail: `Row ${bp.scanline}` };
+      case "hts":
+        return { typeLabel: "HTs", typeClass: "beam-type-hts", detail: `HTs ${bp.hTs}` };
+      case "scanhts":
+        return { typeLabel: "S+H", typeClass: "beam-type-sh", detail: `Row ${bp.scanline}, HTs ${bp.hTs}` };
+      default:
+        return { typeLabel: "?", typeClass: "", detail: "" };
+    }
+  }
+
+  _saveBeamBreakpoints() {
+    const data = this.beamBreakpoints.map(bp => ({
+      scanline: bp.scanline, hTs: bp.hTs, enabled: bp.enabled, mode: bp.mode
+    }));
+    localStorage.setItem("zxspec-beam-breakpoints", JSON.stringify(data));
+  }
+
+  async _loadBeamBreakpoints() {
+    if (!this._proxy) return;
+    const raw = localStorage.getItem("zxspec-beam-breakpoints");
+    if (!raw) {
+      this._renderBeamList();
+      return;
+    }
+    try {
+      const saved = JSON.parse(raw);
+      for (const bp of saved) {
+        const id = await this._proxy.addBeamBreakpoint(bp.scanline, bp.hTs);
+        if (id >= 0) {
+          this.beamBreakpoints.push({ id, scanline: bp.scanline, hTs: bp.hTs, enabled: bp.enabled, mode: bp.mode });
+          if (!bp.enabled) {
+            this._proxy.enableBeamBreakpoint(id, false);
+          }
+        }
+      }
+    } catch (e) { /* ignore corrupt data */ }
+    this._renderBeamList();
+  }
+
+  async _resyncBeamBreakpoints() {
+    if (!this._proxy) return;
+    for (let i = 0; i < this.beamBreakpoints.length; i++) {
+      const bp = this.beamBreakpoints[i];
+      const id = await this._proxy.addBeamBreakpoint(bp.scanline, bp.hTs);
+      if (id >= 0) {
+        bp.id = id;
+        if (!bp.enabled) this._proxy.enableBeamBreakpoint(id, false);
+      }
     }
   }
 }

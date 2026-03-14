@@ -51,6 +51,10 @@ uniform float u_screenMargin;
 // Background colour for pixels outside the curved screen area
 uniform vec3 u_surroundColor;
 
+// Beam position crosshair (normalised 0-1, negative = hidden)
+uniform float u_beamX;
+uniform float u_beamY;
+
 varying vec2 v_texCoord;
 
 const float PI = 3.14159265359;
@@ -474,6 +478,31 @@ vec3 bezelShade(vec2 uv, vec2 curvedUV) {
 }
 
 // ============================================
+// Beam position crosshair (debug overlay)
+// ============================================
+
+vec3 beamOverlay(vec2 uv) {
+    if (u_beamY < 0.0 && u_beamX < 0.0) return vec3(0.0);
+
+    // Snap to emulator pixel grid for sharp nearest-neighbour lines
+    vec2 pixel = floor(uv * u_textureSize);
+    vec2 beamPixel = floor(vec2(u_beamX, u_beamY) * u_textureSize);
+
+    vec3 lineColor = vec3(1.0, 0.0, 0.0);
+    float intensity = 0.0;
+
+    if (u_beamY >= 0.0 && u_beamY <= 1.0) {
+        intensity += step(abs(pixel.y - beamPixel.y), 0.5) * 0.6;
+    }
+
+    if (u_beamX >= 0.0 && u_beamX <= 1.0) {
+        intensity += step(abs(pixel.x - beamPixel.x), 0.5) * 0.6;
+    }
+
+    return lineColor * min(intensity, 1.0);
+}
+
+// ============================================
 // Main fragment shader
 // ============================================
 
@@ -584,6 +613,9 @@ void main() {
 
     // Add glowing line
     color += vec3(glowingLine(curvedUV, u_time));
+
+    // Add beam crosshair overlay (debug)
+    color = mix(color, vec3(1.0, 0.0, 0.0), beamOverlay(stableCurvedUV).r);
 
     // Add static noise
     color += vec3(staticNoise(curvedUV, u_time));

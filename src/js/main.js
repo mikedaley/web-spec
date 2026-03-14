@@ -1774,6 +1774,15 @@ class ZXSpectrumEmulator {
     if (framebuffer) {
       this.renderer.updateTexture(framebuffer);
       if (signalBuffer) this.renderer.updateSignalTexture(signalBuffer);
+
+      // Show beam crosshair when paused with debugger visible
+      if (this.proxy.isPaused() && this.cpuDebuggerWindow && this.cpuDebuggerWindow.isVisible) {
+        this._updateBeamCrosshair();
+      } else {
+        this.renderer.setParam("beamX", -1.0);
+        this.renderer.setParam("beamY", -1.0);
+      }
+
       this.renderer.draw();
       // Pass framebuffer to retro debugger if active
       if (this.retroDebugger) {
@@ -1783,21 +1792,49 @@ class ZXSpectrumEmulator {
     this.windowManager.updateAll(this.proxy);
   }
 
+  async _updateBeamCrosshair() {
+    if (this._beamCrosshairPending) return;
+    this._beamCrosshairPending = true;
+    try {
+      const pos = await this.proxy.getBeamPosition();
+      if (pos && pos.x >= 0 && pos.y >= 0) {
+        this.renderer.setParam("beamX", (pos.x + 0.5) / 352.0);
+        this.renderer.setParam("beamY", (pos.y + 0.5) / 288.0);
+      } else {
+        this.renderer.setParam("beamX", -1.0);
+        this.renderer.setParam("beamY", -1.0);
+      }
+      this.renderer.draw();
+    } catch {
+      // Ignore errors during shutdown
+    } finally {
+      this._beamCrosshairPending = false;
+    }
+  }
+
   startRenderLoop() {
     let lastIdleDrawTime = 0;
+    let lastPausedUpdateTime = 0;
     const IDLE_DRAW_INTERVAL = 20; // ~50Hz when emulator is off (matches Spectrum frame rate)
+    const PAUSED_UPDATE_INTERVAL = 100; // ~10Hz when paused
 
     const render = (timestamp) => {
       if (!this.running) {
-        // Throttle to ~10fps when powered off (no-signal static animation)
+        // Throttle to ~50fps when powered off (no-signal static animation)
         if (timestamp - lastIdleDrawTime >= IDLE_DRAW_INTERVAL) {
           lastIdleDrawTime = timestamp;
           this.renderer.draw();
           this.windowManager.updateAll(this.proxy);
         }
-      } else {
-        // When running, debug windows update at display refresh rate
-        this.windowManager.updateAll(this.proxy);
+      } else if (this.proxy) {
+        // When running, debug windows update at display refresh rate.
+        // When paused, throttle to ~10fps since state only changes on step.
+        if (!this.proxy.isPaused()) {
+          this.windowManager.updateAll(this.proxy);
+        } else if (timestamp - lastPausedUpdateTime >= PAUSED_UPDATE_INTERVAL) {
+          lastPausedUpdateTime = timestamp;
+          this.windowManager.updateAll(this.proxy);
+        }
       }
       this.animFrameId = requestAnimationFrame(render);
     };

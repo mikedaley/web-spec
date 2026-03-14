@@ -176,6 +176,12 @@ if(EMSCRIPTEN)
                 \"_getIFF2\", \
                 \"_getIM\", \
                 \"_getTStates\", \
+                \"_getBeamX\", \
+                \"_getBeamY\", \
+                \"_getBeamScanline\", \
+                \"_getBeamHTs\", \
+                \"_isInVBL\", \
+                \"_isInHBLANK\", \
                 \"_readMemory\", \
                 \"_writeMemory\", \
                 \"_setAccessTracking\", \
@@ -246,6 +252,14 @@ if(EMSCRIPTEN)
                 \"_getBreakpointAddress\", \
                 \"_clearBreakpointHit\", \
                 \"_resetBreakpointHit\", \
+                \"_addBeamBreakpoint\", \
+                \"_removeBeamBreakpoint\", \
+                \"_enableBeamBreakpoint\", \
+                \"_clearAllBeamBreakpoints\", \
+                \"_isBeamBreakpointHit\", \
+                \"_getBeamBreakpointHitId\", \
+                \"_getBeamBreakHitScanline\", \
+                \"_getBeamBreakHitHTs\", \
                 \"_getDisplayWidth\", \
                 \"_getDisplayHeight\", \
                 \"_getBreakpointCount\", \

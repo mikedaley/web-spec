@@ -207,6 +207,50 @@ uint32_t getTStates() {
   return g_machine->getTStates();
 }
 
+EMSCRIPTEN_KEEPALIVE
+int32_t getBeamX() {
+  REQUIRE_MACHINE_OR(-1);
+  int32_t x, y;
+  g_machine->getBeamPosition(x, y);
+  return x;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int32_t getBeamY() {
+  REQUIRE_MACHINE_OR(-1);
+  int32_t x, y;
+  g_machine->getBeamPosition(x, y);
+  return y;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint32_t getBeamScanline() {
+  REQUIRE_MACHINE_OR(0);
+  uint32_t scanline, hTs;
+  g_machine->getBeamScanline(scanline, hTs);
+  return scanline;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint32_t getBeamHTs() {
+  REQUIRE_MACHINE_OR(0);
+  uint32_t scanline, hTs;
+  g_machine->getBeamScanline(scanline, hTs);
+  return hTs;
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool isInVBL() {
+  REQUIRE_MACHINE_OR(false);
+  return g_machine->isInVBL();
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool isInHBLANK() {
+  REQUIRE_MACHINE_OR(false);
+  return g_machine->isInHBLANK();
+}
+
 // ============================================================================
 // Alternate Register Access
 // ============================================================================
@@ -313,6 +357,66 @@ EMSCRIPTEN_KEEPALIVE
 void resetBreakpointHit() {
   REQUIRE_MACHINE();
   g_machine->resetBreakpointHit();
+}
+
+// ============================================================================
+// Beam Breakpoints
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+int32_t addBeamBreakpoint(int16_t scanline, int16_t hTs) {
+  REQUIRE_MACHINE_OR(-1);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec->addBeamBreakpoint(scanline, hTs);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void removeBeamBreakpoint(int32_t id) {
+  REQUIRE_MACHINE();
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  spec->removeBeamBreakpoint(id);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void enableBeamBreakpoint(int32_t id, bool enabled) {
+  REQUIRE_MACHINE();
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  spec->enableBeamBreakpoint(id, enabled);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void clearAllBeamBreakpoints() {
+  REQUIRE_MACHINE();
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  spec->clearAllBeamBreakpoints();
+}
+
+EMSCRIPTEN_KEEPALIVE
+bool isBeamBreakpointHit() {
+  REQUIRE_MACHINE_OR(false);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec->isBeamBreakpointHit();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int32_t getBeamBreakpointHitId() {
+  REQUIRE_MACHINE_OR(-1);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec->getBeamBreakpointHitId();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int16_t getBeamBreakHitScanline() {
+  REQUIRE_MACHINE_OR(-1);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec->getBeamBreakHitScanline();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int16_t getBeamBreakHitHTs() {
+  REQUIRE_MACHINE_OR(-1);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec->getBeamBreakHitHTs();
 }
 
 // ============================================================================
@@ -1180,8 +1284,10 @@ const char* basicAutoRenumberGetResult() {
 //   uint8_t  bytes[4] (4 bytes)
 //   uint8_t  mnemonicLen (1 byte)
 //   char     mnemonic[32] (32 bytes, null-padded)
-// Total: 40 bytes per instruction, max 256 instructions = 10240 bytes
-static uint8_t s_disasmBuf[256 * 40];
+//   uint8_t  tStates (1 byte)
+//   uint8_t  tStatesAlt (1 byte, 0 if no alternate)
+// Total: 42 bytes per instruction, max 256 instructions = 10752 bytes
+static uint8_t s_disasmBuf[256 * 42];
 static int s_disasmBufSize = 0;
 
 static uint8_t disasmReadByte(uint16_t addr, void* ctx)
@@ -1219,6 +1325,9 @@ const uint8_t* disassembleAt(uint16_t addr, int count) {
         memcpy(s_disasmBuf + offset, result.mnemonic.c_str(), mnLen);
         memset(s_disasmBuf + offset + mnLen, 0, 32 - mnLen);
         offset += 32;
+        // T-states (2 bytes)
+        s_disasmBuf[offset++] = result.tStates;
+        s_disasmBuf[offset++] = result.tStatesAlt;
 
         pc = (pc + result.length) & 0xFFFF;
     }
@@ -1232,7 +1341,7 @@ int disassembleGetSize() {
     return s_disasmBufSize;
 }
 
-// Write one 40-byte disasm record into s_disasmBuf at the given offset.
+// Write one 42-byte disasm record into s_disasmBuf at the given offset.
 // Returns new offset.
 static int writeDisasmRecord(int offset, uint16_t addr, const zxspec::DisasmResult& result) {
     s_disasmBuf[offset++] = addr & 0xFF;
@@ -1247,6 +1356,8 @@ static int writeDisasmRecord(int offset, uint16_t addr, const zxspec::DisasmResu
     memcpy(s_disasmBuf + offset, result.mnemonic.c_str(), mnLen);
     memset(s_disasmBuf + offset + mnLen, 0, 32 - mnLen);
     offset += 32;
+    s_disasmBuf[offset++] = result.tStates;
+    s_disasmBuf[offset++] = result.tStatesAlt;
     return offset;
 }
 

@@ -443,6 +443,55 @@ void ZXSpectrum::writeMemory(uint16_t address, uint8_t data)
 }
 
 // ============================================================================
+// Beam Position (derived from CPU T-states, not display render position)
+// ============================================================================
+
+void ZXSpectrum::getBeamPosition(int32_t& pixelX, int32_t& pixelY) const
+{
+    uint32_t ts = z80_->getTStates() % machineInfo_.tsPerFrame;
+    uint32_t scanline = ts / machineInfo_.tsPerLine;
+    uint32_t hTs = ts % machineInfo_.tsPerLine;
+
+    int32_t fbRow = static_cast<int32_t>(scanline) - static_cast<int32_t>(machineInfo_.pxVerticalBlank);
+    if (fbRow < 0 || fbRow >= static_cast<int32_t>(TOTAL_HEIGHT)) {
+        pixelX = -1;
+        pixelY = -1;
+        return;
+    }
+
+    int32_t px = static_cast<int32_t>(hTs) * 2;
+    if (px >= static_cast<int32_t>(TOTAL_WIDTH)) {
+        px = static_cast<int32_t>(TOTAL_WIDTH) - 1;
+    }
+
+    pixelX = px;
+    pixelY = fbRow;
+}
+
+void ZXSpectrum::getBeamScanline(uint32_t& scanline, uint32_t& hTs) const
+{
+    uint32_t ts = z80_->getTStates() % machineInfo_.tsPerFrame;
+    scanline = ts / machineInfo_.tsPerLine;
+    hTs = ts % machineInfo_.tsPerLine;
+}
+
+bool ZXSpectrum::isInVBL() const
+{
+    uint32_t ts = z80_->getTStates() % machineInfo_.tsPerFrame;
+    uint32_t scanline = ts / machineInfo_.tsPerLine;
+    return scanline < machineInfo_.pxVerticalBlank;
+}
+
+bool ZXSpectrum::isInHBLANK() const
+{
+    uint32_t ts = z80_->getTStates() % machineInfo_.tsPerFrame;
+    uint32_t scanline = ts / machineInfo_.tsPerLine;
+    if (scanline < machineInfo_.pxVerticalBlank) return false;
+    uint32_t hTs = ts % machineInfo_.tsPerLine;
+    return hTs >= (TOTAL_WIDTH / 2);
+}
+
+// ============================================================================
 // Breakpoints
 // ============================================================================
 
@@ -458,7 +507,7 @@ void ZXSpectrum::removeBreakpoint(uint16_t addr)
     breakpoints_.erase(addr);
     disabledBreakpoints_.erase(addr);
 
-    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !traceEnabled_) {
+    if (breakpoints_.empty() && beamBreakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !traceEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     } else {
         installOpcodeCallback();
@@ -479,6 +528,8 @@ void ZXSpectrum::clearBreakpointHit()
     skipBreakpointAddr_ = breakpointAddress_;
     skipBreakpointOnce_ = true;
     breakpointHit_ = false;
+    beamBreakHit_ = false;
+    beamBreakHitId_ = -1;
 }
 
 int ZXSpectrum::getBreakpointCount() const
@@ -502,6 +553,58 @@ std::string ZXSpectrum::getBreakpointListJson() const
     }
     json += "]";
     return json;
+}
+
+// ============================================================================
+// Beam Breakpoints
+// ============================================================================
+
+int32_t ZXSpectrum::addBeamBreakpoint(int16_t scanline, int16_t hTs)
+{
+    if (beamBreakpoints_.size() >= MAX_BEAM_BREAKPOINTS) return -1;
+    BeamBreakpoint bp{};
+    bp.scanline = scanline;
+    bp.hTs = hTs;
+    bp.enabled = true;
+    bp.id = beamBreakNextId_++;
+    bp.lastFireFrame = 0;
+    bp.lastFireScanline = -1;
+    beamBreakpoints_.push_back(bp);
+    installOpcodeCallback();
+    return bp.id;
+}
+
+void ZXSpectrum::removeBeamBreakpoint(int32_t id)
+{
+    for (auto it = beamBreakpoints_.begin(); it != beamBreakpoints_.end(); ++it) {
+        if (it->id == id) {
+            beamBreakpoints_.erase(it);
+            break;
+        }
+    }
+    if (beamBreakpoints_.empty() && breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !traceEnabled_) {
+        z80_->registerOpcodeCallback(nullptr);
+    }
+}
+
+void ZXSpectrum::enableBeamBreakpoint(int32_t id, bool enabled)
+{
+    for (auto& bp : beamBreakpoints_) {
+        if (bp.id == id) {
+            bp.enabled = enabled;
+            break;
+        }
+    }
+}
+
+void ZXSpectrum::clearAllBeamBreakpoints()
+{
+    beamBreakpoints_.clear();
+    beamBreakHit_ = false;
+    beamBreakHitId_ = -1;
+    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !traceEnabled_) {
+        z80_->registerOpcodeCallback(nullptr);
+    }
 }
 
 // ============================================================================
@@ -768,6 +871,45 @@ void ZXSpectrum::installOpcodeCallback()
                     return true;
                 }
                 // Not our target line — let the instruction execute normally
+            }
+
+            // Beam breakpoint handling
+            if (!beamBreakpoints_.empty()) {
+                uint32_t cpuTs = z80_->getTStates() % machineInfo_.tsPerFrame;
+                int16_t sl = static_cast<int16_t>(cpuTs / machineInfo_.tsPerLine);
+                int16_t ht = static_cast<int16_t>(cpuTs % machineInfo_.tsPerLine);
+
+                for (auto& bp : beamBreakpoints_) {
+                    if (!bp.enabled) continue;
+
+                    bool scanOk = (bp.scanline < 0) || (sl == bp.scanline);
+                    bool hTsOk = (bp.hTs < 0) || (ht >= bp.hTs);
+                    bool valid = (bp.scanline >= 0 || bp.hTs >= 0);
+
+                    if (!scanOk || !hTsOk || !valid) continue;
+
+                    // Re-fire prevention:
+                    // Wildcard-scanline: fire once per scanline
+                    // Specific-scanline: fire once per frame
+                    bool alreadyFired;
+                    if (bp.scanline < 0) {
+                        alreadyFired = (frameCounter_ == bp.lastFireFrame && sl == bp.lastFireScanline);
+                    } else {
+                        alreadyFired = (frameCounter_ == bp.lastFireFrame);
+                    }
+
+                    if (!alreadyFired) {
+                        beamBreakHit_ = true;
+                        beamBreakHitId_ = bp.id;
+                        beamBreakHitScanline_ = sl;
+                        beamBreakHitHTs_ = ht;
+                        bp.lastFireFrame = frameCounter_;
+                        bp.lastFireScanline = sl;
+                        paused_ = true;
+                        z80_->setRegister(Z80::WordReg::PC, address);
+                        return true;
+                    }
+                }
             }
 
             // Breakpoint handling (user-set breakpoints)

@@ -445,4 +445,68 @@ uint8_t Display::floatingBus(uint32_t cpuTs, const uint8_t* memory) const
     return 0xFF;
 }
 
+// ============================================================================
+//  getBeamPosition – convert current display T-state to framebuffer pixel coords
+// ============================================================================
+//
+// The framebuffer is 352×288 pixels (48px border on each side of 256×192 paper).
+// Vertical blank scanlines (top of frame) are not rendered into the framebuffer,
+// so we subtract the vblank count to get the framebuffer row.
+//
+// Horizontal position: each scanline has tsPerScanline_ T-states. The visible
+// portion (border + paper + border) occupies the first TOTAL_WIDTH/2 T-states
+// (2 pixels per T-state). Retrace fills the remainder.
+
+void Display::getBeamPosition(int32_t& pixelX, int32_t& pixelY) const
+{
+    uint32_t ts = currentDisplayTs_ % tsPerFrame_;
+    uint32_t scanline = ts / tsPerScanline_;
+    uint32_t hTs = ts % tsPerScanline_;
+
+    // Subtract vertical blank to get framebuffer row
+    int32_t fbRow = static_cast<int32_t>(scanline) - static_cast<int32_t>(pxVerticalBlank_);
+
+    if (fbRow < 0 || fbRow >= static_cast<int32_t>(TOTAL_HEIGHT)) {
+        // In vertical blank – not visible
+        pixelX = -1;
+        pixelY = -1;
+        return;
+    }
+
+    // Horizontal: 2 pixels per T-state, visible portion is TOTAL_WIDTH pixels
+    int32_t px = static_cast<int32_t>(hTs) * 2;
+    if (px >= static_cast<int32_t>(TOTAL_WIDTH)) {
+        // In horizontal retrace
+        px = static_cast<int32_t>(TOTAL_WIDTH) - 1;
+    }
+
+    pixelX = px;
+    pixelY = fbRow;
+}
+
+void Display::getBeamScanline(uint32_t& scanline, uint32_t& hTs) const
+{
+    uint32_t ts = currentDisplayTs_ % tsPerFrame_;
+    scanline = ts / tsPerScanline_;
+    hTs = ts % tsPerScanline_;
+}
+
+bool Display::isInVBL() const
+{
+    uint32_t ts = currentDisplayTs_ % tsPerFrame_;
+    uint32_t scanline = ts / tsPerScanline_;
+    return scanline < pxVerticalBlank_;
+}
+
+bool Display::isInHBLANK() const
+{
+    uint32_t ts = currentDisplayTs_ % tsPerFrame_;
+    uint32_t scanline = ts / tsPerScanline_;
+    // Not in VBL
+    if (scanline < pxVerticalBlank_) return false;
+    // Visible portion is TOTAL_WIDTH/2 T-states (2 pixels per T-state = 176 T-states for 352 pixels)
+    uint32_t hTs = ts % tsPerScanline_;
+    return hTs >= (TOTAL_WIDTH / 2);
+}
+
 } // namespace zxspec

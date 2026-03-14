@@ -16,6 +16,8 @@ struct DisasmResult {
     std::string mnemonic;
     uint8_t length;
     uint8_t bytes[4];
+    uint8_t tStates;        // Base T-state count (non-contended, branch not taken)
+    uint8_t tStatesAlt;     // T-states when branch taken (0 if same as tStates)
 };
 
 // Disassemble a single Z80 instruction at the given address.

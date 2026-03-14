@@ -45,6 +45,21 @@ public:
     // of display need catching up after a CPU instruction.
     uint32_t getCurrentDisplayTs() const { return currentDisplayTs_; }
 
+    // Returns the current beam position as framebuffer pixel coordinates.
+    // Used by the debugger to draw a crosshair overlay showing where the
+    // ULA is currently reading/writing. Returns (-1, -1) if the beam is
+    // in vertical blank (not visible in the framebuffer).
+    void getBeamPosition(int32_t& pixelX, int32_t& pixelY) const;
+
+    // Returns the current scanline and horizontal T-state within that scanline
+    void getBeamScanline(uint32_t& scanline, uint32_t& hTs) const;
+
+    // Returns true if the beam is in vertical blanking
+    bool isInVBL() const;
+
+    // Returns true if the beam is in horizontal retrace (not visible)
+    bool isInHBLANK() const;
+
     // Returns the byte the ULA would be reading from screen memory at the given
     // CPU T-state. Programs can observe this via a read from an unattached port
     // (the "floating bus" effect). Returns 0xFF when the ULA is not actively

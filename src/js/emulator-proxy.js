@@ -187,6 +187,40 @@ export class EmulatorProxy {
         break;
       }
 
+      case "beamPositionResult": {
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve({
+            x: msg.x, y: msg.y,
+            scanline: msg.scanline, hTs: msg.hTs,
+            inVBL: msg.inVBL, inHBLANK: msg.inHBLANK
+          });
+        }
+        break;
+      }
+
+      case "addBeamBreakpointResult": {
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve(msg.bpId);
+        }
+        break;
+      }
+
+      case "isBeamBreakpointHitResult": {
+        const resolve = this._pendingRequests.get(msg.id);
+        if (resolve) {
+          this._pendingRequests.delete(msg.id);
+          resolve({
+            hit: msg.hit, hitId: msg.hitId,
+            hitScanline: msg.hitScanline, hitHTs: msg.hitHTs
+          });
+        }
+        break;
+      }
+
       case "breakpointListResult": {
         const resolve = this._pendingRequests.get(msg.id);
         if (resolve) {
@@ -622,6 +656,42 @@ export class EmulatorProxy {
     return new Promise((resolve) => {
       this._pendingRequests.set(id, resolve);
       this.worker.postMessage({ type: "getDisplayDimensions", id });
+    });
+  }
+
+  getBeamPosition() {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "getBeamPosition", id });
+    });
+  }
+
+  addBeamBreakpoint(scanline, hTs) {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "addBeamBreakpoint", id, scanline, hTs });
+    });
+  }
+
+  removeBeamBreakpoint(bpId) {
+    this.worker.postMessage({ type: "removeBeamBreakpoint", bpId });
+  }
+
+  enableBeamBreakpoint(bpId, enabled) {
+    this.worker.postMessage({ type: "enableBeamBreakpoint", bpId, enabled });
+  }
+
+  clearAllBeamBreakpoints() {
+    this.worker.postMessage({ type: "clearAllBeamBreakpoints" });
+  }
+
+  isBeamBreakpointHit() {
+    const id = this._nextId++;
+    return new Promise((resolve) => {
+      this._pendingRequests.set(id, resolve);
+      this.worker.postMessage({ type: "isBeamBreakpointHit", id });
     });
   }
 

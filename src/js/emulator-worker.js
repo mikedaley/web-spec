@@ -865,6 +865,53 @@ self.onmessage = async function (e) {
       }
       break;
 
+    case "getBeamPosition":
+      if (wasm) {
+        self.postMessage({
+          type: "beamPositionResult",
+          id: msg.id,
+          x: wasm._getBeamX(),
+          y: wasm._getBeamY(),
+          scanline: wasm._getBeamScanline(),
+          hTs: wasm._getBeamHTs(),
+          inVBL: !!wasm._isInVBL(),
+          inHBLANK: !!wasm._isInHBLANK()
+        });
+      }
+      break;
+
+    case "addBeamBreakpoint":
+      if (wasm) {
+        const bpId = wasm._addBeamBreakpoint(msg.scanline, msg.hTs);
+        self.postMessage({ type: "addBeamBreakpointResult", id: msg.id, bpId });
+      }
+      break;
+
+    case "removeBeamBreakpoint":
+      if (wasm) wasm._removeBeamBreakpoint(msg.bpId);
+      break;
+
+    case "enableBeamBreakpoint":
+      if (wasm) wasm._enableBeamBreakpoint(msg.bpId, msg.enabled);
+      break;
+
+    case "clearAllBeamBreakpoints":
+      if (wasm) wasm._clearAllBeamBreakpoints();
+      break;
+
+    case "isBeamBreakpointHit":
+      if (wasm) {
+        self.postMessage({
+          type: "isBeamBreakpointHitResult",
+          id: msg.id,
+          hit: !!wasm._isBeamBreakpointHit(),
+          hitId: wasm._getBeamBreakpointHitId(),
+          hitScanline: wasm._getBeamBreakHitScanline(),
+          hitHTs: wasm._getBeamBreakHitHTs()
+        });
+      }
+      break;
+
     case "evaluateCondition": {
       if (!wasm) break;
       const encLen = wasm.lengthBytesUTF8(msg.expr) + 1;

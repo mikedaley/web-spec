@@ -118,6 +118,8 @@ static DisasmResult makeResult(const char* mnemonic, uint8_t* bytes, int byteCou
     for (int i = 0; i < byteCount && i < 4; i++) {
         r.bytes[i] = bytes[i];
     }
+    r.tStates = 0;
+    r.tStatesAlt = 0;
     return r;
 }
 
@@ -130,6 +132,8 @@ static DisasmResult makeResult(const std::string& mnemonic, uint8_t* bytes, int 
     for (int i = 0; i < byteCount && i < 4; i++) {
         r.bytes[i] = bytes[i];
     }
+    r.tStates = 0;
+    r.tStatesAlt = 0;
     return r;
 }
 
@@ -137,8 +141,17 @@ static DisasmResult makeResult(const std::string& mnemonic, uint8_t* bytes, int 
 static DisasmResult disasmDDFD(uint8_t op2, const char* reg16, const char* rh, const char* rl,
                                 uint16_t pc, ReadByteFunc readByte, void* ctx,
                                 uint8_t* bytes, int byteCount, uint16_t startAddr);
+static void lookupTStates(const uint8_t* bytes, uint8_t len, uint8_t& ts, uint8_t& tsAlt);
+static DisasmResult z80DisassembleCore(uint16_t addr, ReadByteFunc readByte, void* ctx);
 
 DisasmResult z80Disassemble(uint16_t addr, ReadByteFunc readByte, void* ctx)
+{
+    DisasmResult r = z80DisassembleCore(addr, readByte, ctx);
+    lookupTStates(r.bytes, r.length, r.tStates, r.tStatesAlt);
+    return r;
+}
+
+static DisasmResult z80DisassembleCore(uint16_t addr, ReadByteFunc readByte, void* ctx)
 {
     uint8_t bytes[4] = {};
     int byteCount = 0;
@@ -423,6 +436,199 @@ static DisasmResult disasmDDFD(uint8_t op2, const char* reg16, const char* rh, c
     if (op2 == 0xF9) { snprintf(mnemonic, sizeof(mnemonic), "LD SP,%s", reg16); return makeResult(mnemonic, bytes, byteCount); }
 
     return makeResult("NOP*", bytes, byteCount);
+}
+
+// ============================================================================
+// Z80 T-state lookup tables (base timing, no contention)
+// For conditional instructions: [0] = not taken, [1] = taken
+// ============================================================================
+
+// Main opcodes 0x00-0xFF
+// Format: { tStates, tStatesAlt } where tStatesAlt is for branch-taken (0 if same)
+static const uint8_t MAIN_TSTATES[256][2] = {
+    // 0x00-0x0F
+    {4,0},{10,0},{7,0},{6,0},{4,0},{4,0},{7,0},{4,0},
+    {4,0},{11,0},{7,0},{6,0},{4,0},{4,0},{7,0},{4,0},
+    // 0x10-0x1F
+    {8,13},{10,0},{7,0},{6,0},{4,0},{4,0},{7,0},{4,0},
+    {12,0},{11,0},{7,0},{6,0},{4,0},{4,0},{7,0},{4,0},
+    // 0x20-0x2F
+    {7,12},{10,0},{16,0},{6,0},{4,0},{4,0},{7,0},{4,0},
+    {7,12},{11,0},{16,0},{6,0},{4,0},{4,0},{7,0},{4,0},
+    // 0x30-0x3F
+    {7,12},{10,0},{13,0},{6,0},{11,0},{11,0},{10,0},{4,0},
+    {7,12},{11,0},{13,0},{6,0},{4,0},{4,0},{7,0},{4,0},
+    // 0x40-0x4F (LD r,r)
+    {4,0},{4,0},{4,0},{4,0},{4,0},{4,0},{7,0},{4,0},
+    {4,0},{4,0},{4,0},{4,0},{4,0},{4,0},{7,0},{4,0},
+    // 0x50-0x5F
+    {4,0},{4,0},{4,0},{4,0},{4,0},{4,0},{7,0},{4,0},
+    {4,0},{4,0},{4,0},{4,0},{4,0},{4,0},{7,0},{4,0},
+    // 0x60-0x6F
+    {4,0},{4,0},{4,0},{4,0},{4,0},{4,0},{7,0},{4,0},
+    {4,0},{4,0},{4,0},{4,0},{4,0},{4,0},{7,0},{4,0},
+    // 0x70-0x7F
+    {7,0},{7,0},{7,0},{7,0},{7,0},{7,0},{4,0},{7,0},  // 0x76=HALT(4)
+    {4,0},{4,0},{4,0},{4,0},{4,0},{4,0},{7,0},{4,0},
+    // 0x80-0x8F (ALU A,r)
+    {4,0},{4,0},{4,0},{4,0},{4,0},{4,0},{7,0},{4,0},
+    {4,0},{4,0},{4,0},{4,0},{4,0},{4,0},{7,0},{4,0},
+    // 0x90-0x9F
+    {4,0},{4,0},{4,0},{4,0},{4,0},{4,0},{7,0},{4,0},
+    {4,0},{4,0},{4,0},{4,0},{4,0},{4,0},{7,0},{4,0},
+    // 0xA0-0xAF
+    {4,0},{4,0},{4,0},{4,0},{4,0},{4,0},{7,0},{4,0},
+    {4,0},{4,0},{4,0},{4,0},{4,0},{4,0},{7,0},{4,0},
+    // 0xB0-0xBF
+    {4,0},{4,0},{4,0},{4,0},{4,0},{4,0},{7,0},{4,0},
+    {4,0},{4,0},{4,0},{4,0},{4,0},{4,0},{7,0},{4,0},
+    // 0xC0-0xCF
+    {5,11},{10,0},{10,0},{10,0},{10,17},{11,0},{7,0},{11,0},
+    {5,11},{10,0},{10,0},{0,0},{10,17},{17,0},{7,0},{11,0},  // 0xCB=prefix
+    // 0xD0-0xDF
+    {5,11},{10,0},{10,0},{11,0},{10,17},{11,0},{7,0},{11,0},
+    {5,11},{4,0},{10,0},{11,0},{10,17},{0,0},{7,0},{11,0},   // 0xDD=prefix
+    // 0xE0-0xEF
+    {5,11},{10,0},{10,0},{19,0},{10,17},{11,0},{7,0},{11,0},
+    {5,11},{4,0},{10,0},{4,0},{10,17},{0,0},{7,0},{11,0},    // 0xED=prefix
+    // 0xF0-0xFF
+    {5,11},{10,0},{10,0},{4,0},{10,17},{11,0},{7,0},{11,0},
+    {5,11},{6,0},{10,0},{4,0},{10,17},{0,0},{7,0},{11,0},    // 0xFD=prefix
+};
+
+// CB prefix opcodes: all 8 T-states except BIT n,(HL) which is 12
+static uint8_t cbTStates(uint8_t op2) {
+    if ((op2 & 0x07) == 6) {
+        // (HL) operand
+        if ((op2 & 0xC0) == 0x40) return 12;  // BIT n,(HL)
+        return 15;  // RLC/RRC/etc (HL), SET/RES n,(HL)
+    }
+    return 8;  // register operand
+}
+
+// ED prefix T-states lookup
+static void edTStates(uint8_t op2, uint8_t& ts, uint8_t& tsAlt) {
+    tsAlt = 0;
+    // 0x40-0x7F: misc instructions
+    if (op2 >= 0x40 && op2 <= 0x7F) {
+        uint8_t col = op2 & 0x07;
+        switch (col) {
+            case 0: case 1: ts = 12; return;  // IN/OUT r,(C)
+            case 2: ts = 15; return;           // SBC/ADC HL,rr
+            case 3: ts = 20; return;           // LD (nn),rr / LD rr,(nn)
+            case 4: ts = 8; return;            // NEG
+            case 5: ts = 14; return;           // RETN/RETI
+            case 6: ts = 8; return;            // IM 0/1/2
+            case 7:
+                switch (op2) {
+                    case 0x47: case 0x4F: case 0x57: case 0x5F: ts = 9; return;  // LD I,A/R,A/A,I/A,R
+                    case 0x67: case 0x6F: ts = 18; return;  // RRD/RLD
+                    default: ts = 8; return;
+                }
+        }
+    }
+    // 0xA0-0xA3, 0xA8-0xAB: non-repeating block (LDI/CPI/INI/OUTI etc.)
+    if ((op2 >= 0xA0 && op2 <= 0xA3) || (op2 >= 0xA8 && op2 <= 0xAB)) {
+        ts = 16; return;
+    }
+    // 0xB0-0xB3, 0xB8-0xBB: repeating block (LDIR/CPIR/INIR/OTIR etc.)
+    if ((op2 >= 0xB0 && op2 <= 0xB3) || (op2 >= 0xB8 && op2 <= 0xBB)) {
+        ts = 16; tsAlt = 21; return;
+    }
+    // Everything else is undefined (NOP pair)
+    ts = 8;
+}
+
+// DD/FD prefix T-states (IX/IY instructions)
+// Most are the same as main opcodes + 4 for prefix, except (IX+d) variants
+static void ddfdTStates(uint8_t op2, uint8_t& ts, uint8_t& tsAlt) {
+    tsAlt = 0;
+    // DDCB/FDCB: handled separately (all 23 T-states, BIT is 20)
+    if (op2 == 0xCB) { ts = 0; return; }  // will be set by caller
+
+    switch (op2) {
+        // LD IX,nn / LD (nn),IX / LD IX,(nn)
+        case 0x21: ts = 14; return;
+        case 0x22: ts = 20; return;
+        case 0x2A: ts = 20; return;
+        // ADD IX,rr
+        case 0x09: case 0x19: case 0x29: case 0x39: ts = 15; return;
+        // INC/DEC IX
+        case 0x23: case 0x2B: ts = 10; return;
+        // INC/DEC IXh/IXl
+        case 0x24: case 0x25: case 0x2C: case 0x2D: ts = 8; return;
+        // LD IXh/IXl,n
+        case 0x26: case 0x2E: ts = 11; return;
+        // INC/DEC (IX+d)
+        case 0x34: case 0x35: ts = 23; return;
+        // LD (IX+d),n
+        case 0x36: ts = 19; return;
+        // PUSH/POP IX
+        case 0xE1: ts = 14; return;
+        case 0xE5: ts = 15; return;
+        // EX (SP),IX
+        case 0xE3: ts = 23; return;
+        // JP (IX) / LD SP,IX
+        case 0xE9: ts = 8; return;
+        case 0xF9: ts = 10; return;
+        default: break;
+    }
+
+    // LD r,(IX+d) or LD (IX+d),r: 0x46,0x4E,0x56,0x5E,0x66,0x6E,0x70-0x77,0x7E
+    if ((op2 & 0xC0) == 0x40) {
+        // Check if source or dest is (IX+d) — bit pattern 110 in src or dst field
+        uint8_t dst = (op2 >> 3) & 7;
+        uint8_t src = op2 & 7;
+        if (src == 6 || dst == 6) { ts = 19; return; }
+        // IXh/IXl register ops: +4 from main
+        ts = 8; return;
+    }
+    if ((op2 & 0xC0) == 0x80) {
+        // ALU A,(IX+d)
+        if ((op2 & 7) == 6) { ts = 19; return; }
+        ts = 8; return;
+    }
+
+    // Fallback: treat as main opcode + 4 for prefix
+    ts = MAIN_TSTATES[op2][0] ? MAIN_TSTATES[op2][0] + 4 : 8;
+    tsAlt = MAIN_TSTATES[op2][1] ? MAIN_TSTATES[op2][1] + 4 : 0;
+}
+
+static void lookupTStates(const uint8_t* bytes, uint8_t len, uint8_t& ts, uint8_t& tsAlt) {
+    if (len == 0) { ts = 4; tsAlt = 0; return; }
+
+    uint8_t op = bytes[0];
+
+    // CB prefix
+    if (op == 0xCB && len >= 2) {
+        ts = cbTStates(bytes[1]);
+        tsAlt = 0;
+        return;
+    }
+
+    // ED prefix
+    if (op == 0xED && len >= 2) {
+        edTStates(bytes[1], ts, tsAlt);
+        return;
+    }
+
+    // DD/FD prefix
+    if ((op == 0xDD || op == 0xFD) && len >= 2) {
+        if (bytes[1] == 0xCB && len >= 4) {
+            // DDCB/FDCB: BIT = 20, others = 23
+            uint8_t op3 = bytes[3];
+            if ((op3 & 0xC0) == 0x40) { ts = 20; } else { ts = 23; }
+            tsAlt = 0;
+            return;
+        }
+        ddfdTStates(bytes[1], ts, tsAlt);
+        return;
+    }
+
+    // Main opcodes
+    ts = MAIN_TSTATES[op][0];
+    tsAlt = MAIN_TSTATES[op][1];
+    if (ts == 0) ts = 4;  // safety fallback
 }
 
 uint8_t z80InstructionLength(uint16_t addr, ReadByteFunc readByte, void* ctx)
