@@ -79,6 +79,16 @@ export class CPUDebuggerWindow extends BaseWindow {
         </div>
 
         <div class="cpu-dbg-section">
+          <span class="cpu-dbg-section-label">ALT</span>
+          <div class="cpu-dbg-regs">
+            <div class="cpu-dbg-reg"><span class="reg-label">AF'</span><span class="reg-value" id="reg-alt-af" data-reg="AF'" data-digits="4">0000</span></div>
+            <div class="cpu-dbg-reg"><span class="reg-label">BC'</span><span class="reg-value" id="reg-alt-bc" data-reg="BC'" data-digits="4">0000</span></div>
+            <div class="cpu-dbg-reg"><span class="reg-label">DE'</span><span class="reg-value" id="reg-alt-de" data-reg="DE'" data-digits="4">0000</span></div>
+            <div class="cpu-dbg-reg"><span class="reg-label">HL'</span><span class="reg-value" id="reg-alt-hl" data-reg="HL'" data-digits="4">0000</span></div>
+          </div>
+        </div>
+
+        <div class="cpu-dbg-section">
           <span class="cpu-dbg-section-label">INDEX</span>
           <div class="cpu-dbg-regs">
             <div class="cpu-dbg-reg"><span class="reg-label">IX</span><span class="reg-value" id="reg-ix" data-reg="IX" data-digits="4">0000</span></div>
@@ -108,16 +118,6 @@ export class CPUDebuggerWindow extends BaseWindow {
             <div class="cpu-dbg-reg"><span class="reg-label">IM</span><span class="reg-value" id="reg-im" data-reg="IM" data-digits="1">0</span></div>
             <div class="cpu-dbg-reg"><span class="reg-label">IFF1</span><span class="reg-value" id="reg-iff1" data-reg="IFF1" data-digits="1">0</span></div>
             <div class="cpu-dbg-reg"><span class="reg-label">IFF2</span><span class="reg-value" id="reg-iff2" data-reg="IFF2" data-digits="1">0</span></div>
-          </div>
-        </div>
-
-        <div class="cpu-dbg-section">
-          <span class="cpu-dbg-section-label">ALT</span>
-          <div class="cpu-dbg-regs">
-            <div class="cpu-dbg-reg"><span class="reg-label">AF'</span><span class="reg-value" id="reg-alt-af" data-reg="AF'" data-digits="4">0000</span></div>
-            <div class="cpu-dbg-reg"><span class="reg-label">BC'</span><span class="reg-value" id="reg-alt-bc" data-reg="BC'" data-digits="4">0000</span></div>
-            <div class="cpu-dbg-reg"><span class="reg-label">DE'</span><span class="reg-value" id="reg-alt-de" data-reg="DE'" data-digits="4">0000</span></div>
-            <div class="cpu-dbg-reg"><span class="reg-label">HL'</span><span class="reg-value" id="reg-alt-hl" data-reg="HL'" data-digits="4">0000</span></div>
           </div>
         </div>
 

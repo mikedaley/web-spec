@@ -165,12 +165,12 @@
 .cpu-dbg-section {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 5px 6px;
+  gap: 6px;
+  padding: 2px 6px;
   border: 1px solid var(--glass-border-subtle);
-  border-radius: 4px;
+  border-radius: 3px;
   background: var(--input-bg);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 .cpu-dbg-section-label {
@@ -179,20 +179,20 @@
   font-weight: 600;
   color: var(--text-muted);
   flex-shrink: 0;
-  min-width: 34px;
+  min-width: 30px;
 }
 
 .cpu-dbg-regs {
   display: flex;
-  gap: 3px;
+  gap: 2px;
   flex: 1;
 }
 
 .cpu-dbg-reg {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 6px;
+  gap: 3px;
+  padding: 2px 5px;
   background: var(--input-bg-deep);
   border-radius: 3px;
   flex: 1;
@@ -239,8 +239,8 @@
 }
 
 .cpu-flags .flag {
-  width: 20px;
-  height: 20px;
+  width: 18px;
+  height: 16px;
   display: flex;
   align-items: center;
   justify-content: center;

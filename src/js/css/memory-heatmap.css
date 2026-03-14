@@ -45,21 +45,9 @@
   color: var(--accent-green);
   background: var(--accent-green-bg);
 }
-.mhm-mode-tab.selected[data-mode="thermal"] {
-  color: var(--accent-red);
-  background: var(--accent-red-bg);
-}
 .mhm-mode-tab.selected[data-mode="activity"] {
   color: var(--accent-orange);
   background: var(--accent-orange-bg);
-}
-.mhm-mode-tab.selected[data-mode="ascii"] {
-  color: var(--accent-blue);
-  background: var(--accent-blue-bg);
-}
-.mhm-mode-tab.selected[data-mode="entropy"] {
-  color: var(--accent-purple);
-  background: var(--accent-purple-bg);
 }
 
 /* ── Toolbar ───────────────────────────────────── */

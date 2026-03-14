@@ -1,12 +1,9 @@
 /*
  * memory-heatmap-window.js - Memory Heat Map debug window
  *
- * Displays the full 64KB address space with five visualization modes:
+ * Displays the full 64KB address space with two visualization modes:
  *   Bits     – 8-pixel bit patterns per byte (set=bright, clear=dark)
- *   Thermal  – value heat map (black→cyan→green→yellow→red→white)
  *   Activity – change tracking with decay trails
- *   ASCII    – character display with type-based colouring
- *   Entropy  – Shannon entropy per 16-byte block
  *
  * Features: zoom/pan, hex overlay at high zoom, minimap, region colouring,
  * configurable grid width (1–256), full state persistence.
@@ -32,18 +29,14 @@ const FETCH_INTERVAL = 1000 / 60; // ~60fps memory reads
 const DEFAULT_DECAY_RATE = 8; // activity decay per tick (~80/sec → ~3s full fade)
 const MIN_DECAY_RATE = 1;
 const MAX_DECAY_RATE = 64;
-const ENTROPY_BLOCK = 16;   // bytes per entropy block
 const MINIMAP_MAX = 80;     // max minimap dimension in px
 
 // ── Mode definitions ─────────────────────────────────────────────
-const MODES = ["bits", "thermal", "activity", "ascii", "entropy"];
+const MODES = ["bits", "activity"];
 
 const MODE_LABELS = {
   bits: "Bits",
-  thermal: "Thermal",
   activity: "Activity",
-  ascii: "ASCII",
-  entropy: "Entropy",
 };
 
 // ── Memory region tables ─────────────────────────────────────────
@@ -106,42 +99,6 @@ function blendRGB(bg, fg, t) {
 // ── Pre-computed LUTs ────────────────────────────────────────────
 
 /**
- * Build a 256-entry thermal LUT: black→cyan→green→yellow→red→white
- * using Spectrum palette colours.
- */
-function buildThermalLUT(style) {
-  const lut = new Uint32Array(256);
-  // Gradient stops (Spectrum palette derived)
-  const cBlack = [0, 0, 0];
-  const cCyan  = hexToRGB(style.getPropertyValue("--accent-blue").trim() || "#00FFFF");
-  const cGreen = hexToRGB(style.getPropertyValue("--accent-green").trim() || "#00FF00");
-  const cYellow = hexToRGB(style.getPropertyValue("--accent-orange").trim() || "#FFFF00");
-  const cRed   = hexToRGB(style.getPropertyValue("--accent-red").trim() || "#FF0000");
-  const cWhite = [255, 255, 255];
-
-  const stops = [
-    { pos: 0,   col: cBlack },
-    { pos: 51,  col: cCyan  },
-    { pos: 102, col: cGreen },
-    { pos: 153, col: cYellow },
-    { pos: 204, col: cRed   },
-    { pos: 255, col: cWhite },
-  ];
-
-  for (let i = 0; i < 256; i++) {
-    let s0 = stops[0], s1 = stops[1];
-    for (let s = 1; s < stops.length; s++) {
-      if (stops[s].pos >= i) { s0 = stops[s-1]; s1 = stops[s]; break; }
-    }
-    const range = s1.pos - s0.pos || 1;
-    const t = (i - s0.pos) / range;
-    const rgb = blendRGB(s0.col, s1.col, t);
-    lut[i] = rgbToABGR(rgb[0], rgb[1], rgb[2]);
-  }
-  return lut;
-}
-
-/**
  * Build a 256-entry LUT from a list of gradient stops [{pos, col}].
  */
 function buildGradientLUT(stops) {
@@ -195,84 +152,6 @@ function buildReadWriteLUT(style) {
   ]);
 }
 
-/**
- * Build a 256-entry entropy LUT: blue→green→yellow→red→white
- */
-function buildEntropyLUT(style) {
-  const lut = new Uint32Array(256);
-  const cBlue   = hexToRGB(style.getPropertyValue("--accent-blue").trim() || "#00FFFF");
-  const cGreen  = hexToRGB(style.getPropertyValue("--accent-green").trim() || "#00FF00");
-  const cOrange = hexToRGB(style.getPropertyValue("--accent-orange").trim() || "#FFFF00");
-  const cRed    = hexToRGB(style.getPropertyValue("--accent-red").trim() || "#FF0000");
-  const cWhite  = [255, 255, 255];
-
-  const stops = [
-    { pos: 0,   col: cBlue   },
-    { pos: 64,  col: cGreen  },
-    { pos: 128, col: cOrange },
-    { pos: 192, col: cRed    },
-    { pos: 255, col: cWhite  },
-  ];
-
-  for (let i = 0; i < 256; i++) {
-    let s0 = stops[0], s1 = stops[1];
-    for (let s = 1; s < stops.length; s++) {
-      if (stops[s].pos >= i) { s0 = stops[s-1]; s1 = stops[s]; break; }
-    }
-    const range = s1.pos - s0.pos || 1;
-    const t = (i - s0.pos) / range;
-    const rgb = blendRGB(s0.col, s1.col, t);
-    lut[i] = rgbToABGR(rgb[0], rgb[1], rgb[2]);
-  }
-  return lut;
-}
-
-/**
- * Build ASCII colour LUT:
- *   0x00       = dark (near-black)
- *   0x01-0x1F  = control chars (yellow/orange)
- *   0x20-0x7E  = printable (green)
- *   0x7F       = DEL (yellow)
- *   0x80-0xFE  = high bytes (cyan)
- *   0xFF       = red
- */
-function buildASCIILUT(style) {
-  const lut = new Uint32Array(256);
-  const cDark    = rgbToABGR(10, 10, 10);
-  const cGreen   = cssToABGR(style.getPropertyValue("--accent-green").trim() || "#00FF00");
-  const cYellow  = cssToABGR(style.getPropertyValue("--accent-orange").trim() || "#FFFF00");
-  const cCyan    = cssToABGR(style.getPropertyValue("--accent-blue").trim() || "#00FFFF");
-  const cRed     = cssToABGR(style.getPropertyValue("--accent-red").trim() || "#FF0000");
-  const cPurple  = cssToABGR(style.getPropertyValue("--accent-purple").trim() || "#FF00FF");
-
-  lut[0x00] = cDark;
-  for (let i = 0x01; i <= 0x1F; i++) lut[i] = cYellow;
-  for (let i = 0x20; i <= 0x7E; i++) lut[i] = cGreen;
-  lut[0x7F] = cPurple;
-  for (let i = 0x80; i <= 0xFE; i++) lut[i] = cCyan;
-  lut[0xFF] = cRed;
-
-  return lut;
-}
-
-// ── Shannon entropy ──────────────────────────────────────────────
-
-function shannonEntropy(data, offset, length) {
-  const counts = new Uint16Array(256);
-  const end = Math.min(offset + length, data.length);
-  const n = end - offset;
-  if (n === 0) return 0;
-  for (let i = offset; i < end; i++) counts[data[i]]++;
-  let entropy = 0;
-  for (let i = 0; i < 256; i++) {
-    if (counts[i] === 0) continue;
-    const p = counts[i] / n;
-    entropy -= p * Math.log2(p);
-  }
-  // Normalise to 0-1 (max entropy for bytes = 8 bits)
-  return entropy / 8;
-}
-
 // ═════════════════════════════════════════════════════════════════
 //  MemoryHeatmapWindow
 // ═════════════════════════════════════════════════════════════════
@@ -319,7 +198,6 @@ export class MemoryHeatmapWindow extends BaseWindow {
     this._memoryData = null;
     this._readDecay = new Uint8Array(TOTAL_BYTES);
     this._writeDecay = new Uint8Array(TOTAL_BYTES);
-    this._entropyBlocks = null; // Uint8Array, lazy-init
     this._accessTrackingActive = false;
     this._decayRate = DEFAULT_DECAY_RATE;
 
@@ -335,12 +213,9 @@ export class MemoryHeatmapWindow extends BaseWindow {
     // Colour LUTs (built on theme change)
     this._fgColour = 0xFF00FF00;
     this._bgColour = 0xFF0A0A0A;
-    this._thermalLUT = null;
     this._readLUT = null;
     this._writeLUT = null;
     this._readWriteLUT = null;
-    this._entropyLUT = null;
-    this._asciiLUT = null;
 
     // CSS colour strings (for hex view and overlays)
     this._fgCSS = "#00FF00";
@@ -520,12 +395,9 @@ export class MemoryHeatmapWindow extends BaseWindow {
     this._separatorCSS = style.getPropertyValue("--separator-bg").trim() || "rgba(48,54,61,0.6)";
 
     // Build mode-specific LUTs
-    this._thermalLUT = buildThermalLUT(style);
     this._readLUT = buildReadLUT(style);
     this._writeLUT = buildWriteLUT(style);
     this._readWriteLUT = buildReadWriteLUT(style);
-    this._entropyLUT = buildEntropyLUT(style);
-    this._asciiLUT = buildASCIILUT(style);
 
     this._buildRegionColours();
     this._renderLegend();
@@ -738,17 +610,10 @@ export class MemoryHeatmapWindow extends BaseWindow {
 
     // Mode-specific extra info
     let extra = "";
-    if (this._mode === "ascii") {
-      const ch = val >= 0x20 && val <= 0x7E ? String.fromCharCode(val) : "·";
-      extra = `  '${ch}'`;
-    } else if (this._mode === "activity") {
+    if (this._mode === "activity") {
       const rv = this._readDecay[addr];
       const wv = this._writeDecay[addr];
       extra = `  R:${rv} W:${wv}`;
-    } else if (this._mode === "entropy") {
-      const blockIdx = Math.floor(addr / ENTROPY_BLOCK);
-      const ent = this._entropyBlocks ? (this._entropyBlocks[blockIdx] / 255 * 8).toFixed(2) : "?";
-      extra = `  H:${ent}`;
     }
 
     this._tooltip.textContent = `$${addrHex}: $${valHex}  %${valBin}  [${regionLabel}]${extra}`;
@@ -763,7 +628,7 @@ export class MemoryHeatmapWindow extends BaseWindow {
     this._tooltip.classList.add("visible");
   }
 
-  // ── Activity & entropy computation ─────────────────────────────
+  // ── Activity decay computation ─────────────────────────────────
 
   _updateActivityDecay(accessFlags) {
     if (!accessFlags) return;
@@ -787,18 +652,6 @@ export class MemoryHeatmapWindow extends BaseWindow {
     }
   }
 
-  _computeEntropy(data) {
-    const numBlocks = Math.ceil(TOTAL_BYTES / ENTROPY_BLOCK);
-    if (!this._entropyBlocks || this._entropyBlocks.length !== numBlocks) {
-      this._entropyBlocks = new Uint8Array(numBlocks);
-    }
-    for (let b = 0; b < numBlocks; b++) {
-      const offset = b * ENTROPY_BLOCK;
-      const e = shannonEntropy(data, offset, ENTROPY_BLOCK);
-      this._entropyBlocks[b] = Math.round(e * 255);
-    }
-  }
-
   // ── Main draw dispatcher ───────────────────────────────────────
 
   _draw() {
@@ -815,10 +668,7 @@ export class MemoryHeatmapWindow extends BaseWindow {
     } else {
       switch (this._mode) {
         case "bits":     this._drawBitView(); break;
-        case "thermal":  this._drawSolidView(this._thermalLUT, "value"); break;
         case "activity": this._drawActivityView(); break;
-        case "ascii":    this._drawSolidView(this._asciiLUT, "value"); break;
-        case "entropy":  this._drawSolidView(this._entropyLUT, "entropy"); break;
       }
     }
   }
@@ -872,79 +722,6 @@ export class MemoryHeatmapWindow extends BaseWindow {
         data32[px + 5] = (val & 0x04) ? fg : bg;
         data32[px + 6] = (val & 0x02) ? fg : bg;
         data32[px + 7] = (val & 0x01) ? fg : bg;
-      }
-    }
-
-    this._offscreenCtx.putImageData(imgData, 0, 0);
-
-    ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = "#000";
-    ctx.fillRect(0, 0, cw, ch);
-
-    const offsetX = -(this._panX - startCol) * cellW;
-    const offsetY = -(this._panY - startRow) * cellH;
-    ctx.drawImage(
-      this._offscreen,
-      0, 0, texW, texH,
-      offsetX, offsetY,
-      visCols * cellW, visRows * cellH
-    );
-  }
-
-  // ── Solid-colour view (thermal, activity, ascii, entropy) ──────
-
-  _drawSolidView(lut, dataSource) {
-    const cw = this._canvas.width;
-    const ch = this._canvas.height;
-    const ctx = this._ctx;
-    const cellW = this._getCellWidth();
-    const cellH = this._getCellHeight();
-
-    const startCol = Math.floor(this._panX);
-    const startRow = Math.floor(this._panY);
-    const endCol = Math.min(this._gridCols, Math.ceil(this._panX + cw / cellW));
-    const endRow = Math.min(this._gridRows, Math.ceil(this._panY + ch / cellH));
-    const visCols = endCol - startCol;
-    const visRows = endRow - startRow;
-    if (visCols <= 0 || visRows <= 0) return;
-
-    // 1 pixel per byte column
-    const texW = visCols;
-    const texH = visRows;
-    if (this._offscreen.width !== texW || this._offscreen.height !== texH) {
-      this._offscreen.width = texW;
-      this._offscreen.height = texH;
-    }
-
-    const imgData = this._offscreenCtx.createImageData(texW, texH);
-    const data32 = new Uint32Array(imgData.data.buffer);
-    const mem = this._memoryData;
-
-    for (let r = 0; r < visRows; r++) {
-      const row = startRow + r;
-      const memBase = row * this._gridCols + startCol;
-      const pixBase = r * texW;
-      for (let c = 0; c < visCols; c++) {
-        const addr = memBase + c;
-        if (addr >= TOTAL_BYTES) { data32[pixBase + c] = 0xFF000000; continue; }
-
-        let idx;
-        switch (dataSource) {
-          case "value":
-            idx = mem[addr];
-            break;
-          case "activity":
-            idx = 0;
-            break;
-          case "entropy": {
-            const block = Math.floor(addr / ENTROPY_BLOCK);
-            idx = this._entropyBlocks ? this._entropyBlocks[block] : 0;
-            break;
-          }
-          default:
-            idx = mem[addr];
-        }
-        data32[pixBase + c] = lut[idx];
       }
     }
 
@@ -1120,16 +897,6 @@ export class MemoryHeatmapWindow extends BaseWindow {
   /** Mode-specific background decoration for hex cells */
   _drawHexCellDecoration(ctx, x, y, w, h, addr, val) {
     switch (this._mode) {
-      case "thermal": {
-        // Subtle thermal colour fill behind the cell
-        const abgr = this._thermalLUT[val];
-        const r = abgr & 0xFF;
-        const g = (abgr >> 8) & 0xFF;
-        const b = (abgr >> 16) & 0xFF;
-        ctx.fillStyle = `rgba(${r},${g},${b},0.25)`;
-        ctx.fillRect(x, y, w, h);
-        break;
-      }
       case "activity": {
         const rv = this._readDecay[addr];
         const wv = this._writeDecay[addr];
@@ -1145,26 +912,6 @@ export class MemoryHeatmapWindow extends BaseWindow {
           ctx.fillStyle = `rgba(${r},${g},${b},0.3)`;
           ctx.fillRect(x, y, w, h);
         }
-        break;
-      }
-      case "ascii": {
-        const abgr = this._asciiLUT[val];
-        const r = abgr & 0xFF;
-        const g = (abgr >> 8) & 0xFF;
-        const b = (abgr >> 16) & 0xFF;
-        ctx.fillStyle = `rgba(${r},${g},${b},0.15)`;
-        ctx.fillRect(x, y, w, h);
-        break;
-      }
-      case "entropy": {
-        const block = Math.floor(addr / ENTROPY_BLOCK);
-        const e = this._entropyBlocks ? this._entropyBlocks[block] : 0;
-        const abgr = this._entropyLUT[e];
-        const r = abgr & 0xFF;
-        const g = (abgr >> 8) & 0xFF;
-        const b = (abgr >> 16) & 0xFF;
-        ctx.fillStyle = `rgba(${r},${g},${b},0.2)`;
-        ctx.fillRect(x, y, w, h);
         break;
       }
     }
@@ -1242,10 +989,7 @@ export class MemoryHeatmapWindow extends BaseWindow {
 
   _getLUTForMode() {
     switch (this._mode) {
-      case "thermal":  return this._thermalLUT;
       case "activity": return this._writeLUT; // fallback for minimap
-      case "ascii":    return this._asciiLUT;
-      case "entropy":  return this._entropyLUT;
       default:         return null; // bits mode uses special rendering
     }
   }
@@ -1265,11 +1009,6 @@ export class MemoryHeatmapWindow extends BaseWindow {
       if (wv > 0) return this._writeLUT[wv];
       if (rv > 0) return this._readLUT[rv];
       return 0xFF0A0A0A;
-    }
-    if (this._mode === "entropy") {
-      const block = Math.floor(addr / ENTROPY_BLOCK);
-      const e = this._entropyBlocks ? this._entropyBlocks[block] : 0;
-      return lut[e];
     }
     return lut[this._memoryData[addr]];
   }
@@ -1322,11 +1061,6 @@ export class MemoryHeatmapWindow extends BaseWindow {
 
       // Update activity tracking from C++ access flags
       this._updateActivityDecay(accessFlags);
-
-      // Update entropy
-      if (this._mode === "entropy") {
-        this._computeEntropy(data);
-      }
 
       this._memoryData = data;
       this._draw();
