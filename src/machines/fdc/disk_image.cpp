@@ -10,19 +10,6 @@
 
 namespace zxspec {
 
-// Simple xorshift32 PRNG for generating weak sector variation
-static uint32_t s_weakPrngState = 0x12345678;
-
-static uint32_t weakPrng()
-{
-    uint32_t x = s_weakPrngState;
-    x ^= x << 13;
-    x ^= x >> 17;
-    x ^= x << 5;
-    s_weakPrngState = x;
-    return x;
-}
-
 std::vector<uint8_t> DiskSector::getReadData() const
 {
     // Explicit weak copies: cycle through them
@@ -32,35 +19,9 @@ std::vector<uint8_t> DiskSector::getReadData() const
         return weakCopies[idx];
     }
 
-    // Synthetic weak data: sector has CRC error flags but no explicit copies.
-    // This occurs in EDSK images where the protection sector is stored as
-    // uniform filler (e.g. all 0x7B) with ST1_DE set. The Speedlock protection
-    // reads the sector multiple times and expects different data each time.
-    //
-    // On a real disk, the weak region is a contiguous portion of the sector
-    // where the magnetic signal is unreliable. Bytes outside this region
-    // read back consistently. Speedlock verifies:
-    //   - Constant region (start of sector): MUST be identical between reads
-    //   - Weak region (~32 bytes starting around byte 96-128): MUST differ
-    //
-    // We keep the first portion constant and fully randomize the weak region.
-    if (hasCRCError() && !data.empty()) {
-        std::vector<uint8_t> result = data;
-        readCount++;
-
-        uint32_t size = static_cast<uint32_t>(result.size());
-        // Weak region: starts at ~3/8 of sector, spans ~1/4 of sector
-        uint32_t weakStart = size * 3 / 8;
-        uint32_t weakEnd = weakStart + size / 4;
-        if (weakEnd > size) weakEnd = size;
-
-        for (uint32_t i = weakStart; i < weakEnd; i++) {
-            result[i] = static_cast<uint8_t>(weakPrng());
-        }
-        return result;
-    }
-
-    // Normal sector: return data unchanged
+    // Normal sector (including CRC error sectors): return data unchanged.
+    // CRC error flags are reported in status registers but we don't
+    // modify the data — many protections use CRC errors without weak reads.
     return data;
 }
 

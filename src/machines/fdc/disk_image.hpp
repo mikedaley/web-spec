@@ -34,10 +34,9 @@ struct DiskSector {
     std::vector<std::vector<uint8_t>> weakCopies;  // Empty = normal sector
     mutable uint32_t readCount = 0;                // Tracks reads for copy cycling
 
-    // True if this sector has explicit weak copies OR has CRC error flags
-    // (indicating synthetic weak data should be generated)
+    // True only if this sector has explicit weak copies from the EDSK image
     bool isWeak() const {
-        return !weakCopies.empty() || hasCRCError();
+        return !weakCopies.empty();
     }
 
     bool hasCRCError() const {

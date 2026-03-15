@@ -134,12 +134,8 @@ uint8_t UPD765A::readMSR()
                     //        msrPollCount_, xferSector_, dataIndex_, (int)dataBuffer_.size());
                     // Overrun: abort execution, enter result phase
                     uint8_t st0 = ST0_IC_ABNORMAL | (xferSide_ << 2) | xferDrive_;
-                    uint8_t st1 = ST1_OR | xferST1_;
-                    uint8_t st2 = xferST2_;
-                    if (xferWeakSector_) {
-                        st1 |= ST1_DE;
-                        st2 |= ST2_DD;
-                    }
+                    uint8_t st1 = ST1_OR;
+                    uint8_t st2 = 0;
                     setResult7(st0, st1, st2, lastSectorC_, lastSectorH_,
                                lastSectorR_, lastSectorN_);
                     phase_ = Phase::Result;
@@ -184,19 +180,10 @@ uint8_t UPD765A::readData()
                 // Try to advance to next sector
                 if (!advanceToNextSector()) {
                     // End of cylinder: µPD765A reports abnormal termination with EN flag.
-                    // R field = next sector (the one that wasn't found).
-                    uint8_t st1 = ST1_EN | xferST1_;
-                    uint8_t st2 = xferST2_;
-
-                    // Weak/fuzzy sectors report CRC error (Data Error in data field)
-                    if (xferWeakSector_) {
-                        st1 |= ST1_DE;
-                        st2 |= ST2_DD;
-                    }
-
+                    // Result C/H/R/N contain the ID of the last sector read.
                     uint8_t st0 = ST0_IC_ABNORMAL | (xferSide_ << 2) | xferDrive_;
-                    setResult7(st0, st1, st2, lastSectorC_, lastSectorH_,
-                               static_cast<uint8_t>(lastSectorR_ + 1), lastSectorN_);
+                    setResult7(st0, ST1_EN, 0, lastSectorC_, lastSectorH_,
+                               lastSectorR_, lastSectorN_);
                     phase_ = Phase::Result;
                 }
             }
@@ -296,7 +283,7 @@ void UPD765A::writeData(uint8_t data)
                         st1 |= ST1_NW;
                     }
                     setResult7(st0, st1, 0, lastSectorC_, lastSectorH_,
-                               static_cast<uint8_t>(lastSectorR_ + 1), lastSectorN_);
+                               lastSectorR_, lastSectorN_);
                     phase_ = Phase::Result;
                 }
             }
@@ -304,15 +291,8 @@ void UPD765A::writeData(uint8_t data)
         return;
     }
 
-    if (phase_ == Phase::Result) {
-        // CPU is writing during result phase — the software has abandoned reading
-        // results (e.g., Terminal Count). Force back to command phase.
-        phase_ = Phase::Command;
-        commandBuffer_.clear();
-        resultBuffer_.clear();
-        resultIndex_ = 0;
-    }
-
+    // On real hardware, writes are ignored during Result phase (DIO pin
+    // forces FDC→CPU direction). Stay in Result phase until all bytes read.
     if (phase_ != Phase::Command) return;
 
     commandBuffer_.push_back(data);
@@ -446,12 +426,6 @@ void UPD765A::cmdReadData()
         return;
     }
 
-    // Check for deleted data mismatch (Read Data finds deleted sector, or
-    // Read Deleted Data finds normal sector). Per µPD765A spec, the FDC reads
-    // the data but terminates after this sector with CM flag in ST2.
-    bool sectorIsDeleted = (sector->fdcStatus2 & ST2_CM) != 0;
-    bool dataMarkMismatch = (sectorIsDeleted != xferDeletedData_);
-
     // Store the sector's actual ID field values. On the real µPD765A, result
     // phase C/H/R/N reflect the sector's ID field, not the command parameters.
     // Copy protection schemes (Speedlock etc.) depend on seeing mismatched IDs.
@@ -465,21 +439,15 @@ void UPD765A::cmdReadData()
     dataIndex_ = 0;
     executionRead_ = true;
 
-    // For weak sectors, report CRC error in result phase status
-    if (sector->isWeak()) {
-        xferWeakSector_ = true;
-    }
-
-    // Propagate stored FDC status flags from the sector (copy protection)
-    xferST1_ = sector->fdcStatus1;
-    xferST2_ = sector->fdcStatus2;
-
-    // On data mark mismatch, force EOT so the transfer stops after this sector
-    // and include the CM flag in the result
-    if (dataMarkMismatch) {
-        xferEOT_ = xferSector_;  // Stop after current sector
-        xferST2_ |= ST2_CM;
-    }
+    // Don't enforce data mark mismatch (Read Data vs Read Deleted Data).
+    // DSK images don't reliably store the deleted data address mark flag,
+    // so checking it causes loaders to retry endlessly on sectors that are
+    // actually deleted on the real disk but lack the CM flag in the DSK.
+    // Don't propagate stored sector status flags either — they cause false
+    // CRC error reports that break non-Speedlock loaders.
+    xferWeakSector_ = false;
+    xferST1_ = 0;
+    xferST2_ = 0;
 
     phase_ = Phase::Execution;
 }
@@ -776,12 +744,7 @@ bool UPD765A::advanceToNextSector()
         dataBuffer_ = sector->getReadData();
         dataIndex_ = 0;
 
-        // Track weak sector state and stored status for result phase
-        if (sector->isWeak()) {
-            xferWeakSector_ = true;
-        }
-        xferST1_ |= sector->fdcStatus1;
-        xferST2_ |= sector->fdcStatus2;
+        // Don't propagate sector status flags during multi-sector reads
     } else {
         // Write: prepare buffer for next sector
         uint32_t secSize = 128u << xferSizeCode_;
