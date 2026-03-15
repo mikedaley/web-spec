@@ -109,7 +109,25 @@ uint32_t Z80Saver::save(const ZXSpectrum& machine, uint8_t* buffer, uint32_t buf
         buffer[36] = machine.getPagingRegister1FFD();
     }
 
-    // Bytes 37-85: zeros (unused v3 fields) - already zeroed by memset
+    // AY-3-8912 state: bytes 37-52 = registers 0-15, byte 53 = selected register
+    const AY3_8912& ay = machine.getAY();
+    for (int i = 0; i < 16; i++)
+    {
+        buffer[37 + i] = ay.getRegister(i);
+    }
+    buffer[53] = ay.getSelectedRegister();
+
+    // T-states within current frame: bytes 54-57 (LE32)
+    uint32_t currentTs = machine.getTStates();
+    buffer[54] = currentTs & 0xFF;
+    buffer[55] = (currentTs >> 8) & 0xFF;
+    buffer[56] = (currentTs >> 16) & 0xFF;
+    buffer[57] = (currentTs >> 24) & 0xFF;
+
+    // Frame counter mod 32 (for attribute flash timing): byte 58
+    buffer[58] = machine.getFrameCounter() & 0x1F;
+
+    // Bytes 59-85: zeros (unused) - already zeroed by memset
 
     // --- Memory pages ---
     uint32_t offset = TOTAL_HEADER_SIZE;

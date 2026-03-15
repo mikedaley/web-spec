@@ -41,6 +41,10 @@ public:
 
     // Debug access
     uint8_t getRegister(int reg) const;
+    uint8_t getSelectedRegister() const { return selectedReg_; }
+
+    // State restore (for snapshot loading)
+    void restoreRegisters(const uint8_t* regs, uint8_t selectedReg);
 
     // Channel mute (debug)
     void setChannelMute(int ch, bool muted);

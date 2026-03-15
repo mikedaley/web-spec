@@ -159,6 +159,8 @@ public:
 
     void setBorderColor(uint8_t color) { borderColor_ = color & 0x07; }
     uint8_t getBorderColor() const { return borderColor_; }
+    uint32_t getFrameCounter() const { return frameCounter_; }
+    void setFrameCounter(uint32_t fc) { frameCounter_ = fc; }
 
     // Audio (beeper)
     Audio& getAudio() { return audio_; }

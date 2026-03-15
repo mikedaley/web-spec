@@ -9,6 +9,7 @@
 
 #include "z80_loader.hpp"
 #include "../zx_spectrum.hpp"
+#include "../ay.hpp"
 #include <cstring>
 
 namespace zxspec {
@@ -191,6 +192,38 @@ bool Z80Loader::load(ZXSpectrum& machine, const uint8_t* data, uint32_t size)
             }
 
             offset += compressedLength + 3;
+        }
+
+        // Restore AY-3-8912 state from bytes 37-53 (our extension to unused v3 header area)
+        // Only restore if at least one AY register is non-zero (external Z80 files leave these as 0)
+        if (version == 3 && size > 53)
+        {
+            bool hasAYData = false;
+            for (int i = 0; i < 16; i++)
+            {
+                if (data[37 + i] != 0) { hasAYData = true; break; }
+            }
+            if (hasAYData)
+            {
+                machine.getAY().restoreRegisters(data + 37, data[53]);
+            }
+        }
+
+        // Restore T-states within frame from bytes 54-57 (LE32)
+        if (version == 3 && size > 57)
+        {
+            uint32_t savedTs = data[54] | (data[55] << 8) |
+                               (data[56] << 16) | (data[57] << 24);
+            if (savedTs > 0)
+            {
+                machine.getCPU()->setTStates(savedTs);
+            }
+        }
+
+        // Restore frame counter mod 32 from byte 58 (attribute flash timing)
+        if (version == 3 && size > 58 && data[58] != 0)
+        {
+            machine.setFrameCounter(data[58] & 0x1F);
         }
 
         break;

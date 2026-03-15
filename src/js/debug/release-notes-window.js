@@ -26,6 +26,7 @@ const RELEASE_DATA = [
       { hash: "c71835f", text: "Fade speed control for memory heatmap" },
       { hash: "799e29d", text: "Resizable tape info panel with draggable handle" },
       { hash: "86f9d7f", text: "Flash snapshot rename with hover tooltip and full config preview" },
+      { hash: "ec868be", text: "Release Notes window with full project history grouped by week" },
     ],
     fixes: [
       { hash: "1ebdb06", text: "FDC end-of-cylinder result and +2A/+3 IO contention model" },
@@ -42,6 +43,7 @@ const RELEASE_DATA = [
       { hash: "58c8c90", text: "Remove thermal/ASCII/entropy heatmap modes, compact Z80 debugger registers" },
       { hash: "d3eaea9", text: "Reduced CPU usage when emulator is powered off" },
       { hash: "a37ace9", text: "File System Access API for disk image save dialog" },
+      { hash: "------", text: "Save and restore AY-3-8912 state, T-states, and frame counter in snapshots" },
     ],
   },
   {

@@ -162,6 +162,7 @@ public:
     void addContentionTStates(uint32_t extra) { m_CPURegisters.TStates += extra; }
     void addTStates(uint32_t extra) { m_CPURegisters.TStates += extra; }
     uint32_t getTStates() const { return m_CPURegisters.TStates; }
+    void setTStates(uint32_t ts) { m_CPURegisters.TStates = ts; }
     void resetTStates() { m_CPURegisters.TStates = 0; }
     void resetTStates(uint32_t tstatesPerFrame) { m_CPURegisters.TStates -= tstatesPerFrame; }
 

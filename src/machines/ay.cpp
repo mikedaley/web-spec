@@ -113,6 +113,18 @@ uint8_t AY3_8912::getRegister(int reg) const
     return 0;
 }
 
+void AY3_8912::restoreRegisters(const uint8_t* regs, uint8_t selectedReg)
+{
+    // Write each register through writeData to ensure proper masking
+    // and envelope state initialisation (register 13 triggers envelope restart)
+    for (int i = 0; i < 16; i++)
+    {
+        selectRegister(static_cast<uint8_t>(i));
+        writeData(regs[i]);
+    }
+    selectedReg_ = selectedReg & 0x0F;
+}
+
 void AY3_8912::setChannelMute(int ch, bool muted)
 {
     if (ch >= 0 && ch < NUM_CHANNELS) channelMuted_[ch] = muted;
