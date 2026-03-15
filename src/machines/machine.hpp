@@ -23,6 +23,7 @@ public:
     virtual void runCycles(int cycles) = 0;
     virtual void stepInstruction() = 0;
     virtual void renderDisplay() = 0;
+    virtual void renderDisplayToBeam() { renderDisplay(); }
 
     virtual const uint8_t* getFramebuffer() const = 0;
     virtual int getFramebufferSize() const = 0;

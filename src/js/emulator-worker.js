@@ -147,6 +147,26 @@ function getState() {
   };
 }
 
+// Render display at current T-state and send framebuffer + state.
+// Used after step/stepOver/stepOut so the display reflects partial frame state.
+// actualTs is the actual T-states consumed by the last step (including contention).
+function sendStepFrame(actualTs) {
+  wasm._renderDisplayToBeam();
+  const fbPtr = wasm._getFramebuffer();
+  const fbSize = wasm._getFramebufferSize();
+  const framebuffer = new Uint8Array(wasm.HEAPU8.buffer, fbPtr, fbSize).slice();
+  const sigPtr = wasm._getSignalBuffer();
+  const sigSize = wasm._getSignalBufferSize();
+  const signalBuffer = new Uint8Array(wasm.HEAPU8.buffer, sigPtr, sigSize).slice();
+  self.postMessage({
+    type: "stepFrame",
+    framebuffer,
+    signalBuffer,
+    state: getState(),
+    actualTs: actualTs ?? 0
+  }, [framebuffer.buffer, signalBuffer.buffer]);
+}
+
 function runFrames(count) {
   // When paused, skip frame execution and buffer transfer entirely.
   // This avoids expensive texSubImage2D calls and worker message overhead
@@ -427,22 +447,26 @@ self.onmessage = async function (e) {
     case "step":
       if (wasm) {
         wasm._clearBreakpointHit();
+        const tsBefore = wasm._getTStates();
         wasm._stepInstruction();
-        self.postMessage({ type: "stateUpdate", state: getState() });
+        const tsAfter = wasm._getTStates();
+        sendStepFrame(tsAfter - tsBefore);
       }
       break;
 
     case "stepOver":
       if (wasm) {
+        const tsBefore2 = wasm._getTStates();
         wasm._stepOver();
-        self.postMessage({ type: "stateUpdate", state: getState() });
+        const tsAfter2 = wasm._getTStates();
+        sendStepFrame(tsAfter2 - tsBefore2);
       }
       break;
 
     case "stepOut":
       if (wasm) {
         wasm._stepOut();
-        self.postMessage({ type: "stateUpdate", state: getState() });
+        sendStepFrame();
       }
       break;
 

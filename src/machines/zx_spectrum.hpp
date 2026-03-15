@@ -49,6 +49,7 @@ public:
     void runCycles(int cycles) override;
     void stepInstruction() override;
     void renderDisplay() override;
+    void renderDisplayToBeam() override;
 
     const uint8_t* getFramebuffer() const override;
     int getFramebufferSize() const override;

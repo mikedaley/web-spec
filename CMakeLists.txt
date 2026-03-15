@@ -190,6 +190,7 @@ if(EMSCRIPTEN)
                 \"_setPaused\", \
                 \"_stepInstruction\", \
                 \"_renderDisplay\", \
+                \"_renderDisplayToBeam\", \
                 \"_runFrame\", \
                 \"_getFramebuffer\", \
                 \"_getFramebufferSize\", \

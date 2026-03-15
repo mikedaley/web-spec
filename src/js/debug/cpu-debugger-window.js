@@ -144,6 +144,13 @@ export class CPUDebuggerWindow extends BaseWindow {
             <button class="cpu-dbg-bar-btn" id="disasm-goto-btn" title="Go to address">Go</button>
             <button class="cpu-dbg-bar-btn" id="disasm-goto-pc" title="Follow PC">PC</button>
           </div>
+          <div class="cpu-disasm-header">
+            <div class="cpu-disasm-hdr-gutter"></div>
+            <div class="cpu-disasm-hdr-ts">T</div>
+            <div class="cpu-disasm-hdr-addr">Addr</div>
+            <div class="cpu-disasm-hdr-bytes">Hex</div>
+            <div class="cpu-disasm-hdr-mnemonic">Instruction</div>
+          </div>
           <div class="cpu-disasm-view" id="disasm-view"></div>
         </div>
 
@@ -461,6 +468,8 @@ export class CPUDebuggerWindow extends BaseWindow {
 
     const data = this._disasmCache;
     const pc = this._proxy.getPC();
+    const actualTs = this._proxy.getLastStepActualTs();
+    const prevPC = this._lastSteppedPC;
 
     // Unpack binary buffer: 42 bytes per instruction
     // [0-1] addr LE, [2] length, [3-6] bytes[4], [7] mnemonicLen, [8-39] mnemonic[32], [40] tStates, [41] tStatesAlt
@@ -486,6 +495,20 @@ export class CPUDebuggerWindow extends BaseWindow {
       const isCurrent = instrAddr === pc;
       const hasBp = this.breakpointManager.has(instrAddr);
 
+      // For the instruction that was just executed (prevPC), show actual T-states
+      // including contention. Color red if contention added extra T-states.
+      const wasJustExecuted = actualTs > 0 && instrAddr === prevPC;
+      let tsStr;
+      let tsClass = "cpu-disasm-tstates";
+      if (wasJustExecuted) {
+        const baseTs = tStatesAlt || tStates;
+        const contended = actualTs > baseTs;
+        tsStr = `${actualTs}`;
+        if (contended) tsClass += " contended";
+      } else {
+        tsStr = tStatesAlt ? `${tStates}/${tStatesAlt}` : `${tStates}`;
+      }
+
       const addrStr = instrAddr.toString(16).toUpperCase().padStart(4, "0");
       const bytesStr = instrBytes.map((b) => b.toString(16).toUpperCase().padStart(2, "0")).join(" ");
 
@@ -501,11 +524,10 @@ export class CPUDebuggerWindow extends BaseWindow {
         html += `<span class="pc-arrow">\u25B6</span>`;
       }
       html += `</div>`;
+      html += `<div class="${tsClass}">${tsStr}</div>`;
       html += `<div class="cpu-disasm-addr">${addrStr}</div>`;
       html += `<div class="cpu-disasm-bytes">${bytesStr}</div>`;
       html += `<div class="cpu-disasm-mnemonic">${this.colorizeMnemonic(mnemonic)}</div>`;
-      const tsStr = tStatesAlt ? `${tStates}/${tStatesAlt}` : `${tStates}`;
-      html += `<div class="cpu-disasm-tstates">${tsStr}</div>`;
       html += `</div>`;
     }
 
@@ -816,6 +838,8 @@ export class CPUDebuggerWindow extends BaseWindow {
     if (paused) {
       const pc = proxy.getPC();
       if (pc === this._lastPausedPC && this._pausedUpdated) return;
+      // Track the previous PC so we can show actual T-states on the just-executed instruction
+      this._lastSteppedPC = this._lastPausedPC;
       this._lastPausedPC = pc;
       this._pausedUpdated = true;
     } else if (running) {

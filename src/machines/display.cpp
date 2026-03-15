@@ -40,6 +40,12 @@ void Display::frameReset()
     cosPhase_ = 1.0f;
 }
 
+void Display::clearFramebuffer()
+{
+    framebuffer_.fill(0);
+    signalBuffer_.fill(0);
+}
+
 void Display::buildYUVTable()
 {
     for (int i = 0; i < 16; i++)

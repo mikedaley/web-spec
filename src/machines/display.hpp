@@ -27,6 +27,7 @@ class Display {
 public:
     void init(const MachineInfo& info);
     void frameReset();
+    void clearFramebuffer();
 
     // Render pixels for the given number of T-states, advancing the internal
     // display position. Called after each CPU instruction (or group) to keep

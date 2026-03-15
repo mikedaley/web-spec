@@ -51,6 +51,14 @@ export class EmulatorProxy {
         if (this.onPausedFrame) this.onPausedFrame();
         break;
 
+      case "stepFrame":
+        // After step/stepOver/stepOut — display rendered at current T-state.
+        this.state = msg.state;
+        this._lastStepActualTs = msg.actualTs ?? 0;
+        if (this.onFrame) this.onFrame(msg.framebuffer, msg.signalBuffer, null, 0);
+        if (this.onStateUpdate) this.onStateUpdate();
+        break;
+
       case "machineSwitched":
         if (this.onMachineSwitched) this.onMachineSwitched(msg.machineId);
         break;
@@ -514,6 +522,7 @@ export class EmulatorProxy {
   getAltDE() { return this.state.altDe ?? 0; }
   getAltHL() { return this.state.altHl ?? 0; }
   isPaused() { return this.state.paused ?? false; }
+  getLastStepActualTs() { return this._lastStepActualTs ?? 0; }
   isBreakpointHit() { return this.state.breakpointHit ?? false; }
   getBreakpointAddress() { return this.state.breakpointAddr ?? 0; }
   getMachineId() { return this.state.machineId ?? 0; }

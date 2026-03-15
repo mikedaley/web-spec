@@ -479,6 +479,11 @@ void renderDisplay() {
   g_machine->renderDisplay();
 }
 
+void renderDisplayToBeam() {
+  REQUIRE_MACHINE();
+  g_machine->renderDisplayToBeam();
+}
+
 // ============================================================================
 // Frame Execution & Display
 // ============================================================================

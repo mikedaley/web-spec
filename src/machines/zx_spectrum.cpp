@@ -117,6 +117,16 @@ void ZXSpectrum::baseInit()
         ayEnabled_ = true;
     }
 
+    // Fill RAM with random data (mimics real hardware power-on state).
+    // This only happens at power-on, not on reset — a real Spectrum
+    // preserves RAM contents across a reset.
+    std::random_device rd;
+    std::mt19937 rng(rd());
+    std::uniform_int_distribution<int> dist(0, 255);
+    for (auto& byte : memoryRam_) {
+        byte = static_cast<uint8_t>(dist(rng));
+    }
+
     reset();
     z80_->signalInterrupt();
 }
@@ -153,15 +163,9 @@ void ZXSpectrum::reset()
     spectranet_.reset();
     keyboardMatrix_.fill(0xBF);
     display_.frameReset();
+    borderColor_ = 7;
+    frameCounter_ = 0;
     paused_ = false;
-
-    // Fill RAM with random data (mimics real hardware power-on state)
-    std::random_device rd;
-    std::mt19937 rng(rd());
-    std::uniform_int_distribution<int> dist(0, 255);
-    for (auto& byte : memoryRam_) {
-        byte = static_cast<uint8_t>(dist(rng));
-    }
 
     // Stop any active recording
     tapeRecording_ = false;
@@ -359,6 +363,21 @@ void ZXSpectrum::renderDisplay()
     display_.frameReset();
 }
 
+void ZXSpectrum::renderDisplayToBeam()
+{
+    // Clear the framebuffer so everything after the beam position is black,
+    // then render only up to the current CPU T-state position.
+    display_.clearFramebuffer();
+    display_.frameReset();
+    uint32_t currentTs = z80_->getTStates() % machineInfo_.tsPerFrame;
+    if (currentTs > 0) {
+        display_.updateWithTs(
+            static_cast<int32_t>(currentTs),
+            getScreenMemory(), borderColor_, frameCounter_);
+    }
+    display_.frameReset();
+}
+
 // ============================================================================
 // Display / Audio accessors
 // ============================================================================
@@ -452,7 +471,10 @@ void ZXSpectrum::getBeamPosition(int32_t& pixelX, int32_t& pixelY) const
     uint32_t scanline = ts / machineInfo_.tsPerLine;
     uint32_t hTs = ts % machineInfo_.tsPerLine;
 
-    int32_t fbRow = static_cast<int32_t>(scanline) - static_cast<int32_t>(machineInfo_.pxVerticalBlank);
+    // The framebuffer starts at the first rendered scanline, which is
+    // paperStartLine - PX_EMU_BORDER_TOP (not pxVerticalBlank).
+    uint32_t fbFirstLine = (machineInfo_.pxVerticalBlank + machineInfo_.pxVertBorder) - PX_EMU_BORDER_TOP;
+    int32_t fbRow = static_cast<int32_t>(scanline) - static_cast<int32_t>(fbFirstLine);
     if (fbRow < 0 || fbRow >= static_cast<int32_t>(TOTAL_HEIGHT)) {
         pixelX = -1;
         pixelY = -1;
