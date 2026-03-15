@@ -148,6 +148,15 @@ function getState() {
 }
 
 function runFrames(count) {
+  // When paused, skip frame execution and buffer transfer entirely.
+  // This avoids expensive texSubImage2D calls and worker message overhead
+  // that cause the browser to feel sluggish. Send a minimal "paused" message
+  // so the audio worklet can reset its pendingRequest flag.
+  if (wasm._isPaused()) {
+    self.postMessage({ type: "pausedFrame", state: getState() });
+    return;
+  }
+
   const totalFrames = count * speedMultiplier;
   for (let i = 0; i < totalFrames; i++) {
     wasm._runFrame();

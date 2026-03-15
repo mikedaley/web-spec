@@ -81,6 +81,19 @@ export class AudioDriver {
         this.onFrameReady(this._latestFramebuffer, this._latestSignalBuffer);
       }
     };
+
+    // When paused, the worker sends a lightweight message instead of full
+    // frame data. Feed silence to the worklet so it resets pendingRequest
+    // and keeps requesting — but skip all framebuffer/texture work.
+    this.proxy.onPausedFrame = () => {
+      if (this.workletNode) {
+        const silence = new Float32Array(128);
+        this.workletNode.port.postMessage(
+          { type: "samples", data: silence },
+          [silence.buffer],
+        );
+      }
+    };
   }
 
   async start() {

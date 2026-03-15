@@ -44,6 +44,13 @@ export class EmulatorProxy {
         if (this.onFrame) this.onFrame(msg.framebuffer, msg.signalBuffer, msg.audio, msg.sampleCount);
         break;
 
+      case "pausedFrame":
+        // Minimal update when paused — no framebuffer/texture work.
+        // Send silence to the audio worklet so it can reset pendingRequest.
+        this.state = msg.state;
+        if (this.onPausedFrame) this.onPausedFrame();
+        break;
+
       case "machineSwitched":
         if (this.onMachineSwitched) this.onMachineSwitched(msg.machineId);
         break;
