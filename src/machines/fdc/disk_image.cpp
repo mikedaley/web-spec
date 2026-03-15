@@ -10,6 +10,60 @@
 
 namespace zxspec {
 
+// Simple xorshift32 PRNG for generating weak sector variation
+static uint32_t s_weakPrngState = 0x12345678;
+
+static uint32_t weakPrng()
+{
+    uint32_t x = s_weakPrngState;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    s_weakPrngState = x;
+    return x;
+}
+
+std::vector<uint8_t> DiskSector::getReadData() const
+{
+    // Explicit weak copies: cycle through them
+    if (!weakCopies.empty()) {
+        uint32_t idx = readCount % static_cast<uint32_t>(weakCopies.size());
+        readCount++;
+        return weakCopies[idx];
+    }
+
+    // Synthetic weak data: sector has CRC error flags but no explicit copies.
+    // This occurs in EDSK images where the protection sector is stored as
+    // uniform filler (e.g. all 0x7B) with ST1_DE set. The Speedlock protection
+    // reads the sector multiple times and expects different data each time.
+    //
+    // On a real disk, the weak region is a contiguous portion of the sector
+    // where the magnetic signal is unreliable. Bytes outside this region
+    // read back consistently. Speedlock verifies:
+    //   - Constant region (start of sector): MUST be identical between reads
+    //   - Weak region (~32 bytes starting around byte 96-128): MUST differ
+    //
+    // We keep the first portion constant and fully randomize the weak region.
+    if (hasCRCError() && !data.empty()) {
+        std::vector<uint8_t> result = data;
+        readCount++;
+
+        uint32_t size = static_cast<uint32_t>(result.size());
+        // Weak region: starts at ~3/8 of sector, spans ~1/4 of sector
+        uint32_t weakStart = size * 3 / 8;
+        uint32_t weakEnd = weakStart + size / 4;
+        if (weakEnd > size) weakEnd = size;
+
+        for (uint32_t i = weakStart; i < weakEnd; i++) {
+            result[i] = static_cast<uint8_t>(weakPrng());
+        }
+        return result;
+    }
+
+    // Normal sector: return data unchanged
+    return data;
+}
+
 // DSK header signatures
 static constexpr char EXTENDED_SIG[] = "EXTENDED CPC DSK File\r\nDisk-Info\r\n";
 static constexpr int HEADER_SIZE = 256;
@@ -174,7 +228,23 @@ bool DiskImage::loadExtendedDSK(const uint8_t* data, uint32_t size)
 
             if (dataOffset + actualSize > size) return false;
 
-            sector.data.assign(data + dataOffset, data + dataOffset + actualSize);
+            uint32_t declaredSize = sectorSize(sector.sizeCode);
+
+            // Detect weak/fuzzy sectors: if actual data is a multiple of declared
+            // size and larger than it, the extra data holds additional read copies
+            // (used by Speedlock and similar copy protection schemes)
+            if (actualSize > declaredSize && declaredSize > 0 && (actualSize % declaredSize) == 0) {
+                uint32_t copyCount = actualSize / declaredSize;
+                sector.data.assign(data + dataOffset, data + dataOffset + declaredSize);
+                sector.weakCopies.resize(copyCount);
+                for (uint32_t c = 0; c < copyCount; c++) {
+                    uint32_t copyOffset = dataOffset + c * declaredSize;
+                    sector.weakCopies[c].assign(data + copyOffset, data + copyOffset + declaredSize);
+                }
+            } else {
+                sector.data.assign(data + dataOffset, data + dataOffset + actualSize);
+            }
+
             dataOffset += actualSize;
             track.sectors.push_back(std::move(sector));
         }
@@ -257,7 +327,15 @@ std::vector<uint8_t> DiskImage::exportDSK() const
         size_t secCount = track.sectors.size() > 29 ? 29 : track.sectors.size();
         uint32_t trackDataSize = TRACK_HEADER_SIZE;
         for (size_t si = 0; si < secCount; si++) {
-            trackDataSize += static_cast<uint32_t>(track.sectors[si].data.size());
+            const auto& sec = track.sectors[si];
+            if (sec.isWeak()) {
+                // Weak sectors store all copies concatenated
+                for (const auto& copy : sec.weakCopies) {
+                    trackDataSize += static_cast<uint32_t>(copy.size());
+                }
+            } else {
+                trackDataSize += static_cast<uint32_t>(sec.data.size());
+            }
         }
         // Round up to 256-byte boundary
         trackDataSize = (trackDataSize + 255) & ~255u;
@@ -292,7 +370,17 @@ std::vector<uint8_t> DiskImage::exportDSK() const
             out[infoOff + 3] = sector.sizeCode;
             out[infoOff + 4] = sector.fdcStatus1;
             out[infoOff + 5] = sector.fdcStatus2;
-            uint16_t dataLen = static_cast<uint16_t>(sector.data.size());
+            uint16_t dataLen;
+            if (sector.isWeak()) {
+                // Actual size is all copies concatenated
+                uint32_t totalSize = 0;
+                for (const auto& copy : sector.weakCopies) {
+                    totalSize += static_cast<uint32_t>(copy.size());
+                }
+                dataLen = static_cast<uint16_t>(totalSize);
+            } else {
+                dataLen = static_cast<uint16_t>(sector.data.size());
+            }
             out[infoOff + 6] = dataLen & 0xFF;
             out[infoOff + 7] = (dataLen >> 8) & 0xFF;
         }
@@ -300,7 +388,13 @@ std::vector<uint8_t> DiskImage::exportDSK() const
         // Sector data (only export clamped count)
         for (size_t sec = 0; sec < maxSectors; sec++) {
             const auto& sector = track.sectors[sec];
-            out.insert(out.end(), sector.data.begin(), sector.data.end());
+            if (sector.isWeak()) {
+                for (const auto& copy : sector.weakCopies) {
+                    out.insert(out.end(), copy.begin(), copy.end());
+                }
+            } else {
+                out.insert(out.end(), sector.data.begin(), sector.data.end());
+            }
         }
 
         // Pad to 256-byte boundary

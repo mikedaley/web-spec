@@ -29,6 +29,9 @@ const RELEASE_DATA = [
       { hash: "ec868be", text: "Release Notes window with full project history grouped by week" },
     ],
     fixes: [
+      { hash: "------", text: "FDC copy protection: return actual sector ID fields in result phase for Speedlock compatibility" },
+      { hash: "------", text: "FDC weak/fuzzy sector support with multi-copy cycling and synthetic CRC error data" },
+      { hash: "------", text: "FDC phase desynchronization recovery and overrun detection for protected disks" },
       { hash: "1ebdb06", text: "FDC end-of-cylinder result and +2A/+3 IO contention model" },
       { hash: "0e04e72", text: "State save/restore for +2, +2A and +3 machines" },
       { hash: "537b8cb", text: "Keyboard header toggles staying right-aligned when Custom Font hidden" },

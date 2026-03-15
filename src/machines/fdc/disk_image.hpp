@@ -26,6 +26,30 @@ struct DiskSector {
     uint8_t fdcStatus1;     // FDC ST1 flags (for copy-protection)
     uint8_t fdcStatus2;     // FDC ST2 flags (for copy-protection)
     std::vector<uint8_t> data;
+
+    // Weak/fuzzy sector support (Speedlock etc.)
+    // When an EDSK sector's actual data is a multiple of the declared size,
+    // the extra data represents additional read copies with different content.
+    // Each read cycles through copies to simulate non-deterministic reads.
+    std::vector<std::vector<uint8_t>> weakCopies;  // Empty = normal sector
+    mutable uint32_t readCount = 0;                // Tracks reads for copy cycling
+
+    // True if this sector has explicit weak copies OR has CRC error flags
+    // (indicating synthetic weak data should be generated)
+    bool isWeak() const {
+        return !weakCopies.empty() || hasCRCError();
+    }
+
+    bool hasCRCError() const {
+        return (fdcStatus1 & 0x20) != 0;  // ST1_DE
+    }
+
+    // Get the data to return for the current read.
+    // - Sectors with explicit weak copies: cycles through them.
+    // - Sectors with CRC error flags but no copies: generates synthetic
+    //   random variation to simulate weak/fuzzy bits (Speedlock protection).
+    // - Normal sectors: returns data unchanged.
+    std::vector<uint8_t> getReadData() const;
 };
 
 struct DiskTrack {

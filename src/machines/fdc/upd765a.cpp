@@ -140,8 +140,8 @@ uint8_t UPD765A::readMSR()
                         st1 |= ST1_DE;
                         st2 |= ST2_DD;
                     }
-                    setResult7(st0, st1, st2, xferTrack_, xferSide_,
-                               xferSector_, xferSizeCode_);
+                    setResult7(st0, st1, st2, lastSectorC_, lastSectorH_,
+                               lastSectorR_, lastSectorN_);
                     phase_ = Phase::Result;
                     msrPollCount_ = 0;
                     // Return result-phase MSR
@@ -195,8 +195,8 @@ uint8_t UPD765A::readData()
                     }
 
                     uint8_t st0 = ST0_IC_ABNORMAL | (xferSide_ << 2) | xferDrive_;
-                    setResult7(st0, st1, st2, xferTrack_, xferSide_,
-                               static_cast<uint8_t>(xferSector_ + 1), xferSizeCode_);
+                    setResult7(st0, st1, st2, lastSectorC_, lastSectorH_,
+                               static_cast<uint8_t>(lastSectorR_ + 1), lastSectorN_);
                     phase_ = Phase::Result;
                 }
             }
@@ -266,6 +266,14 @@ void UPD765A::writeData(uint8_t data)
                     sector = disk_[drive]->findSector(xferTrack_, xferSide_, xferSector_);
                 }
 
+                if (sector) {
+                    // Store actual sector ID fields for result phase
+                    lastSectorC_ = sector->track;
+                    lastSectorH_ = sector->side;
+                    lastSectorR_ = sector->sectorId;
+                    lastSectorN_ = sector->sizeCode;
+                }
+
                 if (sector && !disk_[drive]->isWriteProtected()) {
                     uint32_t secSize = static_cast<uint32_t>(sector->data.size());
                     uint32_t writeSize = static_cast<uint32_t>(dataBuffer_.size());
@@ -287,13 +295,22 @@ void UPD765A::writeData(uint8_t data)
                     if (sector && disk_[drive]->isWriteProtected()) {
                         st1 |= ST1_NW;
                     }
-                    setResult7(st0, st1, 0, xferTrack_, xferSide_,
-                               static_cast<uint8_t>(xferSector_ + 1), xferSizeCode_);
+                    setResult7(st0, st1, 0, lastSectorC_, lastSectorH_,
+                               static_cast<uint8_t>(lastSectorR_ + 1), lastSectorN_);
                     phase_ = Phase::Result;
                 }
             }
         }
         return;
+    }
+
+    if (phase_ == Phase::Result) {
+        // CPU is writing during result phase — the software has abandoned reading
+        // results (e.g., Terminal Count). Force back to command phase.
+        phase_ = Phase::Command;
+        commandBuffer_.clear();
+        resultBuffer_.clear();
+        resultIndex_ = 0;
     }
 
     if (phase_ != Phase::Command) return;
@@ -394,7 +411,7 @@ void UPD765A::executeCommand()
 
 void UPD765A::cmdReadData()
 {
-    xferDrive_ = commandBuffer_[1] & 0x03;
+    xferDrive_ = commandBuffer_[1] & 0x01;  // +3 only has drives 0-1
     xferSide_ = (commandBuffer_[1] >> 2) & 0x01;
     xferTrack_ = commandBuffer_[2];    // C
     // commandBuffer_[3] = H (head, usually same as side)
@@ -435,6 +452,14 @@ void UPD765A::cmdReadData()
     bool sectorIsDeleted = (sector->fdcStatus2 & ST2_CM) != 0;
     bool dataMarkMismatch = (sectorIsDeleted != xferDeletedData_);
 
+    // Store the sector's actual ID field values. On the real µPD765A, result
+    // phase C/H/R/N reflect the sector's ID field, not the command parameters.
+    // Copy protection schemes (Speedlock etc.) depend on seeing mismatched IDs.
+    lastSectorC_ = sector->track;
+    lastSectorH_ = sector->side;
+    lastSectorR_ = sector->sectorId;
+    lastSectorN_ = sector->sizeCode;
+
     // Get read data (cycles through copies for weak/fuzzy sectors)
     dataBuffer_ = sector->getReadData();
     dataIndex_ = 0;
@@ -465,7 +490,7 @@ void UPD765A::cmdReadData()
 
 void UPD765A::cmdWriteData()
 {
-    xferDrive_ = commandBuffer_[1] & 0x03;
+    xferDrive_ = commandBuffer_[1] & 0x01;  // +3 only has drives 0-1
     xferSide_ = (commandBuffer_[1] >> 2) & 0x01;
     xferTrack_ = commandBuffer_[2];
     xferSector_ = commandBuffer_[4];
@@ -739,6 +764,12 @@ bool UPD765A::advanceToNextSector()
 
     DiskSector* sector = disk_[drive]->findSector(currentTrack_[drive], xferSide_, xferSector_);
     if (!sector) return false;
+
+    // Store actual sector ID field values for result phase
+    lastSectorC_ = sector->track;
+    lastSectorH_ = sector->side;
+    lastSectorR_ = sector->sectorId;
+    lastSectorN_ = sector->sizeCode;
 
     if (executionRead_) {
         // Read: fill buffer with next sector's data (cycles copies for weak sectors)

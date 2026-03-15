@@ -40,7 +40,7 @@ public:
     bool isMotorOn() const { return motorOn_; }
 
     // Read the Main Status Register (port 0x2FFD)
-    uint8_t readMSR() const;
+    uint8_t readMSR();
 
     // Read the Data Register (port 0x3FFD)
     uint8_t readData();
@@ -123,13 +123,25 @@ private:
 
     // Multi-sector transfer state
     uint8_t xferDrive_ = 0;
-    uint8_t xferTrack_ = 0;
+    uint8_t xferTrack_ = 0;        // C from command (for sector search)
     uint8_t xferSide_ = 0;
-    uint8_t xferSector_ = 0;
+    uint8_t xferSector_ = 0;       // Current R value being transferred
     uint8_t xferSizeCode_ = 0;
     uint8_t xferEOT_ = 0;          // End of track (last sector to transfer)
     bool xferMultiTrack_ = false;
     bool xferDeletedData_ = false;
+    bool xferWeakSector_ = false;   // Current sector has weak/fuzzy data
+    uint8_t xferST1_ = 0;          // Sector's stored ST1 flags
+    uint8_t xferST2_ = 0;          // Sector's stored ST2 flags
+
+    // Sector ID field values from the last sector read/written.
+    // On the real µPD765A, result phase C/H/R/N reflect the sector's
+    // ID field, not the command parameters. Copy protection schemes
+    // (Speedlock etc.) depend on seeing the actual sector IDs in results.
+    uint8_t lastSectorC_ = 0;
+    uint8_t lastSectorH_ = 0;
+    uint8_t lastSectorR_ = 0;
+    uint8_t lastSectorN_ = 0;
 
     // Format state
     uint8_t formatSectorsRemaining_ = 0;
@@ -145,6 +157,14 @@ private:
 
     // Simulated disk rotation index for READ ID
     int readIdIndex_ = 0;
+
+    // Overrun detection: on real hardware, unread data bytes cause an overrun
+    // after ~26µs (one byte-time at 250Kbps MFM). We track consecutive MSR
+    // reads without a data read during execution phase. After a threshold,
+    // we abort with overrun — this is critical for Speedlock protection which
+    // reads fewer bytes than the sector contains.
+    int msrPollCount_ = 0;
+    static constexpr int OVERRUN_THRESHOLD = 8;
 
     // Interrupt status (for Sense Interrupt Status)
     bool seekCompleted_[2] = { false, false };
