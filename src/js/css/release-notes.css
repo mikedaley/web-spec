@@ -1,0 +1,169 @@
+/*
+ * release-notes.css - Styles for the Release Notes window
+ *
+ * Written by
+ *  Mike Daley <michael_daley@icloud.com>
+ */
+
+.release-notes-content {
+  padding: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+}
+
+.release-notes-inner {
+  padding: 16px 20px 24px;
+}
+
+/* Week section */
+.rn-week {
+  margin-bottom: 24px;
+}
+
+.rn-week:last-child {
+  margin-bottom: 0;
+}
+
+.rn-week-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.rn-week-date {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-blue);
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+
+.rn-week-line {
+  flex: 1;
+  height: 1px;
+  background: var(--glass-border);
+}
+
+/* Category section */
+.rn-category {
+  margin-bottom: 10px;
+}
+
+.rn-category:last-child {
+  margin-bottom: 0;
+}
+
+.rn-category-label {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  margin-bottom: 6px;
+}
+
+.rn-category-label.features {
+  color: var(--bg-primary);
+  background: var(--accent-green);
+}
+
+.rn-category-label.fixes {
+  color: var(--bg-primary);
+  background: var(--accent-red);
+}
+
+.rn-category-label.improvements {
+  color: var(--bg-primary);
+  background: var(--accent-orange);
+}
+
+/* Entry list */
+.rn-entries {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 6px;
+}
+
+.rn-entry {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.rn-entry-dot {
+  flex-shrink: 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  margin-top: 6px;
+  background: var(--text-muted);
+}
+
+.rn-entry.feature .rn-entry-dot {
+  background: var(--accent-green);
+}
+
+.rn-entry.fix .rn-entry-dot {
+  background: var(--accent-red);
+}
+
+.rn-entry.improvement .rn-entry-dot {
+  background: var(--accent-orange);
+}
+
+.rn-entry-text {
+  color: var(--text-secondary);
+  font-size: 11.5px;
+}
+
+.rn-entry-hash {
+  color: var(--text-muted);
+  font-size: 10px;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+/* Version banner at top */
+.rn-version-banner {
+  text-align: center;
+  padding: 14px 16px 18px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.rn-version-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.rn-version-title .rn-logo-r { color: var(--accent-red); }
+.rn-version-title .rn-logo-g { color: var(--accent-green); }
+.rn-version-title .rn-logo-c { color: var(--accent-blue); }
+.rn-version-title .rn-logo-y { color: var(--accent-orange); }
+.rn-version-title .rn-logo-p { color: var(--accent-purple); }
+
+.rn-version-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* Commit count badge */
+.rn-week-count {
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 0.7;
+  white-space: nowrap;
+}

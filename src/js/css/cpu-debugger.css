@@ -357,6 +357,29 @@
   flex: 1;
   overflow-y: auto;
   min-height: 120px;
+  scrollbar-width: none;
+}
+
+.cpu-disasm-view::-webkit-scrollbar {
+  display: none;
+}
+
+.cpu-disasm-view.paused {
+  scrollbar-width: thin;
+}
+
+.cpu-disasm-view.paused::-webkit-scrollbar {
+  display: block;
+  width: 4px;
+}
+
+.cpu-disasm-view.paused::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.cpu-disasm-view.paused::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 2px;
 }
 
 /* Disassembly lines */

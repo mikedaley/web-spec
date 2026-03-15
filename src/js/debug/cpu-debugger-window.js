@@ -850,6 +850,8 @@ export class CPUDebuggerWindow extends BaseWindow {
     }
     this.lastUpdateTime = now;
 
+    this.elements.disasmView?.classList.toggle("paused", paused);
+
     this.updateStatus(proxy, running);
     this.updateRegisters(proxy);
     this._updateBeam(proxy, paused);

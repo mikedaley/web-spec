@@ -32,6 +32,7 @@ import { AssemblerWindow } from "./assembler/assembler-window.js";
 import { CPUTraceWindow } from "./debug/cpu-trace-window.js";
 import { MemoryHeatmapWindow } from "./debug/memory-heatmap-window.js";
 import { RetroDebugger } from "./retro-debugger/retro-debugger.js";
+import { ReleaseNotesWindow } from "./debug/release-notes-window.js";
 import { NetworkManager } from "./spectranet/network-manager.js";
 import { saveFlashData, loadFlashData } from "./spectranet/spectranet-persistence.js";
 
@@ -73,6 +74,7 @@ class ZXSpectrumEmulator {
     this.memoryHeatmapWindow = null;
     this.networkManager = null;
     this.retroDebugger = null;
+    this.releaseNotesWindow = null;
 
     this.snapshotLoader = null;
     this.themeManager = null;
@@ -255,6 +257,11 @@ class ZXSpectrumEmulator {
       this.saveStatesWindow.create();
       this.windowManager.register(this.saveStatesWindow);
 
+      // Create release notes window
+      this.releaseNotesWindow = new ReleaseNotesWindow();
+      this.releaseNotesWindow.create();
+      this.windowManager.register(this.releaseNotesWindow);
+
       // Wire autosave callback to refresh the save states window
       this.stateManager.onAutosave = () => {
         if (this.saveStatesWindow && this.saveStatesWindow.isVisible) {
@@ -287,6 +294,7 @@ class ZXSpectrumEmulator {
         { id: "tnfs-browser", visible: false },
         { id: "save-states", visible: false },
         { id: "disk-window", visible: false },
+        { id: "release-notes", visible: false },
       ]);
 
       // Load saved window state (overrides defaults if present)
@@ -723,6 +731,16 @@ class ZXSpectrumEmulator {
       unregisterPwaBtn.addEventListener("click", () => {
         this.closeAllMenus();
         this.unregisterPWA();
+      });
+    }
+
+    // Help menu > Release Notes
+    const releaseNotesBtn = document.getElementById("btn-release-notes");
+    if (releaseNotesBtn) {
+      releaseNotesBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("release-notes");
+        this.closeAllMenus();
+        this.refocusCanvas();
       });
     }
 
