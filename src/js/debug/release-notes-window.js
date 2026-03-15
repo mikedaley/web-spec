@@ -43,7 +43,8 @@ const RELEASE_DATA = [
       { hash: "58c8c90", text: "Remove thermal/ASCII/entropy heatmap modes, compact Z80 debugger registers" },
       { hash: "d3eaea9", text: "Reduced CPU usage when emulator is powered off" },
       { hash: "a37ace9", text: "File System Access API for disk image save dialog" },
-      { hash: "------", text: "Save and restore AY-3-8912 state, T-states, and frame counter in snapshots" },
+      { hash: "f288f6d", text: "Save and restore AY-3-8912 state, T-states, and frame counter in snapshots" },
+      { hash: "4fb6bee", text: "Increase save state slots from 5 to 10 with scrollable slot list" },
     ],
   },
   {
