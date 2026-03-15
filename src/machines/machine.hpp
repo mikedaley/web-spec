@@ -25,6 +25,8 @@ public:
     virtual void renderDisplay() = 0;
     virtual void renderDisplayToBeam() { renderDisplay(); }
 
+    virtual uint32_t getDisplayTs() const { return 0; }
+
     virtual const uint8_t* getFramebuffer() const = 0;
     virtual int getFramebufferSize() const = 0;
     virtual const uint8_t* getSignalBuffer() const = 0;

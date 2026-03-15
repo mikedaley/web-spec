@@ -194,6 +194,7 @@ if(EMSCRIPTEN)
                 \"_runFrame\", \
                 \"_getFramebuffer\", \
                 \"_getFramebufferSize\", \
+                \"_getDisplayTs\", \
                 \"_getSignalBuffer\", \
                 \"_getSignalBufferSize\", \
                 \"_keyDown\", \

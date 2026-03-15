@@ -151,7 +151,8 @@ export class AudioDriver {
       }
 
       // Monitor AudioContext state changes so we can recover from suspension
-      this.audioContext.addEventListener("statechange", () => {
+      this._stateChangeHandler = () => {
+        if (!this.audioContext) return;
         if (this.audioContext.state === "suspended" && this.running) {
           console.log("AudioContext suspended, starting fallback timing");
           this.startFallbackTiming();
@@ -160,7 +161,8 @@ export class AudioDriver {
           clearInterval(this.fallbackInterval);
           this.fallbackInterval = null;
         }
-      });
+      };
+      this.audioContext.addEventListener("statechange", this._stateChangeHandler);
 
       this.workletNode.port.postMessage({ type: "start" });
       this.running = true;
@@ -249,6 +251,10 @@ export class AudioDriver {
 
     if (this.audioContext) {
       try {
+        if (this._stateChangeHandler) {
+          this.audioContext.removeEventListener("statechange", this._stateChangeHandler);
+          this._stateChangeHandler = null;
+        }
         this.audioContext.close();
       } catch (e) {
         // Ignore errors during cleanup

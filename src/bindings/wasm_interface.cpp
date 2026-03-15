@@ -495,6 +495,12 @@ void runFrame() {
 }
 
 EMSCRIPTEN_KEEPALIVE
+uint32_t getDisplayTs() {
+  REQUIRE_MACHINE_OR(0);
+  return g_machine->getDisplayTs();
+}
+
+EMSCRIPTEN_KEEPALIVE
 const uint8_t* getFramebuffer() {
   REQUIRE_MACHINE_OR(nullptr);
   return g_machine->getFramebuffer();

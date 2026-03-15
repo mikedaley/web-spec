@@ -51,6 +51,8 @@ public:
     void renderDisplay() override;
     void renderDisplayToBeam() override;
 
+    uint32_t getDisplayTs() const override { return display_.getCurrentDisplayTs(); }
+
     const uint8_t* getFramebuffer() const override;
     int getFramebufferSize() const override;
     const uint8_t* getSignalBuffer() const override;

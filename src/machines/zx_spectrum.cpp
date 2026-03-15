@@ -281,7 +281,15 @@ void ZXSpectrum::runFrame()
         if (ayEnabled_) ay_.update(delta);
     }
 
-    if (paused_) return;
+    if (paused_)
+    {
+        // A breakpoint fired mid-frame. Catch up the display to the current
+        // CPU T-state so the framebuffer includes all border/screen rendering
+        // up to this point. Without this, the first step after a beam
+        // breakpoint would paint a large section with a single border colour.
+        renderDisplayToBeam();
+        return;
+    }
 
     // Advance tape playback to the exact end of frame before the T-state
     // counter is reset, so no tape pulses are lost at the frame boundary
