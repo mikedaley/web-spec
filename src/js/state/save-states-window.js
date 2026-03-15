@@ -18,7 +18,7 @@ import {
 import { showToast } from "../ui/toast.js";
 import "../css/save-states.css";
 
-const SLOT_COUNT = 5;
+const SLOT_COUNT = 10;
 
 export class SaveStatesWindow extends BaseWindow {
   constructor(stateManager) {
@@ -76,9 +76,11 @@ export class SaveStatesWindow extends BaseWindow {
 
     return `
       <div class="save-states-container">
-        ${autosaveHtml}
-        <div class="save-states-divider"></div>
-        ${slotsHtml}
+        <div class="save-states-slots">
+          ${autosaveHtml}
+          <div class="save-states-divider"></div>
+          ${slotsHtml}
+        </div>
         <div class="save-states-toolbar">
           <input type="file" accept=".z80" style="display:none" />
           <button class="slot-btn load-file-btn">Load from File...</button>

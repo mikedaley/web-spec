@@ -97,7 +97,7 @@ export async function getAutosaveInfo() {
 
 // --- Save State Slots ---
 
-const SLOT_COUNT = 5;
+const SLOT_COUNT = 10;
 
 function slotKey(slotNumber) {
   return `slot-${slotNumber}`;

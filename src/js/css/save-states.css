@@ -5,9 +5,17 @@
 .save-states-container {
     display: flex;
     flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.save-states-slots {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
     gap: 6px;
     padding: 4px 0;
-    height: 100%;
 }
 
 .save-slot {
@@ -193,7 +201,7 @@
     gap: 8px;
     padding: 8px;
     border-top: 1px solid var(--control-border);
-    margin-top: auto;
+    flex-shrink: 0;
 }
 
 .save-states-toolbar .slot-btn {
