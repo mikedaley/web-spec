@@ -33,6 +33,7 @@ const RELEASE_DATA = [
       { hash: "0e04e72", text: "State save/restore for +2, +2A and +3 machines" },
       { hash: "537b8cb", text: "Keyboard header toggles staying right-aligned when Custom Font hidden" },
       { hash: "bb73be5", text: "Flash config parsing to correctly display all mounts" },
+      { hash: "------", text: "Border colour changes now rendered correctly when stepping in debugger" },
     ],
     improvements: [
       { hash: "2fab310", text: "Z80 debugger stepping: partial frame rendering, actual T-states, beam alignment" },

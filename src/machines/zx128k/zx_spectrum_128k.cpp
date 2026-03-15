@@ -431,6 +431,7 @@ void ZXSpectrum128::coreIOWrite(uint16_t address, uint8_t data)
             recordMicTransition((data >> 3) & 1);
         }
         borderColor_ = data & 0x07;
+        logBorderChange(z80_->getTStates(), borderColor_);
     }
 }
 

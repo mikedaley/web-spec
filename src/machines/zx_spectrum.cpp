@@ -165,6 +165,7 @@ void ZXSpectrum::reset()
     display_.frameReset();
     borderColor_ = 7;
     frameCounter_ = 0;
+    borderChangeCount_ = 0;
     paused_ = false;
 
     // Stop any active recording
@@ -194,6 +195,8 @@ void ZXSpectrum::runFrame()
 {
     if (paused_) return;
     if (accessTrackingEnabled_) clearAccessFlags();
+    borderChangeCount_ = 0;
+    borderColorAtFrameStart_ = borderColor_;
 
     // Instant load: run CPU at full host speed until tape finishes loading.
     // No audio, no display, no contention — just blast through all tape pulses.
@@ -366,14 +369,43 @@ void ZXSpectrum::renderDisplay()
 void ZXSpectrum::renderDisplayToBeam()
 {
     // Clear the framebuffer so everything after the beam position is black,
-    // then render only up to the current CPU T-state position.
+    // then replay border colour changes to render the frame up to the
+    // current CPU T-state position. This preserves timing-based border
+    // colour effects (colour bars, raster splits, etc.).
     display_.clearFramebuffer();
     display_.frameReset();
     uint32_t currentTs = z80_->getTStates() % machineInfo_.tsPerFrame;
-    if (currentTs > 0) {
+    if (currentTs == 0) {
+        display_.frameReset();
+        return;
+    }
+
+    const uint8_t* screen = getScreenMemory();
+    uint32_t renderedUpTo = 0;
+
+    // Replay each border colour change in order
+    for (size_t i = 0; i < borderChangeCount_; i++)
+    {
+        uint32_t changeTs = borderChangeLog_[i].tstate;
+        if (changeTs >= currentTs) break;
+
+        // Render up to this change point with the previous border colour
+        if (changeTs > renderedUpTo) {
+            // The colour before this change: either the initial border colour
+            // (for the first segment) or the colour from the previous change
+            uint8_t prevColor = (i == 0) ? borderColorAtFrameStart_ : borderChangeLog_[i - 1].color;
+            display_.updateWithTs(
+                static_cast<int32_t>(changeTs - renderedUpTo),
+                screen, prevColor, frameCounter_);
+            renderedUpTo = changeTs;
+        }
+    }
+
+    // Render remaining portion up to beam with the current border colour
+    if (currentTs > renderedUpTo) {
         display_.updateWithTs(
-            static_cast<int32_t>(currentTs),
-            getScreenMemory(), borderColor_, frameCounter_);
+            static_cast<int32_t>(currentTs - renderedUpTo),
+            screen, borderColor_, frameCounter_);
     }
     display_.frameReset();
 }
