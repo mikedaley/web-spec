@@ -21,6 +21,23 @@ import "../css/disk-window.css";
 
 const FDC_PHASE_NAMES = ["Command", "Exec", "Result"];
 
+const FDC_COMMAND_NAMES = {
+  0x06: "Read Data",
+  0x0C: "Read Del",
+  0x05: "Write Data",
+  0x09: "Write Del",
+  0x0A: "Read ID",
+  0x0D: "Format",
+  0x11: "Scan Eq",
+  0x19: "Scan Lo/Eq",
+  0x1D: "Scan Hi/Eq",
+  0x07: "Recalibrate",
+  0x08: "Sense Int",
+  0x03: "Specify",
+  0x04: "Sense Drv",
+  0x0F: "Seek",
+};
+
 export class DiskWindow extends BaseWindow {
   constructor(proxy) {
     super({
@@ -30,7 +47,7 @@ export class DiskWindow extends BaseWindow {
       minHeight: 100,
       maxWidth: 360,
       defaultWidth: 360,
-      defaultHeight: 420,
+      defaultHeight: 580,
       defaultPosition: { x: 80, y: 500 },
       resizeDirections: [],
     });
@@ -127,11 +144,32 @@ export class DiskWindow extends BaseWindow {
             </div>
           </div>
           <div class="drive-detail-panel">
+            <div class="dd-section-label">Drive State</div>
             <div class="drive-detail-grid">
               <span class="dd-label">Track</span><span class="dd-val" id="dd-track">0</span>
               <span class="dd-label">Motor</span><span class="dd-val" id="dd-motor">OFF</span>
               <span class="dd-label">Phase</span><span class="dd-val" id="dd-phase">Command</span>
               <span class="dd-label">Mode</span><span class="dd-val" id="dd-mode">Read</span>
+            </div>
+            <div class="dd-section-label">FDC Command</div>
+            <div class="drive-detail-grid">
+              <span class="dd-label">Cmd</span><span class="dd-val" id="dd-cmd">--</span>
+              <span class="dd-label">EOT</span><span class="dd-val" id="dd-eot">--</span>
+              <span class="dd-label">Side</span><span class="dd-val" id="dd-side">--</span>
+              <span class="dd-label">Data</span><span class="dd-val" id="dd-data">--</span>
+            </div>
+            <div class="dd-section-label">Sector ID</div>
+            <div class="drive-detail-grid">
+              <span class="dd-label">C</span><span class="dd-val" id="dd-sec-c">--</span>
+              <span class="dd-label">H</span><span class="dd-val" id="dd-sec-h">--</span>
+              <span class="dd-label">R</span><span class="dd-val" id="dd-sec-r">--</span>
+              <span class="dd-label">N</span><span class="dd-val" id="dd-sec-n">--</span>
+            </div>
+            <div class="dd-section-label">Result Status</div>
+            <div class="drive-detail-grid dd-grid-3col">
+              <span class="dd-label">ST0</span><span class="dd-val" id="dd-st0">--</span>
+              <span class="dd-label">ST1</span><span class="dd-val" id="dd-st1">--</span>
+              <span class="dd-label">ST2</span><span class="dd-val" id="dd-st2">--</span>
             </div>
           </div>
         </div>
@@ -330,6 +368,7 @@ export class DiskWindow extends BaseWindow {
     // Update details panel
     if (this._detailsOpen) {
       const el = (id) => this.contentElement.querySelector(`#${id}`);
+      const hex = (v) => v !== undefined ? v.toString(16).toUpperCase().padStart(2, "0") : "--";
 
       const ddTrack = el("dd-track");
       if (ddTrack) ddTrack.textContent = track;
@@ -349,6 +388,43 @@ export class DiskWindow extends BaseWindow {
         ddMode.textContent = isWrite ? "Write" : "Read";
         ddMode.classList.toggle("write", isWrite);
       }
+
+      // FDC command info
+      const cmdId = state.diskCommand;
+      const cmdName = FDC_COMMAND_NAMES[cmdId & 0x1F] || (cmdId ? `0x${hex(cmdId)}` : "--");
+      const ddCmd = el("dd-cmd");
+      if (ddCmd) ddCmd.textContent = cmdName;
+
+      const ddEot = el("dd-eot");
+      if (ddEot) ddEot.textContent = state.diskEOT !== undefined ? state.diskEOT : "--";
+
+      const ddSide = el("dd-side");
+      if (ddSide) ddSide.textContent = state.diskSide !== undefined ? state.diskSide : "--";
+
+      const ddData = el("dd-data");
+      if (ddData) {
+        const idx = state.diskDataIndex;
+        const size = state.diskDataSize;
+        ddData.textContent = size > 0 ? `${idx}/${size}` : "--";
+      }
+
+      // Sector ID
+      const ddC = el("dd-sec-c");
+      if (ddC) ddC.textContent = state.diskLastC !== undefined ? hex(state.diskLastC) : "--";
+      const ddH = el("dd-sec-h");
+      if (ddH) ddH.textContent = state.diskLastH !== undefined ? hex(state.diskLastH) : "--";
+      const ddR = el("dd-sec-r");
+      if (ddR) ddR.textContent = state.diskLastR !== undefined ? hex(state.diskLastR) : "--";
+      const ddN = el("dd-sec-n");
+      if (ddN) ddN.textContent = state.diskLastN !== undefined ? hex(state.diskLastN) : "--";
+
+      // Result status registers
+      const ddST0 = el("dd-st0");
+      if (ddST0) ddST0.textContent = state.diskST0 !== undefined ? hex(state.diskST0) : "--";
+      const ddST1 = el("dd-st1");
+      if (ddST1) ddST1.textContent = state.diskST1 !== undefined ? hex(state.diskST1) : "--";
+      const ddST2 = el("dd-st2");
+      if (ddST2) ddST2.textContent = state.diskST2 !== undefined ? hex(state.diskST2) : "--";
     }
   }
 

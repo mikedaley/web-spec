@@ -54,6 +54,25 @@ public:
     bool isExecutionRead() const { return executionRead_; }
     bool isInExecution() const { return phase_ == Phase::Execution; }
 
+    // Extended state for debug panel
+    uint8_t getCurrentCommand() const { return currentCommand_; }
+    uint8_t getXferSector() const { return xferSector_; }
+    uint8_t getXferSide() const { return xferSide_; }
+    uint8_t getXferSizeCode() const { return xferSizeCode_; }
+    uint8_t getXferEOT() const { return xferEOT_; }
+    int getDataIndex() const { return dataIndex_; }
+    int getDataSize() const { return static_cast<int>(dataBuffer_.size()); }
+    uint8_t getLastSectorC() const { return lastSectorC_; }
+    uint8_t getLastSectorH() const { return lastSectorH_; }
+    uint8_t getLastSectorR() const { return lastSectorR_; }
+    uint8_t getLastSectorN() const { return lastSectorN_; }
+    uint8_t getLastResultST0() const { return resultBuffer_.size() >= 1 ? resultBuffer_[0] : 0; }
+    uint8_t getLastResultST1() const { return resultBuffer_.size() >= 2 ? resultBuffer_[1] : 0; }
+    uint8_t getLastResultST2() const { return resultBuffer_.size() >= 3 ? resultBuffer_[2] : 0; }
+    int getCommandLength() const { return static_cast<int>(commandBuffer_.size()); }
+    int getResultLength() const { return static_cast<int>(resultBuffer_.size()); }
+    int getResultIndex() const { return resultIndex_; }
+
 private:
     // FDC operating phases
     enum class Phase {

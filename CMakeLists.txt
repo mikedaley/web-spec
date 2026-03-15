@@ -360,6 +360,20 @@ if(EMSCRIPTEN)
                 \"_diskGetCurrentTrack\", \
                 \"_diskGetFDCPhase\", \
                 \"_diskIsReadMode\", \
+                \"_diskGetCurrentCommand\", \
+                \"_diskGetXferSector\", \
+                \"_diskGetXferSide\", \
+                \"_diskGetXferSizeCode\", \
+                \"_diskGetXferEOT\", \
+                \"_diskGetDataIndex\", \
+                \"_diskGetDataSize\", \
+                \"_diskGetLastSectorC\", \
+                \"_diskGetLastSectorH\", \
+                \"_diskGetLastSectorR\", \
+                \"_diskGetLastSectorN\", \
+                \"_diskGetLastResultST0\", \
+                \"_diskGetLastResultST1\", \
+                \"_diskGetLastResultST2\", \
                 \"_traceEnable\", \
                 \"_traceIsEnabled\", \
                 \"_traceGetBuffer\", \

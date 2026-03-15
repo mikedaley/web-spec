@@ -423,3 +423,21 @@
 .dd-val.write {
   color: var(--accent-orange);
 }
+
+.dd-section-label {
+  font-family: var(--font-sans);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 6px 2px 2px;
+}
+
+.dd-section-label:first-child {
+  padding-top: 0;
+}
+
+.drive-detail-grid.dd-grid-3col {
+  grid-template-columns: auto 1fr auto 1fr auto 1fr;
+}

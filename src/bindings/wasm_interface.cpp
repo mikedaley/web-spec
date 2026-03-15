@@ -1954,6 +1954,104 @@ int diskIsReadMode() {
     return p3->getFDC().isExecutionRead() ? 1 : 0;
 }
 
+EMSCRIPTEN_KEEPALIVE
+int diskGetCurrentCommand() {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->getFDC().getCurrentCommand();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskGetXferSector() {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->getFDC().getXferSector();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskGetXferSide() {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->getFDC().getXferSide();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskGetXferSizeCode() {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->getFDC().getXferSizeCode();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskGetXferEOT() {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->getFDC().getXferEOT();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskGetDataIndex() {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->getFDC().getDataIndex();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskGetDataSize() {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->getFDC().getDataSize();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskGetLastSectorC() {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->getFDC().getLastSectorC();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskGetLastSectorH() {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->getFDC().getLastSectorH();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskGetLastSectorR() {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->getFDC().getLastSectorR();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskGetLastSectorN() {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->getFDC().getLastSectorN();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskGetLastResultST0() {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->getFDC().getLastResultST0();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskGetLastResultST1() {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->getFDC().getLastResultST1();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int diskGetLastResultST2() {
+    auto* p3 = getPlus3();
+    if (!p3) return 0;
+    return p3->getFDC().getLastResultST2();
+}
+
 // ============================================================================
 // CPU Instruction Trace
 // ============================================================================

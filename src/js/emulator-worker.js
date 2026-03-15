@@ -144,6 +144,20 @@ function getState() {
     diskCurrentTrack: wasm._diskGetCurrentTrack(0),
     diskFDCPhase: wasm._diskGetFDCPhase(),
     diskReadMode: wasm._diskIsReadMode() !== 0,
+    diskCommand: wasm._diskGetCurrentCommand(),
+    diskSector: wasm._diskGetXferSector(),
+    diskSide: wasm._diskGetXferSide(),
+    diskSizeCode: wasm._diskGetXferSizeCode(),
+    diskEOT: wasm._diskGetXferEOT(),
+    diskDataIndex: wasm._diskGetDataIndex(),
+    diskDataSize: wasm._diskGetDataSize(),
+    diskLastC: wasm._diskGetLastSectorC(),
+    diskLastH: wasm._diskGetLastSectorH(),
+    diskLastR: wasm._diskGetLastSectorR(),
+    diskLastN: wasm._diskGetLastSectorN(),
+    diskST0: wasm._diskGetLastResultST0(),
+    diskST1: wasm._diskGetLastResultST1(),
+    diskST2: wasm._diskGetLastResultST2(),
   };
 }
 
