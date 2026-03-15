@@ -7,6 +7,7 @@
 
 #include "upd765a.hpp"
 #include <cstring>
+#include <cstdio>
 
 namespace zxspec {
 
@@ -51,6 +52,7 @@ UPD765A::UPD765A()
 
 void UPD765A::reset()
 {
+    // printf("[FDC] === RESET ===\n");
     phase_ = Phase::Command;
     motorOn_ = false;
     commandBuffer_.clear();
@@ -63,6 +65,7 @@ void UPD765A::reset()
     executionRead_ = false;
     currentTrack_[0] = 0;
     currentTrack_[1] = 0;
+    msrPollCount_ = 0;
 
     // After power-on/reset, the µPD765A generates a seek-complete interrupt
     // for each drive. The +3 ROM sends Sense Interrupt Status to clear these
@@ -102,7 +105,7 @@ DiskImage* UPD765A::getDisk(int drive) const
 // Main Status Register
 // ============================================================================
 
-uint8_t UPD765A::readMSR() const
+uint8_t UPD765A::readMSR()
 {
     uint8_t msr = 0;
 
@@ -119,6 +122,32 @@ uint8_t UPD765A::readMSR() const
 
         case Phase::Execution:
             if (executionRead_) {
+                // Track consecutive MSR polls without data reads.
+                // On real hardware, the disk keeps rotating and if the CPU
+                // doesn't read a data byte within ~26µs, the byte is lost
+                // and the FDC flags an overrun. Speedlock protection exploits
+                // this by reading fewer bytes than the sector contains, then
+                // polling MSR until execution ends.
+                msrPollCount_++;
+                if (msrPollCount_ > OVERRUN_THRESHOLD) {
+                    // printf("[FDC] Overrun: %d polls, sector R=%d, %d/%d bytes read\n",
+                    //        msrPollCount_, xferSector_, dataIndex_, (int)dataBuffer_.size());
+                    // Overrun: abort execution, enter result phase
+                    uint8_t st0 = ST0_IC_ABNORMAL | (xferSide_ << 2) | xferDrive_;
+                    uint8_t st1 = ST1_OR | xferST1_;
+                    uint8_t st2 = xferST2_;
+                    if (xferWeakSector_) {
+                        st1 |= ST1_DE;
+                        st2 |= ST2_DD;
+                    }
+                    setResult7(st0, st1, st2, xferTrack_, xferSide_,
+                               xferSector_, xferSizeCode_);
+                    phase_ = Phase::Result;
+                    msrPollCount_ = 0;
+                    // Return result-phase MSR
+                    msr = MSR_RQM | MSR_DIO | MSR_CB;
+                    break;
+                }
                 // FDC has data for CPU to read
                 msr = MSR_RQM | MSR_DIO | MSR_EXM | MSR_CB;
             } else {
@@ -143,6 +172,9 @@ uint8_t UPD765A::readMSR() const
 uint8_t UPD765A::readData()
 {
     if (phase_ == Phase::Execution && executionRead_) {
+        // CPU is reading data — reset overrun counter
+        msrPollCount_ = 0;
+
         // Reading sector data during execution phase
         if (dataIndex_ < static_cast<int>(dataBuffer_.size())) {
             uint8_t data = dataBuffer_[dataIndex_++];
@@ -153,8 +185,17 @@ uint8_t UPD765A::readData()
                 if (!advanceToNextSector()) {
                     // End of cylinder: µPD765A reports abnormal termination with EN flag.
                     // R field = next sector (the one that wasn't found).
+                    uint8_t st1 = ST1_EN | xferST1_;
+                    uint8_t st2 = xferST2_;
+
+                    // Weak/fuzzy sectors report CRC error (Data Error in data field)
+                    if (xferWeakSector_) {
+                        st1 |= ST1_DE;
+                        st2 |= ST2_DD;
+                    }
+
                     uint8_t st0 = ST0_IC_ABNORMAL | (xferSide_ << 2) | xferDrive_;
-                    setResult7(st0, ST1_EN, 0, xferTrack_, xferSide_,
+                    setResult7(st0, st1, st2, xferTrack_, xferSide_,
                                static_cast<uint8_t>(xferSector_ + 1), xferSizeCode_);
                     phase_ = Phase::Result;
                 }
@@ -362,6 +403,9 @@ void UPD765A::cmdReadData()
     xferEOT_ = commandBuffer_[6];      // EOT
     xferMultiTrack_ = (commandBuffer_[0] & 0x80) != 0;
     xferDeletedData_ = (currentCommand_ == CMD_READ_DELETED_DATA);
+    xferWeakSector_ = false;
+    xferST1_ = 0;
+    xferST2_ = 0;
 
     int drive = xferDrive_;
 
@@ -373,6 +417,9 @@ void UPD765A::cmdReadData()
     }
 
     // Find the requested sector
+    // printf("[FDC] ReadData: phys=%d C=%d H=%d R=%d N=%d EOT=%d del=%d\n",
+    //        currentTrack_[drive], xferTrack_, xferSide_, xferSector_,
+    //        xferSizeCode_, xferEOT_, xferDeletedData_ ? 1 : 0);
     const DiskSector* sector = disk_[drive]->findSector(currentTrack_[drive], xferSide_, xferSector_);
 
     if (!sector) {
@@ -382,21 +429,33 @@ void UPD765A::cmdReadData()
         return;
     }
 
-    // Check for deleted data mismatch
+    // Check for deleted data mismatch (Read Data finds deleted sector, or
+    // Read Deleted Data finds normal sector). Per µPD765A spec, the FDC reads
+    // the data but terminates after this sector with CM flag in ST2.
     bool sectorIsDeleted = (sector->fdcStatus2 & ST2_CM) != 0;
-    if (sectorIsDeleted != xferDeletedData_) {
-        // Read the data but set CM flag in ST2
-        dataBuffer_ = sector->data;
-        dataIndex_ = 0;
-        executionRead_ = true;
-        phase_ = Phase::Execution;
-        return;
-    }
+    bool dataMarkMismatch = (sectorIsDeleted != xferDeletedData_);
 
-    // Propagate any FDC status from the sector (copy protection)
-    dataBuffer_ = sector->data;
+    // Get read data (cycles through copies for weak/fuzzy sectors)
+    dataBuffer_ = sector->getReadData();
     dataIndex_ = 0;
     executionRead_ = true;
+
+    // For weak sectors, report CRC error in result phase status
+    if (sector->isWeak()) {
+        xferWeakSector_ = true;
+    }
+
+    // Propagate stored FDC status flags from the sector (copy protection)
+    xferST1_ = sector->fdcStatus1;
+    xferST2_ = sector->fdcStatus2;
+
+    // On data mark mismatch, force EOT so the transfer stops after this sector
+    // and include the CM flag in the result
+    if (dataMarkMismatch) {
+        xferEOT_ = xferSector_;  // Stop after current sector
+        xferST2_ |= ST2_CM;
+    }
+
     phase_ = Phase::Execution;
 }
 
@@ -514,6 +573,7 @@ void UPD765A::cmdFormatTrack()
 void UPD765A::cmdRecalibrate()
 {
     int drive = commandBuffer_[1] & 0x03;
+    // printf("[FDC] Recalibrate: drive=%d\n", drive);
     currentTrack_[drive] = 0;
     readIdIndex_ = 0;
 
@@ -540,6 +600,8 @@ void UPD765A::cmdSenseInterruptStatus()
     for (int d = 0; d < 2; d++) {
         if (seekCompleted_[d]) {
             seekCompleted_[d] = false;
+            // printf("[FDC] SenseInt: drive=%d ST0=%02X PCN=%d\n",
+            //        d, seekResultST0_[d], currentTrack_[d]);
             resultBuffer_.clear();
             resultBuffer_.push_back(seekResultST0_[d]);
             resultBuffer_.push_back(currentTrack_[d]);
@@ -550,6 +612,7 @@ void UPD765A::cmdSenseInterruptStatus()
     }
 
     // No pending interrupt - return invalid command
+    // printf("[FDC] SenseInt: no pending interrupt\n");
     resultBuffer_.clear();
     resultBuffer_.push_back(ST0_IC_INVALID);
     resultIndex_ = 0;
@@ -608,6 +671,7 @@ void UPD765A::cmdSeek()
     int drive = commandBuffer_[1] & 0x03;
     uint8_t newTrack = commandBuffer_[2];
 
+    // printf("[FDC] Seek: drive=%d track=%d\n", drive, newTrack);
     currentTrack_[drive] = newTrack;
     readIdIndex_ = 0;
 
@@ -642,6 +706,8 @@ void UPD765A::cmdInvalid()
 void UPD765A::setResult7(uint8_t st0, uint8_t st1, uint8_t st2,
                           uint8_t c, uint8_t h, uint8_t r, uint8_t n)
 {
+    // printf("[FDC] Result: ST0=%02X ST1=%02X ST2=%02X C=%d H=%d R=%d N=%d\n",
+    //        st0, st1, st2, c, h, r, n);
     resultBuffer_.clear();
     resultBuffer_.reserve(7);
     resultBuffer_.push_back(st0);
@@ -671,13 +737,20 @@ bool UPD765A::advanceToNextSector()
     int drive = xferDrive_;
     if (!hasDisk(drive)) return false;
 
-    const DiskSector* sector = disk_[drive]->findSector(currentTrack_[drive], xferSide_, xferSector_);
+    DiskSector* sector = disk_[drive]->findSector(currentTrack_[drive], xferSide_, xferSector_);
     if (!sector) return false;
 
     if (executionRead_) {
-        // Read: fill buffer with next sector's data
-        dataBuffer_ = sector->data;
+        // Read: fill buffer with next sector's data (cycles copies for weak sectors)
+        dataBuffer_ = sector->getReadData();
         dataIndex_ = 0;
+
+        // Track weak sector state and stored status for result phase
+        if (sector->isWeak()) {
+            xferWeakSector_ = true;
+        }
+        xferST1_ |= sector->fdcStatus1;
+        xferST2_ |= sector->fdcStatus2;
     } else {
         // Write: prepare buffer for next sector
         uint32_t secSize = 128u << xferSizeCode_;
