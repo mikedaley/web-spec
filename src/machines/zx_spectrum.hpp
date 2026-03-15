@@ -159,11 +159,6 @@ public:
 
     void setBorderColor(uint8_t color) { borderColor_ = color & 0x07; }
     uint8_t getBorderColor() const { return borderColor_; }
-    void logBorderChange(uint32_t tstate, uint8_t color) {
-        if (borderChangeCount_ < MAX_BORDER_CHANGES) {
-            borderChangeLog_[borderChangeCount_++] = { tstate, color };
-        }
-    }
     uint32_t getFrameCounter() const { return frameCounter_; }
     void setFrameCounter(uint32_t fc) { frameCounter_ = fc; }
 
@@ -318,15 +313,6 @@ protected:
     uint8_t borderColor_ = 7;
     uint32_t frameCounter_ = 0;
 
-    // Border colour change log for renderDisplayToBeam() replay.
-    // Each entry records the T-state at which the border colour changed
-    // and the NEW colour written. During normal frame execution this is
-    // populated by each machine variant's IO write handler.
-    struct BorderChange { uint32_t tstate; uint8_t color; };
-    static constexpr size_t MAX_BORDER_CHANGES = 512;
-    BorderChange borderChangeLog_[MAX_BORDER_CHANGES];
-    size_t borderChangeCount_ = 0;
-    uint8_t borderColorAtFrameStart_ = 7;
 
     // Execution state
     bool paused_ = false;

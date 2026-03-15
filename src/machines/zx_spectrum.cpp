@@ -165,7 +165,6 @@ void ZXSpectrum::reset()
     display_.frameReset();
     borderColor_ = 7;
     frameCounter_ = 0;
-    borderChangeCount_ = 0;
     paused_ = false;
 
     // Stop any active recording
@@ -195,8 +194,6 @@ void ZXSpectrum::runFrame()
 {
     if (paused_) return;
     if (accessTrackingEnabled_) clearAccessFlags();
-    borderChangeCount_ = 0;
-    borderColorAtFrameStart_ = borderColor_;
 
     // Instant load: run CPU at full host speed until tape finishes loading.
     // No audio, no display, no contention — just blast through all tape pulses.
@@ -368,46 +365,36 @@ void ZXSpectrum::renderDisplay()
 
 void ZXSpectrum::renderDisplayToBeam()
 {
-    // Clear the framebuffer so everything after the beam position is black,
-    // then replay border colour changes to render the frame up to the
-    // current CPU T-state position. This preserves timing-based border
-    // colour effects (colour bars, raster splits, etc.).
-    display_.clearFramebuffer();
-    display_.frameReset();
-    uint32_t currentTs = z80_->getTStates() % machineInfo_.tsPerFrame;
-    if (currentTs == 0) {
-        display_.frameReset();
-        return;
-    }
+    // Advance the display incrementally from its current position to the
+    // CPU's current T-state. This is the same mechanism used during normal
+    // frame execution: the display accumulates pixels across steps, and
+    // border colour changes are handled naturally because the IO write
+    // handlers already catch up the display before changing borderColor_.
+    uint32_t cpuTs = z80_->getTStates();
+    uint32_t displayTs = display_.getCurrentDisplayTs();
 
-    const uint8_t* screen = getScreenMemory();
-    uint32_t renderedUpTo = 0;
-
-    // Replay each border colour change in order
-    for (size_t i = 0; i < borderChangeCount_; i++)
-    {
-        uint32_t changeTs = borderChangeLog_[i].tstate;
-        if (changeTs >= currentTs) break;
-
-        // Render up to this change point with the previous border colour
-        if (changeTs > renderedUpTo) {
-            // The colour before this change: either the initial border colour
-            // (for the first segment) or the colour from the previous change
-            uint8_t prevColor = (i == 0) ? borderColorAtFrameStart_ : borderChangeLog_[i - 1].color;
+    // Handle frame boundary crossing during stepping
+    if (cpuTs >= machineInfo_.tsPerFrame) {
+        // Finish rendering the current frame
+        if (displayTs < machineInfo_.tsPerFrame) {
             display_.updateWithTs(
-                static_cast<int32_t>(changeTs - renderedUpTo),
-                screen, prevColor, frameCounter_);
-            renderedUpTo = changeTs;
+                static_cast<int32_t>(machineInfo_.tsPerFrame - displayTs),
+                getScreenMemory(), borderColor_, frameCounter_);
         }
+        // Reset for the new frame
+        display_.frameReset();
+        frameCounter_++;
+        z80_->resetTStates(machineInfo_.tsPerFrame);
+        z80_->signalInterrupt();
+        cpuTs = z80_->getTStates();
+        displayTs = 0;
     }
 
-    // Render remaining portion up to beam with the current border colour
-    if (currentTs > renderedUpTo) {
+    if (cpuTs > displayTs) {
         display_.updateWithTs(
-            static_cast<int32_t>(currentTs - renderedUpTo),
-            screen, borderColor_, frameCounter_);
+            static_cast<int32_t>(cpuTs - displayTs),
+            getScreenMemory(), borderColor_, frameCounter_);
     }
-    display_.frameReset();
 }
 
 // ============================================================================
