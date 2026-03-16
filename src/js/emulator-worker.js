@@ -405,6 +405,10 @@ self.onmessage = async function (e) {
       if (wasm) wasm._keyUp(msg.row, msg.bit);
       break;
 
+    case "setKempstonJoystick":
+      if (wasm) wasm._setKempstonJoystick(msg.value);
+      break;
+
     case "loadSnapshot": {
       if (!wasm) break;
       const data = new Uint8Array(msg.data);

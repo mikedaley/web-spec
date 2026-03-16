@@ -563,6 +563,13 @@ void keyUp(int row, int bit) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+void setKempstonJoystick(uint8_t value) {
+  REQUIRE_MACHINE();
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  if (spec) spec->setKempstonJoystick(value);
+}
+
+EMSCRIPTEN_KEEPALIVE
 uint8_t getKeyboardRow(int row) {
   REQUIRE_MACHINE_OR(0xBF);
   return g_machine->getKeyboardRow(row);

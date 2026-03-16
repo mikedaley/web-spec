@@ -269,6 +269,12 @@ uint8_t ZXSpectrum48::coreIORead(uint16_t address)
         return result;
     }
 
+    // Kempston joystick: port 0x1F (format: 000FDULR)
+    if ((address & 0xFF) == 0x1F)
+    {
+        return kempstonJoystick_;
+    }
+
     // Return floating bus value
     return display_.floatingBus(z80_->getTStates(), pageRead_[1]);
 }

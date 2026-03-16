@@ -63,6 +63,9 @@ public:
 
     void keyDown(int row, int bit) override;
     void keyUp(int row, int bit) override;
+
+    void setKempstonJoystick(uint8_t value) { kempstonJoystick_ = value; }
+    uint8_t getKempstonJoystick() const { return kempstonJoystick_; }
     uint8_t getKeyboardRow(int row) const override;
 
     // Public memory access delegates to coreDebugRead/Write (no side effects)
@@ -310,6 +313,9 @@ protected:
 
     // Keyboard matrix: 8 half-rows, bits 0-4 active LOW (0 = pressed)
     std::array<uint8_t, 8> keyboardMatrix_{};
+
+    // Kempston joystick register (port 0x1F): 000FDULR
+    uint8_t kempstonJoystick_ = 0x00;
 
     // Display state
     uint8_t borderColor_ = 7;

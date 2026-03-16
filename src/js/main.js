@@ -42,6 +42,8 @@ import { MobileDetector } from "./ui/mobile-detector.js";
 import { MobileMenu } from "./ui/mobile-menu.js";
 import { VirtualKeyboard } from "./input/virtual-keyboard.js";
 import { VirtualGamepad } from "./input/virtual-gamepad.js";
+import { GamepadHandler } from "./input/gamepad-handler.js";
+import { JoystickWindow } from "./input/joystick-window.js";
 import { BottomSheet } from "./windows/bottom-sheet.js";
 import { StateManager } from "./state/state-manager.js";
 import { SaveStatesWindow } from "./state/save-states-window.js";
@@ -190,6 +192,12 @@ class ZXSpectrumEmulator {
       this.keyboardWindow.create();
       this.windowManager.register(this.keyboardWindow);
 
+      // Create joystick window
+      this.gamepadHandler = new GamepadHandler(this.proxy);
+      this.joystickWindow = new JoystickWindow(this.gamepadHandler);
+      this.joystickWindow.create();
+      this.windowManager.register(this.joystickWindow);
+
       // Create UDG editor window
       this.udgEditorWindow = new UDGEditorWindow(this.proxy);
       this.udgEditorWindow.create();
@@ -285,6 +293,7 @@ class ZXSpectrumEmulator {
         { id: "rule-builder", visible: false },
         { id: "memory-map", visible: false },
         { id: "keyboard", visible: false },
+        { id: "joystick", visible: false },
         { id: "settings", visible: false },
         { id: "udg-editor", visible: false },
         { id: "font-editor", visible: false },
@@ -577,6 +586,16 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // View menu > Joystick
+    const joystickBtn = document.getElementById("btn-joystick");
+    if (joystickBtn) {
+      joystickBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("joystick");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
     // View menu > TNFS Browser
     const tnfsBrowserBtn = document.getElementById("btn-tnfs-browser");
     if (tnfsBrowserBtn) {
@@ -845,6 +864,7 @@ class ZXSpectrumEmulator {
       "btn-sound-debug": "sound-debug",
       "btn-memory-map": "memory-map",
       "btn-keyboard": "keyboard",
+      "btn-joystick": "joystick",
       "btn-tnfs-browser": "tnfs-browser",
       "btn-z80-debug": "cpu-debugger",
       "btn-stack-viewer": "stack-viewer",

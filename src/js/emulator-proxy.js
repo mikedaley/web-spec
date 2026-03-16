@@ -362,6 +362,10 @@ export class EmulatorProxy {
     this.worker.postMessage({ type: "keyUp", row, bit });
   }
 
+  setKempstonJoystick(value) {
+    this.worker.postMessage({ type: "setKempstonJoystick", value });
+  }
+
   pause() {
     this.worker.postMessage({ type: "pause" });
   }

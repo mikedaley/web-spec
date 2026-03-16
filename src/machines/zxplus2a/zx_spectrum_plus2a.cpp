@@ -373,10 +373,10 @@ uint8_t ZXSpectrumPlus2A::coreIORead(uint16_t address)
     // ULA un-owned (odd) ports
     if (address & 0x01)
     {
-        // Kempston joystick: port 0x1F
+        // Kempston joystick: port 0x1F (format: 000FDULR)
         if ((address & 0xFF) == 0x1F)
         {
-            return 0x00;
+            return kempstonJoystick_;
         }
 
         // AY-3-8912 data read: port 0xFFFD

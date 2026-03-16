@@ -307,7 +307,7 @@ uint8_t ZXSpectrum128::coreIORead(uint16_t address)
         // Checked first as it takes priority over keyboard on a real machine
         if ((address & 0xFF) == 0x1F)
         {
-            return 0x00;
+            return kempstonJoystick_;
         }
 
         // AY-3-8912 data read: port 0xFFFD -- (address & 0xC002) == 0xC000

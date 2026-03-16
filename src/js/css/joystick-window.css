@@ -1,0 +1,307 @@
+/*
+ * joystick-window.css - Styles for the Joystick configuration window
+ */
+
+#joystick .debug-window-content {
+  overflow: hidden;
+}
+
+.joystick-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 12px;
+  user-select: none;
+}
+
+/* ── Section ──────────────────────────────────── */
+
+.joystick-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.joystick-section-title {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--separator-bg);
+}
+
+/* ── Controller select ────────────────────────── */
+
+.joystick-select {
+  width: 100%;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-family: inherit;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  outline: none;
+  cursor: pointer;
+}
+
+.joystick-select:focus {
+  border-color: var(--accent-blue-border);
+}
+
+.joystick-no-gamepad {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 4px 0;
+}
+
+/* ── Radio group (joystick type) ──────────────── */
+
+.joystick-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.joystick-radio-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.joystick-radio-item:hover {
+  background: var(--overlay-hover);
+}
+
+.joystick-radio-item input[type="radio"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--control-border);
+  border-radius: 50%;
+  background: var(--input-bg);
+  margin: 0;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.joystick-radio-item input[type="radio"]:checked {
+  border-color: var(--accent-green);
+  background: var(--accent-green-bg);
+}
+
+.joystick-radio-item input[type="radio"]:checked::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent-green);
+}
+
+.joystick-radio-label {
+  font-size: 11px;
+  color: var(--text-primary);
+  flex-shrink: 0;
+  min-width: 70px;
+}
+
+.joystick-radio-desc {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* ── Visual feedback ──────────────────────────── */
+
+.joystick-visual {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  padding: 8px 0;
+}
+
+/* D-pad */
+.joystick-dpad {
+  display: grid;
+  grid-template-columns: 28px 28px 28px;
+  grid-template-rows: 28px 28px 28px;
+  gap: 2px;
+}
+
+.joystick-dpad-btn {
+  border-radius: 3px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--control-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.08s;
+}
+
+.joystick-dpad-btn svg {
+  width: 10px;
+  height: 10px;
+  fill: var(--text-muted);
+  transition: fill 0.08s;
+}
+
+.joystick-dpad-btn.active {
+  background: var(--accent-green-bg);
+  border-color: var(--accent-green-border);
+}
+
+.joystick-dpad-btn.active svg {
+  fill: var(--accent-green);
+}
+
+.joystick-dpad-center {
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--control-border);
+}
+
+/* Fire button */
+.joystick-fire-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.joystick-fire-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  border: 2px solid var(--control-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.08s;
+}
+
+.joystick-fire-btn.active {
+  background: var(--accent-red-bg);
+  border-color: var(--accent-red-border);
+}
+
+.joystick-fire-label {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  transition: color 0.08s;
+}
+
+.joystick-fire-btn.active + .joystick-fire-label {
+  color: var(--accent-red);
+}
+
+/* Mapped value display */
+.joystick-mapped-value {
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+  min-height: 14px;
+}
+
+/* ── Axes visualization ───────────────────────── */
+
+.joystick-axes {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+}
+
+.joystick-axis {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.joystick-axis-label {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  width: 10px;
+}
+
+.joystick-axis-track {
+  width: 80px;
+  height: 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--control-border);
+  border-radius: 3px;
+  position: relative;
+  overflow: hidden;
+}
+
+.joystick-axis-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: var(--accent-blue);
+  opacity: 0.6;
+  transition: left 0.03s, width 0.03s;
+}
+
+/* ── Deadzone slider ──────────────────────────── */
+
+.joystick-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.joystick-slider-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  flex-shrink: 0;
+  width: 60px;
+}
+
+.joystick-slider {
+  flex: 1;
+  height: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--bg-secondary);
+  border: 1px solid var(--control-border);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+
+.joystick-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  border: 1px solid var(--control-border);
+  cursor: pointer;
+}
+
+.joystick-slider-value {
+  font-size: 10px;
+  font-family: "SF Mono", "Cascadia Code", "Fira Code", monospace;
+  color: var(--text-muted);
+  width: 28px;
+  text-align: right;
+}

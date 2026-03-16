@@ -199,6 +199,7 @@ if(EMSCRIPTEN)
                 \"_getSignalBufferSize\", \
                 \"_keyDown\", \
                 \"_keyUp\", \
+                \"_setKempstonJoystick\", \
                 \"_getKeyboardRow\", \
                 \"_getAudioBuffer\", \
                 \"_getAudioSampleCount\", \
