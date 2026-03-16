@@ -644,6 +644,7 @@
 }
 
 .tape-load-btn,
+.tape-save-btn,
 .tape-eject-btn {
   padding: 4px 10px;
   font-family: var(--font-sans);
@@ -668,6 +669,7 @@
   color: var(--text-primary);
 }
 
+.tape-save-btn,
 .tape-eject-btn {
   border-radius: var(--radius-sm);
 }
@@ -749,6 +751,17 @@
 .tape-toggle input:checked + .tape-toggle-track::before {
   transform: translateX(14px);
   background: var(--accent-green);
+}
+
+.tape-save-btn:hover:not(:disabled) {
+  background: var(--accent-blue-bg);
+  border-color: var(--accent-blue-border);
+  color: var(--accent-blue);
+}
+
+.tape-save-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .tape-eject-btn:hover:not(:disabled) {

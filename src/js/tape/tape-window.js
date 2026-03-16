@@ -207,6 +207,7 @@ export class TapeWindow extends BaseWindow {
               </button>
             </div>
           </div>
+          <button class="tape-save-btn" id="tape-btn-save" title="Save Tape to Disk" disabled>Save</button>
           <button class="tape-eject-btn" id="tape-btn-eject" title="Eject Tape" disabled>Eject</button>
           <div class="tape-speed-switch" id="tape-speed-switch" title="Toggle loading speed">
             <span class="tape-speed-label tape-speed-label-normal" title="Normal speed">
@@ -495,6 +496,12 @@ export class TapeWindow extends BaseWindow {
       this._updateSpeedSwitch(speedCheckbox.checked);
     });
 
+    // Save button
+    const saveBtn = this.contentElement.querySelector("#tape-btn-save");
+    saveBtn.addEventListener("click", () => {
+      this._saveTapToDisk();
+    });
+
     // Eject button
     const ejectBtn = this.contentElement.querySelector("#tape-btn-eject");
     ejectBtn.addEventListener("click", () => {
@@ -645,6 +652,43 @@ export class TapeWindow extends BaseWindow {
   }
 
   /**
+   * Save the current tape to disk via the native save dialog (without ejecting)
+   */
+  async _saveTapToDisk() {
+    const tapData = this._rawTapeData || this._lastRecordedTapData;
+    if (!tapData || tapData.length === 0) return;
+
+    const suggestedName = this._currentFilename || "tape.tap";
+    const blob = new Blob([tapData], { type: "application/octet-stream" });
+
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{
+            description: "TAP Tape File",
+            accept: { "application/octet-stream": [".tap"] },
+          }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+      } catch {
+        // User cancelled
+      }
+    } else {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = suggestedName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  /**
    * Prompt the user to save recorded TAP data via the browser save dialog
    */
   async _promptSaveTap(data) {
@@ -712,6 +756,8 @@ export class TapeWindow extends BaseWindow {
 
     const ejectBtn = this.contentElement?.querySelector("#tape-btn-eject");
     if (ejectBtn) ejectBtn.disabled = false;
+    const saveBtn = this.contentElement?.querySelector("#tape-btn-save");
+    if (saveBtn) saveBtn.disabled = false;
 
     // Show a blank-tape empty state
     const list = this.contentElement?.querySelector("#tape-block-list");
@@ -750,6 +796,8 @@ export class TapeWindow extends BaseWindow {
     this._resetSpindles();
     const ejectBtn = this.contentElement.querySelector("#tape-btn-eject");
     if (ejectBtn) ejectBtn.disabled = true;
+    const saveBtn = this.contentElement.querySelector("#tape-btn-save");
+    if (saveBtn) saveBtn.disabled = true;
   }
 
   setMetadata(metadata) {
@@ -938,6 +986,8 @@ export class TapeWindow extends BaseWindow {
     this._isTZX = false;
     const ejectBtn = this.contentElement?.querySelector("#tape-btn-eject");
     if (ejectBtn) ejectBtn.disabled = true;
+    const saveBtn = this.contentElement?.querySelector("#tape-btn-save");
+    if (saveBtn) saveBtn.disabled = true;
   }
 
   _renderInfoPanel() {
@@ -1273,6 +1323,8 @@ export class TapeWindow extends BaseWindow {
     this._showCassette(blocks.length > 0);
     const ejectBtn = this.contentElement.querySelector("#tape-btn-eject");
     if (ejectBtn) ejectBtn.disabled = false;
+    const saveBtn = this.contentElement.querySelector("#tape-btn-save");
+    if (saveBtn) saveBtn.disabled = blocks.length > 0 ? false : true;
   }
 
   _renderBlocks() {
