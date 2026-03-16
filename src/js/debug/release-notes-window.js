@@ -18,8 +18,7 @@ const RELEASE_DATA = [
     ],
     fixes: [
       { hash: "3f7ebcc", text: "Memory map window now works correctly for all machines (128K, +2, +2A, +3)" },
-      { hash: "------", text: "Zero 128K system variables area on init to prevent warm-reset glitches" },
-    ],
+],
     improvements: [
       { hash: "70cfaaf", text: "Improved spacing between Surface and Details buttons in disk drive window" },
       { hash: "e187ca0", text: "FDC internals panel in disk drive debug window" },
