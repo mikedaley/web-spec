@@ -11,6 +11,17 @@ import { VERSION } from "../config/version.js";
 
 const RELEASE_DATA = [
   {
+    week: "Mar 16 – Mar 22, 2026",
+    features: [],
+    fixes: [
+      { hash: "3f7ebcc", text: "Memory map window now works correctly for all machines (128K +2, +2A, +3, ZX81)" },
+    ],
+    improvements: [
+      { hash: "70cfaaf", text: "Improved spacing between Surface and Details buttons in disk drive window" },
+      { hash: "e187ca0", text: "FDC internals panel in disk drive debug window" },
+    ],
+  },
+  {
     week: "Mar 10 – Mar 15, 2026",
     features: [
       { hash: "adaef8b", text: "Retro debugger with docking system and accurate backward disassembly" },
