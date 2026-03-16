@@ -25,6 +25,7 @@ const RELEASE_DATA = [
       { hash: "69d2197", text: "FDC Deleted Data Address Mark (CM) and CRC error handling" },
       { hash: "ed480a0", text: "Preserve breakpoints across machine switches" },
       { hash: "------", text: "Memory heatmap fade toggle switch and inverted fade slider for intuitive control" },
+      { hash: "f0c2314", text: "Drive B support in disk window with A/B tab switching" },
     ],
   },
   {
