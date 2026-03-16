@@ -17,6 +17,7 @@
   display: flex;
   gap: 12px;
   padding: var(--space-sm) var(--space-md);
+  margin-bottom: 8px;
   border-bottom: 1px solid var(--glass-border-subtle);
 }
 
