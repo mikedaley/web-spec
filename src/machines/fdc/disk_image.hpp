@@ -1,11 +1,11 @@
 /*
- * disk_image.hpp - DSK / Extended DSK disk image format parser
+ * disk_image.hpp - DSK / Extended DSK / OPD disk image format parser
  *
- * Supports both standard CPC DSK and Extended DSK formats used by
- * the ZX Spectrum +3. Provides sector-level read/write access for
- * the µPD765A FDC emulation.
+ * Supports standard CPC DSK, Extended DSK, and Opus Discovery OPD formats.
+ * Provides sector-level read/write access for FDC emulation.
  *
  * +3DOS standard format: 40 tracks, 1 side, 9 sectors/track, 512 bytes/sector
+ * Opus OPD format: 40 tracks, 1 side, 18 sectors/track, 256 bytes/sector (raw)
  *
  * Written by
  *  Mike Daley <michael_daley@icloud.com>
@@ -71,6 +71,9 @@ public:
     // Create an empty formatted disk (40 tracks, 1 side, 9 sectors, 512 bytes)
     void createEmpty();
 
+    // Create an empty Opus-format disk (40 tracks, 1 side, 18 sectors, 256 bytes)
+    void createEmptyOPD();
+
     // Export the current disk state as Extended DSK format
     std::vector<uint8_t> exportDSK() const;
 
@@ -103,6 +106,7 @@ public:
 private:
     bool loadStandardDSK(const uint8_t* data, uint32_t size);
     bool loadExtendedDSK(const uint8_t* data, uint32_t size);
+    bool loadOPD(const uint8_t* data, uint32_t size);
 
     std::vector<DiskTrack> tracks_;
     int trackCount_ = 0;

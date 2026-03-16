@@ -1345,6 +1345,7 @@ class ZXSpectrumEmulator {
         this.basicProgramWindow.setMachine(machineId);
         this.keyboardWindow.setMachine(machineId);
         await this.reapplySpectranetState();
+        this.reapplyOpusState();
         const machineNames = { 0: "ZX Spectrum 48K", 1: "ZX Spectrum 128K", 2: "ZX Spectrum 128K +2", 3: "ZX Spectrum 128K +2A", 4: "ZX Spectrum +3", 5: "ZX81" };
         showToast(`Switched to ${machineNames[machineId] || "Unknown"}`);
 
@@ -1466,6 +1467,25 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // Opus Discovery toggle
+    const opusToggleBtn = document.getElementById("btn-opus-toggle");
+    if (opusToggleBtn) {
+      const savedOpus = localStorage.getItem("zxspec-opus-enabled") === "true";
+      this.proxy.setOpusEnabled(savedOpus);
+      opusToggleBtn.classList.toggle("active", savedOpus);
+
+      opusToggleBtn.addEventListener("click", () => {
+        const isEnabled = opusToggleBtn.classList.contains("active");
+        const newEnabled = !isEnabled;
+        this.proxy.setOpusEnabled(newEnabled);
+        opusToggleBtn.classList.toggle("active", newEnabled);
+        localStorage.setItem("zxspec-opus-enabled", String(newEnabled));
+        showToast(`Opus Discovery ${newEnabled ? "enabled" : "disabled"}`);
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
   }
 
   async reapplySpectranetState() {
@@ -1477,6 +1497,11 @@ class ZXSpectrumEmulator {
     if (enabled) {
       await this.restoreSpectranetFlash();
     }
+  }
+
+  reapplyOpusState() {
+    const enabled = localStorage.getItem("zxspec-opus-enabled") === "true";
+    this.proxy.setOpusEnabled(enabled);
   }
 
   async saveSpectranetFlash() {
@@ -1750,7 +1775,7 @@ class ZXSpectrumEmulator {
   }
 
   setupDragAndDrop() {
-    const validExtensions = new Set(["sna", "z80", "tap", "tzx", "dsk"]);
+    const validExtensions = new Set(["sna", "z80", "tap", "tzx", "dsk", "opd"]);
 
     // Prevent default browser behaviour for drag events globally
     document.addEventListener("dragover", (e) => {
@@ -1770,13 +1795,17 @@ class ZXSpectrumEmulator {
         return;
       }
 
-      // DSK files go to the disk window
-      if (ext === "dsk") {
+      // Disk image files go to the disk window
+      if (ext === "dsk" || ext === "opd") {
         const reader = new FileReader();
         reader.onload = (ev) => {
           const data = new Uint8Array(ev.target.result);
           const buffer = data.buffer.slice(0);
-          this.proxy.diskInsert(0, buffer);
+          if (this.proxy.state.opusEnabled) {
+            this.proxy.opusDiskInsert(0, buffer);
+          } else {
+            this.proxy.diskInsert(0, buffer);
+          }
           this.diskWindow.setFilename(file.name);
         };
         reader.readAsArrayBuffer(file);

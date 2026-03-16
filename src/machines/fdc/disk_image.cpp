@@ -38,9 +38,22 @@ static inline uint32_t sectorSize(uint8_t sizeCode)
     return 128u << sizeCode;
 }
 
+// OPD format: raw sector dump, no header.
+// Single-sided: 40 tracks × 18 sectors × 256 bytes = 184,320 bytes
+// Double-sided: 40 tracks × 18 sectors × 256 bytes × 2 sides = 368,640 bytes
+static constexpr uint32_t OPD_SS_SIZE = 40 * 18 * 256;   // 184320
+static constexpr uint32_t OPD_DS_SIZE = 40 * 18 * 256 * 2; // 368640
+
 bool DiskImage::load(const uint8_t* data, uint32_t size)
 {
-    if (!data || size < HEADER_SIZE) return false;
+    if (!data || size == 0) return false;
+
+    // Detect OPD by exact file size (raw format, no header)
+    if (size == OPD_SS_SIZE || size == OPD_DS_SIZE) {
+        return loadOPD(data, size);
+    }
+
+    if (size < HEADER_SIZE) return false;
 
     // Detect format from header signature
     // Extended DSK has a standardized signature
@@ -223,6 +236,52 @@ bool DiskImage::loadExtendedDSK(const uint8_t* data, uint32_t size)
     return true;
 }
 
+bool DiskImage::loadOPD(const uint8_t* data, uint32_t size)
+{
+    // OPD: raw sector dump — 40 tracks, 18 sectors/track, 256 bytes/sector
+    int sides = (size == OPD_DS_SIZE) ? 2 : 1;
+    trackCount_ = 40;
+    sideCount_ = sides;
+
+    tracks_.clear();
+    tracks_.reserve(trackCount_ * sideCount_);
+
+    uint32_t offset = 0;
+
+    for (int t = 0; t < trackCount_; t++) {
+        for (int s = 0; s < sideCount_; s++) {
+            DiskTrack track;
+            track.trackNumber = static_cast<uint8_t>(t);
+            track.sideNumber = static_cast<uint8_t>(s);
+            track.sectorSizeCode = 1;   // 256 bytes
+            track.gap3Length = 0x17;
+            track.fillerByte = 0xE5;
+            track.sectors.reserve(18);
+
+            for (int sec = 0; sec < 18; sec++) {
+                DiskSector sector;
+                sector.track = static_cast<uint8_t>(t);
+                sector.side = static_cast<uint8_t>(s);
+                sector.sectorId = static_cast<uint8_t>(sec);  // Opus uses 0-based sector IDs
+                sector.sizeCode = 1;  // 256 bytes
+                sector.fdcStatus1 = 0;
+                sector.fdcStatus2 = 0;
+                sector.data.assign(data + offset, data + offset + 256);
+                offset += 256;
+                track.sectors.push_back(std::move(sector));
+            }
+
+            tracks_.push_back(std::move(track));
+        }
+    }
+
+    loaded_ = true;
+    modified_ = false;
+    writeProtected_ = false;
+    extended_ = false;
+    return true;
+}
+
 void DiskImage::createEmpty()
 {
     trackCount_ = 40;
@@ -256,6 +315,41 @@ void DiskImage::createEmpty()
     loaded_ = true;
     modified_ = false;
     extended_ = true;
+}
+
+void DiskImage::createEmptyOPD()
+{
+    trackCount_ = 40;
+    sideCount_ = 1;
+    tracks_.clear();
+    tracks_.reserve(40);
+
+    for (int t = 0; t < 40; t++) {
+        DiskTrack track;
+        track.trackNumber = t;
+        track.sideNumber = 0;
+        track.sectorSizeCode = 1;   // 256 bytes
+        track.gap3Length = 0x17;
+        track.fillerByte = 0xE5;
+
+        for (int s = 0; s < 18; s++) {
+            DiskSector sector;
+            sector.track = t;
+            sector.side = 0;
+            sector.sectorId = s;        // Opus uses 0-based sector IDs
+            sector.sizeCode = 1;        // 256 bytes
+            sector.fdcStatus1 = 0;
+            sector.fdcStatus2 = 0;
+            sector.data.assign(256, 0xE5);
+            track.sectors.push_back(std::move(sector));
+        }
+
+        tracks_.push_back(std::move(track));
+    }
+
+    loaded_ = true;
+    modified_ = false;
+    extended_ = false;
 }
 
 std::vector<uint8_t> DiskImage::exportDSK() const

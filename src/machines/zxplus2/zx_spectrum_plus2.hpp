@@ -18,6 +18,7 @@ class ZXSpectrumPlus2 : public zx128k::ZXSpectrum128 {
 public:
     void init() override;
     void reloadSpectranetROM() override;
+    void reloadOpusROM() override {}
 };
 
 } // namespace zxspec::zxplus2

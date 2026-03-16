@@ -81,6 +81,12 @@ set(SPECTRANET_SOURCES
     src/machines/spectranet/w5100.cpp
 )
 
+# Source files - Opus Discovery disk interface
+set(OPUS_SOURCES
+    src/machines/opus/opus_discovery.cpp
+    src/machines/opus/wd1770.cpp
+)
+
 set(DEBUG_SOURCES
     src/core/debug/condition_evaluator.cpp
 )
@@ -95,6 +101,7 @@ set(CORE_SOURCES
     ${ZXPLUS3_SOURCES}
     ${ZX81_SOURCES}
     ${SPECTRANET_SOURCES}
+    ${OPUS_SOURCES}
     ${DEBUG_SOURCES}
     src/bindings/wasm_interface.cpp
 )
@@ -114,6 +121,7 @@ add_custom_command(
             ${CMAKE_SOURCE_DIR}/roms/plus3.rom
             ${CMAKE_SOURCE_DIR}/roms/spectranet.rom
             ${CMAKE_SOURCE_DIR}/roms/zx81.rom
+            ${CMAKE_SOURCE_DIR}/roms/Opus-222.rom
     COMMENT "Generating ROM data arrays"
 )
 
@@ -139,6 +147,7 @@ if(EMSCRIPTEN)
         ${CMAKE_SOURCE_DIR}/src/machines/zx81
         ${CMAKE_SOURCE_DIR}/src/machines/fdc
         ${CMAKE_SOURCE_DIR}/src/machines/spectranet
+        ${CMAKE_SOURCE_DIR}/src/machines/opus
         ${CMAKE_SOURCE_DIR}/src/machines/basic
         ${CMAKE_SOURCE_DIR}/src/core/debug
         ${CMAKE_BINARY_DIR}/generated
@@ -384,6 +393,21 @@ if(EMSCRIPTEN)
                 \"_traceGetWriteIndex\", \
                 \"_traceGetEntrySize\", \
                 \"_traceGetMaxEntries\", \
+                \"_opusIsEnabled\", \
+                \"_opusSetEnabled\", \
+                \"_opusIsPagedIn\", \
+                \"_opusDiskInsert\", \
+                \"_opusDiskInsertEmpty\", \
+                \"_opusDiskEject\", \
+                \"_opusDiskIsInserted\", \
+                \"_opusDiskIsModified\", \
+                \"_opusDiskSetWriteProtected\", \
+                \"_opusDiskIsWriteProtected\", \
+                \"_opusDiskExportData\", \
+                \"_opusDiskExportDataSize\", \
+                \"_opusGetCurrentTrack\", \
+                \"_opusGetStatus\", \
+                \"_opusIsMotorOn\", \
                 \"_malloc\", \
                 \"_free\" \
             ]' \

@@ -16,6 +16,7 @@
 #include "audio.hpp"
 #include "ay.hpp"
 #include "spectranet/spectranet.hpp"
+#include "opus/opus_discovery.hpp"
 #include "display.hpp"
 #include "contention.hpp"
 #include "tape_block.hpp"
@@ -189,6 +190,13 @@ public:
     void setSpectranetEnabled(bool enabled) { spectranetEnabled_ = enabled; if (enabled) installOpcodeCallback(); }
     virtual void reloadSpectranetROM() = 0;
 
+    // Opus Discovery disk interface
+    OpusDiscovery& getOpus() { return opus_; }
+    const OpusDiscovery& getOpus() const { return opus_; }
+    bool isOpusEnabled() const { return opusEnabled_; }
+    void setOpusEnabled(bool enabled) { opusEnabled_ = enabled; if (enabled) installOpcodeCallback(); }
+    virtual void reloadOpusROM() = 0;
+
     // Issue number (2 or 3) — affects EAR/MIC feedback in IO reads
     uint8_t getIssueNumber() const { return issueNumber_; }
     void setIssueNumber(uint8_t issue) { issueNumber_ = issue; }
@@ -307,6 +315,10 @@ protected:
     // Spectranet Ethernet interface
     Spectranet spectranet_;
     bool spectranetEnabled_ = false;
+
+    // Opus Discovery disk interface
+    OpusDiscovery opus_;
+    bool opusEnabled_ = false;
 
     // Memory (allocated by base, managed by variant)
     std::vector<uint8_t> memoryRom_;

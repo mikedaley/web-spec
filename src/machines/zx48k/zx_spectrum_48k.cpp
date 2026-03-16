@@ -47,6 +47,12 @@ void ZXSpectrum48::init()
         spectranet_.loadROM(roms::ROM_SPECTRANET, static_cast<uint32_t>(roms::ROM_SPECTRANET_SIZE));
     }
 
+    // Load Opus Discovery ROM if available
+    if (roms::ROM_OPUS_SIZE > 0)
+    {
+        opus_.loadROM(roms::ROM_OPUS, static_cast<uint32_t>(roms::ROM_OPUS_SIZE));
+    }
+
     setupPaging();
 }
 
@@ -64,6 +70,13 @@ void ZXSpectrum48::reloadSpectranetROM()
 {
     if (roms::ROM_SPECTRANET_SIZE > 0) {
         spectranet_.loadROM(roms::ROM_SPECTRANET, static_cast<uint32_t>(roms::ROM_SPECTRANET_SIZE));
+    }
+}
+
+void ZXSpectrum48::reloadOpusROM()
+{
+    if (roms::ROM_OPUS_SIZE > 0) {
+        opus_.loadROM(roms::ROM_OPUS, static_cast<uint32_t>(roms::ROM_OPUS_SIZE));
     }
 }
 
@@ -107,6 +120,11 @@ uint8_t ZXSpectrum48::coreMemoryRead(uint16_t address)
 {
     int slot = address >> 14;
 
+    // Opus intercepts full 0x0000-0x3FFF when paged in (check before Spectranet)
+    if (slot == 0 && opusEnabled_ && opus_.isPagedIn()) {
+        return opus_.memoryRead(address);
+    }
+
     // Spectranet intercepts slot 0 when paged in
     if (slot == 0 && spectranetEnabled_ && spectranet_.isPagedIn()) {
         return spectranet_.memoryRead(address);
@@ -118,6 +136,12 @@ uint8_t ZXSpectrum48::coreMemoryRead(uint16_t address)
 void ZXSpectrum48::coreMemoryWrite(uint16_t address, uint8_t data)
 {
     int slot = address >> 14;
+
+    // Opus intercepts full 0x0000-0x3FFF when paged in (check before Spectranet)
+    if (slot == 0 && opusEnabled_ && opus_.isPagedIn()) {
+        opus_.memoryWrite(address, data);
+        return;
+    }
 
     // Spectranet intercepts slot 0 when paged in
     if (slot == 0 && spectranetEnabled_ && spectranet_.isPagedIn()) {
@@ -162,6 +186,10 @@ uint8_t ZXSpectrum48::coreDebugRead(uint16_t address) const
 {
     int slot = address >> 14;
 
+    if (slot == 0 && opusEnabled_ && opus_.isPagedIn()) {
+        return opus_.debugRead(address);
+    }
+
     if (slot == 0 && spectranetEnabled_ && spectranet_.isPagedIn()) {
         return spectranet_.memoryRead(address);
     }
@@ -172,6 +200,11 @@ uint8_t ZXSpectrum48::coreDebugRead(uint16_t address) const
 void ZXSpectrum48::coreDebugWrite(uint16_t address, uint8_t data)
 {
     int slot = address >> 14;
+
+    if (slot == 0 && opusEnabled_ && opus_.isPagedIn()) {
+        opus_.memoryWrite(address, data);
+        return;
+    }
 
     if (slot == 0 && spectranetEnabled_ && spectranet_.isPagedIn()) {
         spectranet_.memoryWrite(address, data);
@@ -225,6 +258,15 @@ uint8_t ZXSpectrum48::coreIORead(uint16_t address)
     {
         bool contended = ((address >> 14) == 1);
         contention_.applyIOContention(*z80_, address, contended);
+    }
+
+    // Opus Discovery ports (0xE0-0xE4) — check before Spectranet
+    if (opusEnabled_ && opus_.isOpusPort(address)) {
+        // Accessing Opus I/O ports pages in the Opus
+        if (!opus_.isPagedIn()) {
+            opus_.pageIn();
+        }
+        return opus_.ioRead(address);
     }
 
     // Spectranet ports (low byte 0x3B)
@@ -289,6 +331,16 @@ void ZXSpectrum48::coreIOWrite(uint16_t address, uint8_t data)
     {
         bool contended = ((address >> 14) == 1);
         contention_.applyIOContention(*z80_, address, contended);
+    }
+
+    // Opus Discovery ports (0xE0-0xE4) — check before Spectranet
+    if (opusEnabled_ && opus_.isOpusPort(address)) {
+        // Accessing Opus I/O ports pages in the Opus
+        if (!opus_.isPagedIn()) {
+            opus_.pageIn();
+        }
+        opus_.ioWrite(address, data);
+        return;
     }
 
     // Spectranet ports (low byte 0x3B)

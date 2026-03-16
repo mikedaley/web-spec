@@ -60,8 +60,9 @@ public:
     uint8_t coreDebugRead(uint16_t address) const override;
     void coreDebugWrite(uint16_t address, uint8_t data) override;
 
-    // No Spectranet on ZX81
+    // No Spectranet or Opus on ZX81
     void reloadSpectranetROM() override {}
+    void reloadOpusROM() override {}
 
     // Screen memory (returns start of RAM for compatibility)
     uint8_t* getScreenMemory() override;

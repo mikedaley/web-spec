@@ -48,6 +48,9 @@ public:
     // Reload Spectranet ROM into flash (factory reset)
     void reloadSpectranetROM() override;
 
+    // Reload Opus Discovery ROM (no-op on +2A)
+    void reloadOpusROM() override {}
+
     // Screen memory for display rendering
     uint8_t* getScreenMemory() override;
     const uint8_t* getScreenMemory() const override;

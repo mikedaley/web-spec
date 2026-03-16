@@ -26,6 +26,7 @@ const RELEASE_DATA = [
       { hash: "ed480a0", text: "Preserve breakpoints across machine switches" },
       { hash: "------", text: "Memory heatmap fade toggle switch and inverted fade slider for intuitive control" },
       { hash: "f0c2314", text: "Drive B support in disk window with A/B tab switching" },
+      { hash: "------", text: "Opus Discovery disk interface with WD1770 FDC, 6821 PIA, NMI-driven data transfer and OPD disk format support" },
     ],
   },
   {

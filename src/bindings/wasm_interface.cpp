@@ -2127,4 +2127,111 @@ int traceGetMaxEntries() {
     return static_cast<int>(zxspec::ZXSpectrum::getTraceMaxEntries());
 }
 
+// ============================================================================
+// Opus Discovery disk interface
+// ============================================================================
+
+// Helper to get a ZXSpectrum instance (Opus is on the base class)
+static zxspec::ZXSpectrum* getSpectrumForOpus() {
+    if (!g_machine) return nullptr;
+    // Opus is available on all ZXSpectrum subclasses (not ZX81)
+    int id = g_machine->getId();
+    if (id == 5) return nullptr;  // ZX81
+    return static_cast<zxspec::ZXSpectrum*>(g_machine);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int opusIsEnabled() {
+    auto* spec = getSpectrumForOpus();
+    return (spec && spec->isOpusEnabled()) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void opusSetEnabled(int enabled) {
+    auto* spec = getSpectrumForOpus();
+    if (spec) spec->setOpusEnabled(enabled != 0);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int opusIsPagedIn() {
+    auto* spec = getSpectrumForOpus();
+    return (spec && spec->getOpus().isPagedIn()) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void opusDiskInsert(int drive, const uint8_t* data, uint32_t size) {
+    auto* spec = getSpectrumForOpus();
+    if (spec) spec->getOpus().insertDisk(drive, data, size);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void opusDiskInsertEmpty(int drive) {
+    auto* spec = getSpectrumForOpus();
+    if (spec) spec->getOpus().insertEmptyDisk(drive);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void opusDiskEject(int drive) {
+    auto* spec = getSpectrumForOpus();
+    if (spec) spec->getOpus().ejectDisk(drive);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int opusDiskIsInserted(int drive) {
+    auto* spec = getSpectrumForOpus();
+    return (spec && spec->getOpus().hasDisk(drive)) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int opusDiskIsModified(int drive) {
+    auto* spec = getSpectrumForOpus();
+    return (spec && spec->getOpus().isDiskModified(drive)) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void opusDiskSetWriteProtected(int drive, int wp) {
+    auto* spec = getSpectrumForOpus();
+    if (spec) spec->getOpus().setDiskWriteProtected(drive, wp != 0);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int opusDiskIsWriteProtected(int drive) {
+    auto* spec = getSpectrumForOpus();
+    return (spec && spec->getOpus().isDiskWriteProtected(drive)) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* opusDiskExportData(int drive) {
+    auto* spec = getSpectrumForOpus();
+    if (!spec) return nullptr;
+    return spec->getOpus().exportDiskData(drive);
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint32_t opusDiskExportDataSize(int drive) {
+    auto* spec = getSpectrumForOpus();
+    if (!spec) return 0;
+    return spec->getOpus().exportDiskDataSize(drive);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int opusGetCurrentTrack() {
+    auto* spec = getSpectrumForOpus();
+    if (!spec) return 0;
+    return spec->getOpus().getCurrentTrack();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int opusGetStatus() {
+    auto* spec = getSpectrumForOpus();
+    if (!spec) return 0;
+    return spec->getOpus().getStatus();
+}
+
+EMSCRIPTEN_KEEPALIVE
+int opusIsMotorOn() {
+    auto* spec = getSpectrumForOpus();
+    return (spec && spec->getOpus().isMotorOn()) ? 1 : 0;
+}
+
 } // extern "C"

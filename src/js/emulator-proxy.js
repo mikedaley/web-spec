@@ -18,6 +18,8 @@ export class EmulatorProxy {
     this.onTapeRecordComplete = null;
     this.onDiskInserted = null;
     this.onDiskEjected = null;
+    this.onOpusDiskInserted = null;
+    this.onOpusDiskEjected = null;
     this.onBasicBreakpointHit = null;
     this.onSpectranetCommand = null;
     this.onStateUpdate = null;
@@ -144,6 +146,26 @@ export class EmulatorProxy {
         if (resolve) {
           this._pendingRequests.delete(key);
           resolve(msg.data ? new Uint8Array(msg.data) : null);
+        }
+        break;
+      }
+
+      case "opusDiskInserted":
+        this.state = msg.state;
+        if (this.onOpusDiskInserted) this.onOpusDiskInserted(msg.drive);
+        break;
+
+      case "opusDiskEjected":
+        this.state = msg.state;
+        if (this.onOpusDiskEjected) this.onOpusDiskEjected(msg.drive);
+        break;
+
+      case "opusDiskExportData": {
+        const opusKey = `opusDiskExport_${msg.drive}`;
+        const opusResolve = this._pendingRequests.get(opusKey);
+        if (opusResolve) {
+          this._pendingRequests.delete(opusKey);
+          opusResolve(msg.data ? new Uint8Array(msg.data) : null);
         }
         break;
       }
@@ -882,6 +904,41 @@ export class EmulatorProxy {
     return new Promise((resolve) => {
       this._pendingRequests.set(`diskExport_${drive}`, resolve);
       this.worker.postMessage({ type: "diskExport", drive });
+    });
+  }
+
+  // Opus Discovery disk interface
+  isOpusEnabled() {
+    return this.state.opusEnabled ?? false;
+  }
+
+  setOpusEnabled(enabled) {
+    this.worker.postMessage({ type: "setOpusEnabled", enabled });
+  }
+
+  opusDiskInsert(drive, arrayBuffer) {
+    this.worker.postMessage(
+      { type: "opusDiskInsert", drive, data: arrayBuffer },
+      [arrayBuffer],
+    );
+  }
+
+  opusDiskInsertEmpty(drive = 0) {
+    this.worker.postMessage({ type: "opusDiskInsertEmpty", drive });
+  }
+
+  opusDiskEject(drive = 0) {
+    this.worker.postMessage({ type: "opusDiskEject", drive });
+  }
+
+  opusDiskSetWriteProtected(drive, wp) {
+    this.worker.postMessage({ type: "opusDiskSetWriteProtected", drive, wp });
+  }
+
+  opusDiskExport(drive = 0) {
+    return new Promise((resolve) => {
+      this._pendingRequests.set(`opusDiskExport_${drive}`, resolve);
+      this.worker.postMessage({ type: "opusDiskExport", drive });
     });
   }
 

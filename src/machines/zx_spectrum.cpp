@@ -174,6 +174,7 @@ void ZXSpectrum::reset()
     ay_.reset();
     ayMixOffset_ = 0;
     spectranet_.reset();
+    opus_.reset();
     keyboardMatrix_.fill(0xBF);
     display_.frameReset();
     borderColor_ = 7;
@@ -569,7 +570,7 @@ void ZXSpectrum::removeBreakpoint(uint16_t addr)
     breakpoints_.erase(addr);
     disabledBreakpoints_.erase(addr);
 
-    if (breakpoints_.empty() && beamBreakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !traceEnabled_) {
+    if (breakpoints_.empty() && beamBreakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !opusEnabled_ && !traceEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     } else {
         installOpcodeCallback();
@@ -665,7 +666,7 @@ void ZXSpectrum::removeBeamBreakpoint(int32_t id)
             break;
         }
     }
-    if (beamBreakpoints_.empty() && breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !traceEnabled_) {
+    if (beamBreakpoints_.empty() && breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !opusEnabled_ && !traceEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     }
 }
@@ -685,7 +686,7 @@ void ZXSpectrum::clearAllBeamBreakpoints()
     beamBreakpoints_.clear();
     beamBreakHit_ = false;
     beamBreakHitId_ = -1;
-    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !traceEnabled_) {
+    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !opusEnabled_ && !traceEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     }
 }
@@ -823,7 +824,7 @@ void ZXSpectrum::clearBasicBreakpointMode()
     basicBreakpointLines_.clear();
 
     // If no other reasons to keep the callback, remove it
-    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && !spectranetEnabled_ && !traceEnabled_) {
+    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && !spectranetEnabled_ && !opusEnabled_ && !traceEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     }
 }
@@ -909,6 +910,33 @@ void ZXSpectrum::installOpcodeCallback()
                 // This ensures the inhibit from pageOut() suppresses traps for
                 // exactly one instruction (the RET after UNPAGE at 0x007C).
                 spectranet_.tickTrapInhibit();
+            }
+
+            // Opus Discovery hardware paging (matching Fuse emulator).
+            // POST-FETCH, PRE-EXECUTE: the opcode at the trigger address
+            // has already been fetched from the current ROM and will
+            // execute normally. We just change the memory map here —
+            // subsequent fetches will come from the new ROM.
+            // No PC adjustment, no instruction skipping.
+            if (opusEnabled_) {
+                if (opus_.isPagedIn()) {
+                    if (opus_.shouldPageOut(address)) {
+                        opus_.pageOut();
+                    }
+                    // WD1770 DRQ → NMI: the Opus hardware connects the
+                    // FDC's DRQ line to the Z80 NMI pin. When a byte is
+                    // ready (DRQ set), fire NMI so the ROM's NMI handler
+                    // at 0x0066 (JP (HL)) transfers the byte.
+                    // Edge-triggered: shouldFireNMI() returns true once
+                    // per DRQ assertion, resets when DRQ is cleared.
+                    if (opus_.getFDC().shouldFireNMI()) {
+                        z80_->setNMIReq(true);
+                    }
+                } else {
+                    if (opus_.shouldPageIn(address)) {
+                        opus_.pageIn();
+                    }
+                }
             }
 
             // Tape ROM trap
@@ -1038,7 +1066,7 @@ void ZXSpectrum::setTraceEnabled(bool enabled)
     if (enabled) {
         installOpcodeCallback();
     } else if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_
-               && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_) {
+               && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !opusEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     }
 }

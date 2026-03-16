@@ -193,6 +193,17 @@ function getState() {
     diskBModified: wasm._diskIsModified(1) !== 0,
     diskBWriteProtected: wasm._diskIsWriteProtected(1) !== 0,
     diskBCurrentTrack: wasm._diskGetCurrentTrack(1),
+    opusEnabled: !!wasm._opusIsEnabled(),
+    opusPagedIn: !!wasm._opusIsPagedIn(),
+    opusDiskInserted: wasm._opusDiskIsInserted(0) !== 0,
+    opusDiskModified: wasm._opusDiskIsModified(0) !== 0,
+    opusDiskWriteProtected: wasm._opusDiskIsWriteProtected(0) !== 0,
+    opusMotorOn: wasm._opusIsMotorOn() !== 0,
+    opusCurrentTrack: wasm._opusGetCurrentTrack(),
+    opusStatus: wasm._opusGetStatus(),
+    opusDiskBInserted: wasm._opusDiskIsInserted(1) !== 0,
+    opusDiskBModified: wasm._opusDiskIsModified(1) !== 0,
+    opusDiskBWriteProtected: wasm._opusDiskIsWriteProtected(1) !== 0,
   };
 }
 
@@ -1284,6 +1295,66 @@ self.onmessage = async function (e) {
         self.postMessage({ type: "diskExportData", drive: msg.drive || 0, data: exportCopy.buffer }, [exportCopy.buffer]);
       } else {
         self.postMessage({ type: "diskExportData", drive: msg.drive || 0, data: null });
+      }
+      break;
+    }
+
+    // ========================================================================
+    // Opus Discovery disk interface
+    // ========================================================================
+
+    case "setOpusEnabled":
+      if (wasm) {
+        wasm._opusSetEnabled(msg.enabled ? 1 : 0);
+        wasm._reset();
+        self.postMessage({ type: "stateUpdate", state: getState() });
+      }
+      break;
+
+    case "opusDiskInsert": {
+      if (!wasm || !msg.data) break;
+      const opusDiskData = new Uint8Array(msg.data);
+      const opusDiskPtr = wasm._malloc(opusDiskData.length);
+      wasm.HEAPU8.set(opusDiskData, opusDiskPtr);
+      wasm._opusDiskInsert(msg.drive || 0, opusDiskPtr, opusDiskData.length);
+      wasm._free(opusDiskPtr);
+      self.postMessage({ type: "opusDiskInserted", drive: msg.drive || 0, state: getState() });
+      break;
+    }
+
+    case "opusDiskInsertEmpty": {
+      if (!wasm) break;
+      wasm._opusDiskInsertEmpty(msg.drive || 0);
+      self.postMessage({ type: "opusDiskInserted", drive: msg.drive || 0, state: getState() });
+      break;
+    }
+
+    case "opusDiskEject": {
+      if (!wasm) break;
+      wasm._opusDiskEject(msg.drive || 0);
+      self.postMessage({ type: "opusDiskEjected", drive: msg.drive || 0, state: getState() });
+      break;
+    }
+
+    case "opusDiskSetWriteProtected": {
+      if (!wasm) break;
+      wasm._opusDiskSetWriteProtected(msg.drive || 0, msg.wp ? 1 : 0);
+      self.postMessage({ type: "stateUpdate", state: getState() });
+      break;
+    }
+
+    case "opusDiskExport": {
+      if (!wasm) {
+        self.postMessage({ type: "opusDiskExportData", drive: msg.drive || 0, data: null });
+        break;
+      }
+      const opusExportPtr = wasm._opusDiskExportData(msg.drive || 0);
+      const opusExportSize = wasm._opusDiskExportDataSize(msg.drive || 0);
+      if (opusExportPtr && opusExportSize > 0) {
+        const opusExportCopy = new Uint8Array(wasm.HEAPU8.buffer.slice(opusExportPtr, opusExportPtr + opusExportSize));
+        self.postMessage({ type: "opusDiskExportData", drive: msg.drive || 0, data: opusExportCopy.buffer }, [opusExportCopy.buffer]);
+      } else {
+        self.postMessage({ type: "opusDiskExportData", drive: msg.drive || 0, data: null });
       }
       break;
     }

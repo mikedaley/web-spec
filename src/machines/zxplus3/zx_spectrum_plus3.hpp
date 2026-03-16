@@ -29,6 +29,7 @@ public:
     void init() override;
     void reset() override;
     void reloadSpectranetROM() override;
+    void reloadOpusROM() override {}
 
     // Override IO to add FDC port handling
     uint8_t coreIORead(uint16_t address) override;
