@@ -314,6 +314,7 @@ if(EMSCRIPTEN)
                 \"_basicAutoRenumber\", \
                 \"_basicAutoRenumberGetResult\", \
                 \"_getPagingRegister\", \
+                \"_getPagingRegister1FFD\", \
                 \"_evaluateCondition\", \
                 \"_evaluateExpression\", \
                 \"_getConditionError\", \

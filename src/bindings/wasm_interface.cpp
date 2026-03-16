@@ -1062,6 +1062,13 @@ uint8_t getPagingRegister() {
   return spec ? spec->getPagingRegister() : 0;
 }
 
+EMSCRIPTEN_KEEPALIVE
+uint8_t getPagingRegister1FFD() {
+  REQUIRE_MACHINE_OR(0);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return spec ? spec->getPagingRegister1FFD() : 0;
+}
+
 // ============================================================================
 // BASIC Support
 // ============================================================================

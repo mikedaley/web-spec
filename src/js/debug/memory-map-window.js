@@ -8,6 +8,23 @@
 import { BaseWindow } from "../windows/base-window.js";
 import "../css/memory-map.css";
 
+const MACHINE_NAMES = {
+  0: "ZX Spectrum 48K",
+  1: "ZX Spectrum 128K",
+  2: "ZX Spectrum 128K +2",
+  3: "ZX Spectrum 128K +2A",
+  4: "ZX Spectrum +3",
+  5: "ZX81",
+};
+
+// +2A/+3 special paging RAM configurations (port 0x1FFD bits 2:1)
+const SPECIAL_CONFIGS = [
+  [0, 1, 2, 3],  // Config 0
+  [4, 5, 6, 7],  // Config 1
+  [4, 5, 6, 3],  // Config 2
+  [4, 7, 6, 3],  // Config 3
+];
+
 export class MemoryMapWindow extends BaseWindow {
   constructor() {
     super({
@@ -23,6 +40,7 @@ export class MemoryMapWindow extends BaseWindow {
     });
     this._lastMachineId = -1;
     this._lastPagingReg = -1;
+    this._lastPagingReg1FFD = -1;
     this._lastSpSlot = -1;
     this._slotEls = [];
   }
@@ -49,29 +67,140 @@ export class MemoryMapWindow extends BaseWindow {
 
     const machineId = proxy.getMachineId();
     const pagingReg = proxy.getPagingRegister();
+    const pagingReg1FFD = proxy.getPagingRegister1FFD();
 
     // Full re-render when paging state changes
-    if (machineId !== this._lastMachineId || pagingReg !== this._lastPagingReg) {
+    if (machineId !== this._lastMachineId || pagingReg !== this._lastPagingReg || pagingReg1FFD !== this._lastPagingReg1FFD) {
       this._lastMachineId = machineId;
       this._lastPagingReg = pagingReg;
+      this._lastPagingReg1FFD = pagingReg1FFD;
       this._lastSpSlot = -1;
 
-      const is128k = machineId === 1;
+      this._machineNameEl.textContent = MACHINE_NAMES[machineId] || "Unknown";
+
+      const is128k = machineId >= 1 && machineId <= 4;
+      const isPlus2AOrPlus3 = machineId === 3 || machineId === 4;
       const pagingLocked = is128k && (pagingReg & 0x20) !== 0;
-      this._machineNameEl.textContent = is128k ? "ZX Spectrum 128K" : "ZX Spectrum 48K";
+      const specialPaging = isPlus2AOrPlus3 && (pagingReg1FFD & 0x01) !== 0;
 
-
-      const slots = this._computeSlots(machineId, pagingReg);
-      this._renderSlots(slots, is128k, pagingLocked);
+      const slots = this._computeSlots(machineId, pagingReg, pagingReg1FFD);
+      this._renderSlots(slots, is128k, pagingLocked, specialPaging);
     }
 
     // Lightweight SP badge update every frame
     this._updateSpBadge(proxy);
   }
 
-  _computeSlots(machineId, pagingReg) {
-    if (machineId === 1) {
-      // 128K: decode port 0x7FFD
+  _computeSlots(machineId, pagingReg, pagingReg1FFD) {
+    // ZX81
+    if (machineId === 5) {
+      return [
+        {
+          addr: "0000–1FFF",
+          label: "ROM",
+          type: "rom",
+          contended: false,
+          screen: false,
+          switchable: false,
+        },
+        {
+          addr: "2000–3FFF",
+          label: "ROM (mirror)",
+          type: "rom",
+          contended: false,
+          screen: false,
+          switchable: false,
+        },
+        {
+          addr: "4000–7FFF",
+          label: "RAM (16K)",
+          type: "ram",
+          contended: false,
+          screen: true,
+          switchable: false,
+        },
+        {
+          addr: "8000–BFFF",
+          label: "ROM (mirror)",
+          type: "rom",
+          contended: false,
+          screen: false,
+          switchable: false,
+        },
+        {
+          addr: "C000–FFFF",
+          label: "RAM (mirror)",
+          type: "ram",
+          contended: false,
+          screen: false,
+          switchable: false,
+        },
+      ];
+    }
+
+    // +2A / +3 with special all-RAM paging
+    if ((machineId === 3 || machineId === 4) && (pagingReg1FFD & 0x01) !== 0) {
+      const config = (pagingReg1FFD >> 1) & 0x03;
+      const banks = SPECIAL_CONFIGS[config];
+      const screenBank = (pagingReg & 0x08) ? 7 : 5;
+      const addrs = ["0000–3FFF", "4000–7FFF", "8000–BFFF", "C000–FFFF"];
+
+      return addrs.map((addr, i) => ({
+        addr,
+        label: `Bank ${banks[i]}`,
+        type: "ram",
+        contended: (banks[i] & 1) === 1 && banks[i] >= 4,
+        screen: banks[i] === screenBank,
+        switchable: true,
+      }));
+    }
+
+    // +2A / +3 normal paging mode
+    if (machineId === 3 || machineId === 4) {
+      // ROM select: 0x7FFD bit 4 (low) + 0x1FFD bit 2 (high) = 4 ROM banks
+      const romBank = ((pagingReg & 0x10) >> 4) | ((pagingReg1FFD & 0x04) >> 1);
+      const screenBank = (pagingReg & 0x08) ? 7 : 5;
+      const switchBank = pagingReg & 0x07;
+      const isSwitchContended = (switchBank & 1) === 1 && switchBank >= 4;
+
+      return [
+        {
+          addr: "0000–3FFF",
+          label: `ROM ${romBank}`,
+          type: "rom",
+          contended: false,
+          screen: false,
+          switchable: false,
+        },
+        {
+          addr: "4000–7FFF",
+          label: "Bank 5",
+          type: "ram",
+          contended: true,
+          screen: screenBank === 5,
+          switchable: false,
+        },
+        {
+          addr: "8000–BFFF",
+          label: "Bank 2",
+          type: "ram",
+          contended: false,
+          screen: false,
+          switchable: false,
+        },
+        {
+          addr: "C000–FFFF",
+          label: `Bank ${switchBank}`,
+          type: "ram",
+          contended: isSwitchContended,
+          screen: switchBank === screenBank,
+          switchable: true,
+        },
+      ];
+    }
+
+    // 128K / +2: decode port 0x7FFD
+    if (machineId === 1 || machineId === 2) {
       const romSelect = (pagingReg & 0x10) ? 1 : 0;
       const screenBank = (pagingReg & 0x08) ? 7 : 5;
       const switchBank = pagingReg & 0x07;
@@ -151,7 +280,7 @@ export class MemoryMapWindow extends BaseWindow {
     ];
   }
 
-  _renderSlots(slots, is128k, pagingLocked = false) {
+  _renderSlots(slots, is128k, pagingLocked = false, specialPaging = false) {
     let html = "";
     for (const slot of slots) {
       const typeClass = `memmap-slot-${slot.type}`;
@@ -163,7 +292,7 @@ export class MemoryMapWindow extends BaseWindow {
       if (slot.screen) {
         badges += '<span class="memmap-badge memmap-badge-screen" title="Screen">S</span>';
       }
-      if (slot.switchable && pagingLocked) {
+      if (slot.switchable && pagingLocked && !specialPaging) {
         badges += `<span class="memmap-badge memmap-badge-locked" title="Paging locked (bit 5 of port 0x7FFD)">${this._lockSvg(10)}</span>`;
       }
       html += `
@@ -186,7 +315,7 @@ export class MemoryMapWindow extends BaseWindow {
       </span>`;
     if (is128k) {
       legend += `
-        <span class="memmap-legend-item" title="Bank switched via port 0x7FFD">
+        <span class="memmap-legend-item" title="Bank switched via paging ports">
           <span class="memmap-legend-swatch memmap-legend-switchable"></span> Paged
         </span>
         <span class="memmap-legend-item" title="Paging locked (bit 5 of port 0x7FFD); frozen until reset">
@@ -210,7 +339,7 @@ export class MemoryMapWindow extends BaseWindow {
 
   _updateSpBadge(proxy) {
     const sp = proxy.getSP();
-    const spSlot = (sp >> 14) & 3; // 0=0000-3FFF, 1=4000-7FFF, 2=8000-BFFF, 3=C000-FFFF
+    const spSlot = this._spToSlotIndex(sp);
     if (spSlot === this._lastSpSlot) return;
 
     // Remove old SP badge
@@ -220,7 +349,7 @@ export class MemoryMapWindow extends BaseWindow {
     }
 
     // Add new SP badge
-    if (spSlot < this._slotEls.length) {
+    if (spSlot >= 0 && spSlot < this._slotEls.length) {
       const badge = document.createElement("span");
       badge.className = "memmap-badge memmap-badge-sp";
       badge.title = `Stack pointer (SP: ${sp.toString(16).toUpperCase().padStart(4, "0")}h)`;
@@ -229,6 +358,22 @@ export class MemoryMapWindow extends BaseWindow {
     }
 
     this._lastSpSlot = spSlot;
+  }
+
+  _spToSlotIndex(sp) {
+    const machineId = this._lastMachineId;
+
+    // ZX81: 5 slots with non-uniform sizes
+    if (machineId === 5) {
+      if (sp < 0x2000) return 0;       // ROM
+      if (sp < 0x4000) return 1;       // ROM mirror
+      if (sp < 0x8000) return 2;       // RAM
+      if (sp < 0xC000) return 3;       // ROM mirror
+      return 4;                         // RAM mirror
+    }
+
+    // All Spectrum models: 4 x 16K slots
+    return (sp >> 14) & 3;
   }
 
   _lockSvg(size = 10) {

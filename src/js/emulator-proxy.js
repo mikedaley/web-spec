@@ -594,6 +594,10 @@ export class EmulatorProxy {
     return this.state.pagingRegister ?? 0;
   }
 
+  getPagingRegister1FFD() {
+    return this.state.pagingRegister1FFD ?? 0;
+  }
+
   setIssueNumber(issue) {
     this.worker.postMessage({ type: "setIssueNumber", issue });
   }

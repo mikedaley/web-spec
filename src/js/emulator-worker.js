@@ -124,6 +124,7 @@ function getState() {
     specdrumEnabled: !!wasm._isSpecdrumEnabled(),
     issueNumber: wasm._getIssueNumber(),
     pagingRegister: wasm._getPagingRegister(),
+    pagingRegister1FFD: wasm._getPagingRegister1FFD(),
     hasBasicProgram: wasm._hasBasicProgram() !== 0,
     basicReportFired: wasm._isBasicReportFired() !== 0,
     spectranetEnabled: !!wasm._isSpectranetEnabled(),
