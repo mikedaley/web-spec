@@ -12,6 +12,43 @@
   flex-shrink: 0;
 }
 
+/* ---- Drive Tabs ---- */
+.drive-tab-group {
+  display: flex;
+  gap: 2px;
+  background: var(--input-bg);
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+
+.drive-tab {
+  padding: 3px 12px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.drive-tab:hover {
+  color: var(--text-primary);
+  background: var(--overlay-hover);
+}
+
+.drive-tab.active {
+  color: var(--accent-green);
+  background: var(--accent-green-bg);
+  border-color: var(--accent-green-border-light);
+}
+
+.drive-toolbar-spacer {
+  flex: 1;
+}
+
 /* ---- Toolbar ---- */
 .disk-drives-toolbar {
   display: flex;
@@ -19,6 +56,7 @@
   padding: var(--space-sm) var(--space-md);
   margin-bottom: 8px;
   border-bottom: 1px solid var(--glass-border-subtle);
+  align-items: center;
 }
 
 .drive-toolbar-btn {
@@ -158,8 +196,8 @@
 
 .disk-track.active {
   color: var(--accent-orange);
-  background: rgba(255, 100, 50, 0.25);
-  box-shadow: 0 0 4px rgba(255, 100, 50, 0.4);
+  background: var(--accent-orange-bg-strong);
+  box-shadow: 0 0 4px var(--accent-orange-border-stronger);
 }
 
 /* ---- Drive Controls ---- */

@@ -189,6 +189,10 @@ function getState() {
     diskST0: wasm._diskGetLastResultST0(),
     diskST1: wasm._diskGetLastResultST1(),
     diskST2: wasm._diskGetLastResultST2(),
+    diskBInserted: wasm._diskIsInserted(1) !== 0,
+    diskBModified: wasm._diskIsModified(1) !== 0,
+    diskBWriteProtected: wasm._diskIsWriteProtected(1) !== 0,
+    diskBCurrentTrack: wasm._diskGetCurrentTrack(1),
   };
 }
 

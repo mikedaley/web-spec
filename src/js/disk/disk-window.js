@@ -3,7 +3,7 @@
  *
  * Provides UI for inserting/ejecting DSK disk images with a spinning disk
  * surface visualization, track access heatmap, technical details panel,
- * and recent disks popup.
+ * and recent disks popup. Supports Drive A (0) and Drive B (1).
  *
  * Written by
  *  Mike Daley <michael_daley@icloud.com>
@@ -38,6 +38,20 @@ const FDC_COMMAND_NAMES = {
   0x0F: "Seek",
 };
 
+function _createDriveState() {
+  return {
+    filename: null,
+    renderer: null,
+    trackAccessCounts: new Uint32Array(40),
+    maxAccessCount: 0,
+    lastDecayTime: 0,
+    lastMotorOn: false,
+    lastTrack: -1,
+    lastInserted: false,
+    lastWriteProtected: false,
+  };
+}
+
 export class DiskWindow extends BaseWindow {
   constructor(proxy) {
     super({
@@ -53,24 +67,19 @@ export class DiskWindow extends BaseWindow {
     });
     this._proxy = proxy;
     this._fileInput = null;
-    this._currentFilename = null;
     this._detailsOpen = false;
     this._graphicsHidden = false;
-    this._renderer = null;
-    this._trackAccessCounts = new Uint32Array(40);
-    this._maxAccessCount = 0;
-    this._lastDecayTime = 0;
-    this._lastMotorOn = false;
-    this._lastTrack = -1;
-    this._lastInserted = false;
-    this._lastWriteProtected = false;
+    this._activeDrive = 0;
+    this._drives = [_createDriveState(), _createDriveState()];
   }
 
   getState() {
     const state = super.getState();
-    state.currentFilename = this._currentFilename;
+    state.filenameA = this._drives[0].filename;
+    state.filenameB = this._drives[1].filename;
     state.graphicsHidden = this._graphicsHidden;
     state.detailsOpen = this._detailsOpen;
+    state.activeDrive = this._activeDrive;
     return state;
   }
 
@@ -86,21 +95,71 @@ export class DiskWindow extends BaseWindow {
       this.contentElement.classList.add("show-details");
       if (this._detailBtn) this._detailBtn.classList.add("active");
     }
-    if (state.currentFilename) {
-      this._currentFilename = state.currentFilename;
-      this._updateNameDisplay();
+    if (state.filenameA) {
+      this._drives[0].filename = state.filenameA;
     }
+    if (state.filenameB) {
+      this._drives[1].filename = state.filenameB;
+    }
+    // Legacy single-drive state
+    if (state.currentFilename && !state.filenameA) {
+      this._drives[0].filename = state.currentFilename;
+    }
+    if (state.activeDrive === 1) {
+      this._activeDrive = 1;
+    }
+    this._switchDriveTab(this._activeDrive);
+    this._updateNameDisplay();
     super.restoreState(state);
     this._restoring = false;
-    // Fit height after restore — element is now visible so offsetHeight works
     if (this.isVisible) {
       this._fitToContent();
     }
   }
 
+  _driveHTML(driveIndex, label) {
+    const prefix = driveIndex === 0 ? "" : "b-";
+    return `
+      <div class="disk-drive" id="disk-drive-${label.toLowerCase()}" ${driveIndex === 1 ? 'style="display:none"' : ""}>
+        <div class="drive-image-container">
+          <canvas class="disk-surface" id="disk-surface-${label.toLowerCase()}" width="560" height="480"></canvas>
+          <span class="drive-label">${label}</span>
+        </div>
+        <div class="drive-info">
+          <span class="disk-name" id="${prefix}disk-name">No Disk</span>
+          <span class="disk-track" id="${prefix}disk-track" title="Current Track">T--</span>
+        </div>
+        <div class="drive-controls">
+          <button class="disk-insert" id="${prefix}disk-insert-btn" title="Insert Disk from File">Insert</button>
+          <div class="recent-container">
+            <button class="disk-recent" id="${prefix}disk-recent-btn" title="Recent Disks">Recent</button>
+            <div class="recent-dropdown" id="${prefix}disk-recent-dropdown"></div>
+          </div>
+          <button class="disk-blank" id="${prefix}disk-blank-btn" title="Insert Blank Disk">Blank</button>
+          <button class="disk-eject" id="${prefix}disk-eject-btn" disabled title="Eject Disk">Eject</button>
+        </div>
+        <div class="drive-controls drive-controls-secondary">
+          <button class="disk-save" id="${prefix}disk-save-btn" disabled title="Save Disk Image">Save</button>
+          <div class="disk-wp-row">
+            <span class="disk-wp-text">WP</span>
+            <label class="disk-wp-toggle" id="${prefix}disk-wp-toggle">
+              <input type="checkbox" id="${prefix}disk-wp-checkbox">
+              <span class="disk-wp-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   renderContent() {
     return `
       <div class="disk-drives-toolbar">
+        <div class="drive-tab-group">
+          <button class="drive-tab active" data-drive="0">A:</button>
+          <button class="drive-tab" data-drive="1">B:</button>
+        </div>
+        <div class="drive-toolbar-spacer"></div>
         <button class="drive-toolbar-btn drive-graphics-btn active" title="Toggle disk surface">
           <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
             <path d="M8 3C4.5 3 1.6 5.3.6 8c1 2.7 3.9 5 7.4 5s6.4-2.3 7.4-5c-1-2.7-3.9-5-7.4-5zm0 8.5A3.5 3.5 0 1 1 8 4.5a3.5 3.5 0 0 1 0 7zm0-5.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
@@ -115,62 +174,35 @@ export class DiskWindow extends BaseWindow {
         </button>
       </div>
       <div class="disk-drives-row">
-        <div class="disk-drive" id="disk-drive-a">
-          <div class="drive-image-container">
-            <canvas class="disk-surface" width="560" height="480"></canvas>
-            <span class="drive-label">A</span>
+        ${this._driveHTML(0, "A")}
+        ${this._driveHTML(1, "B")}
+        <div class="drive-detail-panel">
+          <div class="dd-section-label">Drive State</div>
+          <div class="drive-detail-grid">
+            <span class="dd-label">Track</span><span class="dd-val" id="dd-track">0</span>
+            <span class="dd-label">Motor</span><span class="dd-val" id="dd-motor">OFF</span>
+            <span class="dd-label">Phase</span><span class="dd-val" id="dd-phase">Command</span>
+            <span class="dd-label">Mode</span><span class="dd-val" id="dd-mode">Read</span>
           </div>
-          <div class="drive-info">
-            <span class="disk-name" id="disk-name">No Disk</span>
-            <span class="disk-track" id="disk-track" title="Current Track">T--</span>
+          <div class="dd-section-label">FDC Command</div>
+          <div class="drive-detail-grid">
+            <span class="dd-label">Cmd</span><span class="dd-val" id="dd-cmd">--</span>
+            <span class="dd-label">EOT</span><span class="dd-val" id="dd-eot">--</span>
+            <span class="dd-label">Side</span><span class="dd-val" id="dd-side">--</span>
+            <span class="dd-label">Data</span><span class="dd-val" id="dd-data">--</span>
           </div>
-          <div class="drive-controls">
-            <button class="disk-insert" id="disk-insert-btn" title="Insert Disk from File">Insert</button>
-            <div class="recent-container">
-              <button class="disk-recent" id="disk-recent-btn" title="Recent Disks">Recent</button>
-              <div class="recent-dropdown" id="disk-recent-dropdown"></div>
-            </div>
-            <button class="disk-blank" id="disk-blank-btn" title="Insert Blank Disk">Blank</button>
-            <button class="disk-eject" id="disk-eject-btn" disabled title="Eject Disk">Eject</button>
+          <div class="dd-section-label">Sector ID</div>
+          <div class="drive-detail-grid">
+            <span class="dd-label">C</span><span class="dd-val" id="dd-sec-c">--</span>
+            <span class="dd-label">H</span><span class="dd-val" id="dd-sec-h">--</span>
+            <span class="dd-label">R</span><span class="dd-val" id="dd-sec-r">--</span>
+            <span class="dd-label">N</span><span class="dd-val" id="dd-sec-n">--</span>
           </div>
-          <div class="drive-controls drive-controls-secondary">
-            <button class="disk-save" id="disk-save-btn" disabled title="Save Disk Image">Save</button>
-            <div class="disk-wp-row">
-              <span class="disk-wp-text">WP</span>
-              <label class="disk-wp-toggle" id="disk-wp-toggle">
-                <input type="checkbox" id="disk-wp-checkbox">
-                <span class="disk-wp-slider"></span>
-              </label>
-            </div>
-          </div>
-          <div class="drive-detail-panel">
-            <div class="dd-section-label">Drive State</div>
-            <div class="drive-detail-grid">
-              <span class="dd-label">Track</span><span class="dd-val" id="dd-track">0</span>
-              <span class="dd-label">Motor</span><span class="dd-val" id="dd-motor">OFF</span>
-              <span class="dd-label">Phase</span><span class="dd-val" id="dd-phase">Command</span>
-              <span class="dd-label">Mode</span><span class="dd-val" id="dd-mode">Read</span>
-            </div>
-            <div class="dd-section-label">FDC Command</div>
-            <div class="drive-detail-grid">
-              <span class="dd-label">Cmd</span><span class="dd-val" id="dd-cmd">--</span>
-              <span class="dd-label">EOT</span><span class="dd-val" id="dd-eot">--</span>
-              <span class="dd-label">Side</span><span class="dd-val" id="dd-side">--</span>
-              <span class="dd-label">Data</span><span class="dd-val" id="dd-data">--</span>
-            </div>
-            <div class="dd-section-label">Sector ID</div>
-            <div class="drive-detail-grid">
-              <span class="dd-label">C</span><span class="dd-val" id="dd-sec-c">--</span>
-              <span class="dd-label">H</span><span class="dd-val" id="dd-sec-h">--</span>
-              <span class="dd-label">R</span><span class="dd-val" id="dd-sec-r">--</span>
-              <span class="dd-label">N</span><span class="dd-val" id="dd-sec-n">--</span>
-            </div>
-            <div class="dd-section-label">Result Status</div>
-            <div class="drive-detail-grid dd-grid-3col">
-              <span class="dd-label">ST0</span><span class="dd-val" id="dd-st0">--</span>
-              <span class="dd-label">ST1</span><span class="dd-val" id="dd-st1">--</span>
-              <span class="dd-label">ST2</span><span class="dd-val" id="dd-st2">--</span>
-            </div>
+          <div class="dd-section-label">Result Status</div>
+          <div class="drive-detail-grid dd-grid-3col">
+            <span class="dd-label">ST0</span><span class="dd-val" id="dd-st0">--</span>
+            <span class="dd-label">ST1</span><span class="dd-val" id="dd-st1">--</span>
+            <span class="dd-label">ST2</span><span class="dd-val" id="dd-st2">--</span>
           </div>
         </div>
       </div>
@@ -178,17 +210,25 @@ export class DiskWindow extends BaseWindow {
   }
 
   onContentRendered() {
+    // Drive tabs
+    this.contentElement.querySelectorAll(".drive-tab").forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const drive = parseInt(tab.dataset.drive, 10);
+        this._switchDriveTab(drive);
+      });
+    });
+
     // Toolbar buttons
     this._graphicsBtn = this.contentElement.querySelector(".drive-graphics-btn");
     this._graphicsBtn.addEventListener("click", () => this._toggleGraphics());
     this._detailBtn = this.contentElement.querySelector(".drive-detail-btn");
     this._detailBtn.addEventListener("click", () => this._toggleDetails());
 
-    // Disk surface renderer
-    const canvas = this.contentElement.querySelector(".disk-surface");
-    if (canvas) {
-      this._renderer = new DiskSurfaceRenderer(canvas);
-    }
+    // Disk surface renderers
+    const canvasA = this.contentElement.querySelector("#disk-surface-a");
+    if (canvasA) this._drives[0].renderer = new DiskSurfaceRenderer(canvasA);
+    const canvasB = this.contentElement.querySelector("#disk-surface-b");
+    if (canvasB) this._drives[1].renderer = new DiskSurfaceRenderer(canvasB);
 
     // Hidden file input
     this._fileInput = document.createElement("input");
@@ -203,27 +243,9 @@ export class DiskWindow extends BaseWindow {
       this._fileInput.value = "";
     });
 
-    // Buttons
-    this.contentElement.querySelector("#disk-insert-btn").addEventListener("click", () => {
-      this._fileInput.click();
-    });
-    this.contentElement.querySelector("#disk-blank-btn").addEventListener("click", () => {
-      this._proxy.diskInsertEmpty(0);
-      this._currentFilename = "Untitled.dsk";
-      this._updateNameDisplay();
-    });
-    this.contentElement.querySelector("#disk-eject-btn").addEventListener("click", () => {
-      this._confirmAndEject();
-    });
-    this.contentElement.querySelector("#disk-save-btn").addEventListener("click", () => {
-      this._saveDisk();
-    });
-    this.contentElement.querySelector("#disk-recent-btn").addEventListener("click", () => {
-      this._toggleRecentDropdown();
-    });
-    this.contentElement.querySelector("#disk-wp-checkbox").addEventListener("change", (e) => {
-      this._proxy.diskSetWriteProtected(0, e.target.checked);
-    });
+    // Wire up buttons for both drives
+    this._wireButtons(0, "");
+    this._wireButtons(1, "b-");
 
     // Close dropdown on outside click
     document.addEventListener("click", (e) => {
@@ -246,6 +268,46 @@ export class DiskWindow extends BaseWindow {
     });
 
     this._fitToContent();
+  }
+
+  _wireButtons(driveIndex, prefix) {
+    const q = (sel) => this.contentElement.querySelector(`#${prefix}${sel}`);
+
+    q("disk-insert-btn").addEventListener("click", () => {
+      this._fileInput.click();
+    });
+    q("disk-blank-btn").addEventListener("click", () => {
+      this._proxy.diskInsertEmpty(driveIndex);
+      this._drives[driveIndex].filename = "Untitled.dsk";
+      this._updateNameDisplay(driveIndex);
+    });
+    q("disk-eject-btn").addEventListener("click", () => {
+      this._confirmAndEject(driveIndex);
+    });
+    q("disk-save-btn").addEventListener("click", () => {
+      this._saveDisk(driveIndex);
+    });
+    q("disk-recent-btn").addEventListener("click", () => {
+      this._toggleRecentDropdown(driveIndex);
+    });
+    q("disk-wp-checkbox").addEventListener("change", (e) => {
+      this._proxy.diskSetWriteProtected(driveIndex, e.target.checked);
+    });
+  }
+
+  _switchDriveTab(drive) {
+    this._activeDrive = drive;
+    // Update tab buttons
+    this.contentElement.querySelectorAll(".drive-tab").forEach((tab) => {
+      tab.classList.toggle("active", parseInt(tab.dataset.drive, 10) === drive);
+    });
+    // Show/hide drive panels
+    const panelA = this.contentElement.querySelector("#disk-drive-a");
+    const panelB = this.contentElement.querySelector("#disk-drive-b");
+    if (panelA) panelA.style.display = drive === 0 ? "" : "none";
+    if (panelB) panelB.style.display = drive === 1 ? "" : "none";
+    this._fitToContent();
+    if (this.onStateChange) this.onStateChange();
   }
 
   show() {
@@ -301,153 +363,189 @@ export class DiskWindow extends BaseWindow {
     const state = proxy.state;
     if (!state) return;
 
+    const now = performance.now();
+
+    // Update both drives (track access counts decay even when not visible)
+    this._updateDrive(0, state, now);
+    this._updateDrive(1, state, now);
+
+    // Update details panel (shared FDC state — uses active drive's track)
+    if (this._detailsOpen) {
+      this._updateDetailsPanel(state);
+    }
+  }
+
+  _updateDrive(driveIndex, state, now) {
+    const ds = this._drives[driveIndex];
+    const prefix = driveIndex === 0 ? "" : "b-";
+    const isActive = driveIndex === this._activeDrive;
+
+    // Read per-drive state from emulator
     const motorOn = state.diskMotorOn;
-    const track = state.diskCurrentTrack;
-    const inserted = state.diskInserted;
-    const wp = state.diskWriteProtected;
+    let track, inserted, wp;
+    if (driveIndex === 0) {
+      track = state.diskCurrentTrack;
+      inserted = state.diskInserted;
+      wp = state.diskWriteProtected;
+    } else {
+      track = state.diskBCurrentTrack;
+      inserted = state.diskBInserted;
+      wp = state.diskBWriteProtected;
+    }
     const isReadMode = state.diskReadMode;
-    const fdcPhase = state.diskFDCPhase;
 
-    // Track label
-    if (track !== this._lastTrack || motorOn !== this._lastMotorOn) {
-      const trackEl = this.contentElement.querySelector("#disk-track");
-      if (trackEl) {
-        trackEl.textContent = inserted ? `T${String(track).padStart(2, "0")}` : "T--";
-        trackEl.classList.toggle("active", motorOn);
+    // Update DOM only for the active drive tab
+    if (isActive) {
+      // Track label
+      if (track !== ds.lastTrack || motorOn !== ds.lastMotorOn) {
+        const trackEl = this.contentElement.querySelector(`#${prefix}disk-track`);
+        if (trackEl) {
+          trackEl.textContent = inserted ? `T${String(track).padStart(2, "0")}` : "T--";
+          trackEl.classList.toggle("active", motorOn);
+        }
       }
-      this._lastTrack = track;
-      this._lastMotorOn = motorOn;
+
+      // Inserted state
+      if (inserted !== ds.lastInserted) {
+        this._updateInsertedState(driveIndex, inserted);
+      }
+
+      // Write protect
+      if (wp !== ds.lastWriteProtected) {
+        const cb = this.contentElement.querySelector(`#${prefix}disk-wp-checkbox`);
+        if (cb && cb.checked !== wp) cb.checked = wp;
+      }
     }
 
-    // Inserted state
-    if (inserted !== this._lastInserted) {
-      this._updateInsertedState(inserted);
-      this._lastInserted = inserted;
-    }
+    // Always track last-known values
+    ds.lastTrack = track;
+    ds.lastMotorOn = motorOn;
+    ds.lastInserted = inserted;
+    ds.lastWriteProtected = wp;
 
-    // Write protect
-    if (wp !== this._lastWriteProtected) {
-      const cb = this.contentElement.querySelector("#disk-wp-checkbox");
-      if (cb && cb.checked !== wp) cb.checked = wp;
-      this._lastWriteProtected = wp;
-    }
-
-    // Track access heat map
+    // Track access heat map (always runs)
     if (motorOn && inserted) {
-      this._trackAccessCounts[track]++;
-      if (this._trackAccessCounts[track] > this._maxAccessCount) {
-        this._maxAccessCount = this._trackAccessCounts[track];
+      ds.trackAccessCounts[track]++;
+      if (ds.trackAccessCounts[track] > ds.maxAccessCount) {
+        ds.maxAccessCount = ds.trackAccessCounts[track];
       }
     }
 
     // Decay access counts
-    const now = performance.now();
-    if (now - this._lastDecayTime > 100) {
+    if (now - ds.lastDecayTime > 100) {
       let max = 0;
       for (let i = 0; i < 40; i++) {
-        this._trackAccessCounts[i] = Math.floor(this._trackAccessCounts[i] * 0.8);
-        if (this._trackAccessCounts[i] > max) max = this._trackAccessCounts[i];
+        ds.trackAccessCounts[i] = Math.floor(ds.trackAccessCounts[i] * 0.8);
+        if (ds.trackAccessCounts[i] > max) max = ds.trackAccessCounts[i];
       }
-      this._maxAccessCount = max;
-      this._lastDecayTime = now;
+      ds.maxAccessCount = max;
+      ds.lastDecayTime = now;
     }
 
-    // Update surface renderer
-    if (this._renderer && !this._graphicsHidden) {
-      this._renderer.update({
+    // Update surface renderer (only for active drive)
+    if (isActive && ds.renderer && !this._graphicsHidden) {
+      ds.renderer.update({
         hasDisk: inserted,
         isActive: motorOn,
         isWriteMode: !isReadMode,
         track,
-        trackAccessCounts: this._trackAccessCounts,
-        maxAccessCount: this._maxAccessCount,
+        trackAccessCounts: ds.trackAccessCounts,
+        maxAccessCount: ds.maxAccessCount,
         timestamp: now,
       });
     }
-
-    // Update details panel
-    if (this._detailsOpen) {
-      const el = (id) => this.contentElement.querySelector(`#${id}`);
-      const hex = (v) => v !== undefined ? v.toString(16).toUpperCase().padStart(2, "0") : "--";
-
-      const ddTrack = el("dd-track");
-      if (ddTrack) ddTrack.textContent = track;
-
-      const ddMotor = el("dd-motor");
-      if (ddMotor) {
-        ddMotor.textContent = motorOn ? "ON" : "OFF";
-        ddMotor.classList.toggle("on", motorOn);
-      }
-
-      const ddPhase = el("dd-phase");
-      if (ddPhase) ddPhase.textContent = FDC_PHASE_NAMES[fdcPhase] || "Command";
-
-      const ddMode = el("dd-mode");
-      if (ddMode) {
-        const isWrite = !isReadMode && fdcPhase === 1;
-        ddMode.textContent = isWrite ? "Write" : "Read";
-        ddMode.classList.toggle("write", isWrite);
-      }
-
-      // FDC command info
-      const cmdId = state.diskCommand;
-      const cmdName = FDC_COMMAND_NAMES[cmdId & 0x1F] || (cmdId ? `0x${hex(cmdId)}` : "--");
-      const ddCmd = el("dd-cmd");
-      if (ddCmd) ddCmd.textContent = cmdName;
-
-      const ddEot = el("dd-eot");
-      if (ddEot) ddEot.textContent = state.diskEOT !== undefined ? state.diskEOT : "--";
-
-      const ddSide = el("dd-side");
-      if (ddSide) ddSide.textContent = state.diskSide !== undefined ? state.diskSide : "--";
-
-      const ddData = el("dd-data");
-      if (ddData) {
-        const idx = state.diskDataIndex;
-        const size = state.diskDataSize;
-        ddData.textContent = size > 0 ? `${idx}/${size}` : "--";
-      }
-
-      // Sector ID
-      const ddC = el("dd-sec-c");
-      if (ddC) ddC.textContent = state.diskLastC !== undefined ? hex(state.diskLastC) : "--";
-      const ddH = el("dd-sec-h");
-      if (ddH) ddH.textContent = state.diskLastH !== undefined ? hex(state.diskLastH) : "--";
-      const ddR = el("dd-sec-r");
-      if (ddR) ddR.textContent = state.diskLastR !== undefined ? hex(state.diskLastR) : "--";
-      const ddN = el("dd-sec-n");
-      if (ddN) ddN.textContent = state.diskLastN !== undefined ? hex(state.diskLastN) : "--";
-
-      // Result status registers
-      const ddST0 = el("dd-st0");
-      if (ddST0) ddST0.textContent = state.diskST0 !== undefined ? hex(state.diskST0) : "--";
-      const ddST1 = el("dd-st1");
-      if (ddST1) ddST1.textContent = state.diskST1 !== undefined ? hex(state.diskST1) : "--";
-      const ddST2 = el("dd-st2");
-      if (ddST2) ddST2.textContent = state.diskST2 !== undefined ? hex(state.diskST2) : "--";
-    }
   }
 
-  _updateInsertedState(inserted) {
-    const ejectBtn = this.contentElement.querySelector("#disk-eject-btn");
-    const saveBtn = this.contentElement.querySelector("#disk-save-btn");
+  _updateDetailsPanel(state) {
+    const el = (id) => this.contentElement.querySelector(`#${id}`);
+    const hex = (v) => v !== undefined ? v.toString(16).toUpperCase().padStart(2, "0") : "--";
+
+    const ds = this._drives[this._activeDrive];
+    const track = ds.lastTrack;
+    const motorOn = state.diskMotorOn;
+    const fdcPhase = state.diskFDCPhase;
+    const isReadMode = state.diskReadMode;
+
+    const ddTrack = el("dd-track");
+    if (ddTrack) ddTrack.textContent = track;
+
+    const ddMotor = el("dd-motor");
+    if (ddMotor) {
+      ddMotor.textContent = motorOn ? "ON" : "OFF";
+      ddMotor.classList.toggle("on", motorOn);
+    }
+
+    const ddPhase = el("dd-phase");
+    if (ddPhase) ddPhase.textContent = FDC_PHASE_NAMES[fdcPhase] || "Command";
+
+    const ddMode = el("dd-mode");
+    if (ddMode) {
+      const isWrite = !isReadMode && fdcPhase === 1;
+      ddMode.textContent = isWrite ? "Write" : "Read";
+      ddMode.classList.toggle("write", isWrite);
+    }
+
+    // FDC command info
+    const cmdId = state.diskCommand;
+    const cmdName = FDC_COMMAND_NAMES[cmdId & 0x1F] || (cmdId ? `0x${hex(cmdId)}` : "--");
+    const ddCmd = el("dd-cmd");
+    if (ddCmd) ddCmd.textContent = cmdName;
+
+    const ddEot = el("dd-eot");
+    if (ddEot) ddEot.textContent = state.diskEOT !== undefined ? state.diskEOT : "--";
+
+    const ddSide = el("dd-side");
+    if (ddSide) ddSide.textContent = state.diskSide !== undefined ? state.diskSide : "--";
+
+    const ddData = el("dd-data");
+    if (ddData) {
+      const idx = state.diskDataIndex;
+      const size = state.diskDataSize;
+      ddData.textContent = size > 0 ? `${idx}/${size}` : "--";
+    }
+
+    // Sector ID
+    const ddC = el("dd-sec-c");
+    if (ddC) ddC.textContent = state.diskLastC !== undefined ? hex(state.diskLastC) : "--";
+    const ddH = el("dd-sec-h");
+    if (ddH) ddH.textContent = state.diskLastH !== undefined ? hex(state.diskLastH) : "--";
+    const ddR = el("dd-sec-r");
+    if (ddR) ddR.textContent = state.diskLastR !== undefined ? hex(state.diskLastR) : "--";
+    const ddN = el("dd-sec-n");
+    if (ddN) ddN.textContent = state.diskLastN !== undefined ? hex(state.diskLastN) : "--";
+
+    // Result status registers
+    const ddST0 = el("dd-st0");
+    if (ddST0) ddST0.textContent = state.diskST0 !== undefined ? hex(state.diskST0) : "--";
+    const ddST1 = el("dd-st1");
+    if (ddST1) ddST1.textContent = state.diskST1 !== undefined ? hex(state.diskST1) : "--";
+    const ddST2 = el("dd-st2");
+    if (ddST2) ddST2.textContent = state.diskST2 !== undefined ? hex(state.diskST2) : "--";
+  }
+
+  _updateInsertedState(driveIndex, inserted) {
+    const prefix = driveIndex === 0 ? "" : "b-";
+    const ejectBtn = this.contentElement.querySelector(`#${prefix}disk-eject-btn`);
+    const saveBtn = this.contentElement.querySelector(`#${prefix}disk-save-btn`);
     if (ejectBtn) ejectBtn.disabled = !inserted;
     if (saveBtn) saveBtn.disabled = !inserted;
     if (!inserted) {
-      this._currentFilename = null;
-      this._updateNameDisplay();
-      this._trackAccessCounts.fill(0);
-      this._maxAccessCount = 0;
-      if (this._renderer) this._renderer.reset();
+      this._drives[driveIndex].filename = null;
+      this._updateNameDisplay(driveIndex);
+      this._drives[driveIndex].trackAccessCounts.fill(0);
+      this._drives[driveIndex].maxAccessCount = 0;
+      if (this._drives[driveIndex].renderer) this._drives[driveIndex].renderer.reset();
     }
   }
 
-  _updateNameDisplay() {
-    const el = this.contentElement.querySelector("#disk-name");
+  _updateNameDisplay(driveIndex) {
+    if (driveIndex === undefined) driveIndex = this._activeDrive;
+    const prefix = driveIndex === 0 ? "" : "b-";
+    const el = this.contentElement.querySelector(`#${prefix}disk-name`);
     if (!el) return;
-    const name = this._currentFilename || "No Disk";
+    const name = this._drives[driveIndex].filename || "No Disk";
     el.textContent = name;
-    el.title = this._currentFilename || "";
+    el.title = this._drives[driveIndex].filename || "";
 
     // Check for scrolling need
     requestAnimationFrame(() => {
@@ -466,31 +564,33 @@ export class DiskWindow extends BaseWindow {
   }
 
   async _loadDiskFile(file) {
+    const drive = this._activeDrive;
     const reader = new FileReader();
     reader.onload = async (ev) => {
       const data = new Uint8Array(ev.target.result);
       await addToRecentDisks(file.name, data);
-      this._proxy.diskInsert(0, data.buffer.slice(0));
-      this._currentFilename = file.name;
-      this._updateNameDisplay();
+      this._proxy.diskInsert(drive, data.buffer.slice(0));
+      this._drives[drive].filename = file.name;
+      this._updateNameDisplay(drive);
     };
     reader.readAsArrayBuffer(file);
   }
 
-  async _confirmAndEject() {
+  async _confirmAndEject(driveIndex) {
     const state = this._proxy.state;
-    if (state.diskModified) {
+    const modified = driveIndex === 0 ? state.diskModified : state.diskBModified;
+    if (modified) {
       if (!confirm("Disk has been modified. Eject without saving?")) return;
     }
-    this._proxy.diskEject(0);
-    this._currentFilename = null;
-    this._updateNameDisplay();
+    this._proxy.diskEject(driveIndex);
+    this._drives[driveIndex].filename = null;
+    this._updateNameDisplay(driveIndex);
   }
 
-  async _saveDisk() {
-    const data = await this._proxy.diskExport(0);
+  async _saveDisk(driveIndex) {
+    const data = await this._proxy.diskExport(driveIndex);
     if (!data) return;
-    const filename = this._currentFilename || "disk.dsk";
+    const filename = this._drives[driveIndex].filename || "disk.dsk";
     const blob = new Blob([data], { type: "application/octet-stream" });
 
     if (window.showSaveFilePicker) {
@@ -520,13 +620,14 @@ export class DiskWindow extends BaseWindow {
     URL.revokeObjectURL(url);
   }
 
-  async _toggleRecentDropdown() {
+  async _toggleRecentDropdown(driveIndex) {
     if (this._dropdownOpen) {
       this._closeRecentDropdown();
       return;
     }
 
-    const dropdown = this.contentElement.querySelector("#disk-recent-dropdown");
+    const prefix = driveIndex === 0 ? "" : "b-";
+    const dropdown = this.contentElement.querySelector(`#${prefix}disk-recent-dropdown`);
     if (!dropdown) return;
 
     const recents = await getRecentDisks();
@@ -546,9 +647,9 @@ export class DiskWindow extends BaseWindow {
           const id = parseInt(item.dataset.id, 10);
           const data = await loadRecentDisk(id);
           if (data) {
-            this._proxy.diskInsert(0, data.data.buffer.slice(0));
-            this._currentFilename = data.filename;
-            this._updateNameDisplay();
+            this._proxy.diskInsert(driveIndex, data.data.buffer.slice(0));
+            this._drives[driveIndex].filename = data.filename;
+            this._updateNameDisplay(driveIndex);
           }
           this._closeRecentDropdown();
         });
@@ -565,16 +666,18 @@ export class DiskWindow extends BaseWindow {
 
     dropdown.classList.add("open");
     this._dropdownOpen = true;
+    this._dropdownDrive = driveIndex;
   }
 
   _closeRecentDropdown() {
-    const dropdown = this.contentElement.querySelector("#disk-recent-dropdown");
+    const prefix = this._dropdownDrive === 1 ? "b-" : "";
+    const dropdown = this.contentElement.querySelector(`#${prefix}disk-recent-dropdown`);
     if (dropdown) dropdown.classList.remove("open");
     this._dropdownOpen = false;
   }
 
-  setFilename(filename) {
-    this._currentFilename = filename;
-    this._updateNameDisplay();
+  setFilename(filename, drive = 0) {
+    this._drives[drive].filename = filename;
+    this._updateNameDisplay(drive);
   }
 }

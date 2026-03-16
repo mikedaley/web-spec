@@ -478,12 +478,14 @@ class ZXSpectrumEmulator {
     // Disk inserted callback
     this.proxy.onDiskInserted = (drive) => {
       this.windowManager.showWindow("disk-window");
-      showToast("Disk inserted");
+      const label = drive === 1 ? "B" : "A";
+      showToast(`Disk inserted in drive ${label}`);
     };
 
     // Disk ejected callback
     this.proxy.onDiskEjected = (drive) => {
-      showToast("Disk ejected");
+      const label = drive === 1 ? "B" : "A";
+      showToast(`Disk ejected from drive ${label}`);
     };
 
     // File menu > Load Snapshot

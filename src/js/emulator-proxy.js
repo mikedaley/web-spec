@@ -139,9 +139,10 @@ export class EmulatorProxy {
         break;
 
       case "diskExportData": {
-        const resolve = this._pendingRequests.get("diskExport");
+        const key = `diskExport_${msg.drive}`;
+        const resolve = this._pendingRequests.get(key);
         if (resolve) {
-          this._pendingRequests.delete("diskExport");
+          this._pendingRequests.delete(key);
           resolve(msg.data ? new Uint8Array(msg.data) : null);
         }
         break;
@@ -879,7 +880,7 @@ export class EmulatorProxy {
 
   diskExport(drive = 0) {
     return new Promise((resolve) => {
-      this._pendingRequests.set("diskExport", resolve);
+      this._pendingRequests.set(`diskExport_${drive}`, resolve);
       this.worker.postMessage({ type: "diskExport", drive });
     });
   }
