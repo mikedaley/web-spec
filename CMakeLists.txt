@@ -267,6 +267,7 @@ if(EMSCRIPTEN)
                 \"_getDisplayHeight\", \
                 \"_getBreakpointCount\", \
                 \"_getBreakpointList\", \
+                \"_getBeamBreakpointList\", \
                 \"_getAYRegister\", \
                 \"_setAYChannelMute\", \
                 \"_getAYChannelMute\", \

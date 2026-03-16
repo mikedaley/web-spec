@@ -8,6 +8,36 @@
 let wasm = null;
 let speedMultiplier = 1;
 
+// ── Breakpoint preservation across machine switches ──────────────────────────
+
+function saveBreakpoints() {
+  if (!wasm) return { breakpoints: [], beamBreakpoints: [] };
+  const bpJson = wasm.UTF8ToString(wasm._getBreakpointList());
+  const beamJson = wasm.UTF8ToString(wasm._getBeamBreakpointList());
+  return {
+    breakpoints: JSON.parse(bpJson || "[]"),
+    beamBreakpoints: JSON.parse(beamJson || "[]"),
+  };
+}
+
+function restoreBreakpoints(saved) {
+  if (!wasm || !saved) return;
+  for (const bp of saved.breakpoints) {
+    wasm._addBreakpoint(bp.addr);
+    if (!bp.enabled) wasm._enableBreakpoint(bp.addr, false);
+  }
+  for (const bp of saved.beamBreakpoints) {
+    const newId = wasm._addBeamBreakpoint(bp.scanline, bp.hTs);
+    if (!bp.enabled && newId >= 0) wasm._enableBeamBreakpoint(newId, false);
+  }
+}
+
+function initMachinePreservingBreakpoints(machineId) {
+  const saved = saveBreakpoints();
+  wasm._initMachine(machineId);
+  restoreBreakpoints(saved);
+}
+
 // Per-socket overflow buffers for data that didn't fit in the W5100's 2KB RX buffer.
 // Flushed into the W5100 each frame as the Z80 consumes data.
 const rxOverflow = [[], [], [], []];
@@ -429,7 +459,7 @@ self.onmessage = async function (e) {
       if (requiredMachine >= 0) {
         const currentMachine = wasm._getMachineId();
         if (requiredMachine !== currentMachine) {
-          wasm._initMachine(requiredMachine);
+          initMachinePreservingBreakpoints(requiredMachine);
           machineSwitched = true;
         }
       }
@@ -556,7 +586,7 @@ self.onmessage = async function (e) {
 
     case "switchMachine":
       if (wasm) {
-        wasm._initMachine(msg.machineId);
+        initMachinePreservingBreakpoints(msg.machineId);
         self.postMessage({ type: "ready" });
       }
       break;
@@ -652,7 +682,7 @@ self.onmessage = async function (e) {
       // .P files require ZX81 (machine ID 5) — auto-switch if needed
       let pMachineSwitched = false;
       if (wasm._getMachineId() !== 5) {
-        wasm._initMachine(5);
+        initMachinePreservingBreakpoints(5);
         pMachineSwitched = true;
       }
       const pData = new Uint8Array(msg.data);

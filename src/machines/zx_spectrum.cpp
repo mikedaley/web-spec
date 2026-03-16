@@ -604,6 +604,27 @@ std::string ZXSpectrum::getBreakpointListJson() const
     return json;
 }
 
+std::string ZXSpectrum::getBeamBreakpointListJson() const
+{
+    std::string json = "[";
+    bool first = true;
+    for (const auto& bp : beamBreakpoints_) {
+        if (!first) json += ",";
+        first = false;
+        json += "{\"id\":";
+        json += std::to_string(bp.id);
+        json += ",\"scanline\":";
+        json += std::to_string(bp.scanline);
+        json += ",\"hTs\":";
+        json += std::to_string(bp.hTs);
+        json += ",\"enabled\":";
+        json += bp.enabled ? "true" : "false";
+        json += "}";
+    }
+    json += "]";
+    return json;
+}
+
 // ============================================================================
 // Beam Breakpoints
 // ============================================================================

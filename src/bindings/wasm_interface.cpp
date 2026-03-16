@@ -1143,6 +1143,17 @@ const char* getBreakpointList() {
     return s_breakpointListJson.c_str();
 }
 
+static std::string s_beamBreakpointListJson;
+
+EMSCRIPTEN_KEEPALIVE
+const char* getBeamBreakpointList() {
+    REQUIRE_MACHINE_OR("[]");
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (!spec) return "[]";
+    s_beamBreakpointListJson = spec->getBeamBreakpointListJson();
+    return s_beamBreakpointListJson.c_str();
+}
+
 // ============================================================================
 // BASIC Breakpoint Support
 // ============================================================================

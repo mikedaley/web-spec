@@ -89,6 +89,7 @@ public:
     // Breakpoint query
     int getBreakpointCount() const;
     std::string getBreakpointListJson() const;
+    std::string getBeamBreakpointListJson() const;
 
     // Step-over / step-out support
     void stepOver();
