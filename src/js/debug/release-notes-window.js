@@ -14,7 +14,7 @@ const RELEASE_DATA = [
     week: "Mar 16 – Mar 22, 2026",
     features: [],
     fixes: [
-      { hash: "3f7ebcc", text: "Memory map window now works correctly for all machines (128K +2, +2A, +3, ZX81)" },
+      { hash: "3f7ebcc", text: "Memory map window now works correctly for all machines (128K, +2, +2A, +3)" },
     ],
     improvements: [
       { hash: "70cfaaf", text: "Improved spacing between Surface and Details buttons in disk drive window" },
@@ -30,7 +30,7 @@ const RELEASE_DATA = [
       { hash: "a96bd33", text: "Beam position tracking, beam breakpoints and crosshair overlay in CPU debugger" },
       { hash: "7449c48", text: "ZX Spectrum 128K +2 machine support" },
       { hash: "ecd893a", text: "ZX Spectrum +2A/+3 machines with µPD765A FDC and disk drive UI" },
-      { hash: "b8c74f1", text: "ZX81 machine, SpecDrum DAC peripheral, and CPU trace window" },
+      { hash: "b8c74f1", text: "SpecDrum DAC peripheral and CPU trace window" },
       { hash: "b9ef1a9", text: "Virtual scrolling in CPU trace window for performance" },
       { hash: "d64a59a", text: "Tape/disk shortcut buttons on screen window header" },
       { hash: "f8bf573", text: "Read/write access tracking in memory heatmap activity mode" },
