@@ -132,10 +132,13 @@ uint8_t UPD765A::readMSR()
                 if (msrPollCount_ > OVERRUN_THRESHOLD) {
                     // printf("[FDC] Overrun: %d polls, sector R=%d, %d/%d bytes read\n",
                     //        msrPollCount_, xferSector_, dataIndex_, (int)dataBuffer_.size());
-                    // Overrun: abort execution, enter result phase
+                    // Overrun: abort execution, enter result phase.
+                    // Preserve weak sector CRC error flags alongside overrun —
+                    // Speedlock reads fewer bytes than the sector contains, then
+                    // checks both overrun and CRC error status.
                     uint8_t st0 = ST0_IC_ABNORMAL | (xferSide_ << 2) | xferDrive_;
-                    uint8_t st1 = ST1_OR;
-                    uint8_t st2 = 0;
+                    uint8_t st1 = ST1_OR | xferST1_;
+                    uint8_t st2 = xferST2_;
                     setResult7(st0, st1, st2, lastSectorC_, lastSectorH_,
                                lastSectorR_, lastSectorN_);
                     phase_ = Phase::Result;
@@ -181,8 +184,12 @@ uint8_t UPD765A::readData()
                 if (!advanceToNextSector()) {
                     // End of cylinder: µPD765A reports abnormal termination with EN flag.
                     // Result C/H/R/N contain the ID of the last sector read.
+                    // Preserve weak sector CRC error flags — Speedlock checks
+                    // status after reading the weak sector data.
                     uint8_t st0 = ST0_IC_ABNORMAL | (xferSide_ << 2) | xferDrive_;
-                    setResult7(st0, ST1_EN, 0, lastSectorC_, lastSectorH_,
+                    uint8_t st1 = ST1_EN | xferST1_;
+                    uint8_t st2 = xferST2_;
+                    setResult7(st0, st1, st2, lastSectorC_, lastSectorH_,
                                lastSectorR_, lastSectorN_);
                     phase_ = Phase::Result;
                 }
@@ -400,7 +407,9 @@ void UPD765A::cmdReadData()
     xferEOT_ = commandBuffer_[6];      // EOT
     xferMultiTrack_ = (commandBuffer_[0] & 0x80) != 0;
     xferDeletedData_ = (currentCommand_ == CMD_READ_DELETED_DATA);
+    xferSkip_ = (commandBuffer_[0] & 0x20) != 0;
     xferWeakSector_ = false;
+    xferCMTerminate_ = false;
     xferST1_ = 0;
     xferST2_ = 0;
 
@@ -414,10 +423,24 @@ void UPD765A::cmdReadData()
     }
 
     // Find the requested sector
-    printf("[FDC] ReadData: cmd=%02X phys=%d C=%d H=%d R=%d N=%d EOT=%d del=%d\n",
+    printf("[FDC] ReadData: cmd=%02X phys=%d C=%d H=%d R=%d N=%d EOT=%d del=%d SK=%d\n",
            commandBuffer_[0], currentTrack_[drive], xferTrack_, xferSide_, xferSector_,
-           xferSizeCode_, xferEOT_, xferDeletedData_ ? 1 : 0);
+           xferSizeCode_, xferEOT_, xferDeletedData_ ? 1 : 0, xferSkip_ ? 1 : 0);
+
+    // Find the requested sector (no EOT guard — R can exceed EOT for single-sector reads)
     const DiskSector* sector = disk_[drive]->findSector(currentTrack_[drive], xferSide_, xferSector_);
+
+    // SK=1: skip sectors with data mark mismatch until we find a match or reach EOT
+    while (sector && xferSkip_) {
+        bool sectorHasCM = (sector->fdcStatus2 & ST2_CM) != 0;
+        if (xferDeletedData_ == sectorHasCM) break;  // Match found, use this sector
+
+        printf("[FDC] ReadData: SK=1, skipping R=%d (CM mismatch: del=%d sectorCM=%d)\n",
+               xferSector_, xferDeletedData_ ? 1 : 0, sectorHasCM ? 1 : 0);
+        xferSector_++;
+        if (xferSector_ > xferEOT_) { sector = nullptr; break; }
+        sector = disk_[drive]->findSector(currentTrack_[drive], xferSide_, xferSector_);
+    }
 
     if (!sector) {
         printf("[FDC] ReadData: SECTOR NOT FOUND phys=%d side=%d R=%d\n",
@@ -441,15 +464,43 @@ void UPD765A::cmdReadData()
     dataIndex_ = 0;
     executionRead_ = true;
 
-    // Don't enforce data mark mismatch (Read Data vs Read Deleted Data).
-    // DSK images don't reliably store the deleted data address mark flag,
-    // so checking it causes loaders to retry endlessly on sectors that are
-    // actually deleted on the real disk but lack the CM flag in the DSK.
-    // Don't propagate stored sector status flags either — they cause false
-    // CRC error reports that break non-Speedlock loaders.
-    xferWeakSector_ = false;
+    // Initialize status flags
+    xferWeakSector_ = sector->isWeak();
     xferST1_ = 0;
     xferST2_ = 0;
+
+    // Weak/fuzzy sector detection (Speedlock copy protection):
+    // If the sector has multiple data copies in the EDSK image, it's a weak
+    // sector. Real hardware returns CRC errors on every read of such sectors.
+    if (xferWeakSector_) {
+        xferST1_ = ST1_DE;   // Data Error (CRC error in ID or data)
+        xferST2_ = ST2_DD;   // Data Error in Data Field
+        printf("[FDC] ReadData: weak sector detected (R=%d, %zu copies) - will report CRC error\n",
+               xferSector_, sector->weakCopies.size());
+    }
+
+    // CRC error propagation: if the EDSK sector has CRC error flags set
+    // (without being a weak sector), propagate them. Some protections
+    // (e.g., Alkatraz) embed deliberate CRC errors for verification.
+    if (!xferWeakSector_ && sector->hasCRCError()) {
+        xferST1_ |= ST1_DE;
+        xferST2_ |= ST2_DD;
+        printf("[FDC] ReadData: EDSK CRC error sector (R=%d) - propagating ST1_DE|ST2_DD\n",
+               xferSector_);
+    }
+
+    // Data Address Mark mismatch (CM flag): Read Data hitting a Deleted
+    // sector, or Read Deleted Data hitting a Normal sector. With SK=0,
+    // the data is still transferred but ST2_CM is set and the command
+    // terminates after this sector.
+    bool sectorHasCM = (sector->fdcStatus2 & ST2_CM) != 0;
+    bool cmMismatch = (xferDeletedData_ != sectorHasCM);
+    if (cmMismatch) {
+        xferST2_ |= ST2_CM;
+        xferCMTerminate_ = true;
+        printf("[FDC] ReadData: CM mismatch (del=%d sectorCM=%d) - will terminate after sector R=%d\n",
+               xferDeletedData_ ? 1 : 0, sectorHasCM ? 1 : 0, xferSector_);
+    }
 
     phase_ = Phase::Execution;
 }
@@ -722,19 +773,42 @@ void UPD765A::setResult7(uint8_t st0, uint8_t st1, uint8_t st2,
 
 bool UPD765A::advanceToNextSector()
 {
+    // CM mismatch with SK=0: terminate after the current sector
+    if (xferCMTerminate_) {
+        return false;
+    }
+
     // Check if we've reached the end of track
     if (xferSector_ >= xferEOT_) {
         return false;
     }
 
-    // Move to next sector
-    xferSector_++;
-
     int drive = xferDrive_;
     if (!hasDisk(drive)) return false;
 
-    DiskSector* sector = disk_[drive]->findSector(currentTrack_[drive], xferSide_, xferSector_);
-    if (!sector) return false;
+    // Move to next sector, skipping CM-mismatched sectors when SK=1
+    DiskSector* sector = nullptr;
+    while (true) {
+        xferSector_++;
+        if (xferSector_ > xferEOT_) return false;
+
+        sector = disk_[drive]->findSector(currentTrack_[drive], xferSide_, xferSector_);
+        if (!sector) return false;
+
+        // Check CM mismatch
+        bool sectorHasCM = (sector->fdcStatus2 & ST2_CM) != 0;
+        bool cmMismatch = (xferDeletedData_ != sectorHasCM);
+
+        if (cmMismatch && xferSkip_) {
+            // SK=1: skip this sector
+            continue;
+        }
+        if (cmMismatch) {
+            // SK=0: read this sector but terminate after it
+            xferCMTerminate_ = true;
+        }
+        break;
+    }
 
     // Store actual sector ID field values for result phase
     lastSectorC_ = sector->track;
@@ -747,7 +821,26 @@ bool UPD765A::advanceToNextSector()
         dataBuffer_ = sector->getReadData();
         dataIndex_ = 0;
 
-        // Don't propagate sector status flags during multi-sector reads
+        // Update status flags for this sector
+        xferWeakSector_ = sector->isWeak();
+        xferST1_ = 0;
+        xferST2_ = 0;
+
+        if (xferWeakSector_) {
+            xferST1_ = ST1_DE;
+            xferST2_ = ST2_DD;
+        }
+
+        // Propagate EDSK CRC errors for non-weak sectors
+        if (!xferWeakSector_ && sector->hasCRCError()) {
+            xferST1_ |= ST1_DE;
+            xferST2_ |= ST2_DD;
+        }
+
+        // CM mismatch flag
+        if (xferCMTerminate_) {
+            xferST2_ |= ST2_CM;
+        }
     } else {
         // Write: prepare buffer for next sector
         uint32_t secSize = 128u << xferSizeCode_;

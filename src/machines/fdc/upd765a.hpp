@@ -149,7 +149,9 @@ private:
     uint8_t xferEOT_ = 0;          // End of track (last sector to transfer)
     bool xferMultiTrack_ = false;
     bool xferDeletedData_ = false;
+    bool xferSkip_ = false;         // SK bit: skip deleted/non-deleted sectors
     bool xferWeakSector_ = false;   // Current sector has weak/fuzzy data
+    bool xferCMTerminate_ = false;  // Terminate after current sector (CM mismatch)
     uint8_t xferST1_ = 0;          // Sector's stored ST1 flags
     uint8_t xferST2_ = 0;          // Sector's stored ST2 flags
 
