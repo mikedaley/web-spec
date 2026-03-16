@@ -15,7 +15,7 @@
 /* ---- Toolbar ---- */
 .disk-drives-toolbar {
   display: flex;
-  gap: var(--space-sm);
+  gap: 12px;
   padding: var(--space-sm) var(--space-md);
   border-bottom: 1px solid var(--glass-border-subtle);
 }
