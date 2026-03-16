@@ -117,6 +117,7 @@ bool DiskImage::loadStandardDSK(const uint8_t* data, uint32_t size)
     loaded_ = true;
     modified_ = false;
     extended_ = false;
+    printf("[DSK] Loaded standard DSK: %d tracks, %d sides\n", trackCount_, sideCount_);
     return true;
 }
 
@@ -217,6 +218,8 @@ bool DiskImage::loadExtendedDSK(const uint8_t* data, uint32_t size)
     loaded_ = true;
     modified_ = false;
     extended_ = true;
+    printf("[DSK] Loaded extended DSK: %d tracks, %d sides, %d total track entries\n",
+           trackCount_, sideCount_, totalTracks);
     return true;
 }
 

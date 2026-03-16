@@ -414,12 +414,14 @@ void UPD765A::cmdReadData()
     }
 
     // Find the requested sector
-    // printf("[FDC] ReadData: phys=%d C=%d H=%d R=%d N=%d EOT=%d del=%d\n",
-    //        currentTrack_[drive], xferTrack_, xferSide_, xferSector_,
-    //        xferSizeCode_, xferEOT_, xferDeletedData_ ? 1 : 0);
+    printf("[FDC] ReadData: cmd=%02X phys=%d C=%d H=%d R=%d N=%d EOT=%d del=%d\n",
+           commandBuffer_[0], currentTrack_[drive], xferTrack_, xferSide_, xferSector_,
+           xferSizeCode_, xferEOT_, xferDeletedData_ ? 1 : 0);
     const DiskSector* sector = disk_[drive]->findSector(currentTrack_[drive], xferSide_, xferSector_);
 
     if (!sector) {
+        printf("[FDC] ReadData: SECTOR NOT FOUND phys=%d side=%d R=%d\n",
+               currentTrack_[drive], xferSide_, xferSector_);
         uint8_t st0 = ST0_IC_ABNORMAL | (xferSide_ << 2) | drive;
         setResult7(st0, ST1_ND | ST1_MA, 0, xferTrack_, xferSide_, xferSector_, xferSizeCode_);
         phase_ = Phase::Result;
@@ -499,6 +501,7 @@ void UPD765A::cmdReadID()
 {
     int drive = commandBuffer_[1] & 0x03;
     int side = (commandBuffer_[1] >> 2) & 0x01;
+    printf("[FDC] ReadID: drive=%d phys=%d side=%d\n", drive, currentTrack_[drive], side);
 
     if (!hasDisk(drive)) {
         uint8_t st0 = ST0_IC_ABNORMAL | ST0_NR | (side << 2) | drive;
@@ -566,7 +569,7 @@ void UPD765A::cmdFormatTrack()
 void UPD765A::cmdRecalibrate()
 {
     int drive = commandBuffer_[1] & 0x03;
-    // printf("[FDC] Recalibrate: drive=%d\n", drive);
+    printf("[FDC] Recalibrate: drive=%d\n", drive);
     currentTrack_[drive] = 0;
     readIdIndex_ = 0;
 
@@ -593,8 +596,8 @@ void UPD765A::cmdSenseInterruptStatus()
     for (int d = 0; d < 2; d++) {
         if (seekCompleted_[d]) {
             seekCompleted_[d] = false;
-            // printf("[FDC] SenseInt: drive=%d ST0=%02X PCN=%d\n",
-            //        d, seekResultST0_[d], currentTrack_[d]);
+            printf("[FDC] SenseInt: drive=%d ST0=%02X PCN=%d\n",
+                   d, seekResultST0_[d], currentTrack_[d]);
             resultBuffer_.clear();
             resultBuffer_.push_back(seekResultST0_[d]);
             resultBuffer_.push_back(currentTrack_[d]);
@@ -664,7 +667,7 @@ void UPD765A::cmdSeek()
     int drive = commandBuffer_[1] & 0x03;
     uint8_t newTrack = commandBuffer_[2];
 
-    // printf("[FDC] Seek: drive=%d track=%d\n", drive, newTrack);
+    printf("[FDC] Seek: drive=%d track=%d\n", drive, newTrack);
     currentTrack_[drive] = newTrack;
     readIdIndex_ = 0;
 
@@ -699,8 +702,8 @@ void UPD765A::cmdInvalid()
 void UPD765A::setResult7(uint8_t st0, uint8_t st1, uint8_t st2,
                           uint8_t c, uint8_t h, uint8_t r, uint8_t n)
 {
-    // printf("[FDC] Result: ST0=%02X ST1=%02X ST2=%02X C=%d H=%d R=%d N=%d\n",
-    //        st0, st1, st2, c, h, r, n);
+    printf("[FDC] Result: ST0=%02X ST1=%02X ST2=%02X C=%d H=%d R=%d N=%d\n",
+           st0, st1, st2, c, h, r, n);
     resultBuffer_.clear();
     resultBuffer_.reserve(7);
     resultBuffer_.push_back(st0);
