@@ -12,13 +12,20 @@ import { VERSION } from "../config/version.js";
 const RELEASE_DATA = [
   {
     week: "Mar 16 – Mar 22, 2026",
-    features: [],
+    features: [
+      { hash: "81e7504", text: "Joystick configuration window with Gamepad API support" },
+      { hash: "b380abe", text: "Save button in tape player for saving TAP to disk without ejecting" },
+    ],
     fixes: [
       { hash: "3f7ebcc", text: "Memory map window now works correctly for all machines (128K, +2, +2A, +3)" },
+      { hash: "------", text: "Zero 128K system variables area on init to prevent warm-reset glitches" },
     ],
     improvements: [
       { hash: "70cfaaf", text: "Improved spacing between Surface and Details buttons in disk drive window" },
       { hash: "e187ca0", text: "FDC internals panel in disk drive debug window" },
+      { hash: "69d2197", text: "FDC Deleted Data Address Mark (CM) and CRC error handling" },
+      { hash: "ed480a0", text: "Preserve breakpoints across machine switches" },
+      { hash: "------", text: "Memory heatmap fade toggle switch and inverted fade slider for intuitive control" },
     ],
   },
   {

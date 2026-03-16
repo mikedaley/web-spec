@@ -127,6 +127,19 @@ void ZXSpectrum::baseInit()
         byte = static_cast<uint8_t>(dist(rng));
     }
 
+    // Zero the system variables area in bank 5 (0x5B00-0x5CFF in CPU space).
+    // The 128K/+2A/+3 ROMs check magic bytes here to detect warm vs cold
+    // reset. Random data can accidentally match, causing the ROM to skip
+    // its full screen clear and initialization.
+    if (memoryRam_.size() >= 6 * MEM_PAGE_SIZE) {
+        size_t sysvarStart = 5 * MEM_PAGE_SIZE + 0x1B00;
+        size_t sysvarEnd = 5 * MEM_PAGE_SIZE + 0x1D00;
+        if (sysvarEnd <= memoryRam_.size()) {
+            std::fill(memoryRam_.begin() + sysvarStart,
+                      memoryRam_.begin() + sysvarEnd, 0);
+        }
+    }
+
     reset();
     z80_->signalInterrupt();
 }

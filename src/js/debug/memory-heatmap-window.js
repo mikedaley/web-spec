@@ -26,7 +26,7 @@ const MAX_ZOOM = 64;
 const HEX_THRESHOLD_PX = 48;
 const ZOOM_FACTOR = 1.08;
 const FETCH_INTERVAL = 1000 / 60; // ~60fps memory reads
-const DEFAULT_DECAY_RATE = 8; // activity decay per tick (~80/sec → ~3s full fade)
+const DEFAULT_DECAY_RATE = 57; // higher = longer fade (inverted to decay rate internally)
 const MIN_DECAY_RATE = 1;
 const MAX_DECAY_RATE = 64;
 const MINIMAP_MAX = 80;     // max minimap dimension in px
@@ -200,6 +200,7 @@ export class MemoryHeatmapWindow extends BaseWindow {
     this._writeDecay = new Uint8Array(TOTAL_BYTES);
     this._accessTrackingActive = false;
     this._decayRate = DEFAULT_DECAY_RATE;
+    this._fadeEnabled = true;
 
     // Throttle
     this._lastFetch = 0;
@@ -259,6 +260,10 @@ export class MemoryHeatmapWindow extends BaseWindow {
           <input type="number" class="memory-heatmap-width-input"
             min="${MIN_WIDTH}" max="${MAX_WIDTH}" value="${this._gridCols}" />
           <label>Fade</label>
+          <label class="mhm-toggle">
+            <input type="checkbox" class="mhm-fade-toggle" ${this._fadeEnabled ? "checked" : ""}>
+            <span class="mhm-toggle-slider"></span>
+          </label>
           <input type="number" class="memory-heatmap-fade-input"
             min="${MIN_DECAY_RATE}" max="${MAX_DECAY_RATE}" value="${this._decayRate}" />
           <span class="memory-heatmap-zoom-info">1.0x</span>
@@ -344,6 +349,20 @@ export class MemoryHeatmapWindow extends BaseWindow {
     this._fadeInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") { applyFade(); e.preventDefault(); }
     });
+
+    // Fade toggle
+    this._fadeToggle = content.querySelector(".mhm-fade-toggle");
+    this._fadeToggle.addEventListener("change", () => {
+      this._fadeEnabled = this._fadeToggle.checked;
+      this._fadeInput.disabled = !this._fadeEnabled;
+      if (!this._fadeEnabled) {
+        this._readDecay.fill(0);
+        this._writeDecay.fill(0);
+      }
+      if (this.onStateChange) this.onStateChange();
+      this.saveSettings();
+    });
+    this._fadeInput.disabled = !this._fadeEnabled;
 
     // Mouse/wheel
     this._container.addEventListener("wheel", this._onWheel, { passive: false });
@@ -634,7 +653,8 @@ export class MemoryHeatmapWindow extends BaseWindow {
     if (!accessFlags) return;
     const rd = this._readDecay;
     const wd = this._writeDecay;
-    const rate = this._decayRate;
+    // Invert so higher user value = longer fade (slower decay)
+    const rate = this._fadeEnabled ? (MAX_DECAY_RATE + MIN_DECAY_RATE) - this._decayRate : 0;
 
     for (let i = 0; i < TOTAL_BYTES; i++) {
       const f = accessFlags[i];
@@ -1082,6 +1102,7 @@ export class MemoryHeatmapWindow extends BaseWindow {
       panY: this._panY,
       gridWidth: this._gridCols,
       decayRate: this._decayRate,
+      fadeEnabled: this._fadeEnabled,
       mode: this._mode,
     };
   }
@@ -1097,6 +1118,11 @@ export class MemoryHeatmapWindow extends BaseWindow {
     if (state.decayRate !== undefined) {
       this._decayRate = Math.max(MIN_DECAY_RATE, Math.min(MAX_DECAY_RATE, state.decayRate));
       if (this._fadeInput) this._fadeInput.value = this._decayRate;
+    }
+    if (state.fadeEnabled !== undefined) {
+      this._fadeEnabled = state.fadeEnabled;
+      if (this._fadeToggle) this._fadeToggle.checked = this._fadeEnabled;
+      if (this._fadeInput) this._fadeInput.disabled = !this._fadeEnabled;
     }
     if (state.zoom !== undefined) this._zoom = state.zoom;
     if (state.panX !== undefined) this._panX = state.panX;

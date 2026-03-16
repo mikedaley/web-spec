@@ -101,6 +101,61 @@
   -moz-appearance: textfield;
 }
 
+/* ── Fade toggle switch ────────────────────────── */
+
+.mhm-toggle {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 18px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.mhm-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.mhm-toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--input-bg-deeper);
+  border-radius: 18px;
+  transition: all 0.2s;
+}
+
+.mhm-toggle-slider::before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 3px;
+  bottom: 3px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.mhm-toggle input:checked + .mhm-toggle-slider {
+  background: var(--accent-green-bg);
+}
+
+.mhm-toggle input:checked + .mhm-toggle-slider::before {
+  transform: translateX(14px);
+  background: var(--accent-green);
+}
+
+.memory-heatmap-fade-input:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
 .memory-heatmap-zoom-info {
   margin-left: auto;
   color: var(--text-secondary);
