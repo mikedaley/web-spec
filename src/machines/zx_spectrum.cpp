@@ -359,6 +359,11 @@ void ZXSpectrum::runFrame()
         getScreenMemory(), borderColor_, frameCounter_);
     display_.frameReset();
     frameCounter_++;
+
+    // Tick the WD1770 motor timeout (auto-off after ~2 seconds idle)
+    if (opusEnabled_) {
+        opus_.getFDC().updateMotorTimeout();
+    }
 }
 
 void ZXSpectrum::runCycles(int cycles)

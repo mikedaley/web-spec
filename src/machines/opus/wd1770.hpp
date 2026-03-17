@@ -47,6 +47,9 @@ public:
     uint8_t readRegister(int reg);
     void writeRegister(int reg, uint8_t data);
 
+    // Call once per frame to tick the motor timeout counter
+    void updateMotorTimeout();
+
     // Status register (for external query)
     uint8_t getStatus() const { return statusRegister_; }
     uint8_t getCurrentTrack() const { return trackRegister_; }
@@ -108,6 +111,7 @@ private:
     int selectedSide_ = 0;
     int stepDirection_ = 1;  // +1 = in, -1 = out
     bool motorOn_ = false;
+    int motorTimeoutFrames_ = 0;   // Frames remaining before motor auto-off
     CommandType lastCommandType_ = CommandType::NONE;
 
     // Sector data buffer for read/write operations

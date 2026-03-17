@@ -25,6 +25,7 @@ void WD1770::reset()
     selectedSide_ = 0;
     stepDirection_ = 1;
     motorOn_ = false;
+    motorTimeoutFrames_ = 0;
     lastCommandType_ = CommandType::NONE;
     dataBuffer_.clear();
     dataIndex_ = 0;
@@ -283,6 +284,7 @@ void WD1770::cmdRestore(uint8_t cmd)
 {
     lastCommandType_ = CommandType::TYPE_I;
     motorOn_ = true;
+    motorTimeoutFrames_ = 100;
     statusRegister_ = STATUS_BUSY | STATUS_MOTOR_ON;
 
     // Move head to track 0
@@ -301,6 +303,7 @@ void WD1770::cmdSeek(uint8_t cmd)
 {
     lastCommandType_ = CommandType::TYPE_I;
     motorOn_ = true;
+    motorTimeoutFrames_ = 100;
     statusRegister_ = STATUS_BUSY | STATUS_MOTOR_ON;
 
     uint8_t target = dataRegister_;
@@ -328,6 +331,7 @@ void WD1770::cmdStep(uint8_t cmd, int direction)
 {
     lastCommandType_ = CommandType::TYPE_I;
     motorOn_ = true;
+    motorTimeoutFrames_ = 100;
     stepDirection_ = direction;
     statusRegister_ = STATUS_BUSY | STATUS_MOTOR_ON;
 
@@ -357,6 +361,7 @@ void WD1770::cmdReadSector(uint8_t cmd)
 {
     lastCommandType_ = CommandType::TYPE_II;
     motorOn_ = true;
+    motorTimeoutFrames_ = 100;
     multiSector_ = (cmd & 0x10) != 0;  // m bit
     statusRegister_ = STATUS_BUSY;
     dataReading_ = false;
@@ -399,6 +404,7 @@ void WD1770::cmdWriteSector(uint8_t cmd)
 {
     lastCommandType_ = CommandType::TYPE_II;
     motorOn_ = true;
+    motorTimeoutFrames_ = 100;
     multiSector_ = (cmd & 0x10) != 0;
     statusRegister_ = STATUS_BUSY;
     dataReading_ = false;
@@ -439,6 +445,7 @@ void WD1770::cmdReadAddress(uint8_t cmd)
 {
     lastCommandType_ = CommandType::TYPE_III;
     motorOn_ = true;
+    motorTimeoutFrames_ = 100;
     statusRegister_ = STATUS_BUSY;
     dataReading_ = false;
 
@@ -473,6 +480,7 @@ void WD1770::cmdReadTrack(uint8_t cmd)
 {
     lastCommandType_ = CommandType::TYPE_III;
     motorOn_ = true;
+    motorTimeoutFrames_ = 100;
     statusRegister_ = STATUS_BUSY;
     dataReading_ = false;
 
@@ -511,6 +519,7 @@ void WD1770::cmdWriteTrack(uint8_t cmd)
 {
     lastCommandType_ = CommandType::TYPE_III;
     motorOn_ = true;
+    motorTimeoutFrames_ = 100;
     statusRegister_ = STATUS_BUSY;
     dataWriting_ = false;
 
@@ -561,6 +570,21 @@ void WD1770::cmdForceInterrupt(uint8_t cmd)
         statusRegister_ &= ~STATUS_MOTOR_ON;
     }
     motorOn_ = true;
+    motorTimeoutFrames_ = 100;
+}
+
+// ============================================================================
+// Motor timeout
+// ============================================================================
+
+void WD1770::updateMotorTimeout()
+{
+    if (motorOn_ && !isBusy() && motorTimeoutFrames_ > 0) {
+        motorTimeoutFrames_--;
+        if (motorTimeoutFrames_ == 0) {
+            motorOn_ = false;
+        }
+    }
 }
 
 } // namespace zxspec

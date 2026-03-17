@@ -314,7 +314,8 @@ export class ScreenWindow extends BaseWindow {
       const vpW = window.innerWidth;
       const vpH = window.innerHeight;
       const headerEl = document.querySelector("header");
-      const minTop = headerEl ? headerEl.offsetHeight : 0;
+      const headerHidden = document.fullscreenElement || (headerEl && headerEl.classList.contains("auto-hide"));
+      const minTop = (headerEl && !headerHidden) ? headerEl.offsetHeight : 0;
       const margin = 24;
 
       // Available space below the header bar

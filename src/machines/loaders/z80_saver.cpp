@@ -117,12 +117,15 @@ uint32_t Z80Saver::save(const ZXSpectrum& machine, uint8_t* buffer, uint32_t buf
     }
     buffer[53] = ay.getSelectedRegister();
 
-    // T-states within current frame: bytes 54-57 (LE32)
+    // T-states within current frame: standard .z80 v3 encoding
+    // Bytes 55-56 = T-state counter mod (tsPerFrame/4), byte 57 bits 0-1 = quarter
     uint32_t currentTs = machine.getTStates();
-    buffer[54] = currentTs & 0xFF;
-    buffer[55] = (currentTs >> 8) & 0xFF;
-    buffer[56] = (currentTs >> 16) & 0xFF;
-    buffer[57] = (currentTs >> 24) & 0xFF;
+    uint32_t quarter = currentTs / 17727u;
+    uint32_t tsMod = currentTs % 17727u;
+    buffer[54] = 0;  // unused in standard format
+    buffer[55] = tsMod & 0xFF;
+    buffer[56] = (tsMod >> 8) & 0xFF;
+    buffer[57] = quarter & 0x03;
 
     // Frame counter mod 32 (for attribute flash timing): byte 58
     buffer[58] = machine.getFrameCounter() & 0x1F;

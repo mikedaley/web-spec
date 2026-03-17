@@ -209,12 +209,23 @@ bool Z80Loader::load(ZXSpectrum& machine, const uint8_t* data, uint32_t size)
             }
         }
 
-        // Restore T-states within frame from bytes 54-57 (LE32)
+        // Restore T-states within frame from bytes 55-57.
+        // Standard .z80 v3 format: bytes 55-56 = T-state counter mod
+        // (tsPerFrame/4), byte 57 bits 0-1 = which quarter of the frame.
+        // Our own saved snapshots store a full LE32 at bytes 54-57, but
+        // valid values are always < tsPerFrame (~70000), so the same
+        // decode works for both: we reconstruct from the standard fields
+        // and ignore byte 54 (which in standard files is the last AY
+        // register, and in ours is the low byte of a small LE32).
         if (version == 3 && size > 57)
         {
-            uint32_t savedTs = data[54] | (data[55] << 8) |
-                               (data[56] << 16) | (data[57] << 24);
-            if (savedTs > 0)
+            uint16_t tsMod = data[55] | (data[56] << 8);
+            uint8_t  tsQuarter = data[57] & 0x03;
+            // tsPerFrame/4 ≈ 17472 (48K) or 17727 (128K); use 17727 as
+            // a safe upper bound — clamping below handles any overshoot.
+            uint32_t savedTs = static_cast<uint32_t>(tsQuarter) * 17727u + tsMod;
+            // Clamp to a valid frame position (max tsPerFrame for 128K = 70908)
+            if (savedTs > 0 && savedTs < 71000)
             {
                 machine.getCPU()->setTStates(savedTs);
             }

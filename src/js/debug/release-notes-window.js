@@ -20,6 +20,8 @@ const RELEASE_DATA = [
       { hash: "3f7ebcc", text: "Memory map window now works correctly for all machines (128K, +2, +2A, +3)" },
       { hash: "------", text: "Sinclair 1 joystick left/right directions swapped" },
       { hash: "------", text: "Gamepad D-pad not working on non-standard mapping controllers" },
+      { hash: "------", text: "Fix Z80 snapshot T-state restore using standard v3 format encoding" },
+      { hash: "------", text: "Fix WD1770 disk motor never stopping after commands complete" },
     ],
     improvements: [
       { hash: "70cfaaf", text: "Improved spacing between Surface and Details buttons in disk drive window" },
@@ -31,6 +33,7 @@ const RELEASE_DATA = [
       { hash: "------", text: "Opus Discovery disk interface with WD1770 FDC, 6821 PIA, NMI-driven data transfer and OPD disk format support" },
       { hash: "------", text: "Numpad arrow keys mapped as cursor/joystick input (4/8/6/2 = L/U/R/D, 0 = fire)" },
       { hash: "------", text: "QuickDOS ROM option for Opus Discovery disk interface" },
+      { hash: "------", text: "Viewport-locked screen expands to use full space when header is auto-hidden" },
     ],
   },
   {

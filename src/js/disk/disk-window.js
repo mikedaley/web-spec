@@ -168,21 +168,19 @@ export class DiskWindow extends BaseWindow {
         </div>
         <span class="drive-interface-badge" id="drive-interface-badge">+3 FDC</span>
         <select class="drive-interface-badge drive-opus-rom-select" id="drive-opus-rom-select" style="display:none" title="Opus ROM">
-          <option value="0">Opus</option>
-          <option value="1">QuickDOS</option>
+          <option value="0">Opus 2.22</option>
+          <option value="1">Opus QD 2.31</option>
         </select>
         <div class="drive-toolbar-spacer"></div>
         <button class="drive-toolbar-btn drive-graphics-btn active" title="Toggle disk surface">
           <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
             <path d="M8 3C4.5 3 1.6 5.3.6 8c1 2.7 3.9 5 7.4 5s6.4-2.3 7.4-5c-1-2.7-3.9-5-7.4-5zm0 8.5A3.5 3.5 0 1 1 8 4.5a3.5 3.5 0 0 1 0 7zm0-5.5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"/>
           </svg>
-          <span>Surface</span>
         </button>
         <button class="drive-toolbar-btn drive-detail-btn" title="Toggle technical details">
           <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
             <path d="M8 1a7 7 0 1 0 0 14A7 7 0 0 0 8 1zm0 2.5a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM6.5 7h1.75v4.5H10v1H6v-1h1.25V8H6.5V7z"/>
           </svg>
-          <span>Details</span>
         </button>
       </div>
       <div class="disk-drives-row">

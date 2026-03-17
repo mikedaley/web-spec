@@ -1251,6 +1251,11 @@ class ZXSpectrumEmulator {
       app.classList.add("header-auto-hide");
       localStorage.setItem("zxspec-autohide-header", "true");
     }
+
+    // Re-constrain viewport-locked screen window to use the new available space
+    if (this.screenWindow && this.screenWindow._viewportLocked) {
+      this.screenWindow.constrainToViewport();
+    }
   }
 
   restoreAutoHideHeader() {
