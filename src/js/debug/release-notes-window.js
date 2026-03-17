@@ -41,6 +41,7 @@ const RELEASE_DATA = [
       { hash: "------", text: "ZX81 added to machine menu with correct state save/restore handling" },
       { hash: "------", text: "ZX81 .P file loader rewritten with direct memory load instead of ROM init loop" },
       { hash: "------", text: "Drag-and-drop now accepts .p files for ZX81 program loading" },
+      { hash: "------", text: "Auto-switch to +3 when inserting a DSK disk image from any machine" },
     ],
   },
   {

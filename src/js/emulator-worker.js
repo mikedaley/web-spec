@@ -1254,18 +1254,36 @@ self.onmessage = async function (e) {
 
     case "diskInsert": {
       if (!wasm || !msg.data) break;
+      // Auto-switch to +3 (machine ID 4) if current machine has no FDC
+      let diskMachineSwitched = false;
+      if (wasm._getMachineId() !== 4) {
+        initMachinePreservingBreakpoints(4);
+        diskMachineSwitched = true;
+      }
       const diskData = new Uint8Array(msg.data);
       const diskPtr = wasm._malloc(diskData.length);
       wasm.HEAPU8.set(diskData, diskPtr);
       wasm._diskInsert(msg.drive || 0, diskPtr, diskData.length);
       wasm._free(diskPtr);
+      if (diskMachineSwitched) {
+        self.postMessage({ type: "machineSwitched", machineId: 4 });
+      }
       self.postMessage({ type: "diskInserted", drive: msg.drive || 0, state: getState() });
       break;
     }
 
     case "diskInsertEmpty": {
       if (!wasm) break;
+      // Auto-switch to +3 if current machine has no FDC
+      let emptyDiskMachineSwitched = false;
+      if (wasm._getMachineId() !== 4) {
+        initMachinePreservingBreakpoints(4);
+        emptyDiskMachineSwitched = true;
+      }
       wasm._diskInsertEmpty(msg.drive || 0);
+      if (emptyDiskMachineSwitched) {
+        self.postMessage({ type: "machineSwitched", machineId: 4 });
+      }
       self.postMessage({ type: "diskInserted", drive: msg.drive || 0, state: getState() });
       break;
     }
