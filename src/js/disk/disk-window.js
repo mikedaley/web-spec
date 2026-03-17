@@ -73,6 +73,9 @@ export class DiskWindow extends BaseWindow {
     this._graphicsHidden = false;
     this._activeDrive = 0;
     this._drives = [_createDriveState(), _createDriveState()];
+    // Track whether a manual insert has been performed on each drive,
+    // so _autoRestoreDisk doesn't overwrite it if it completes later.
+    this._manualInsert = [false, false];
   }
 
   getState() {
@@ -133,6 +136,9 @@ export class DiskWindow extends BaseWindow {
     if (!filename) return;
 
     const recents = await getRecentDisks();
+    // Check after await — user may have manually inserted a disk while we were reading
+    if (this._manualInsert[driveIndex]) return;
+
     const entry = recents.find((r) => r.filename === filename);
     if (!entry) {
       // Disk not in recent store — clear the stale filename
@@ -142,6 +148,9 @@ export class DiskWindow extends BaseWindow {
     }
 
     const data = await loadRecentDisk(entry.id);
+    // Check again after second await
+    if (this._manualInsert[driveIndex]) return;
+
     if (!data) {
       this._drives[driveIndex].filename = null;
       this._updateNameDisplay(driveIndex);
@@ -335,6 +344,7 @@ export class DiskWindow extends BaseWindow {
       this._fileInput.click();
     });
     q("disk-blank-btn").addEventListener("click", () => {
+      this._manualInsert[driveIndex] = true;
       const isOpus = this._isOpus(this._proxy.state);
       if (isOpus) {
         this._proxy.opusDiskInsertEmpty(driveIndex);
@@ -719,6 +729,7 @@ export class DiskWindow extends BaseWindow {
 
   async _loadDiskFile(file) {
     const drive = this._activeDrive;
+    this._manualInsert[drive] = true;
     const reader = new FileReader();
     reader.onload = async (ev) => {
       const data = new Uint8Array(ev.target.result);
@@ -814,6 +825,7 @@ export class DiskWindow extends BaseWindow {
 
       dropdown.querySelectorAll(".recent-item:not(.empty):not(.recent-clear)").forEach((item) => {
         item.addEventListener("click", async () => {
+          this._manualInsert[driveIndex] = true;
           const id = parseInt(item.dataset.id, 10);
           const data = await loadRecentDisk(id);
           if (data) {
@@ -851,6 +863,7 @@ export class DiskWindow extends BaseWindow {
   }
 
   setFilename(filename, drive = 0) {
+    this._manualInsert[drive] = true;
     this._drives[drive].filename = filename;
     this._updateNameDisplay(drive);
   }

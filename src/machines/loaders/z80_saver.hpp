@@ -19,8 +19,8 @@ public:
 
 private:
     static constexpr uint32_t MAIN_HEADER_SIZE = 30;
-    static constexpr uint32_t ADDITIONAL_HEADER_SIZE = 54;
-    static constexpr uint32_t TOTAL_HEADER_SIZE = MAIN_HEADER_SIZE + 2 + ADDITIONAL_HEADER_SIZE;
+    static constexpr uint32_t ADDITIONAL_HEADER_SIZE_STD = 54;
+    static constexpr uint32_t ADDITIONAL_HEADER_SIZE_PLUS3 = 55;  // +2A/+3: extra byte for 0x1FFD
 };
 
 } // namespace zxspec

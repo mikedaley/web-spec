@@ -129,12 +129,25 @@ bool Z80Loader::load(ZXSpectrum& machine, const uint8_t* data, uint32_t size)
             machine.setPagingRegister(data[35]);
         }
 
-        // Restore port 0x1FFD for +2A/+3 snapshots (byte 36 in header)
+        // Restore port 0x1FFD for +2A/+3 snapshots.
+        // In the Z80 v3 format with a 55-byte additional header, the 0x1FFD
+        // value is stored in the last byte of the additional header (byte 86),
+        // NOT byte 36. Byte 36 is the IF1 paging register in the standard spec.
+        // For 54-byte headers, fall back to byte 36 for compatibility.
         bool isPlus2AOrPlus3 = (version == 3) &&
             (hardwareType == V3_HW_PLUS2A || hardwareType == V3_HW_PLUS3 || hardwareType == V3_HW_PLUS3_ALT);
-        if (isPlus2AOrPlus3 && size > 36)
+        if (isPlus2AOrPlus3)
         {
-            machine.setPagingRegister1FFD(data[36]);
+            uint8_t port1FFD = 0;
+            if (additionalHeaderLength == 55 && size > 86)
+            {
+                port1FFD = data[86];
+            }
+            else if (size > 36)
+            {
+                port1FFD = data[36];
+            }
+            machine.setPagingRegister1FFD(port1FFD);
         }
 
         uint32_t offset = 32 + additionalHeaderLength;

@@ -22,6 +22,8 @@ const RELEASE_DATA = [
       { hash: "------", text: "Gamepad D-pad not working on non-standard mapping controllers" },
       { hash: "------", text: "Fix Z80 snapshot T-state restore using standard v3 format encoding" },
       { hash: "------", text: "Fix WD1770 disk motor never stopping after commands complete" },
+      { hash: "------", text: "Fix +3 all-RAM paging not restored from Z80 v3 snapshots (0x1FFD at byte 86)" },
+      { hash: "------", text: "Fix disk window race where auto-restore could overwrite a manual disk insert" },
     ],
     improvements: [
       { hash: "70cfaaf", text: "Improved spacing between Surface and Details buttons in disk drive window" },
@@ -37,6 +39,8 @@ const RELEASE_DATA = [
       { hash: "------", text: "ZX81 emulation fixes: corrected NMI port polarity, edge-triggered INT via R register bit 6, and VSYNC tracking" },
       { hash: "------", text: "ZX81 keyboard mapping: Control keys remapped to SHIFT, correct period/comma/punctuation input" },
       { hash: "------", text: "ZX81 added to machine menu with correct state save/restore handling" },
+      { hash: "------", text: "ZX81 .P file loader rewritten with direct memory load instead of ROM init loop" },
+      { hash: "------", text: "Drag-and-drop now accepts .p files for ZX81 program loading" },
     ],
   },
   {

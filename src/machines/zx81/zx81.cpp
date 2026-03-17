@@ -573,39 +573,44 @@ void ZX81::loadP(const uint8_t* data, uint32_t size)
 
     reset();
 
-    // Run the ROM for a few frames to initialize system variables.
-    // Use the full frame as the INT window since the ZX81 uses
-    // R-register-based INT, not the Spectrum's narrow INT window.
-    z80_->signalInterrupt();
-    for (int f = 0; f < 200; f++)
-    {
-        z80_->execute(machineInfo_.tsPerFrame, machineInfo_.tsPerFrame);
-        z80_->resetTStates(machineInfo_.tsPerFrame);
-
-        // ZX81 INT: check R register bit 6 edge
-        uint8_t currentRBit6 = z80_->getRegister(Z80::ByteReg::R) & 0x40;
-        if (prevRBit6_ != 0 && currentRBit6 == 0)
-        {
-            z80_->signalInterrupt();
-        }
-        prevRBit6_ = currentRBit6;
-
-        // Check if we've reached the main loop (cursor visible)
-        uint16_t pc = z80_->getRegister(Z80::WordReg::PC);
-        if (pc == 0x0207)  // SLOW mode main loop
-            break;
-    }
-
     // .P file is a memory dump from address 0x4009 (system variables)
-    // to the end of the program/variables area
+    // to the end of the program/variables area.
+    // Load it directly into RAM without running the ROM init loop,
+    // which would require proper NMI/INT generation to complete.
     uint16_t loadAddr = 0x4009;
     for (uint32_t i = 0; i < size && (loadAddr + i) < 0x8000; i++)
     {
         memoryRam_[loadAddr - 0x4000 + i] = data[i];
     }
 
-    // Set up CPU to return to the main loop
-    z80_->setRegister(Z80::WordReg::PC, 0x0283);  // SLOW/FAST return point
+    // Set up system variables 0x4000-0x4008 (not included in .P file)
+    memoryRam_[0x0000] = 0xFF;  // ERR_NR: no error (-1)
+    memoryRam_[0x0001] = 0x80;  // FLAGS: bit 7 set (refresh display)
+    memoryRam_[0x0004] = 0xFF;  // RAMTOP low  (0x7FFF for 16K)
+    memoryRam_[0x0005] = 0x7F;  // RAMTOP high
+    memoryRam_[0x0006] = 0x02;  // MODE: SLOW
+    memoryRam_[0x0007] = 0x00;  // PPC low
+    memoryRam_[0x0008] = 0x00;  // PPC high
+
+    // ERR_SP: the ROM pushes the error handler return address (0x1BB)
+    // at RAMTOP-1/RAMTOP-2, then sets ERR_SP to point there.
+    uint16_t ramtop = 0x7FFF;
+    memoryRam_[ramtop - 0x4000]     = 0x07;  // Error return address high (0x0207)
+    memoryRam_[ramtop - 0x4000 - 1] = 0x02;  // Error return address low
+    uint16_t errSp = ramtop - 2;
+    memoryRam_[0x0002] = errSp & 0xFF;        // ERR_SP low
+    memoryRam_[0x0003] = (errSp >> 8) & 0xFF; // ERR_SP high
+
+    // Set up CPU registers to match post-initialization state
+    z80_->setRegister(Z80::ByteReg::I, 0x1E);      // Character set at 0x1E00
+    z80_->setIMMode(1);                              // Interrupt mode 1
+    z80_->setIFF1(1);                                // Interrupts enabled
+    z80_->setIFF2(1);
+    z80_->setRegister(Z80::WordReg::IX, 0x0281);    // NMI display line routine
+    z80_->setRegister(Z80::WordReg::IY, 0x4000);    // System variables base
+    z80_->setRegister(Z80::WordReg::SP, errSp);     // Stack below RAMTOP
+    z80_->setRegister(Z80::WordReg::PC, 0x0207);    // SLOW mode main loop
+
     audio_.reset();
     muteFrames_ = 5;
 }

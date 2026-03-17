@@ -28,14 +28,19 @@ uint32_t Z80Saver::save(const ZXSpectrum& machine, uint8_t* buffer, uint32_t buf
 
     int machineId = machine.getId();
     bool is128K = machineId != eZXSpectrum48;
+    bool isPlus2AOrPlus3 = (machineId == eZXSpectrum128_2A || machineId == eZXSpectrum128_3);
+
+    // +2A/+3 use a 55-byte additional header (extra byte for port 0x1FFD)
+    uint32_t additionalHeaderSize = isPlus2AOrPlus3 ? ADDITIONAL_HEADER_SIZE_PLUS3 : ADDITIONAL_HEADER_SIZE_STD;
+    uint32_t totalHeaderSize = MAIN_HEADER_SIZE + 2 + additionalHeaderSize;
 
     // Calculate required size: header + pages
     // Each page: 3 bytes header + 16384 bytes data (uncompressed)
     uint32_t pageCount = is128K ? 8 : 3;
-    uint32_t requiredSize = TOTAL_HEADER_SIZE + pageCount * (3 + MEM_PAGE_SIZE);
+    uint32_t requiredSize = totalHeaderSize + pageCount * (3 + MEM_PAGE_SIZE);
     if (requiredSize > bufferSize) return 0;
 
-    std::memset(buffer, 0, TOTAL_HEADER_SIZE);
+    std::memset(buffer, 0, totalHeaderSize);
 
     // --- Main 30-byte header ---
     uint16_t af = machine.getAF();
@@ -81,8 +86,8 @@ uint32_t Z80Saver::save(const ZXSpectrum& machine, uint8_t* buffer, uint32_t buf
     buffer[28] = machine.getIFF2() ? 1 : 0;
     buffer[29] = machine.getIM() & 3;
 
-    // --- Additional header (v3, 54 bytes) ---
-    writeLE16(buffer + 30, ADDITIONAL_HEADER_SIZE);  // Additional header length
+    // --- Additional header (v3, 54 or 55 bytes) ---
+    writeLE16(buffer + 30, additionalHeaderSize);  // Additional header length
     writeLE16(buffer + 32, machine.getPC());          // Actual PC
 
     // Hardware type: v3 encoding
@@ -101,12 +106,11 @@ uint32_t Z80Saver::save(const ZXSpectrum& machine, uint8_t* buffer, uint32_t buf
     // Paging register (128K+ only)
     buffer[35] = machine.getPagingRegister();
 
-    // Port 0x1FFD for +2A/+3 (stored in byte 86, the first byte after the standard v3 header)
-    // The Z80 v3 format has unused bytes 36-85; we use byte 86 (offset from header start)
-    // which is within the additional header area for our 54-byte additional header
-    if (machineId == eZXSpectrum128_2A || machineId == eZXSpectrum128_3)
+    // Port 0x1FFD for +2A/+3: stored at byte 86 (last byte of 55-byte additional header)
+    // This is the standard Z80 v3 location for the +3 paging register
+    if (isPlus2AOrPlus3)
     {
-        buffer[36] = machine.getPagingRegister1FFD();
+        buffer[86] = machine.getPagingRegister1FFD();
     }
 
     // AY-3-8912 state: bytes 37-52 = registers 0-15, byte 53 = selected register
@@ -133,7 +137,7 @@ uint32_t Z80Saver::save(const ZXSpectrum& machine, uint8_t* buffer, uint32_t buf
     // Bytes 59-85: zeros (unused) - already zeroed by memset
 
     // --- Memory pages ---
-    uint32_t offset = TOTAL_HEADER_SIZE;
+    uint32_t offset = totalHeaderSize;
 
     if (is128K)
     {

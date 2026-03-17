@@ -1783,7 +1783,7 @@ class ZXSpectrumEmulator {
   }
 
   setupDragAndDrop() {
-    const validExtensions = new Set(["sna", "z80", "tap", "tzx", "dsk", "opd"]);
+    const validExtensions = new Set(["sna", "z80", "tap", "tzx", "dsk", "opd", "p"]);
 
     // Prevent default browser behaviour for drag events globally
     document.addEventListener("dragover", (e) => {
