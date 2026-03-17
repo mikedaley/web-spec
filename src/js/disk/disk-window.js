@@ -82,6 +82,7 @@ export class DiskWindow extends BaseWindow {
     state.graphicsHidden = this._graphicsHidden;
     state.detailsOpen = this._detailsOpen;
     state.activeDrive = this._activeDrive;
+    state.opusRomType = this._opusRomType ?? 0;
     return state;
   }
 
@@ -109,6 +110,10 @@ export class DiskWindow extends BaseWindow {
     }
     if (state.activeDrive === 1) {
       this._activeDrive = 1;
+    }
+    if (state.opusRomType !== undefined) {
+      this._opusRomType = state.opusRomType;
+      this._proxy.setOpusRomType(state.opusRomType);
     }
     this._switchDriveTab(this._activeDrive);
     this._updateNameDisplay();
@@ -162,6 +167,10 @@ export class DiskWindow extends BaseWindow {
           <button class="drive-tab" data-drive="1">B:</button>
         </div>
         <span class="drive-interface-badge" id="drive-interface-badge">+3 FDC</span>
+        <select class="drive-interface-badge drive-opus-rom-select" id="drive-opus-rom-select" style="display:none" title="Opus ROM">
+          <option value="0">Opus</option>
+          <option value="1">QuickDOS</option>
+        </select>
         <div class="drive-toolbar-spacer"></div>
         <button class="drive-toolbar-btn drive-graphics-btn active" title="Toggle disk surface">
           <svg viewBox="0 0 16 16" width="12" height="12" fill="currentColor">
@@ -220,6 +229,19 @@ export class DiskWindow extends BaseWindow {
         this._switchDriveTab(drive);
       });
     });
+
+    // Opus ROM selector
+    const romSelect = this.contentElement.querySelector("#drive-opus-rom-select");
+    if (romSelect) {
+      // Restore saved ROM type
+      if (this._opusRomType !== undefined) {
+        romSelect.value = String(this._opusRomType);
+      }
+      romSelect.addEventListener("change", () => {
+        this._opusRomType = parseInt(romSelect.value, 10);
+        this._proxy.setOpusRomType(this._opusRomType);
+      });
+    }
 
     // Toolbar buttons
     this._graphicsBtn = this.contentElement.querySelector(".drive-graphics-btn");
@@ -459,13 +481,18 @@ export class DiskWindow extends BaseWindow {
 
     const now = performance.now();
 
-    // Update interface badge
+    // Update interface badge and ROM selector
     const isOpus = this._isOpus(state);
     if (isOpus !== this._lastIsOpus) {
       const badge = this.contentElement.querySelector("#drive-interface-badge");
+      const romSelect = this.contentElement.querySelector("#drive-opus-rom-select");
       if (badge) {
-        badge.textContent = isOpus ? "Opus" : "+3 FDC";
-        badge.classList.toggle("opus", isOpus);
+        badge.textContent = isOpus ? "" : "+3 FDC";
+        badge.style.display = isOpus ? "none" : "";
+      }
+      if (romSelect) {
+        romSelect.style.display = isOpus ? "" : "none";
+        romSelect.value = String(state.opusRomType ?? 0);
       }
       this._lastIsOpus = isOpus;
     }

@@ -2153,6 +2153,20 @@ void opusSetEnabled(int enabled) {
 }
 
 EMSCRIPTEN_KEEPALIVE
+int opusGetRomType() {
+    auto* spec = getSpectrumForOpus();
+    return spec ? static_cast<int>(spec->getOpusRomType()) : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void opusSetRomType(int type) {
+    auto* spec = getSpectrumForOpus();
+    if (spec) {
+        spec->setOpusRomType(static_cast<zxspec::ZXSpectrum::OpusRomType>(type));
+    }
+}
+
+EMSCRIPTEN_KEEPALIVE
 int opusIsPagedIn() {
     auto* spec = getSpectrumForOpus();
     return (spec && spec->getOpus().isPagedIn()) ? 1 : 0;

@@ -48,10 +48,7 @@ void ZXSpectrum48::init()
     }
 
     // Load Opus Discovery ROM if available
-    if (roms::ROM_OPUS_SIZE > 0)
-    {
-        opus_.loadROM(roms::ROM_OPUS, static_cast<uint32_t>(roms::ROM_OPUS_SIZE));
-    }
+    reloadOpusROM();
 
     setupPaging();
 }
@@ -75,7 +72,11 @@ void ZXSpectrum48::reloadSpectranetROM()
 
 void ZXSpectrum48::reloadOpusROM()
 {
-    if (roms::ROM_OPUS_SIZE > 0) {
+    if (opusRomType_ == OpusRomType::QUICKDOS && roms::ROM_QUICKDOS_SIZE > 0) {
+        printf("Loading QuickDOS ROM (%zu bytes)\n", roms::ROM_QUICKDOS_SIZE);
+        opus_.loadROM(roms::ROM_QUICKDOS, static_cast<uint32_t>(roms::ROM_QUICKDOS_SIZE));
+    } else if (roms::ROM_OPUS_SIZE > 0) {
+        printf("Loading Opus 2.22 ROM (%zu bytes)\n", roms::ROM_OPUS_SIZE);
         opus_.loadROM(roms::ROM_OPUS, static_cast<uint32_t>(roms::ROM_OPUS_SIZE));
     }
 }

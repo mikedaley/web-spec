@@ -122,6 +122,7 @@ add_custom_command(
             ${CMAKE_SOURCE_DIR}/roms/spectranet.rom
             ${CMAKE_SOURCE_DIR}/roms/zx81.rom
             ${CMAKE_SOURCE_DIR}/roms/Opus-222.rom
+            ${CMAKE_SOURCE_DIR}/roms/quickdos.rom
     COMMENT "Generating ROM data arrays"
 )
 
@@ -395,6 +396,8 @@ if(EMSCRIPTEN)
                 \"_traceGetMaxEntries\", \
                 \"_opusIsEnabled\", \
                 \"_opusSetEnabled\", \
+                \"_opusGetRomType\", \
+                \"_opusSetRomType\", \
                 \"_opusIsPagedIn\", \
                 \"_opusDiskInsert\", \
                 \"_opusDiskInsertEmpty\", \

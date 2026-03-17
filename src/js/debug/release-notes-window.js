@@ -30,6 +30,7 @@ const RELEASE_DATA = [
       { hash: "f0c2314", text: "Drive B support in disk window with A/B tab switching" },
       { hash: "------", text: "Opus Discovery disk interface with WD1770 FDC, 6821 PIA, NMI-driven data transfer and OPD disk format support" },
       { hash: "------", text: "Numpad arrow keys mapped as cursor/joystick input (4/8/6/2 = L/U/R/D, 0 = fire)" },
+      { hash: "------", text: "QuickDOS ROM option for Opus Discovery disk interface" },
     ],
   },
   {

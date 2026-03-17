@@ -191,10 +191,13 @@ public:
     virtual void reloadSpectranetROM() = 0;
 
     // Opus Discovery disk interface
+    enum class OpusRomType : uint8_t { OPUS_ORIGINAL = 0, QUICKDOS = 1 };
     OpusDiscovery& getOpus() { return opus_; }
     const OpusDiscovery& getOpus() const { return opus_; }
     bool isOpusEnabled() const { return opusEnabled_; }
     void setOpusEnabled(bool enabled) { opusEnabled_ = enabled; if (enabled) installOpcodeCallback(); }
+    OpusRomType getOpusRomType() const { return opusRomType_; }
+    void setOpusRomType(OpusRomType type) { opusRomType_ = type; reloadOpusROM(); }
     virtual void reloadOpusROM() = 0;
 
     // Issue number (2 or 3) — affects EAR/MIC feedback in IO reads
@@ -319,6 +322,7 @@ protected:
     // Opus Discovery disk interface
     OpusDiscovery opus_;
     bool opusEnabled_ = false;
+    OpusRomType opusRomType_ = OpusRomType::OPUS_ORIGINAL;
 
     // Memory (allocated by base, managed by variant)
     std::vector<uint8_t> memoryRom_;

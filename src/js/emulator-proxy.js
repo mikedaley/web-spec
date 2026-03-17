@@ -916,6 +916,10 @@ export class EmulatorProxy {
     this.worker.postMessage({ type: "setOpusEnabled", enabled });
   }
 
+  setOpusRomType(romType) {
+    this.worker.postMessage({ type: "setOpusRomType", romType });
+  }
+
   opusDiskInsert(drive, arrayBuffer) {
     this.worker.postMessage(
       { type: "opusDiskInsert", drive, data: arrayBuffer },

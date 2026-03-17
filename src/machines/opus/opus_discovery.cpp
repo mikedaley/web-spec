@@ -58,6 +58,8 @@ void OpusDiscovery::initRAMTables()
     //   LDIR from ROM 0x18AD to RAM 0x2000, length 0x89 bytes
     //   Then patch RAM[0x0013] = 0x23, RAM[0x0014] = 0x20
     //   (points subtable #0A to 0x2023)
+    // Both the standard Opus 2.22 and QuickDOS ROMs share this
+    // table layout (with minor offset differences in jump targets).
     static constexpr uint16_t TABLE_SRC = 0x18AD;
     static constexpr uint16_t TABLE_LEN = 0x0089;
 

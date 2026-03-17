@@ -194,6 +194,7 @@ function getState() {
     diskBWriteProtected: wasm._diskIsWriteProtected(1) !== 0,
     diskBCurrentTrack: wasm._diskGetCurrentTrack(1),
     opusEnabled: !!wasm._opusIsEnabled(),
+    opusRomType: wasm._opusGetRomType(),
     opusPagedIn: !!wasm._opusIsPagedIn(),
     opusDiskInserted: wasm._opusDiskIsInserted(0) !== 0,
     opusDiskModified: wasm._opusDiskIsModified(0) !== 0,
@@ -1306,6 +1307,14 @@ self.onmessage = async function (e) {
     case "setOpusEnabled":
       if (wasm) {
         wasm._opusSetEnabled(msg.enabled ? 1 : 0);
+        wasm._reset();
+        self.postMessage({ type: "stateUpdate", state: getState() });
+      }
+      break;
+
+    case "setOpusRomType":
+      if (wasm) {
+        wasm._opusSetRomType(msg.romType);
         wasm._reset();
         self.postMessage({ type: "stateUpdate", state: getState() });
       }
