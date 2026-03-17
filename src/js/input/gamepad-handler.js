@@ -14,8 +14,8 @@
 // Cursor (Protek/AGF): keys 5,6,7,8,0
 const JOYSTICK_KEY_MAPS = {
   sinclair1: {
-    right: [4, 4],  // 6
-    left:  [4, 3],  // 7
+    left:  [4, 4],  // 6
+    right: [4, 3],  // 7
     down:  [4, 2],  // 8
     up:    [4, 1],  // 9
     fire:  [4, 0],  // 0
@@ -196,8 +196,8 @@ export class GamepadHandler {
     let up = axisY < -this._deadzone;
     let down = axisY > this._deadzone;
 
-    // D-pad buttons (standard mapping: 12=up, 13=down, 14=left, 15=right)
-    if (gp.mapping === "standard" && gp.buttons.length > 15) {
+    // D-pad buttons (12=up, 13=down, 14=left, 15=right)
+    if (gp.buttons.length > 15) {
       if (gp.buttons[12].pressed) up = true;
       if (gp.buttons[13].pressed) down = true;
       if (gp.buttons[14].pressed) left = true;

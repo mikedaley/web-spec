@@ -271,7 +271,7 @@ export class JoystickWindow extends BaseWindow {
 
     // Keyboard-mapped types
     const keyNames = {
-      sinclair1: { up: "9", down: "8", left: "7", right: "6", fire: "0" },
+      sinclair1: { up: "9", down: "8", left: "6", right: "7", fire: "0" },
       sinclair2: { up: "4", down: "3", left: "2", right: "1", fire: "5" },
       cursor:    { up: "7", down: "6", left: "5", right: "8", fire: "0" },
     };

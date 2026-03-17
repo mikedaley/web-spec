@@ -18,7 +18,9 @@ const RELEASE_DATA = [
     ],
     fixes: [
       { hash: "3f7ebcc", text: "Memory map window now works correctly for all machines (128K, +2, +2A, +3)" },
-],
+      { hash: "------", text: "Sinclair 1 joystick left/right directions swapped" },
+      { hash: "------", text: "Gamepad D-pad not working on non-standard mapping controllers" },
+    ],
     improvements: [
       { hash: "70cfaaf", text: "Improved spacing between Surface and Details buttons in disk drive window" },
       { hash: "e187ca0", text: "FDC internals panel in disk drive debug window" },
@@ -27,6 +29,7 @@ const RELEASE_DATA = [
       { hash: "------", text: "Memory heatmap fade toggle switch and inverted fade slider for intuitive control" },
       { hash: "f0c2314", text: "Drive B support in disk window with A/B tab switching" },
       { hash: "------", text: "Opus Discovery disk interface with WD1770 FDC, 6821 PIA, NMI-driven data transfer and OPD disk format support" },
+      { hash: "------", text: "Numpad arrow keys mapped as cursor/joystick input (4/8/6/2 = L/U/R/D, 0 = fire)" },
     ],
   },
   {

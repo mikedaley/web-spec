@@ -90,6 +90,13 @@ const BASE_KEY_MAP = {
   ArrowUp: [[0, 0], [4, 3]],     // CAPS SHIFT + 7
   ArrowRight: [[0, 0], [4, 2]],  // CAPS SHIFT + 8
 
+  // Numpad arrows (same as arrow keys)
+  Numpad4: [[0, 0], [3, 4]],     // CAPS SHIFT + 5 (left)
+  Numpad2: [[0, 0], [4, 4]],     // CAPS SHIFT + 6 (down)
+  Numpad8: [[0, 0], [4, 3]],     // CAPS SHIFT + 7 (up)
+  Numpad6: [[0, 0], [4, 2]],     // CAPS SHIFT + 8 (right)
+  Numpad0: [[0, 0], [4, 0]],     // CAPS SHIFT + 0 (delete / fire)
+
   // Backspace = CAPS SHIFT + 0 (DELETE)
   Backspace: [[0, 0], [4, 0]],
 
