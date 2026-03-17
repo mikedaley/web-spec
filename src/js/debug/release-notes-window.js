@@ -34,6 +34,9 @@ const RELEASE_DATA = [
       { hash: "------", text: "Numpad arrow keys mapped as cursor/joystick input (4/8/6/2 = L/U/R/D, 0 = fire)" },
       { hash: "------", text: "QuickDOS ROM option for Opus Discovery disk interface" },
       { hash: "------", text: "Viewport-locked screen expands to use full space when header is auto-hidden" },
+      { hash: "------", text: "ZX81 emulation fixes: corrected NMI port polarity, edge-triggered INT via R register bit 6, and VSYNC tracking" },
+      { hash: "------", text: "ZX81 keyboard mapping: Control keys remapped to SHIFT, correct period/comma/punctuation input" },
+      { hash: "------", text: "ZX81 added to machine menu with correct state save/restore handling" },
     ],
   },
   {

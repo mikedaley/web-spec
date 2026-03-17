@@ -1519,6 +1519,9 @@ EMSCRIPTEN_KEEPALIVE
 uint8_t* exportState(uint32_t* sizeOut) {
     if (!g_machine) { *sizeOut = 0; return nullptr; }
 
+    // ZX81 doesn't use Z80 snapshot format — save states not supported yet
+    if (g_machine->getId() == 5) { *sizeOut = 0; return nullptr; }
+
     auto* spectrum = static_cast<zxspec::ZXSpectrum*>(g_machine);
 
     s_stateBuffer.resize(256 * 1024);  // 256KB max

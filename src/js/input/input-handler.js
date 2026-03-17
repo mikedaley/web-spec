@@ -97,6 +97,12 @@ const BASE_KEY_MAP = {
   Numpad6: [[0, 0], [4, 2]],     // CAPS SHIFT + 8 (right)
   Numpad0: [[0, 0], [4, 0]],     // CAPS SHIFT + 0 (delete / fire)
 
+  // Command (Meta) keys → CAPS SHIFT (same as Shift keys)
+  // On macOS this gives Command the same function as Shift, which maps to
+  // the ZX81's single SHIFT modifier and the Spectrum's CAPS SHIFT.
+  MetaLeft: [[0, 0]],
+  MetaRight: [[0, 0]],
+
   // Backspace = CAPS SHIFT + 0 (DELETE)
   Backspace: [[0, 0], [4, 0]],
 
@@ -149,6 +155,9 @@ export class InputHandler {
     this._capsShiftCodes = [...DEFAULT_CAPS_SHIFT_CODES];
     this._symbolShiftCodes = [...DEFAULT_SYMBOL_SHIFT_CODES];
 
+    // Machine ID (5 = ZX81, which has no Symbol Shift key)
+    this._machineId = 0;
+
     this._loadMappings();
     this._rebuildKeyMap();
   }
@@ -163,9 +172,33 @@ export class InputHandler {
     for (const code of this._capsShiftCodes) {
       this._keyMap[code] = [CAPS_SHIFT_MATRIX];
     }
-    for (const code of this._symbolShiftCodes) {
-      this._keyMap[code] = [SYMBOL_SHIFT_MATRIX];
+    if (this._machineId === 5) {
+      // ZX81 has no Symbol Shift key — position [7,1] is the period key.
+      // Map the Symbol Shift physical keys (Ctrl) to SHIFT instead.
+      for (const code of this._symbolShiftCodes) {
+        this._keyMap[code] = [CAPS_SHIFT_MATRIX];
+      }
+      // ZX81 punctuation: period is [7,1] directly, comma is SHIFT+[7,1].
+      // The Spectrum maps these as Symbol Shift compounds which don't apply.
+      this._keyMap.Period = [[7, 1]];                   // . = [7,1]
+      this._keyMap.Comma = [[0, 0], [7, 1]];            // , = SHIFT + .
+      this._keyMap.Quote = [[0, 0], [5, 0]];            // " = SHIFT + P
+      this._keyMap.Semicolon = [[0, 0], [5, 1]];        // ; = SHIFT + O
+      this._keyMap.Slash = [[0, 0], [0, 4]];            // / = SHIFT + V
+      this._keyMap.Minus = [[0, 0], [6, 3]];            // - = SHIFT + J
+      this._keyMap.Equal = [[0, 0], [6, 1]];            // = = SHIFT + L
+    } else {
+      for (const code of this._symbolShiftCodes) {
+        this._keyMap[code] = [SYMBOL_SHIFT_MATRIX];
+      }
     }
+  }
+
+  // Called when the machine changes so we can adjust key mappings
+  setMachine(machineId) {
+    this.releaseAllKeys();
+    this._machineId = machineId;
+    this._rebuildKeyMap();
   }
 
   _loadMappings() {

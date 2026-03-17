@@ -86,6 +86,10 @@ private:
     // HSYNC/VSYNC state
     bool vsyncActive_ = false;
 
+    // INT edge detection: track previous R register bit 6 state
+    // INT fires on the transition of bit 6 from 1 → 0, not as a level
+    uint8_t prevRBit6_ = 0x40;
+
     // ZX81's own framebuffer (RGBA, same dimensions as Spectrum)
     std::array<uint8_t, FRAMEBUFFER_SIZE> zx81Framebuffer_{};
     std::array<uint8_t, SIGNAL_BUFFER_SIZE> zx81SignalBuffer_{};

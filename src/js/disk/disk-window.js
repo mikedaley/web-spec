@@ -122,6 +122,38 @@ export class DiskWindow extends BaseWindow {
     if (this.isVisible) {
       this._fitToContent();
     }
+
+    // Auto-restore disk images from recent disks store
+    this._autoRestoreDisk(0);
+    this._autoRestoreDisk(1);
+  }
+
+  async _autoRestoreDisk(driveIndex) {
+    const filename = this._drives[driveIndex].filename;
+    if (!filename) return;
+
+    const recents = await getRecentDisks();
+    const entry = recents.find((r) => r.filename === filename);
+    if (!entry) {
+      // Disk not in recent store — clear the stale filename
+      this._drives[driveIndex].filename = null;
+      this._updateNameDisplay(driveIndex);
+      return;
+    }
+
+    const data = await loadRecentDisk(entry.id);
+    if (!data) {
+      this._drives[driveIndex].filename = null;
+      this._updateNameDisplay(driveIndex);
+      return;
+    }
+
+    const isOpus = this._isOpus(this._proxy.state);
+    if (isOpus) {
+      this._proxy.opusDiskInsert(driveIndex, data.data.buffer.slice(0));
+    } else {
+      this._proxy.diskInsert(driveIndex, data.data.buffer.slice(0));
+    }
   }
 
   _driveHTML(driveIndex, label) {
