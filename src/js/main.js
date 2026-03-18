@@ -18,6 +18,7 @@ import { CPUDebuggerWindow } from "./debug/cpu-debugger-window.js";
 import { StackViewerWindow } from "./debug/stack-viewer-window.js";
 import { TapeWindow } from "./tape/tape-window.js";
 import { DiskWindow } from "./disk/disk-window.js";
+import { DiskExplorerWindow, DiskAnalysisWindow } from "./disk/disk-explorer-window.js";
 import { SoundWindow } from "./audio/sound-window.js";
 import { BasicProgramWindow } from "./debug/basic-program-window.js";
 import { RuleBuilderWindow } from "./debug/rule-builder-window.js";
@@ -159,6 +160,16 @@ class ZXSpectrumEmulator {
       this.diskWindow = new DiskWindow(this.proxy);
       this.diskWindow.create();
       this.windowManager.register(this.diskWindow);
+
+      // Create disk explorer and analysis windows
+      this.diskExplorerWindow = new DiskExplorerWindow(this.proxy);
+      this.diskExplorerWindow.create();
+      this.windowManager.register(this.diskExplorerWindow);
+
+      this.diskAnalysisWindow = new DiskAnalysisWindow();
+      this.diskAnalysisWindow.create();
+      this.windowManager.register(this.diskAnalysisWindow);
+      this.diskExplorerWindow.setAnalysisWindow(this.diskAnalysisWindow);
 
       // Set up audio driver (before window registration so sound window can be created)
       this.audioDriver = new AudioDriver(this.proxy);
@@ -303,6 +314,8 @@ class ZXSpectrumEmulator {
         { id: "tnfs-browser", visible: false },
         { id: "save-states", visible: false },
         { id: "disk-window", visible: false },
+        { id: "disk-explorer", visible: false },
+        { id: "disk-analysis", visible: false },
         { id: "release-notes", visible: false },
       ]);
 
@@ -638,6 +651,16 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // View menu > Disk Explorer
+    const diskExplorerBtn = document.getElementById("btn-disk-explorer");
+    if (diskExplorerBtn) {
+      diskExplorerBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("disk-explorer");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
     // View menu > Sound
     const soundDebugBtn = document.getElementById("btn-sound-debug");
     if (soundDebugBtn) {
@@ -863,6 +886,7 @@ class ZXSpectrumEmulator {
       "btn-display": "display-settings",
       "btn-tape-player": "tape-window",
       "btn-disk-drive": "disk-window",
+      "btn-disk-explorer": "disk-explorer",
       "btn-sound-debug": "sound-debug",
       "btn-memory-map": "memory-map",
       "btn-keyboard": "keyboard",
