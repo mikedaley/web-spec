@@ -78,11 +78,10 @@ export class SettingsWindow extends BaseWindow {
   create() {
     super.create();
     this._setupEventListeners();
-    this._fitToContent();
   }
 
-  restoreState(state) {
-    super.restoreState(state);
+  show() {
+    super.show();
     this._fitToContent();
   }
 
