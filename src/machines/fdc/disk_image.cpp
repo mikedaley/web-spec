@@ -197,13 +197,16 @@ bool DiskImage::loadExtendedDSK(const uint8_t* data, uint32_t size)
             sector.fdcStatus1 = data[infoOffset + 4];
             sector.fdcStatus2 = data[infoOffset + 5];
 
-            // Extended DSK: actual data length in bytes 6-7 of sector info
+            // Extended DSK: actual data length in bytes 6-7 of sector info.
+            // A value of 0 means no data is stored for this sector (common on
+            // protection tracks with non-standard size codes N >= 7). The sector
+            // exists in the ID field but has no readable data.
             uint32_t actualSize = data[infoOffset + 6] | (data[infoOffset + 7] << 8);
-            if (actualSize == 0) {
-                actualSize = sectorSize(sector.sizeCode);
-            }
 
-            if (dataOffset + actualSize > size) return false;
+            if (dataOffset + actualSize > size) {
+                // Truncate to available data to handle malformed images
+                actualSize = (dataOffset < size) ? (size - dataOffset) : 0;
+            }
 
             uint32_t declaredSize = sectorSize(sector.sizeCode);
 
