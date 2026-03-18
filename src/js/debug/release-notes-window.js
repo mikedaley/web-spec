@@ -60,6 +60,7 @@ const RELEASE_DATA = [
       { hash: "fa6074b", text: "Dedicated copy protection module with per-scheme handling" },
       { hash: "2df2c63", text: "Expanded disk compatibility tests to all 12 protected images" },
       { hash: "c0d4725", text: "FDC Read Track command, motor-off abort, and refined protection handling" },
+      { hash: "fcb7432", text: "Aligned Disk Explorer protection detection with C++ copy protection module" },
     ],
   },
   {
