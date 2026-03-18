@@ -25,19 +25,19 @@ const FDC_PHASE_NAMES = ["Command", "Exec", "Result"];
 
 const FDC_COMMAND_NAMES = {
   0x06: "Read Data",
-  0x0C: "Read Del",
+  0x0c: "Read Del",
   0x05: "Write Data",
   0x09: "Write Del",
-  0x0A: "Read ID",
-  0x0D: "Format",
+  0x0a: "Read ID",
+  0x0d: "Format",
   0x11: "Scan Eq",
   0x19: "Scan Lo/Eq",
-  0x1D: "Scan Hi/Eq",
+  0x1d: "Scan Hi/Eq",
   0x07: "Recalibrate",
   0x08: "Sense Int",
   0x03: "Specify",
   0x04: "Sense Drv",
-  0x0F: "Seek",
+  0x0f: "Seek",
 };
 
 function _createDriveState() {
@@ -229,8 +229,8 @@ export class DiskWindow extends BaseWindow {
       <div class="disk-drives-row">
         ${this._driveHTML(0, "A")}
         ${this._driveHTML(1, "B")}
-        <div class="drive-detail-panel">
-          <div class="dd-section-label">Drive State</div>
+        <div class="drive-detail-panel" id="dd-panel-fdc">
+          <div class="dd-section-label">Drive State <span class="dd-chip-label">uPD765A</span></div>
           <table class="drive-detail-table">
             <tr><td class="dd-label">Track</td><td class="dd-val" id="dd-track">0</td><td class="dd-label">Motor</td><td class="dd-val" id="dd-motor">OFF</td></tr>
             <tr><td class="dd-label">Phase</td><td class="dd-val" id="dd-phase">Command</td><td class="dd-label">Mode</td><td class="dd-val" id="dd-mode">Read</td></tr>
@@ -250,6 +250,16 @@ export class DiskWindow extends BaseWindow {
             <tr><td class="dd-label">ST0</td><td class="dd-val" id="dd-st0">--</td><td class="dd-label">ST1</td><td class="dd-val" id="dd-st1">--</td><td class="dd-label">ST2</td><td class="dd-val" id="dd-st2">--</td></tr>
           </table>
         </div>
+        <div class="drive-detail-panel" id="dd-panel-opus" style="display:none">
+          <div class="dd-section-label">Drive State <span class="dd-chip-label">WD1770</span></div>
+          <table class="drive-detail-table">
+            <tr><td class="dd-label">Track</td><td class="dd-val" id="dd-opus-track">0</td><td class="dd-label">Motor</td><td class="dd-val" id="dd-opus-motor">OFF</td></tr>
+          </table>
+          <div class="dd-section-label">WD1770</div>
+          <table class="drive-detail-table">
+            <tr><td class="dd-label">Status</td><td class="dd-val" id="dd-opus-status">00</td><td class="dd-label">Paged</td><td class="dd-val" id="dd-opus-paged">No</td></tr>
+          </table>
+        </div>
       </div>
     `;
   }
@@ -264,7 +274,9 @@ export class DiskWindow extends BaseWindow {
     });
 
     // Opus ROM selector
-    const romSelect = this.contentElement.querySelector("#drive-opus-rom-select");
+    const romSelect = this.contentElement.querySelector(
+      "#drive-opus-rom-select",
+    );
     if (romSelect) {
       // Restore saved ROM type
       if (this._opusRomType !== undefined) {
@@ -277,7 +289,9 @@ export class DiskWindow extends BaseWindow {
     }
 
     // Toolbar buttons
-    this._graphicsBtn = this.contentElement.querySelector(".drive-graphics-btn");
+    this._graphicsBtn = this.contentElement.querySelector(
+      ".drive-graphics-btn",
+    );
     this._graphicsBtn.addEventListener("click", () => this._toggleGraphics());
     this._detailBtn = this.contentElement.querySelector(".drive-detail-btn");
     this._detailBtn.addEventListener("click", () => this._toggleDetails());
@@ -295,8 +309,10 @@ export class DiskWindow extends BaseWindow {
     if (canvasB) this._drives[1].renderer = new DiskSurfaceRenderer(canvasB);
 
     // Track bar canvases
-    this._drives[0].trackBarCanvas = this.contentElement.querySelector("#disk-track-bar");
-    this._drives[1].trackBarCanvas = this.contentElement.querySelector("#b-disk-track-bar");
+    this._drives[0].trackBarCanvas =
+      this.contentElement.querySelector("#disk-track-bar");
+    this._drives[1].trackBarCanvas =
+      this.contentElement.querySelector("#b-disk-track-bar");
 
     // Hidden file input
     this._fileInput = document.createElement("input");
@@ -343,7 +359,7 @@ export class DiskWindow extends BaseWindow {
 
     q("disk-insert-btn").addEventListener("click", () => {
       const exts = this._getAllowedExtensions(this._proxy.state);
-      const accept = exts.map(e => `${e},${e.toUpperCase()}`).join(",");
+      const accept = exts.map((e) => `${e},${e.toUpperCase()}`).join(",");
       this._fileInput.accept = accept;
       this._fileInput.click();
     });
@@ -355,7 +371,9 @@ export class DiskWindow extends BaseWindow {
       } else {
         this._proxy.diskInsertEmpty(driveIndex);
       }
-      this._drives[driveIndex].filename = isOpus ? "Untitled.opd" : "Untitled.dsk";
+      this._drives[driveIndex].filename = isOpus
+        ? "Untitled.opd"
+        : "Untitled.dsk";
       this._updateNameDisplay(driveIndex);
     });
     q("disk-eject-btn").addEventListener("click", () => {
@@ -461,7 +479,10 @@ export class DiskWindow extends BaseWindow {
 
     if (!inserted) {
       // Empty state — dim segments
-      ctx.fillStyle = getComputedStyle(this.element).getPropertyValue("--overlay-white-5").trim() || "rgba(255,255,255,0.03)";
+      ctx.fillStyle =
+        getComputedStyle(this.element)
+          .getPropertyValue("--overlay-white-5")
+          .trim() || "rgba(255,255,255,0.03)";
       for (let t = 0; t < numTracks; t++) {
         ctx.fillRect(t * trackW + 0.5, 0, trackW - 1, h);
       }
@@ -480,9 +501,11 @@ export class DiskWindow extends BaseWindow {
       if (t === currentTrack) {
         // Current track — green=read, red=write, yellow=idle
         if (motorOn) {
-          ctx.fillStyle = isReadMode ? "rgba(0, 255, 0, 0.9)" : "rgba(255, 0, 0, 0.9)";
+          ctx.fillStyle = isReadMode
+            ? "rgba(0, 255, 0, 0.9)"
+            : "rgba(255, 0, 0, 0.9)";
         } else {
-          ctx.fillStyle = "rgba(255, 255, 0, 0.6)";
+          ctx.fillStyle = "rgba(160, 155, 150, 0.7)";
         }
         ctx.fillRect(x + 0.5, 0, sw, h);
       } else if (counts[t] > 0) {
@@ -514,7 +537,7 @@ export class DiskWindow extends BaseWindow {
   _hasDiskInterface(state) {
     const mid = state.machineId;
     if (mid === 3 || mid === 4) return true; // +2A/+3 built-in FDC
-    return !!state.opusEnabled;              // others need Opus
+    return !!state.opusEnabled; // others need Opus
   }
 
   _getInterfaceName(state) {
@@ -534,7 +557,7 @@ export class DiskWindow extends BaseWindow {
   _isAllowedFormat(filename, state) {
     const exts = this._getAllowedExtensions(state);
     const lower = filename.toLowerCase();
-    return exts.some(ext => lower.endsWith(ext));
+    return exts.some((ext) => lower.endsWith(ext));
   }
 
   // Read per-drive disk state from the correct interface (Opus or +3 FDC)
@@ -593,7 +616,9 @@ export class DiskWindow extends BaseWindow {
     const isOpus = this._isOpus(state);
     if (isOpus !== this._lastIsOpus) {
       const badge = this.contentElement.querySelector("#drive-interface-badge");
-      const romSelect = this.contentElement.querySelector("#drive-opus-rom-select");
+      const romSelect = this.contentElement.querySelector(
+        "#drive-opus-rom-select",
+      );
       if (badge) {
         badge.textContent = isOpus ? "" : "+3 FDC";
         badge.style.display = isOpus ? "none" : "";
@@ -602,7 +627,13 @@ export class DiskWindow extends BaseWindow {
         romSelect.style.display = isOpus ? "" : "none";
         romSelect.value = String(state.opusRomType ?? 0);
       }
+      // Switch detail panels
+      const fdcPanel = this.contentElement.querySelector("#dd-panel-fdc");
+      const opusPanel = this.contentElement.querySelector("#dd-panel-opus");
+      if (fdcPanel) fdcPanel.style.display = isOpus ? "none" : "";
+      if (opusPanel) opusPanel.style.display = isOpus ? "" : "none";
       this._lastIsOpus = isOpus;
+      if (this._detailsOpen) this._fitToContent();
     }
 
     // Update both drives (track access counts decay even when not visible)
@@ -636,7 +667,9 @@ export class DiskWindow extends BaseWindow {
 
       // Write protect
       if (wp !== ds.lastWriteProtected) {
-        const cb = this.contentElement.querySelector(`#${prefix}disk-wp-checkbox`);
+        const cb = this.contentElement.querySelector(
+          `#${prefix}disk-wp-checkbox`,
+        );
         if (cb && cb.checked !== wp) cb.checked = wp;
       }
     }
@@ -681,15 +714,24 @@ export class DiskWindow extends BaseWindow {
   }
 
   _updateDetailsPanel(state) {
+    const isOpus = this._isOpus(state);
+    if (isOpus) {
+      this._updateOpusDetails(state);
+    } else {
+      this._updateFDCDetails(state);
+    }
+  }
+
+  _updateFDCDetails(state) {
     const el = (id) => this.contentElement.querySelector(`#${id}`);
-    const hex = (v) => v !== undefined ? v.toString(16).toUpperCase().padStart(2, "0") : "--";
+    const hex = (v) =>
+      v !== undefined ? v.toString(16).toUpperCase().padStart(2, "0") : "--";
 
     const ds = this._drives[this._activeDrive];
     const driveState = this._getDriveState(this._activeDrive, state);
     const track = ds.lastTrack;
     const motorOn = driveState.motorOn;
-    const isOpus = this._isOpus(state);
-    const fdcPhase = isOpus ? 0 : state.diskFDCPhase;
+    const fdcPhase = state.diskFDCPhase;
     const isReadMode = driveState.isReadMode;
 
     const ddTrack = el("dd-track");
@@ -713,15 +755,18 @@ export class DiskWindow extends BaseWindow {
 
     // FDC command info
     const cmdId = state.diskCommand;
-    const cmdName = FDC_COMMAND_NAMES[cmdId & 0x1F] || (cmdId ? `0x${hex(cmdId)}` : "--");
+    const cmdName =
+      FDC_COMMAND_NAMES[cmdId & 0x1f] || (cmdId ? `0x${hex(cmdId)}` : "--");
     const ddCmd = el("dd-cmd");
     if (ddCmd) ddCmd.textContent = cmdName;
 
     const ddEot = el("dd-eot");
-    if (ddEot) ddEot.textContent = state.diskEOT !== undefined ? state.diskEOT : "--";
+    if (ddEot)
+      ddEot.textContent = state.diskEOT !== undefined ? state.diskEOT : "--";
 
     const ddSide = el("dd-side");
-    if (ddSide) ddSide.textContent = state.diskSide !== undefined ? state.diskSide : "--";
+    if (ddSide)
+      ddSide.textContent = state.diskSide !== undefined ? state.diskSide : "--";
 
     const ddData = el("dd-data");
     if (ddData) {
@@ -732,27 +777,73 @@ export class DiskWindow extends BaseWindow {
 
     // Sector ID
     const ddC = el("dd-sec-c");
-    if (ddC) ddC.textContent = state.diskLastC !== undefined ? hex(state.diskLastC) : "--";
+    if (ddC)
+      ddC.textContent =
+        state.diskLastC !== undefined ? hex(state.diskLastC) : "--";
     const ddH = el("dd-sec-h");
-    if (ddH) ddH.textContent = state.diskLastH !== undefined ? hex(state.diskLastH) : "--";
+    if (ddH)
+      ddH.textContent =
+        state.diskLastH !== undefined ? hex(state.diskLastH) : "--";
     const ddR = el("dd-sec-r");
-    if (ddR) ddR.textContent = state.diskLastR !== undefined ? hex(state.diskLastR) : "--";
+    if (ddR)
+      ddR.textContent =
+        state.diskLastR !== undefined ? hex(state.diskLastR) : "--";
     const ddN = el("dd-sec-n");
-    if (ddN) ddN.textContent = state.diskLastN !== undefined ? hex(state.diskLastN) : "--";
+    if (ddN)
+      ddN.textContent =
+        state.diskLastN !== undefined ? hex(state.diskLastN) : "--";
 
     // Result status registers
     const ddST0 = el("dd-st0");
-    if (ddST0) ddST0.textContent = state.diskST0 !== undefined ? hex(state.diskST0) : "--";
+    if (ddST0)
+      ddST0.textContent =
+        state.diskST0 !== undefined ? hex(state.diskST0) : "--";
     const ddST1 = el("dd-st1");
-    if (ddST1) ddST1.textContent = state.diskST1 !== undefined ? hex(state.diskST1) : "--";
+    if (ddST1)
+      ddST1.textContent =
+        state.diskST1 !== undefined ? hex(state.diskST1) : "--";
     const ddST2 = el("dd-st2");
-    if (ddST2) ddST2.textContent = state.diskST2 !== undefined ? hex(state.diskST2) : "--";
+    if (ddST2)
+      ddST2.textContent =
+        state.diskST2 !== undefined ? hex(state.diskST2) : "--";
+  }
+
+  _updateOpusDetails(state) {
+    const el = (id) => this.contentElement.querySelector(`#${id}`);
+    const hex = (v) =>
+      v !== undefined ? v.toString(16).toUpperCase().padStart(2, "0") : "--";
+
+    const ds = this._drives[this._activeDrive];
+    const driveState = this._getDriveState(this._activeDrive, state);
+
+    const ddTrack = el("dd-opus-track");
+    if (ddTrack) ddTrack.textContent = ds.lastTrack;
+
+    const ddMotor = el("dd-opus-motor");
+    if (ddMotor) {
+      ddMotor.textContent = driveState.motorOn ? "ON" : "OFF";
+      ddMotor.classList.toggle("on", driveState.motorOn);
+    }
+
+    const ddStatus = el("dd-opus-status");
+    if (ddStatus) ddStatus.textContent = hex(state.opusStatus);
+
+    const ddPaged = el("dd-opus-paged");
+    if (ddPaged) {
+      const paged = !!state.opusPagedIn;
+      ddPaged.textContent = paged ? "Yes" : "No";
+      ddPaged.classList.toggle("on", paged);
+    }
   }
 
   _updateInsertedState(driveIndex, inserted) {
     const prefix = driveIndex === 0 ? "" : "b-";
-    const ejectBtn = this.contentElement.querySelector(`#${prefix}disk-eject-btn`);
-    const saveBtn = this.contentElement.querySelector(`#${prefix}disk-save-btn`);
+    const ejectBtn = this.contentElement.querySelector(
+      `#${prefix}disk-eject-btn`,
+    );
+    const saveBtn = this.contentElement.querySelector(
+      `#${prefix}disk-save-btn`,
+    );
     if (ejectBtn) ejectBtn.disabled = !inserted;
     if (saveBtn) saveBtn.disabled = !inserted;
     if (!inserted) {
@@ -760,7 +851,8 @@ export class DiskWindow extends BaseWindow {
       this._updateNameDisplay(driveIndex);
       this._drives[driveIndex].trackAccessCounts.fill(0);
       this._drives[driveIndex].maxAccessCount = 0;
-      if (this._drives[driveIndex].renderer) this._drives[driveIndex].renderer.reset();
+      if (this._drives[driveIndex].renderer)
+        this._drives[driveIndex].renderer.reset();
     }
   }
 
@@ -837,10 +929,12 @@ export class DiskWindow extends BaseWindow {
         const description = isOpus ? "Opus Disk Image" : "Disk Image";
         const handle = await window.showSaveFilePicker({
           suggestedName: filename,
-          types: [{
-            description,
-            accept: { "application/octet-stream": [defaultExt] },
-          }],
+          types: [
+            {
+              description,
+              accept: { "application/octet-stream": [defaultExt] },
+            },
+          ],
         });
         const writable = await handle.createWritable();
         await writable.write(blob);
@@ -867,12 +961,14 @@ export class DiskWindow extends BaseWindow {
     }
 
     const prefix = driveIndex === 0 ? "" : "b-";
-    const dropdown = this.contentElement.querySelector(`#${prefix}disk-recent-dropdown`);
+    const dropdown = this.contentElement.querySelector(
+      `#${prefix}disk-recent-dropdown`,
+    );
     if (!dropdown) return;
 
     const allRecents = await getRecentDisks();
-    const recents = allRecents.filter(entry =>
-      this._isAllowedFormat(entry.filename, this._proxy.state)
+    const recents = allRecents.filter((entry) =>
+      this._isAllowedFormat(entry.filename, this._proxy.state),
     );
     if (recents.length === 0) {
       dropdown.innerHTML = `<div class="recent-item empty">No recent disks</div>`;
@@ -885,23 +981,28 @@ export class DiskWindow extends BaseWindow {
       html += `<div class="recent-item recent-clear">Clear Recent</div>`;
       dropdown.innerHTML = html;
 
-      dropdown.querySelectorAll(".recent-item:not(.empty):not(.recent-clear)").forEach((item) => {
-        item.addEventListener("click", async () => {
-          this._manualInsert[driveIndex] = true;
-          const id = parseInt(item.dataset.id, 10);
-          const data = await loadRecentDisk(id);
-          if (data) {
-            if (this._isOpus(this._proxy.state)) {
-              this._proxy.opusDiskInsert(driveIndex, data.data.buffer.slice(0));
-            } else {
-              this._proxy.diskInsert(driveIndex, data.data.buffer.slice(0));
+      dropdown
+        .querySelectorAll(".recent-item:not(.empty):not(.recent-clear)")
+        .forEach((item) => {
+          item.addEventListener("click", async () => {
+            this._manualInsert[driveIndex] = true;
+            const id = parseInt(item.dataset.id, 10);
+            const data = await loadRecentDisk(id);
+            if (data) {
+              if (this._isOpus(this._proxy.state)) {
+                this._proxy.opusDiskInsert(
+                  driveIndex,
+                  data.data.buffer.slice(0),
+                );
+              } else {
+                this._proxy.diskInsert(driveIndex, data.data.buffer.slice(0));
+              }
+              this._drives[driveIndex].filename = data.filename;
+              this._updateNameDisplay(driveIndex);
             }
-            this._drives[driveIndex].filename = data.filename;
-            this._updateNameDisplay(driveIndex);
-          }
-          this._closeRecentDropdown();
+            this._closeRecentDropdown();
+          });
         });
-      });
 
       const clearBtn = dropdown.querySelector(".recent-clear");
       if (clearBtn) {
@@ -919,7 +1020,9 @@ export class DiskWindow extends BaseWindow {
 
   _closeRecentDropdown() {
     const prefix = this._dropdownDrive === 1 ? "b-" : "";
-    const dropdown = this.contentElement.querySelector(`#${prefix}disk-recent-dropdown`);
+    const dropdown = this.contentElement.querySelector(
+      `#${prefix}disk-recent-dropdown`,
+    );
     if (dropdown) dropdown.classList.remove("open");
     this._dropdownOpen = false;
   }
