@@ -68,6 +68,7 @@ set(ZXPLUS3_SOURCES
     src/machines/zxplus3/zx_spectrum_plus3.cpp
     src/machines/fdc/upd765a.cpp
     src/machines/fdc/disk_image.cpp
+    src/machines/fdc/copy_protection.cpp
 )
 
 # Source files - ZX81
@@ -480,6 +481,7 @@ else()
         tests/disk/disk_test.cpp
         src/machines/fdc/disk_image.cpp
         src/machines/fdc/upd765a.cpp
+        src/machines/fdc/copy_protection.cpp
     )
     target_include_directories(disk_test PRIVATE
         ${CMAKE_SOURCE_DIR}/src/core

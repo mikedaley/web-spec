@@ -6,6 +6,7 @@
  */
 
 #include "upd765a.hpp"
+#include "copy_protection.hpp"
 #include <cstring>
 #include <cstdio>
 
@@ -482,42 +483,25 @@ void UPD765A::cmdReadData()
     // CRC error propagation: if the EDSK sector has CRC error flags set
     // (without being a weak sector), propagate them. Speedlock +3 protection
     // embeds deliberate CRC errors for verification.
+    // CRC error propagation: report CRC errors from EDSK sector flags
     if (!xferWeakSector_ && sector->hasCRCError()) {
         xferST1_ |= ST1_DE;
         xferST2_ |= ST2_DD;
 
-        // Speedlock +3 detection: if the same CRC-error sector is being read
-        // repeatedly, apply synthetic data variation. Speedlock reads the
-        // protection sector 2-3 times and compares bytes — if the data is
-        // identical between reads, the check fails. Many EDSK images store
-        // CRC error flags without explicit weak copies, so we must simulate
-        // the random variation that real hardware produces.
-        uint32_t sectorKey = (static_cast<uint32_t>(currentTrack_[drive]) << 16)
-                           | (static_cast<uint32_t>(xferSide_) << 8)
-                           | xferSector_;
-        if (sectorKey == speedlockLastSector_) {
-            speedlockReadCount_++;
-        } else {
-            speedlockLastSector_ = sectorKey;
-            speedlockReadCount_ = 1;
-        }
-
-        // On repeated reads (2nd+), XOR bytes to create variation.
-        // Keep first ~104 bytes stable (Speedlock checks constant prefix),
-        // vary the rest (Speedlock samples bytes at offsets ~105+ for differences).
-        if (speedlockReadCount_ > 1) {
-            uint32_t seed = speedlockReadCount_ * 0x9E3779B1u;
-            for (size_t i = 105; i < dataBuffer_.size(); i++) {
-                seed ^= seed << 13;
-                seed ^= seed >> 17;
-                seed ^= seed << 5;
-                // XOR with offset to ensure variation between reads
-                if ((i % 29) == 0 || i >= 256) {
-                    dataBuffer_[i] ^= static_cast<uint8_t>(seed & 0xFF);
-                }
+        // Speedlock +3 data variation: only for Speedlock-protected disks.
+        // Track repeated reads of the same CRC-error sector and apply
+        // synthetic variation on 2nd+ reads via copy_protection module.
+        if (disk_[drive]->getProtection() == ProtectionScheme::Speedlock) {
+            uint32_t sectorKey = (static_cast<uint32_t>(currentTrack_[drive]) << 16)
+                               | (static_cast<uint32_t>(xferSide_) << 8)
+                               | xferSector_;
+            if (sectorKey == speedlockLastSector_) {
+                speedlockReadCount_++;
+            } else {
+                speedlockLastSector_ = sectorKey;
+                speedlockReadCount_ = 1;
             }
-            printf("[FDC] Speedlock: CRC sector R=%d read #%d - applying data variation\n",
-                   xferSector_, speedlockReadCount_);
+            applySpeedlockVariation(dataBuffer_, xferSector_, speedlockReadCount_);
         }
     }
 

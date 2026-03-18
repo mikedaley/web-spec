@@ -18,6 +18,15 @@
 
 namespace zxspec {
 
+// Copy protection scheme detected on the disk image.
+enum class ProtectionScheme {
+    None,           // Standard +3DOS / unprotected
+    Speedlock,      // Speedlock +3: CRC on track 0 + CM on data tracks
+    PaulOwens,      // Non-standard sector sizes on protection track (N >= 7)
+    CMOnly,         // Deleted data marks without CRC errors on track 0
+    WeakSectors,    // EDSK with explicit weak sector copies
+};
+
 struct DiskSector {
     uint8_t track;          // C - track number in sector ID
     uint8_t side;           // H - side number in sector ID
@@ -85,6 +94,7 @@ public:
 
     int getTrackCount() const { return trackCount_; }
     int getSideCount() const { return sideCount_; }
+    ProtectionScheme getProtection() const { return protection_; }
 
     // Find a sector by physical track, side, and sector ID.
     // Returns nullptr if not found.
@@ -107,7 +117,6 @@ private:
     bool loadStandardDSK(const uint8_t* data, uint32_t size);
     bool loadExtendedDSK(const uint8_t* data, uint32_t size);
     bool loadOPD(const uint8_t* data, uint32_t size);
-    void detectAndPatchSpeedlock();
 
     std::vector<DiskTrack> tracks_;
     int trackCount_ = 0;
@@ -116,6 +125,7 @@ private:
     bool modified_ = false;
     bool writeProtected_ = false;
     bool extended_ = false;
+    ProtectionScheme protection_ = ProtectionScheme::None;
 };
 
 } // namespace zxspec
