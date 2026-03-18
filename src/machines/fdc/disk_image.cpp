@@ -236,9 +236,57 @@ bool DiskImage::loadExtendedDSK(const uint8_t* data, uint32_t size)
     loaded_ = true;
     modified_ = false;
     extended_ = true;
+
+    // Speedlock +3 detection and patch: if track 0 has a CRC error sector
+    // (the protection check sector), clear deleted data marks (CM flags)
+    // from all other sectors. The Speedlock boot code is supposed to patch
+    // +3DOS to use Read Deleted Data, but this patching varies between
+    // Speedlock versions and some disk images require the emulator to
+    // remove the CM flags for +3DOS compatibility. This matches Fuse's
+    // approach of detecting Speedlock and applying a compatibility patch.
+    detectAndPatchSpeedlock();
+
     printf("[DSK] Loaded extended DSK: %d tracks, %d sides, %d total track entries\n",
            trackCount_, sideCount_, totalTracks);
     return true;
+}
+
+void DiskImage::detectAndPatchSpeedlock()
+{
+    if (tracks_.empty()) return;
+
+    // Check track 0 for Speedlock signature: a CRC error sector
+    const DiskTrack& track0 = tracks_[0];
+    bool hasCRCSector = false;
+    for (const auto& sec : track0.sectors) {
+        if (sec.hasCRCError() || sec.isWeak()) {
+            hasCRCSector = true;
+            break;
+        }
+    }
+    if (!hasCRCSector) return;
+
+    // Check if data tracks have deleted data marks (CM flag in ST2)
+    int cmCount = 0;
+    int totalDataSectors = 0;
+    for (size_t t = 1; t < tracks_.size(); t++) {
+        for (const auto& sec : tracks_[t].sectors) {
+            totalDataSectors++;
+            if (sec.fdcStatus2 & 0x40) cmCount++;
+        }
+    }
+
+    // If a significant portion of data sectors have CM, this is Speedlock +3
+    if (cmCount < 10 || cmCount < totalDataSectors / 4) return;
+
+    printf("[DSK] Speedlock +3 detected: clearing CM flags from %d data sectors\n", cmCount);
+
+    // Clear CM flags from all non-track-0 sectors
+    for (size_t t = 1; t < tracks_.size(); t++) {
+        for (auto& sec : tracks_[t].sectors) {
+            sec.fdcStatus2 &= ~0x40;  // Clear CM (deleted data mark)
+        }
+    }
 }
 
 bool DiskImage::loadOPD(const uint8_t* data, uint32_t size)

@@ -107,6 +107,7 @@ private:
     bool loadStandardDSK(const uint8_t* data, uint32_t size);
     bool loadExtendedDSK(const uint8_t* data, uint32_t size);
     bool loadOPD(const uint8_t* data, uint32_t size);
+    void detectAndPatchSpeedlock();
 
     std::vector<DiskTrack> tracks_;
     int trackCount_ = 0;
