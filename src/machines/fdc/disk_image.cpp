@@ -19,9 +19,11 @@ std::vector<uint8_t> DiskSector::getReadData() const
         return weakCopies[idx];
     }
 
-    // Normal sector (including CRC error sectors): return data unchanged.
-    // CRC error flags are reported in status registers but we don't
-    // modify the data — many protections use CRC errors without weak reads.
+    // Normal sector (and CRC error sectors without weak copies):
+    // return data unchanged. CRC error flags are reported in status
+    // registers. Synthetic variation for Speedlock-style protection
+    // is handled at the FDC level via repeated-read detection.
+    readCount++;
     return data;
 }
 

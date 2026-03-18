@@ -187,6 +187,12 @@ private:
     int msrPollCount_ = 0;
     static constexpr int OVERRUN_THRESHOLD = 8;
 
+    // Speedlock +3 detection: when the same CRC-error sector is read
+    // repeatedly (protection check), apply synthetic data variation.
+    // Many EDSK images store CRC error flags without explicit weak copies.
+    uint32_t speedlockLastSector_ = 0xFFFFFFFF;  // track<<16 | side<<8 | R
+    int speedlockReadCount_ = 0;
+
     // Interrupt status (for Sense Interrupt Status)
     bool seekCompleted_[2] = { false, false };
     uint8_t seekResultST0_[2] = { 0, 0 };

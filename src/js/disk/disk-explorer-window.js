@@ -397,17 +397,21 @@ export class DiskExplorerWindow extends BaseWindow {
       (t) => t.sectors.some((s) => s.n >= 6),
     );
 
-    // Speedlock: weak sectors (typically on track 0, sector R=2)
-    if (ps.weakSectors > 0 && weakOnTrack0) {
-      return { name: "Speedlock", type: "weak" };
+    // Speedlock +3: weak sectors or CRC errors on track 0 with deleted data marks
+    // Speedlock uses CRC error on sector R=2 of track 0, combined with
+    // deleted data marks on the remaining sectors. Some EDSK images store
+    // explicit weak copies, others just have CRC flags.
+    const hasDeletedMarks = ps.deletedData > 0;
+    if ((ps.weakSectors > 0 || (ps.crcErrors > 0 && crcOnlyOnTrack0)) && hasDeletedMarks) {
+      return { name: "Speedlock +3", type: "weak" };
     }
 
-    // Speedlock variant: weak sectors on other tracks
+    // Weak sectors without deleted marks
     if (ps.weakSectors > 0) {
       return { name: "Speedlock (variant)", type: "weak" };
     }
 
-    // Alkatraz: CRC errors without weak sectors, typically track 0
+    // CRC errors only, no deleted marks, track 0
     if (ps.crcErrors > 0 && ps.weakSectors === 0 && crcOnlyOnTrack0) {
       return { name: "Alkatraz", type: "crc" };
     }
