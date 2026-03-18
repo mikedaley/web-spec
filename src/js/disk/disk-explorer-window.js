@@ -401,58 +401,41 @@ export class DiskExplorerWindow extends BaseWindow {
     const ps = this._diskInfo.protectionSummary;
     if (ps.totalProtected === 0) return null;
 
-    // Identify which tracks have weak sectors and CRC-only sectors
-    const weakOnTrack0 = this._diskInfo.tracks.some(
-      (t) => t.trackNumber === 0 && t.sectors.some((s) => s.flags.weak),
+    // Detection aligned with C++ copy_protection.cpp schemes
+    const hasCRCOnTrack0 = this._diskInfo.tracks.some(
+      (t) => t.trackNumber === 0 && t.sectors.some((s) => s.flags.crcError),
     );
-    const crcOnlyOnTrack0 = this._diskInfo.tracks.some(
-      (t) =>
-        t.trackNumber === 0 &&
-        t.sectors.some((s) => s.flags.crcError && !s.flags.weak),
+    const hasWeakOnTrack0 = this._diskInfo.tracks.some(
+      (t) => t.trackNumber === 0 && t.sectors.some((s) => s.flags.weak),
     );
     const hasLargeSector = this._diskInfo.tracks.some((t) =>
       t.sectors.some((s) => s.n >= 6),
     );
+    const hasCM = ps.deletedData > 5;
 
-    // Speedlock +3: weak sectors or CRC errors on track 0 with deleted data marks
-    // Speedlock uses CRC error on sector R=2 of track 0, combined with
-    // deleted data marks on the remaining sectors. Some EDSK images store
-    // explicit weak copies, others just have CRC flags.
-    const hasDeletedMarks = ps.deletedData > 0;
-    if (
-      (ps.weakSectors > 0 || (ps.crcErrors > 0 && crcOnlyOnTrack0)) &&
-      hasDeletedMarks
-    ) {
+    // Weak sectors in EDSK (explicit copies)
+    if (ps.weakSectors > 0) {
+      return { name: "Speedlock +3 (weak)", type: "weak" };
+    }
+
+    // Speedlock +3: CRC on track 0 + CM on data tracks
+    if (hasCRCOnTrack0 && hasCM) {
       return { name: "Speedlock +3", type: "weak" };
     }
 
-    // Weak sectors without deleted marks
-    if (ps.weakSectors > 0) {
-      return { name: "Speedlock (variant)", type: "weak" };
-    }
-
-    // CRC errors only, no deleted marks, track 0
-    if (ps.crcErrors > 0 && ps.weakSectors === 0 && crcOnlyOnTrack0) {
-      return { name: "Alkatraz", type: "crc" };
-    }
-
-    // CRC-based protection on non-standard tracks
-    if (ps.crcErrors > 0 && ps.weakSectors === 0) {
-      return { name: "CRC Protection", type: "crc" };
-    }
-
-    // OperaSoft: oversized sectors (N >= 6)
+    // Paul Owens: protection track with non-standard sector sizes
     if (hasLargeSector) {
-      return { name: "OperaSoft", type: "size" };
+      return { name: "Paul Owens", type: "size" };
     }
 
-    // Deleted data marks only
-    if (ps.deletedData > 0 && ps.weakSectors === 0 && ps.crcErrors === 0) {
-      return { name: "DDAM Protection", type: "deleted" };
+    // CM-only: deleted data marks without CRC errors on track 0
+    // Custom loaders using Read Deleted Data directly
+    if (hasCM) {
+      return { name: "CM Protection", type: "deleted" };
     }
 
-    // Mixed / unknown
-    return { name: "Custom Protection", type: "mixed" };
+    // Unknown
+    return { name: "Protected", type: "mixed" };
   }
 
   // ─── Info panel ─────────────────────────────────
