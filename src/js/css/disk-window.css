@@ -461,17 +461,40 @@ select.drive-opus-rom-select option {
 
 .show-details .drive-detail-panel {
   display: block;
+  border-top: 1px solid var(--glass-border-subtle);
+  padding-top: 12px;
+  margin-top: 12px;
 }
 
-.drive-detail-grid {
-  display: grid;
-  grid-template-columns: auto 1fr auto 1fr;
-  gap: 4px 10px;
+.drive-detail-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
   padding: 6px 10px;
   background: var(--input-bg);
   border-radius: var(--radius-sm);
   font-size: 0.6875rem;
   font-family: var(--font-mono);
+}
+
+.drive-detail-table td {
+  padding: 2px 5px;
+}
+
+.drive-detail-table .dd-label {
+  width: 20%;
+}
+
+.drive-detail-table .dd-val {
+  width: 30%;
+}
+
+.dd-table-3col .dd-label {
+  width: 13%;
+}
+
+.dd-table-3col .dd-val {
+  width: 20%;
 }
 
 .dd-label {
@@ -506,8 +529,4 @@ select.drive-opus-rom-select option {
 
 .dd-section-label:first-child {
   padding-top: 0;
-}
-
-.drive-detail-grid.dd-grid-3col {
-  grid-template-columns: auto 1fr auto 1fr auto 1fr;
 }

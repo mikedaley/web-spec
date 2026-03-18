@@ -231,32 +231,24 @@ export class DiskWindow extends BaseWindow {
         ${this._driveHTML(1, "B")}
         <div class="drive-detail-panel">
           <div class="dd-section-label">Drive State</div>
-          <div class="drive-detail-grid">
-            <span class="dd-label">Track</span><span class="dd-val" id="dd-track">0</span>
-            <span class="dd-label">Motor</span><span class="dd-val" id="dd-motor">OFF</span>
-            <span class="dd-label">Phase</span><span class="dd-val" id="dd-phase">Command</span>
-            <span class="dd-label">Mode</span><span class="dd-val" id="dd-mode">Read</span>
-          </div>
+          <table class="drive-detail-table">
+            <tr><td class="dd-label">Track</td><td class="dd-val" id="dd-track">0</td><td class="dd-label">Motor</td><td class="dd-val" id="dd-motor">OFF</td></tr>
+            <tr><td class="dd-label">Phase</td><td class="dd-val" id="dd-phase">Command</td><td class="dd-label">Mode</td><td class="dd-val" id="dd-mode">Read</td></tr>
+          </table>
           <div class="dd-section-label">FDC Command</div>
-          <div class="drive-detail-grid">
-            <span class="dd-label">Cmd</span><span class="dd-val" id="dd-cmd">--</span>
-            <span class="dd-label">EOT</span><span class="dd-val" id="dd-eot">--</span>
-            <span class="dd-label">Side</span><span class="dd-val" id="dd-side">--</span>
-            <span class="dd-label">Data</span><span class="dd-val" id="dd-data">--</span>
-          </div>
+          <table class="drive-detail-table">
+            <tr><td class="dd-label">Cmd</td><td class="dd-val" id="dd-cmd">--</td><td class="dd-label">EOT</td><td class="dd-val" id="dd-eot">--</td></tr>
+            <tr><td class="dd-label">Side</td><td class="dd-val" id="dd-side">--</td><td class="dd-label">Data</td><td class="dd-val" id="dd-data">--</td></tr>
+          </table>
           <div class="dd-section-label">Sector ID</div>
-          <div class="drive-detail-grid">
-            <span class="dd-label">C</span><span class="dd-val" id="dd-sec-c">--</span>
-            <span class="dd-label">H</span><span class="dd-val" id="dd-sec-h">--</span>
-            <span class="dd-label">R</span><span class="dd-val" id="dd-sec-r">--</span>
-            <span class="dd-label">N</span><span class="dd-val" id="dd-sec-n">--</span>
-          </div>
+          <table class="drive-detail-table">
+            <tr><td class="dd-label">C</td><td class="dd-val" id="dd-sec-c">--</td><td class="dd-label">H</td><td class="dd-val" id="dd-sec-h">--</td></tr>
+            <tr><td class="dd-label">R</td><td class="dd-val" id="dd-sec-r">--</td><td class="dd-label">N</td><td class="dd-val" id="dd-sec-n">--</td></tr>
+          </table>
           <div class="dd-section-label">Result Status</div>
-          <div class="drive-detail-grid dd-grid-3col">
-            <span class="dd-label">ST0</span><span class="dd-val" id="dd-st0">--</span>
-            <span class="dd-label">ST1</span><span class="dd-val" id="dd-st1">--</span>
-            <span class="dd-label">ST2</span><span class="dd-val" id="dd-st2">--</span>
-          </div>
+          <table class="drive-detail-table dd-table-3col">
+            <tr><td class="dd-label">ST0</td><td class="dd-val" id="dd-st0">--</td><td class="dd-label">ST1</td><td class="dd-val" id="dd-st1">--</td><td class="dd-label">ST2</td><td class="dd-val" id="dd-st2">--</td></tr>
+          </table>
         </div>
       </div>
     `;
