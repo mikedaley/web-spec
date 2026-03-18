@@ -188,12 +188,12 @@ select.drive-opus-rom-select option {
 .drive-info {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
   padding: 5px 8px;
   min-width: 0;
   background: var(--input-bg);
   border-radius: var(--radius-sm);
   overflow: hidden;
+  margin-top: 4px;
 }
 
 .disk-name {
@@ -202,7 +202,7 @@ select.drive-opus-rom-select option {
   font-family: var(--font-mono);
   white-space: nowrap;
   overflow: hidden;
-  flex: 1;
+  width: 100%;
   min-width: 0;
 }
 
@@ -215,24 +215,22 @@ select.drive-opus-rom-select option {
   85%, 100% { transform: translateX(var(--scroll-distance, 0px)); }
 }
 
-.disk-track {
-  font-size: 0.6875rem;
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-weight: 600;
-  background: var(--overlay-white-10);
-  padding: 2px 6px;
-  border-radius: 3px;
-  min-width: 32px;
-  text-align: center;
-  flex-shrink: 0;
-  transition: color 0.15s, background 0.15s, box-shadow 0.15s;
+/* ---- Track Bar ---- */
+.disk-track-bar-container {
+  width: 100%;
+  height: 12px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--input-bg);
+  margin-top: 4px;
+  margin-bottom: 8px;
 }
 
-.disk-track.active {
-  color: var(--accent-orange);
-  background: var(--accent-orange-bg-strong);
-  box-shadow: 0 0 4px var(--accent-orange-border-stronger);
+.disk-track-bar {
+  display: block;
+  width: 100%;
+  height: 12px;
+  border-radius: var(--radius-sm);
 }
 
 /* ---- Drive Controls ---- */
@@ -243,8 +241,6 @@ select.drive-opus-rom-select option {
 
 .drive-controls-secondary {
   margin-top: 4px;
-  padding-top: 10px;
-  border-top: 1px solid var(--glass-border-subtle);
 }
 
 .disk-insert,

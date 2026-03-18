@@ -70,7 +70,7 @@ export class DiskWindow extends BaseWindow {
     this._proxy = proxy;
     this._fileInput = null;
     this._detailsOpen = false;
-    this._graphicsHidden = false;
+    this._graphicsHidden = true;
     this._activeDrive = 0;
     this._drives = [_createDriveState(), _createDriveState()];
     // Track whether a manual insert has been performed on each drive,
@@ -175,7 +175,9 @@ export class DiskWindow extends BaseWindow {
         </div>
         <div class="drive-info">
           <span class="disk-name" id="${prefix}disk-name">No Disk</span>
-          <span class="disk-track" id="${prefix}disk-track" title="Current Track">T--</span>
+        </div>
+        <div class="disk-track-bar-container">
+          <canvas class="disk-track-bar" id="${prefix}disk-track-bar" height="12"></canvas>
         </div>
         <div class="drive-controls">
           <button class="disk-insert" id="${prefix}disk-insert-btn" title="Insert Disk from File">Insert</button>
@@ -288,11 +290,21 @@ export class DiskWindow extends BaseWindow {
     this._detailBtn = this.contentElement.querySelector(".drive-detail-btn");
     this._detailBtn.addEventListener("click", () => this._toggleDetails());
 
+    // Apply default hidden state for graphics
+    if (this._graphicsHidden) {
+      this.contentElement.classList.add("hide-graphics");
+      this._graphicsBtn.classList.remove("active");
+    }
+
     // Disk surface renderers
     const canvasA = this.contentElement.querySelector("#disk-surface-a");
     if (canvasA) this._drives[0].renderer = new DiskSurfaceRenderer(canvasA);
     const canvasB = this.contentElement.querySelector("#disk-surface-b");
     if (canvasB) this._drives[1].renderer = new DiskSurfaceRenderer(canvasB);
+
+    // Track bar canvases
+    this._drives[0].trackBarCanvas = this.contentElement.querySelector("#disk-track-bar");
+    this._drives[1].trackBarCanvas = this.contentElement.querySelector("#b-disk-track-bar");
 
     // Hidden file input
     this._fileInput = document.createElement("input");
@@ -434,6 +446,70 @@ export class DiskWindow extends BaseWindow {
     }
   }
 
+  _drawTrackBar(ds, currentTrack, inserted, motorOn, isReadMode) {
+    const canvas = ds.trackBarCanvas;
+    if (!canvas) return;
+
+    // Size canvas to container width
+    const container = canvas.parentElement;
+    const w = container.clientWidth;
+    const dpr = window.devicePixelRatio || 1;
+    const h = 12;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = `${w}px`;
+    canvas.style.height = `${h}px`;
+
+    const ctx = canvas.getContext("2d");
+    ctx.scale(dpr, dpr);
+    ctx.clearRect(0, 0, w, h);
+
+    const numTracks = 40;
+    const trackW = w / numTracks;
+
+    if (!inserted) {
+      // Empty state — dim segments
+      ctx.fillStyle = getComputedStyle(this.element).getPropertyValue("--overlay-white-5").trim() || "rgba(255,255,255,0.03)";
+      for (let t = 0; t < numTracks; t++) {
+        ctx.fillRect(t * trackW + 0.5, 0, trackW - 1, h);
+      }
+      return;
+    }
+
+    // Draw all track segments
+    const counts = ds.trackAccessCounts;
+    const maxCount = ds.maxAccessCount;
+    const logMax = maxCount > 0 ? Math.log(maxCount + 1) : 1;
+
+    for (let t = 0; t < numTracks; t++) {
+      const x = t * trackW;
+      const sw = trackW - 1;
+
+      if (t === currentTrack) {
+        // Current track — green=read, red=write, yellow=idle
+        if (motorOn) {
+          ctx.fillStyle = isReadMode ? "rgba(0, 255, 0, 0.9)" : "rgba(255, 0, 0, 0.9)";
+        } else {
+          ctx.fillStyle = "rgba(255, 255, 0, 0.6)";
+        }
+        ctx.fillRect(x + 0.5, 0, sw, h);
+      } else if (counts[t] > 0) {
+        // Accessed track — fade effect matching disk surface renderer
+        const intensity = Math.log(counts[t] + 1) / logMax;
+        const r = Math.round(40 + 215 * intensity);
+        const g = Math.round(60 + 80 * intensity - 40 * intensity * intensity);
+        const b = Math.round(100 - 80 * intensity);
+        const a = 0.3 + 0.55 * intensity;
+        ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+        ctx.fillRect(x + 0.5, 0, sw, h);
+      } else {
+        // Inactive track — subtle background
+        ctx.fillStyle = "rgba(255,255,255,0.03)";
+        ctx.fillRect(x + 0.5, 0, sw, h);
+      }
+    }
+  }
+
   // Detect which disk interface is active
   // +2A (3) and +3 (4) have the built-in µPD765A FDC
   // 48K (0), 128K (1), +2 (2) can use the Opus Discovery if enabled
@@ -558,14 +634,8 @@ export class DiskWindow extends BaseWindow {
 
     // Update DOM only for the active drive tab
     if (isActive) {
-      // Track label
-      if (track !== ds.lastTrack || motorOn !== ds.lastMotorOn) {
-        const trackEl = this.contentElement.querySelector(`#${prefix}disk-track`);
-        if (trackEl) {
-          trackEl.textContent = inserted ? `T${String(track).padStart(2, "0")}` : "T--";
-          trackEl.classList.toggle("active", motorOn);
-        }
-      }
+      // Track bar visualization
+      this._drawTrackBar(ds, track, inserted, motorOn, isReadMode);
 
       // Inserted state
       if (inserted !== ds.lastInserted) {
