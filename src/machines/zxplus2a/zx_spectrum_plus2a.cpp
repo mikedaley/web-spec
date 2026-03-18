@@ -188,13 +188,31 @@ bool ZXSpectrumPlus2A::isRamBankContended(uint8_t bank) const
 
 uint8_t* ZXSpectrumPlus2A::getScreenMemory()
 {
-    uint8_t screenBank = (pagingRegister_ & 0x08) ? 7 : 5;
+    uint8_t screenBank;
+    if (specialPaging_)
+    {
+        uint8_t config = (pagingRegister1FFD_ >> 1) & 0x03;
+        screenBank = specialConfigs[config][1];  // Slot 1 = screen area (0x4000)
+    }
+    else
+    {
+        screenBank = (pagingRegister_ & 0x08) ? 7 : 5;
+    }
     return &memoryRam_[screenBank * MEM_PAGE_SIZE];
 }
 
 const uint8_t* ZXSpectrumPlus2A::getScreenMemory() const
 {
-    uint8_t screenBank = (pagingRegister_ & 0x08) ? 7 : 5;
+    uint8_t screenBank;
+    if (specialPaging_)
+    {
+        uint8_t config = (pagingRegister1FFD_ >> 1) & 0x03;
+        screenBank = specialConfigs[config][1];  // Slot 1 = screen area (0x4000)
+    }
+    else
+    {
+        screenBank = (pagingRegister_ & 0x08) ? 7 : 5;
+    }
     return &memoryRam_[screenBank * MEM_PAGE_SIZE];
 }
 
@@ -226,21 +244,17 @@ void ZXSpectrumPlus2A::coreMemoryWrite(uint16_t address, uint8_t data)
 
     if (!pageWrite_[slot]) return;  // ROM protection
 
-    // Slot 1 (bank 5) always gets display catch-up
-    if (slot == 1 && !tapeAccelerating_)
+    // Catch up display before any write to the current screen bank.
+    // In special paging the screen bank varies by config, and in normal
+    // paging with screen=bank 7 the write may come through slot 3.
+    if (!tapeAccelerating_ && pageWrite_[slot] == getScreenMemory())
     {
         display_.updateWithTs(
             static_cast<int32_t>((z80_->getTStates() - display_.getCurrentDisplayTs()) + machineInfo_.paperDrawingOffset),
             getScreenMemory(), borderColor_, frameCounter_);
     }
 
-    uint8_t oldValue = pageWrite_[slot][address & 0x3FFF];
     pageWrite_[slot][address & 0x3FFF] = data;
-
-    if (!tapeAccelerating_)
-    {
-        patchScreenForUdgWrite(address, oldValue, data);
-    }
 }
 
 // ============================================================================
@@ -271,6 +285,15 @@ void ZXSpectrumPlus2A::coreDebugWrite(uint16_t address, uint8_t data)
     {
         pageWrite_[slot][address & 0x3FFF] = data;
     }
+}
+
+// ============================================================================
+// Public memory write (WASM interface) — no UDG patching on +2A/+3
+// ============================================================================
+
+void ZXSpectrumPlus2A::writeMemory(uint16_t address, uint8_t data)
+{
+    coreDebugWrite(address, data);
 }
 
 // ============================================================================
@@ -465,8 +488,24 @@ void ZXSpectrumPlus2A::coreIOWrite(uint16_t address, uint8_t data)
     // +2A additional paging: port 0x1FFD — (address & 0xF002) == 0x1000
     if ((address & 0xF002) == 0x1000 && !pagingDisabled_)
     {
+        // Catch up display before paging change if screen memory will change
+        bool newSpecialPaging = (data & 0x01) != 0;
+        bool screenMayChange = (newSpecialPaging != specialPaging_);
+        if (!screenMayChange && newSpecialPaging)
+        {
+            // Both old and new are special mode — check if config changed
+            uint8_t oldConfig = (pagingRegister1FFD_ >> 1) & 0x03;
+            uint8_t newConfig = (data >> 1) & 0x03;
+            screenMayChange = (specialConfigs[oldConfig][1] != specialConfigs[newConfig][1]);
+        }
+        if (screenMayChange && !tapeAccelerating_)
+        {
+            display_.updateWithTs(
+                static_cast<int32_t>((z80_->getTStates() - display_.getCurrentDisplayTs()) + machineInfo_.borderDrawingOffset),
+                getScreenMemory(), borderColor_, frameCounter_);
+        }
         pagingRegister1FFD_ = data;
-        specialPaging_ = (data & 0x01) != 0;
+        specialPaging_ = newSpecialPaging;
         updatePaging();
     }
 

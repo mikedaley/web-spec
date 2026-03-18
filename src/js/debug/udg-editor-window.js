@@ -638,10 +638,29 @@ export class UDGEditorWindow extends BaseWindow {
     reader.readAsText(file);
   }
 
+  // ---- Machine awareness ----
+
+  // UDG editor is not available on +2A/+3 (machine IDs 3, 4) because
+  // their paging makes system variable access unreliable.
+  static _UNSUPPORTED_MACHINES = new Set([3, 4]);
+
+  setMachine(machineId) {
+    this._machineId = machineId;
+    this._disabled = UDGEditorWindow._UNSUPPORTED_MACHINES.has(machineId);
+    if (this._disabled && this.isVisible) {
+      this.hide();
+    }
+    // Update menu button visibility
+    const btn = document.getElementById("btn-udg-editor");
+    if (btn) {
+      btn.style.display = this._disabled ? "none" : "";
+    }
+  }
+
   // ---- Emulator sync check ----
 
   update(proxy) {
-    if (!proxy) return;
+    if (!proxy || this._disabled) return;
     this._proxy = proxy;
 
     const now = performance.now();

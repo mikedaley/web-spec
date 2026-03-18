@@ -214,6 +214,7 @@ export class MobileMenu {
         await em.proxy.switchMachine(machineId);
         em.screenWindow.setMachine(machineId);
         em.basicProgramWindow.setMachine(machineId);
+        em.udgEditorWindow.setMachine(machineId);
 
         if (em.running) {
           em.audioDriver.latestSamples = null;

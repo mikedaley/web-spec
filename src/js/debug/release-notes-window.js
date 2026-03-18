@@ -33,6 +33,10 @@ const RELEASE_DATA = [
       { hash: "c2322f5", text: "Fix Chase HQ: preserve CM flags for CMOnly protected disks" },
       { hash: "3ad0d30", text: "Fix Read Track buffer consumption and remove debug output" },
       { hash: "------", text: "Fix display corruption on +2A/+3 reset by clearing framebuffer" },
+      { hash: "------", text: "Fix +2A/+3 display corruption caused by getScreenMemory ignoring special paging mode" },
+      { hash: "------", text: "Fix +2A/+3 missing display catch-up on port 0x1FFD paging writes" },
+      { hash: "------", text: "Fix +2A/+3 screen write catch-up not triggering for shadow screen bank 7 via slot 3" },
+      { hash: "------", text: "Fix UDG screen patching causing false-positive corruption on +2A/+3 machines" },
     ],
     improvements: [
       { hash: "70cfaaf", text: "Improved spacing between Surface and Details buttons in disk drive window" },

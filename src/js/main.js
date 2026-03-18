@@ -1355,6 +1355,7 @@ class ZXSpectrumEmulator {
     this.basicProgramWindow.setMachine(currentMachineId);
     this.keyboardWindow.setMachine(currentMachineId);
     this.inputHandler.setMachine(currentMachineId);
+    this.udgEditorWindow.setMachine(currentMachineId);
 
     // Machine model selection
     machineItems.forEach((item) => {
@@ -1375,6 +1376,7 @@ class ZXSpectrumEmulator {
         this.basicProgramWindow.setMachine(machineId);
         this.keyboardWindow.setMachine(machineId);
         this.inputHandler.setMachine(machineId);
+        this.udgEditorWindow.setMachine(machineId);
         await this.reapplySpectranetState();
         this.reapplyOpusState();
         const machineNames = { 0: "ZX Spectrum 48K", 1: "ZX Spectrum 128K", 2: "ZX Spectrum 128K +2", 3: "ZX Spectrum 128K +2A", 4: "ZX Spectrum +3", 5: "ZX81" };
@@ -1406,6 +1408,7 @@ class ZXSpectrumEmulator {
       this.basicProgramWindow.setMachine(machineId);
       this.keyboardWindow.setMachine(machineId);
       this.inputHandler.setMachine(machineId);
+      this.udgEditorWindow.setMachine(machineId);
       // Do NOT call reapplySpectranetState() here — it sends setSpectranetEnabled
       // to the worker which calls _reset(), wiping the just-loaded snapshot state.
     };

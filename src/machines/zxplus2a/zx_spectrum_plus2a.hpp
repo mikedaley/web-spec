@@ -51,6 +51,9 @@ public:
     // Reload Opus Discovery ROM (no-op on +2A)
     void reloadOpusROM() override {}
 
+    // Public memory access (no UDG patching on +2A/+3)
+    void writeMemory(uint16_t address, uint8_t data) override;
+
     // Screen memory for display rendering
     uint8_t* getScreenMemory() override;
     const uint8_t* getScreenMemory() const override;
