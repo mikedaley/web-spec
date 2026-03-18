@@ -464,7 +464,6 @@ export class DiskExplorerWindow extends BaseWindow {
     html += `<div class="dex-info-heading">Disk Image</div>`;
     html += `<table class="dex-info-table">`;
     html += `<tr><td class="dex-info-key">Format</td><td>${di.format}</td></tr>`;
-    html += `<tr><td class="dex-info-key">Creator</td><td>${di.creator || "Unknown"}</td></tr>`;
     html += `<tr><td class="dex-info-key">Tracks</td><td>${di.trackCount}</td></tr>`;
     html += `<tr><td class="dex-info-key">Sides</td><td>${di.sideCount}</td></tr>`;
     const totalSectors = di.tracks.reduce((n, t) => n + t.sectorCount, 0);
