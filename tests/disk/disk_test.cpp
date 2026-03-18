@@ -295,11 +295,12 @@ static void test_protection_detection()
     testDisk("Dixons Premiere Collection - Side A.dsk", zxspec::ProtectionScheme::Speedlock, false);
     testDisk("Dixons Premiere Collection - Side B.dsk", zxspec::ProtectionScheme::Speedlock, false);
 
-    // CM-only disks: no CRC on track 0, CM cleared from data tracks
-    testDisk("Batman - The Movie.dsk", zxspec::ProtectionScheme::CMOnly, true);
-    testDisk("Cabal.dsk", zxspec::ProtectionScheme::CMOnly, true);
-    testDisk("California Games - Side A.dsk", zxspec::ProtectionScheme::CMOnly, true);
-    testDisk("Chase HQ.dsk", zxspec::ProtectionScheme::CMOnly, true);
+    // CM-only disks: custom loaders using Read Deleted Data directly.
+    // CM flags are preserved — these loaders don't use +3DOS for data.
+    testDisk("Batman - The Movie.dsk", zxspec::ProtectionScheme::CMOnly, false);
+    testDisk("Cabal.dsk", zxspec::ProtectionScheme::CMOnly, false);
+    testDisk("California Games - Side A.dsk", zxspec::ProtectionScheme::CMOnly, false);
+    testDisk("Chase HQ.dsk", zxspec::ProtectionScheme::CMOnly, false);
 
     // Paul Owens: no CM clearing, protection track with large N
     testDisk("Captain Blood.dsk", zxspec::ProtectionScheme::PaulOwens, false);

@@ -171,10 +171,12 @@ void applyProtectionPatches(DiskImage& disk, ProtectionScheme scheme)
             break;
 
         case ProtectionScheme::CMOnly:
-            // These disks have CM without CRC errors. The custom boot
-            // code varies — some use Read Deleted Data directly, others
-            // go through +3DOS. Clearing CM is safe for both paths.
-            clearCMFromDataTracks(disk);
+            // These disks have custom boot loaders that use Read Deleted
+            // Data directly for all data loading. They do NOT go through
+            // +3DOS for file operations, so CM flags must be preserved.
+            // The boot code (loaded from track 0 R=1, which has no CM)
+            // takes over and handles everything via direct FDC I/O.
+            // Clearing CM would break Read Deleted Data commands.
             break;
 
         case ProtectionScheme::WeakSectors:
