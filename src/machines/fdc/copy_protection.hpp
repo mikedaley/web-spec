@@ -30,6 +30,10 @@ namespace zxspec {
 
 const char* protectionName(ProtectionScheme scheme);
 
+// Check if the boot sector contains the Speedlock +3 boot code signature.
+// Only disks with this signature need CRC data variation for the protection check.
+bool hasSpeedlockBootSignature(const DiskImage& disk);
+
 // Analyse a loaded disk image and return the detected protection scheme.
 ProtectionScheme detectProtection(const DiskImage& disk);
 

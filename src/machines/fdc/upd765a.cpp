@@ -53,7 +53,6 @@ UPD765A::UPD765A()
 
 void UPD765A::reset()
 {
-    // printf("[FDC] === RESET ===\n");
     phase_ = Phase::Command;
     motorOn_ = false;
     commandBuffer_.clear();
@@ -88,6 +87,23 @@ void UPD765A::ejectDisk(int drive)
 {
     if (drive >= 0 && drive <= 1) {
         disk_[drive] = nullptr;
+    }
+}
+
+void UPD765A::setMotor(bool on)
+{
+    motorOn_ = on;
+
+    // Motor off during execution: abort the current operation.
+    // On real hardware, the disk spins down and the FDC loses sync,
+    // eventually producing an overrun or timeout. Some loaders
+    // (Batman The Movie, Cabal) turn the motor off when they've read
+    // enough data, leaving the FDC mid-transfer.
+    if (!on && phase_ == Phase::Execution) {
+        uint8_t st0 = ST0_IC_ABNORMAL | (xferSide_ << 2) | xferDrive_;
+        setResult7(st0, ST1_OR | xferST1_, xferST2_,
+                   lastSectorC_, lastSectorH_, lastSectorR_, lastSectorN_);
+        phase_ = Phase::Result;
     }
 }
 
@@ -324,6 +340,7 @@ void UPD765A::writeData(uint8_t data)
 int UPD765A::getCommandParamCount(uint8_t cmd) const
 {
     switch (cmd) {
+        case CMD_READ_TRACK:
         case CMD_READ_DATA:
         case CMD_READ_DELETED_DATA:
         case CMD_WRITE_DATA:
@@ -358,6 +375,9 @@ int UPD765A::getCommandParamCount(uint8_t cmd) const
 void UPD765A::executeCommand()
 {
     switch (currentCommand_) {
+        case CMD_READ_TRACK:
+            cmdReadTrack();
+            break;
         case CMD_READ_DATA:
         case CMD_READ_DELETED_DATA:
             cmdReadData();
@@ -432,12 +452,12 @@ void UPD765A::cmdReadData()
     const DiskSector* sector = disk_[drive]->findSector(currentTrack_[drive], xferSide_, xferSector_);
 
     // SK=1: skip sectors with data mark mismatch until we find a match or reach EOT
-    while (sector && xferSkip_) {
+    // Suppressed for Speedlock disks where CM was cleared but the original had matching marks
+    bool suppressCMInit = (disk_[drive]->getProtection() == ProtectionScheme::Speedlock
+                            && currentTrack_[drive] > 0);
+    while (sector && xferSkip_ && !suppressCMInit) {
         bool sectorHasCM = (sector->fdcStatus2 & ST2_CM) != 0;
         if (xferDeletedData_ == sectorHasCM) break;  // Match found, use this sector
-
-        printf("[FDC] ReadData: SK=1, skipping R=%d (CM mismatch: del=%d sectorCM=%d)\n",
-               xferSector_, xferDeletedData_ ? 1 : 0, sectorHasCM ? 1 : 0);
         xferSector_++;
         if (xferSector_ > xferEOT_) { sector = nullptr; break; }
         sector = disk_[drive]->findSector(currentTrack_[drive], xferSide_, xferSector_);
@@ -488,11 +508,12 @@ void UPD765A::cmdReadData()
         xferST1_ |= ST1_DE;
         xferST2_ |= ST2_DD;
 
-        // Speedlock +3 data variation: only on track 0 where the CRC
-        // sector is the Speedlock protection check. CRC sectors on other
-        // tracks (like Cabal's tracks 2/11) are protection DATA that
-        // must not be varied.
-        if (currentTrack_[drive] == 0) {
+        // Speedlock +3 data variation: only on track 0 for disks with the
+        // Speedlock boot code signature (F3 01 FD 7F...). These disks
+        // read the CRC sector multiple times and expect data to differ.
+        // Disks without the signature (Chartbusters DISK autoboot) only
+        // check status flags, not data — variation would break them.
+        if (currentTrack_[drive] == 0 && hasSpeedlockBootSignature(*disk_[drive])) {
             uint32_t sectorKey = (static_cast<uint32_t>(currentTrack_[drive]) << 16)
                                | (static_cast<uint32_t>(xferSide_) << 8)
                                | xferSector_;
@@ -510,15 +531,101 @@ void UPD765A::cmdReadData()
     // sector, or Read Deleted Data hitting a Normal sector. With SK=0,
     // the data is still transferred but ST2_CM is set and the command
     // terminates after this sector.
+    //
+    // For Speedlock-patched disks: we cleared CM from data tracks so
+    // +3DOS Read Data works. But the Speedlock boot code uses Read Deleted
+    // Data on those same tracks. Suppress CM mismatch for Speedlock disks
+    // so both Read Data and Read Deleted Data work correctly — the original
+    // sectors had matching CM flags, we just removed them.
     bool sectorHasCM = (sector->fdcStatus2 & ST2_CM) != 0;
-    bool cmMismatch = (xferDeletedData_ != sectorHasCM);
+    bool suppressCM = (disk_[drive]->getProtection() == ProtectionScheme::Speedlock
+                        && currentTrack_[drive] > 0);
+    bool cmMismatch = !suppressCM && (xferDeletedData_ != sectorHasCM);
     if (cmMismatch) {
         xferST2_ |= ST2_CM;
         xferCMTerminate_ = true;
-        printf("[FDC] ReadData: CM mismatch (del=%d sectorCM=%d) - will terminate after sector R=%d\n",
-               xferDeletedData_ ? 1 : 0, sectorHasCM ? 1 : 0, xferSector_);
     }
 
+    phase_ = Phase::Execution;
+}
+
+// ============================================================================
+// Read Track (Read Diagnostic) — command 0x02
+// Reads sectors in physical order from the track, ignoring sector IDs
+// and deleted data marks. Used by some copy protection loaders (Cabal etc.)
+// ============================================================================
+
+void UPD765A::cmdReadTrack()
+{
+    int drive = commandBuffer_[1] & 0x01;
+    int side = (commandBuffer_[1] >> 2) & 0x01;
+    xferDrive_ = drive;
+    xferSide_ = side;
+    xferTrack_ = commandBuffer_[2];    // C
+    xferSector_ = commandBuffer_[4];   // R (starting sector for count)
+    xferSizeCode_ = commandBuffer_[5]; // N
+    xferEOT_ = commandBuffer_[6];      // EOT (number of sectors to read)
+    xferWeakSector_ = false;
+    xferCMTerminate_ = false;
+    xferDeletedData_ = false;
+    xferSkip_ = false;
+    xferST1_ = 0;
+    xferST2_ = 0;
+
+    printf("[FDC] ReadTrack: drive=%d phys=%d side=%d C=%d R=%d N=%d EOT=%d\n",
+           drive, currentTrack_[drive], side, xferTrack_, xferSector_,
+           xferSizeCode_, xferEOT_);
+
+    if (!hasDisk(drive)) {
+        uint8_t st0 = ST0_IC_ABNORMAL | ST0_NR | (side << 2) | drive;
+        setResult7(st0, 0, 0, xferTrack_, side, xferSector_, xferSizeCode_);
+        phase_ = Phase::Result;
+        return;
+    }
+
+    const DiskTrack* track = disk_[drive]->getTrack(currentTrack_[drive], side);
+    if (!track || track->sectors.empty()) {
+        uint8_t st0 = ST0_IC_ABNORMAL | (side << 2) | drive;
+        setResult7(st0, ST1_MA, 0, xferTrack_, side, xferSector_, xferSizeCode_);
+        phase_ = Phase::Result;
+        return;
+    }
+
+    // Read Track reads sectors in physical order (array index order),
+    // starting from sector index 0, for EOT sectors total.
+    // Build a combined data buffer with all sector data.
+    dataBuffer_.clear();
+    int sectorsRead = 0;
+    int totalSectors = static_cast<int>(track->sectors.size());
+
+    for (int i = 0; i < totalSectors && sectorsRead < xferEOT_; i++) {
+        const auto& sec = track->sectors[i];
+        auto secData = sec.getReadData();
+        dataBuffer_.insert(dataBuffer_.end(), secData.begin(), secData.end());
+        sectorsRead++;
+
+        // Track the last sector's ID for the result phase
+        lastSectorC_ = sec.track;
+        lastSectorH_ = sec.side;
+        lastSectorR_ = sec.sectorId;
+        lastSectorN_ = sec.sizeCode;
+
+        // Propagate CRC errors
+        if (sec.hasCRCError()) {
+            xferST1_ |= ST1_DE;
+            xferST2_ |= ST2_DD;
+        }
+    }
+
+    if (dataBuffer_.empty()) {
+        uint8_t st0 = ST0_IC_ABNORMAL | (side << 2) | drive;
+        setResult7(st0, ST1_ND, 0, xferTrack_, side, xferSector_, xferSizeCode_);
+        phase_ = Phase::Result;
+        return;
+    }
+
+    dataIndex_ = 0;
+    executionRead_ = true;
     phase_ = Phase::Execution;
 }
 
@@ -812,9 +919,11 @@ bool UPD765A::advanceToNextSector()
         sector = disk_[drive]->findSector(currentTrack_[drive], xferSide_, xferSector_);
         if (!sector) return false;
 
-        // Check CM mismatch
+        // Check CM mismatch (suppressed for Speedlock-patched disks)
         bool sectorHasCM = (sector->fdcStatus2 & ST2_CM) != 0;
-        bool cmMismatch = (xferDeletedData_ != sectorHasCM);
+        bool suppressCM = (disk_[drive]->getProtection() == ProtectionScheme::Speedlock
+                        && currentTrack_[drive] > 0);
+        bool cmMismatch = !suppressCM && (xferDeletedData_ != sectorHasCM);
 
         if (cmMismatch && xferSkip_) {
             // SK=1: skip this sector

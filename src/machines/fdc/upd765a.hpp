@@ -36,7 +36,8 @@ public:
     DiskImage* getDisk(int drive) const;
 
     // Motor control (directly from port 0x1FFD bit 3)
-    void setMotor(bool on) { motorOn_ = on; }
+    void setMotor(bool on);
+
     bool isMotorOn() const { return motorOn_; }
 
     // Read the Main Status Register (port 0x2FFD)
@@ -83,6 +84,7 @@ private:
 
     // FDC command IDs (lower 5 bits of first command byte)
     enum Command : uint8_t {
+        CMD_READ_TRACK          = 0x02,
         CMD_READ_DATA           = 0x06,
         CMD_READ_DELETED_DATA   = 0x0C,
         CMD_WRITE_DATA          = 0x05,
@@ -105,6 +107,7 @@ private:
     // Command execution handlers
     void executeCommand();
     void cmdReadData();
+    void cmdReadTrack();
     void cmdWriteData();
     void cmdReadID();
     void cmdFormatTrack();

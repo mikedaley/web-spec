@@ -122,16 +122,15 @@ ProtectionScheme detectProtection(const DiskImage& disk)
         return ProtectionScheme::WeakSectors;
     }
 
-    // Speedlock +3 with boot code: CRC on track 0 + CM + Speedlock boot signature.
-    // These disks patch +3DOS to use Read Deleted Data, so we clear CM.
-    if (hasCRCOnTrack0 && hasCM && hasSpeedlockBootCode) {
-        return ProtectionScheme::Speedlock;
-    }
-
-    // CRC on track 0 + CM but NO Speedlock boot code (e.g. DISK autoboot).
-    // The secondary loader uses Read Deleted Data directly — preserve CM.
+    // Speedlock +3: CRC on track 0 + CM on data tracks.
+    // All variants (Speedlock boot code, DISK autoboot, etc.) need CM
+    // cleared because game loading ultimately goes through +3DOS or a
+    // loader that uses Read Data. The CRC sector on track 0 is the
+    // Speedlock protection check — its presence distinguishes these
+    // from CMOnly disks (like Chase HQ) that have no CRC on track 0
+    // and use Read Deleted Data directly for all loading.
     if (hasCRCOnTrack0 && hasCM) {
-        return ProtectionScheme::CMOnly;
+        return ProtectionScheme::Speedlock;
     }
 
     // Paul Owens: protection track with non-standard sector sizes
@@ -183,13 +182,28 @@ void applyProtectionPatches(DiskImage& disk, ProtectionScheme scheme)
 {
     switch (scheme) {
 
-        case ProtectionScheme::Speedlock:
-            // Clear CM so +3DOS can read data tracks. The Speedlock boot
-            // code may use Read Deleted Data for initial loading, but
-            // subsequent game loading (especially on compilation disks
-            // like Dixons Premiere Collection) goes through +3DOS.
+        case ProtectionScheme::Speedlock: {
+            // Clear CM from data tracks so +3DOS Read Data can access them.
             clearCMFromDataTracks(disk);
+
+            // Fix CRC sectors on track 0: the Speedlock boot code reads
+            // them with Read Deleted Data. If the EDSK didn't capture the
+            // CM (deleted data mark) flag, add it so there's no CM mismatch.
+            // Only for disks with the Speedlock boot code signature.
+            if (hasSpeedlockBootSignature(disk)) {
+                DiskTrack* t0 = disk.getTrack(0, 0);
+                if (t0) {
+                    for (auto& sec : t0->sectors) {
+                        if (sec.hasCRCError() && !(sec.fdcStatus2 & 0x40)) {
+                            sec.fdcStatus2 |= 0x40;  // Add CM flag
+                            printf("[DSK] Speedlock: added CM to CRC sector R=%d on track 0\n",
+                                   sec.sectorId);
+                        }
+                    }
+                }
+            }
             break;
+        }
 
         case ProtectionScheme::CMOnly:
             // These disks have custom boot loaders that use Read Deleted
@@ -220,6 +234,14 @@ void applyProtectionPatches(DiskImage& disk, ProtectionScheme scheme)
 // ============================================================================
 // Speedlock +3 FDC data variation
 // ============================================================================
+
+bool hasSpeedlockBootSignature(const DiskImage& disk)
+{
+    const DiskSector* boot = disk.findSector(0, 0, 1);
+    if (!boot || boot->data.size() < 0x18) return false;
+    static const uint8_t sig[] = { 0xF3, 0x01, 0xFD, 0x7F, 0x3E, 0x13, 0xED, 0x79 };
+    return std::memcmp(boot->data.data() + 0x10, sig, sizeof(sig)) == 0;
+}
 
 bool applySpeedlockVariation(std::vector<uint8_t>& dataBuffer,
                              uint8_t /*sectorR*/, int readCount)
