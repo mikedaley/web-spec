@@ -177,6 +177,7 @@ void ZXSpectrum::reset()
     opus_.reset();
     keyboardMatrix_.fill(0xBF);
     display_.frameReset();
+    display_.clearFramebuffer();
     borderColor_ = 7;
     frameCounter_ = 0;
     paused_ = false;

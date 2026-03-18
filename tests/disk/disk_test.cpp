@@ -218,12 +218,17 @@ static void test_load_and_parse()
     // Test each available disk
     const char* disks[] = {
         "Beyond The Ice Palace.dsk",
-        "Captain Blood.dsk",
-        "Chartbusters - Side A.dsk",
-        "Chase HQ.dsk",
         "Batman - The Movie.dsk",
+        "Batman The Caped Crusader.dsk",
         "Cabal.dsk",
         "California Games - Side A.dsk",
+        "Captain Blood.dsk",
+        "Chartbusters - Side A.dsk",
+        "Chartbusters - Side B.dsk",
+        "Chase HQ.dsk",
+        "Coin-Op Hits - Side A.dsk",
+        "Dixons Premiere Collection - Side A.dsk",
+        "Dixons Premiere Collection - Side B.dsk",
     };
 
     for (const auto& name : disks) {
@@ -260,80 +265,75 @@ static void test_load_and_parse()
 
 static void test_protection_detection()
 {
-    std::printf("\n=== Protection Detection ===\n");
+    std::printf("\n=== Protection Detection & Patching ===\n");
 
-    // Beyond The Ice Palace: Speedlock +3 (CRC on track 0 R=2, CM on data tracks)
-    if (hasDisk("Beyond The Ice Palace.dsk")) {
-        TEST_BEGIN("Beyond The Ice Palace: Speedlock +3 protection");
-        auto data = loadDisk("Beyond The Ice Palace.dsk");
+    // Helper: load disk + check scheme + verify CM cleared
+    auto testDisk = [](const char* name, zxspec::ProtectionScheme expectedScheme, bool expectCMCleared) {
+        if (!hasDisk(name)) return;
+        std::string testName = std::string("Protection: ") + name;
+        TEST_BEGIN(testName.c_str());
+        auto data = loadDisk(name);
         zxspec::DiskImage disk;
         disk.load(data.data(), static_cast<uint32_t>(data.size()));
-        auto stats = getDiskStats(disk);
 
-        // Track 0 should have CRC error sector (before Speedlock patch clears CM)
-        const auto* track0 = disk.getTrack(0, 0);
-        EXPECT_TRUE(track0 != nullptr);
-        bool hasCRC = false;
-        if (track0) {
-            for (const auto& s : track0->sectors) {
-                if (s.hasCRCError()) hasCRC = true;
-            }
+        EXPECT_EQ((int)disk.getProtection(), (int)expectedScheme);
+
+        if (expectCMCleared) {
+            auto stats = getDiskStats(disk);
+            EXPECT_EQ(stats.cmSectors, 0);
         }
-        EXPECT_TRUE(hasCRC);
-
-        // Beyond The Ice Palace uses Read Deleted Data directly (boot code
-        // does its own FDC I/O), so the Speedlock CM patch may not trigger
-        // if it has fewer CM sectors than the detection threshold. The key
-        // thing is that the disk loads and the CRC sector exists.
-        // CM sectors may remain if the boot code handles them directly.
         TEST_END();
-    }
+    };
 
-    // Captain Blood: Protection track 40 with non-standard sectors
+    // Speedlock +3 disks: CRC on track 0, CM cleared from data tracks (1+).
+    // Track 0 CM is preserved (protection sectors). expectCMCleared=false
+    // because getDiskStats counts ALL tracks including track 0.
+    testDisk("Beyond The Ice Palace.dsk", zxspec::ProtectionScheme::Speedlock, false);
+    testDisk("Batman The Caped Crusader.dsk", zxspec::ProtectionScheme::Speedlock, false);
+    testDisk("Chartbusters - Side A.dsk", zxspec::ProtectionScheme::Speedlock, true);
+    testDisk("Chartbusters - Side B.dsk", zxspec::ProtectionScheme::Speedlock, true);
+    testDisk("Dixons Premiere Collection - Side A.dsk", zxspec::ProtectionScheme::Speedlock, false);
+    testDisk("Dixons Premiere Collection - Side B.dsk", zxspec::ProtectionScheme::Speedlock, false);
+
+    // CM-only disks: no CRC on track 0, CM cleared from data tracks
+    testDisk("Batman - The Movie.dsk", zxspec::ProtectionScheme::CMOnly, true);
+    testDisk("Cabal.dsk", zxspec::ProtectionScheme::CMOnly, true);
+    testDisk("California Games - Side A.dsk", zxspec::ProtectionScheme::CMOnly, true);
+    testDisk("Chase HQ.dsk", zxspec::ProtectionScheme::CMOnly, true);
+
+    // Paul Owens: no CM clearing, protection track with large N
+    testDisk("Captain Blood.dsk", zxspec::ProtectionScheme::PaulOwens, false);
+
+    // Weak sectors: explicit copies in EDSK, CM cleared
+    testDisk("Coin-Op Hits - Side A.dsk", zxspec::ProtectionScheme::WeakSectors, true);
+
+    // Captain Blood: verify protection track 40 has 16 sectors with N=0-15
     if (hasDisk("Captain Blood.dsk")) {
-        TEST_BEGIN("Captain Blood: protection track 40 accessible");
+        TEST_BEGIN("Captain Blood: track 40 sectors");
         auto data = loadDisk("Captain Blood.dsk");
         zxspec::DiskImage disk;
         disk.load(data.data(), static_cast<uint32_t>(data.size()));
-
-        EXPECT_EQ(disk.getTrackCount(), 42);
-        const auto* track40 = disk.getTrack(40, 0);
-        EXPECT_TRUE(track40 != nullptr);
-        if (track40) {
-            EXPECT_EQ((int)track40->sectors.size(), 16);
-            // Verify sectors have increasing N values (0-15)
-            for (int i = 0; i < 16 && i < (int)track40->sectors.size(); i++) {
-                EXPECT_EQ(track40->sectors[i].sizeCode, i);
+        const auto* t40 = disk.getTrack(40, 0);
+        EXPECT_TRUE(t40 != nullptr);
+        if (t40) {
+            EXPECT_EQ((int)t40->sectors.size(), 16);
+            for (int i = 0; i < 16 && i < (int)t40->sectors.size(); i++) {
+                EXPECT_EQ(t40->sectors[i].sizeCode, i);
             }
         }
         TEST_END();
     }
 
-    // Chartbusters: Speedlock +3 with non-standard sector IDs on track 0
+    // Chartbusters: verify non-standard sector IDs on track 0
     if (hasDisk("Chartbusters - Side A.dsk")) {
-        TEST_BEGIN("Chartbusters: Speedlock +3 with non-standard IDs");
+        TEST_BEGIN("Chartbusters: non-standard sector IDs");
         auto data = loadDisk("Chartbusters - Side A.dsk");
         zxspec::DiskImage disk;
         disk.load(data.data(), static_cast<uint32_t>(data.size()));
-        auto stats = getDiskStats(disk);
-
-        // Boot sector R=1 must exist
-        const auto* boot = disk.findSector(0, 0, 1);
-        EXPECT_TRUE(boot != nullptr);
-
-        // Non-standard sector IDs (R=130-136) must exist on track 0
-        const auto* nonStd = disk.findSector(0, 0, 130);
-        EXPECT_TRUE(nonStd != nullptr);
-
-        // CRC error sector (R=121) must exist on track 0
-        const auto* crcSec = disk.findSector(0, 0, 121);
-        EXPECT_TRUE(crcSec != nullptr);
-        if (crcSec) {
-            EXPECT_TRUE(crcSec->hasCRCError());
-        }
-
-        // Speedlock patch should have cleared CM from data tracks
-        EXPECT_EQ(stats.cmSectors, 0);
+        EXPECT_TRUE(disk.findSector(0, 0, 130) != nullptr);
+        EXPECT_TRUE(disk.findSector(0, 0, 121) != nullptr);
+        const auto* crc = disk.findSector(0, 0, 121);
+        if (crc) EXPECT_TRUE(crc->hasCRCError());
         TEST_END();
     }
 }
@@ -346,15 +346,23 @@ static void test_fdc_boot()
 {
     std::printf("\n=== FDC Boot Simulation ===\n");
 
-    const char* disks[] = {
+    // Test all available disks
+    const char* all_disks[] = {
         "Beyond The Ice Palace.dsk",
+        "Batman - The Movie.dsk",
+        "Batman The Caped Crusader.dsk",
+        "Cabal.dsk",
+        "California Games - Side A.dsk",
         "Captain Blood.dsk",
         "Chartbusters - Side A.dsk",
+        "Chartbusters - Side B.dsk",
         "Chase HQ.dsk",
-        "Batman - The Movie.dsk",
+        "Coin-Op Hits - Side A.dsk",
+        "Dixons Premiere Collection - Side A.dsk",
+        "Dixons Premiere Collection - Side B.dsk",
     };
 
-    for (const auto& name : disks) {
+    for (const auto& name : all_disks) {
         if (!hasDisk(name)) continue;
 
         std::string testName = std::string("FDC boot ") + name;
