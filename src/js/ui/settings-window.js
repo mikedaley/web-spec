@@ -81,11 +81,17 @@ export class SettingsWindow extends BaseWindow {
     this._fitToContent();
   }
 
+  restoreState(state) {
+    super.restoreState(state);
+    this._fitToContent();
+  }
+
   _fitToContent() {
-    if (!this.windowElement || !this.contentElement) return;
-    this.windowElement.style.height = "auto";
-    const h = this.windowElement.offsetHeight;
-    this.windowElement.style.height = h + "px";
+    if (!this.element || !this.contentElement) return;
+    this.element.style.height = "auto";
+    const h = this.element.offsetHeight;
+    this.element.style.height = h + "px";
+    this.currentHeight = h;
   }
 
   _setupEventListeners() {

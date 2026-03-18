@@ -17,6 +17,7 @@ const RELEASE_DATA = [
       { hash: "b380abe", text: "Save button in tape player for saving TAP to disk without ejecting" },
     ],
     fixes: [
+      { hash: "------", text: "Settings window not containing its content due to incorrect element reference in auto-fit sizing" },
       { hash: "3f7ebcc", text: "Memory map window now works correctly for all machines (128K, +2, +2A, +3)" },
       { hash: "------", text: "Sinclair 1 joystick left/right directions swapped" },
       { hash: "------", text: "Gamepad D-pad not working on non-standard mapping controllers" },
