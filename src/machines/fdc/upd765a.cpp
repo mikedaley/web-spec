@@ -488,12 +488,11 @@ void UPD765A::cmdReadData()
         xferST1_ |= ST1_DE;
         xferST2_ |= ST2_DD;
 
-        // Speedlock +3 data variation: for any disk with CRC-error protection
-        // sectors (Speedlock boot code or DISK autoboot with CRC check).
-        // Track repeated reads of the same CRC-error sector and apply
-        // synthetic variation on 2nd+ reads via copy_protection module.
-        auto prot = disk_[drive]->getProtection();
-        if (prot == ProtectionScheme::Speedlock || prot == ProtectionScheme::CMOnly) {
+        // Speedlock +3 data variation: only on track 0 where the CRC
+        // sector is the Speedlock protection check. CRC sectors on other
+        // tracks (like Cabal's tracks 2/11) are protection DATA that
+        // must not be varied.
+        if (currentTrack_[drive] == 0) {
             uint32_t sectorKey = (static_cast<uint32_t>(currentTrack_[drive]) << 16)
                                | (static_cast<uint32_t>(xferSide_) << 8)
                                | xferSector_;
