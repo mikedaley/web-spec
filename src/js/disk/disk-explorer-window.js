@@ -42,7 +42,7 @@ export class DiskExplorerWindow extends BaseWindow {
   constructor(proxy) {
     super({
       id: "disk-explorer",
-      title: "Disk Explorer",
+      title: "Disk Explorer (EXPERIMENTAL)",
       minWidth: 700,
       minHeight: 380,
       defaultWidth: 860,
@@ -73,7 +73,8 @@ export class DiskExplorerWindow extends BaseWindow {
 
   restoreState(state) {
     if (state.activeDrive !== undefined) this._activeDrive = state.activeDrive;
-    if (state.selectedSide !== undefined) this._selectedSide = state.selectedSide;
+    if (state.selectedSide !== undefined)
+      this._selectedSide = state.selectedSide;
     super.restoreState(state);
   }
 
@@ -152,32 +153,38 @@ export class DiskExplorerWindow extends BaseWindow {
     this._tooltip = this.contentElement.querySelector("#dex-tooltip");
 
     // Drive tabs
-    this.contentElement.querySelectorAll("#dex-drive-tabs .dex-tab").forEach((tab) => {
-      tab.addEventListener("click", () => {
-        this._activeDrive = parseInt(tab.dataset.drive, 10);
-        this._updateTabState("#dex-drive-tabs", tab);
-        this._refresh();
+    this.contentElement
+      .querySelectorAll("#dex-drive-tabs .dex-tab")
+      .forEach((tab) => {
+        tab.addEventListener("click", () => {
+          this._activeDrive = parseInt(tab.dataset.drive, 10);
+          this._updateTabState("#dex-drive-tabs", tab);
+          this._refresh();
+        });
       });
-    });
 
     // Side tabs
-    this.contentElement.querySelectorAll("#dex-side-tabs .dex-tab").forEach((tab) => {
-      tab.addEventListener("click", () => {
-        this._selectedSide = parseInt(tab.dataset.side, 10);
-        this._updateTabState("#dex-side-tabs", tab);
-        this._selectedTrack = 0;
-        this._selectedSector = 0;
-        this._drawRadialMap();
-        this._updateSectorStrip();
-        this._updateSectorInfo();
-        this._updateHexDump();
+    this.contentElement
+      .querySelectorAll("#dex-side-tabs .dex-tab")
+      .forEach((tab) => {
+        tab.addEventListener("click", () => {
+          this._selectedSide = parseInt(tab.dataset.side, 10);
+          this._updateTabState("#dex-side-tabs", tab);
+          this._selectedTrack = 0;
+          this._selectedSector = 0;
+          this._drawRadialMap();
+          this._updateSectorStrip();
+          this._updateSectorInfo();
+          this._updateHexDump();
+        });
       });
-    });
 
     // Refresh button
-    this.contentElement.querySelector("#dex-refresh").addEventListener("click", () => {
-      this._refresh();
-    });
+    this.contentElement
+      .querySelector("#dex-refresh")
+      .addEventListener("click", () => {
+        this._refresh();
+      });
 
     // Info button - opens the analysis window
     this._infoBtn = this.contentElement.querySelector("#dex-info-btn");
@@ -189,8 +196,12 @@ export class DiskExplorerWindow extends BaseWindow {
     });
 
     // Map interaction
-    this._mapCanvas.addEventListener("mousemove", (e) => this._handleMapMove(e));
-    this._mapCanvas.addEventListener("mouseleave", () => this._handleMapLeave());
+    this._mapCanvas.addEventListener("mousemove", (e) =>
+      this._handleMapMove(e),
+    );
+    this._mapCanvas.addEventListener("mouseleave", () =>
+      this._handleMapLeave(),
+    );
     this._mapCanvas.addEventListener("click", (e) => this._handleMapClick(e));
 
     // Theme observer
@@ -214,7 +225,8 @@ export class DiskExplorerWindow extends BaseWindow {
       this._drawRadialMap();
       this._updateHexDump();
     });
-    const mapContainer = this.contentElement.querySelector("#dex-map-container");
+    const mapContainer =
+      this.contentElement.querySelector("#dex-map-container");
     this._resizeObserver.observe(mapContainer);
     this._resizeObserver.observe(this._hexDump);
   }
@@ -253,9 +265,11 @@ export class DiskExplorerWindow extends BaseWindow {
   }
 
   _updateTabState(groupSelector, activeTab) {
-    this.contentElement.querySelectorAll(`${groupSelector} .dex-tab`).forEach((t) => {
-      t.classList.toggle("active", t === activeTab);
-    });
+    this.contentElement
+      .querySelectorAll(`${groupSelector} .dex-tab`)
+      .forEach((t) => {
+        t.classList.toggle("active", t === activeTab);
+      });
     if (this.onStateChange) this.onStateChange();
   }
 
@@ -324,7 +338,8 @@ export class DiskExplorerWindow extends BaseWindow {
         this._diskInfo = null;
         this._rawData = null;
       } else {
-        this._rawData = data instanceof Uint8Array ? data : new Uint8Array(data);
+        this._rawData =
+          data instanceof Uint8Array ? data : new Uint8Array(data);
         this._diskInfo = parseDSK(this._rawData);
       }
     } catch {
@@ -391,10 +406,12 @@ export class DiskExplorerWindow extends BaseWindow {
       (t) => t.trackNumber === 0 && t.sectors.some((s) => s.flags.weak),
     );
     const crcOnlyOnTrack0 = this._diskInfo.tracks.some(
-      (t) => t.trackNumber === 0 && t.sectors.some((s) => s.flags.crcError && !s.flags.weak),
+      (t) =>
+        t.trackNumber === 0 &&
+        t.sectors.some((s) => s.flags.crcError && !s.flags.weak),
     );
-    const hasLargeSector = this._diskInfo.tracks.some(
-      (t) => t.sectors.some((s) => s.n >= 6),
+    const hasLargeSector = this._diskInfo.tracks.some((t) =>
+      t.sectors.some((s) => s.n >= 6),
     );
 
     // Speedlock +3: weak sectors or CRC errors on track 0 with deleted data marks
@@ -402,7 +419,10 @@ export class DiskExplorerWindow extends BaseWindow {
     // deleted data marks on the remaining sectors. Some EDSK images store
     // explicit weak copies, others just have CRC flags.
     const hasDeletedMarks = ps.deletedData > 0;
-    if ((ps.weakSectors > 0 || (ps.crcErrors > 0 && crcOnlyOnTrack0)) && hasDeletedMarks) {
+    if (
+      (ps.weakSectors > 0 || (ps.crcErrors > 0 && crcOnlyOnTrack0)) &&
+      hasDeletedMarks
+    ) {
       return { name: "Speedlock +3", type: "weak" };
     }
 
@@ -443,7 +463,8 @@ export class DiskExplorerWindow extends BaseWindow {
 
   _buildInfoPanel() {
     if (!this._analysisWindow) return;
-    const target = this._analysisWindow.contentElement?.querySelector("#dex-info-content");
+    const target =
+      this._analysisWindow.contentElement?.querySelector("#dex-info-content");
     if (!target) return;
 
     if (!this._diskInfo) {
@@ -525,7 +546,12 @@ export class DiskExplorerWindow extends BaseWindow {
       for (const t of this._diskInfo.tracks) {
         for (const s of t.sectors) {
           if (s.flags.weak) {
-            weakTracks.push({ track: t.trackNumber, side: t.side, r: s.r, copies: s.flags.weakCopyCount });
+            weakTracks.push({
+              track: t.trackNumber,
+              side: t.side,
+              r: s.r,
+              copies: s.flags.weakCopyCount,
+            });
           }
         }
       }
@@ -568,7 +594,13 @@ export class DiskExplorerWindow extends BaseWindow {
       for (const t of this._diskInfo.tracks) {
         for (const s of t.sectors) {
           if (s.flags.crcError && !s.flags.weak) {
-            crcTracks.push({ track: t.trackNumber, side: t.side, r: s.r, st1: s.st1, st2: s.st2 });
+            crcTracks.push({
+              track: t.trackNumber,
+              side: t.side,
+              r: s.r,
+              st1: s.st1,
+              st2: s.st2,
+            });
           }
         }
       }
@@ -630,7 +662,13 @@ export class DiskExplorerWindow extends BaseWindow {
       for (const t of this._diskInfo.tracks) {
         for (const s of t.sectors) {
           if (s.flags.sizeVariant) {
-            sizeSectors.push({ track: t.trackNumber, side: t.side, r: s.r, n: s.n, size: s.declaredSize });
+            sizeSectors.push({
+              track: t.trackNumber,
+              side: t.side,
+              r: s.r,
+              n: s.n,
+              size: s.declaredSize,
+            });
           }
         }
       }
@@ -761,9 +799,11 @@ export class DiskExplorerWindow extends BaseWindow {
         const startAngle = si * sectorAngle + SECTOR_GAP;
         const endAngle = (si + 1) * sectorAngle - SECTOR_GAP;
 
-        const isSelected = ti === this._selectedTrack && si === this._selectedSector;
+        const isSelected =
+          ti === this._selectedTrack && si === this._selectedSector;
         const isTrackSelected = ti === this._selectedTrack;
-        const isHovered = ti === this._hoveredTrack && si === this._hoveredSector;
+        const isHovered =
+          ti === this._hoveredTrack && si === this._hoveredSector;
 
         // Sector color
         const sectorColor = this._getSectorColor(sector, false);
@@ -845,19 +885,26 @@ export class DiskExplorerWindow extends BaseWindow {
       return glow ? this._colors.weak : this._hexToRGBA(this._colors.weak, 0.5);
     }
     if (f.deletedData) {
-      return glow ? this._colors.deleted : this._hexToRGBA(this._colors.deleted, 0.45);
+      return glow
+        ? this._colors.deleted
+        : this._hexToRGBA(this._colors.deleted, 0.45);
     }
     if (f.sizeVariant) {
-      return glow ? this._colors.sizeVar : this._hexToRGBA(this._colors.sizeVar, 0.35);
+      return glow
+        ? this._colors.sizeVar
+        : this._hexToRGBA(this._colors.sizeVar, 0.35);
     }
-    return glow ? this._colors.normal : this._hexToRGBA(this._colors.normal, 0.2);
+    return glow
+      ? this._colors.normal
+      : this._hexToRGBA(this._colors.normal, 0.2);
   }
 
   _hexToRGBA(hex, alpha) {
     // Handle rgb/rgba strings
     if (hex.startsWith("rgb")) return hex;
     hex = hex.replace("#", "");
-    if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    if (hex.length === 3)
+      hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
     const r = parseInt(hex.substring(0, 2), 16);
     const g = parseInt(hex.substring(2, 4), 16);
     const b = parseInt(hex.substring(4, 6), 16);
@@ -893,9 +940,14 @@ export class DiskExplorerWindow extends BaseWindow {
 
     let angle = Math.atan2(dy, dx);
     if (angle < 0) angle += Math.PI * 2;
-    const sectorIdx = Math.floor((angle / (Math.PI * 2)) * track.sectors.length);
+    const sectorIdx = Math.floor(
+      (angle / (Math.PI * 2)) * track.sectors.length,
+    );
 
-    return { track: trackIdx, sector: Math.min(sectorIdx, track.sectors.length - 1) };
+    return {
+      track: trackIdx,
+      sector: Math.min(sectorIdx, track.sectors.length - 1),
+    };
   }
 
   _handleMapMove(e) {
@@ -1019,8 +1071,12 @@ export class DiskExplorerWindow extends BaseWindow {
     this.contentElement.querySelector("#dex-si-h").textContent = hex(sector.h);
     this.contentElement.querySelector("#dex-si-r").textContent = hex(sector.r);
     this.contentElement.querySelector("#dex-si-n").textContent = hex(sector.n);
-    this.contentElement.querySelector("#dex-si-st1").textContent = hex(sector.st1);
-    this.contentElement.querySelector("#dex-si-st2").textContent = hex(sector.st2);
+    this.contentElement.querySelector("#dex-si-st1").textContent = hex(
+      sector.st1,
+    );
+    this.contentElement.querySelector("#dex-si-st2").textContent = hex(
+      sector.st2,
+    );
     this.contentElement.querySelector("#dex-si-size").textContent =
       sector.declaredSize !== sector.actualSize
         ? `${sector.declaredSize} / ${sector.actualSize}`
@@ -1052,10 +1108,12 @@ export class DiskExplorerWindow extends BaseWindow {
 
   _measureCharWidth() {
     if (this._charWidth) return this._charWidth;
-    const dump = this._hexDump || this.contentElement.querySelector("#dex-hex-dump");
+    const dump =
+      this._hexDump || this.contentElement.querySelector("#dex-hex-dump");
     if (!dump) return 6.1;
     const probe = document.createElement("span");
-    probe.style.cssText = "position:absolute;visibility:hidden;white-space:pre;font:inherit;";
+    probe.style.cssText =
+      "position:absolute;visibility:hidden;white-space:pre;font:inherit;";
     probe.textContent = "0123456789ABCDEF";
     dump.appendChild(probe);
     const cw = probe.offsetWidth / 16;
@@ -1065,7 +1123,8 @@ export class DiskExplorerWindow extends BaseWindow {
   }
 
   _calcBytesPerRow() {
-    const dump = this._hexDump || this.contentElement.querySelector("#dex-hex-dump");
+    const dump =
+      this._hexDump || this.contentElement.querySelector("#dex-hex-dump");
     if (!dump) return 16;
     const availW = dump.clientWidth - 16; // account for padding
     const cw = this._measureCharWidth();
@@ -1083,7 +1142,8 @@ export class DiskExplorerWindow extends BaseWindow {
   }
 
   _updateHexDump() {
-    const container = this._hexDump || this.contentElement.querySelector("#dex-hex-dump");
+    const container =
+      this._hexDump || this.contentElement.querySelector("#dex-hex-dump");
     const sector = this._getSelectedSector();
 
     if (!sector || !sector.data || sector.data.length === 0) {
@@ -1124,7 +1184,9 @@ export class DiskExplorerWindow extends BaseWindow {
           line += `<span class="${cls}">${byte.toString(16).toUpperCase().padStart(2, "0")}</span> `;
 
           // ASCII
-          const asciiCls = isWeak ? ` dex-hex-ascii-copy${Math.floor(idx / copySize) % 5}` : "";
+          const asciiCls = isWeak
+            ? ` dex-hex-ascii-copy${Math.floor(idx / copySize) % 5}`
+            : "";
           if (byte >= 0x20 && byte <= 0x7e) {
             ascii += `<span class="dex-hex-ascii-print${asciiCls}">${this._escapeHTML(String.fromCharCode(byte))}</span>`;
           } else {

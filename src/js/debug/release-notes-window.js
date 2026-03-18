@@ -15,6 +15,8 @@ const RELEASE_DATA = [
     features: [
       { hash: "81e7504", text: "Joystick configuration window with Gamepad API support" },
       { hash: "b380abe", text: "Save button in tape player for saving TAP to disk without ejecting" },
+      { hash: "24bcdea", text: "Disk Explorer and Disk Analysis windows" },
+      { hash: "eef8fc4", text: "Disk compatibility test suite for protected disk images" },
     ],
     fixes: [
       { hash: "------", text: "Settings window not containing its content due to incorrect element reference in auto-fit sizing" },
@@ -25,6 +27,12 @@ const RELEASE_DATA = [
       { hash: "------", text: "Fix WD1770 disk motor never stopping after commands complete" },
       { hash: "------", text: "Fix +3 all-RAM paging not restored from Z80 v3 snapshots (0x1FFD at byte 86)" },
       { hash: "------", text: "Fix disk window race where auto-restore could overwrite a manual disk insert" },
+      { hash: "18a26d6", text: "Fix settings window sizing by fitting content on show instead of create" },
+      { hash: "67771c1", text: "Fix Cabal: only apply CRC data variation on track 0" },
+      { hash: "bdddd17", text: "Fix Chartbusters: detect Speedlock boot code signature for CM clearing" },
+      { hash: "c2322f5", text: "Fix Chase HQ: preserve CM flags for CMOnly protected disks" },
+      { hash: "3ad0d30", text: "Fix Read Track buffer consumption and remove debug output" },
+      { hash: "------", text: "Fix display corruption on +2A/+3 reset by clearing framebuffer" },
     ],
     improvements: [
       { hash: "70cfaaf", text: "Improved spacing between Surface and Details buttons in disk drive window" },
@@ -43,6 +51,15 @@ const RELEASE_DATA = [
       { hash: "------", text: "ZX81 .P file loader rewritten with direct memory load instead of ROM init loop" },
       { hash: "------", text: "Drag-and-drop now accepts .p files for ZX81 program loading" },
       { hash: "------", text: "Auto-switch to +3 when inserting a DSK disk image from any machine" },
+      { hash: "223a218", text: "Track bar visualisation in disk window" },
+      { hash: "8025da3", text: "Separate detail panels for uPD765A and WD1770 disk controllers" },
+      { hash: "a363a7c", text: "Disk window details panel switched to fixed table layout" },
+      { hash: "665c457", text: "Speedlock +3 disk protection support" },
+      { hash: "0021c04", text: "Handle EDSK sectors with zero stored data on protection tracks" },
+      { hash: "49190c1", text: "Auto-detect and patch Speedlock +3 deleted data marks" },
+      { hash: "fa6074b", text: "Dedicated copy protection module with per-scheme handling" },
+      { hash: "2df2c63", text: "Expanded disk compatibility tests to all 12 protected images" },
+      { hash: "c0d4725", text: "FDC Read Track command, motor-off abort, and refined protection handling" },
     ],
   },
   {
