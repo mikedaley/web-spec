@@ -48,6 +48,7 @@
 
 #include "copy_protection.hpp"
 #include <cstdio>
+#include <cstring>
 
 namespace zxspec {
 
@@ -82,6 +83,19 @@ ProtectionScheme detectProtection(const DiskImage& disk)
         if (sec.isWeak()) hasWeakOnTrack0 = true;
     }
 
+    // Check for Speedlock +3 boot code signature at offset 0x10 in boot sector.
+    // Speedlock +3 starts with: F3 01 FD 7F 3E 13 ED 79 (DI; LD BC,0x7FFD; LD A,0x13; OUT (C),A)
+    // Disks with this signature patch +3DOS for Read Deleted Data, so CM must be cleared.
+    // Disks WITHOUT this signature (e.g. DISK autoboot) use their own loader that
+    // issues Read Deleted Data directly, so CM must be preserved.
+    bool hasSpeedlockBootCode = false;
+    const DiskSector* bootSector = disk.findSector(0, 0, 1);
+    if (bootSector && bootSector->data.size() >= 0x18) {
+        static const uint8_t speedlockSig[] = { 0xF3, 0x01, 0xFD, 0x7F, 0x3E, 0x13, 0xED, 0x79 };
+        hasSpeedlockBootCode = (std::memcmp(bootSector->data.data() + 0x10,
+                                            speedlockSig, sizeof(speedlockSig)) == 0);
+    }
+
     // Gather statistics from data tracks (1+)
     int cmCount = 0;
     int weakCount = 0;
@@ -108,9 +122,16 @@ ProtectionScheme detectProtection(const DiskImage& disk)
         return ProtectionScheme::WeakSectors;
     }
 
-    // Speedlock +3: CRC error on track 0 + CM on data tracks
-    if (hasCRCOnTrack0 && hasCM) {
+    // Speedlock +3 with boot code: CRC on track 0 + CM + Speedlock boot signature.
+    // These disks patch +3DOS to use Read Deleted Data, so we clear CM.
+    if (hasCRCOnTrack0 && hasCM && hasSpeedlockBootCode) {
         return ProtectionScheme::Speedlock;
+    }
+
+    // CRC on track 0 + CM but NO Speedlock boot code (e.g. DISK autoboot).
+    // The secondary loader uses Read Deleted Data directly — preserve CM.
+    if (hasCRCOnTrack0 && hasCM) {
+        return ProtectionScheme::CMOnly;
     }
 
     // Paul Owens: protection track with non-standard sector sizes

@@ -290,8 +290,9 @@ static void test_protection_detection()
     // because getDiskStats counts ALL tracks including track 0.
     testDisk("Beyond The Ice Palace.dsk", zxspec::ProtectionScheme::Speedlock, false);
     testDisk("Batman The Caped Crusader.dsk", zxspec::ProtectionScheme::Speedlock, false);
-    testDisk("Chartbusters - Side A.dsk", zxspec::ProtectionScheme::Speedlock, true);
-    testDisk("Chartbusters - Side B.dsk", zxspec::ProtectionScheme::Speedlock, true);
+    // Chartbusters: DISK autoboot (no Speedlock boot code), CM preserved
+    testDisk("Chartbusters - Side A.dsk", zxspec::ProtectionScheme::CMOnly, false);
+    testDisk("Chartbusters - Side B.dsk", zxspec::ProtectionScheme::CMOnly, false);
     testDisk("Dixons Premiere Collection - Side A.dsk", zxspec::ProtectionScheme::Speedlock, false);
     testDisk("Dixons Premiere Collection - Side B.dsk", zxspec::ProtectionScheme::Speedlock, false);
 
