@@ -5,6 +5,9 @@ dist/
 public/zxspec.js
 public/zxspec.wasm
 
+# Test disk images (not committed — copy DSK files to tests/disk/images/)
+tests/disk/images/
+
 # Node modules
 node_modules/
 

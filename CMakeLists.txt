@@ -475,4 +475,20 @@ else()
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
     )
 
+    # Disk / FDC compatibility test
+    add_executable(disk_test
+        tests/disk/disk_test.cpp
+        src/machines/fdc/disk_image.cpp
+        src/machines/fdc/upd765a.cpp
+    )
+    target_include_directories(disk_test PRIVATE
+        ${CMAKE_SOURCE_DIR}/src/core
+        ${CMAKE_SOURCE_DIR}/src/machines
+    )
+    target_compile_options(disk_test PRIVATE -O3 -Wall -Wextra)
+    add_test(NAME disk_compatibility_test
+        COMMAND disk_test ${CMAKE_SOURCE_DIR}/tests/disk/images
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
+
 endif()
