@@ -626,6 +626,13 @@ void UPD765A::cmdReadTrack()
 
     dataIndex_ = 0;
     executionRead_ = true;
+
+    // Set xferSector_ past xferEOT_ so advanceToNextSector() returns false
+    // immediately when the combined buffer is consumed. This prevents the
+    // readData() function from replacing our combined buffer with a single
+    // sector's data via advanceToNextSector().
+    xferSector_ = xferEOT_ + 1;
+
     phase_ = Phase::Execution;
 }
 
