@@ -10,7 +10,7 @@ import { createDatabaseManager } from "../utils/indexeddb-helper.js";
 const DB_NAME = "zxspec-snapshot-persistence";
 const DB_VERSION = 1;
 const RECENT_STORE = "recentSnapshots";
-const MAX_RECENT = 10;
+const MAX_RECENT = 7;
 
 const db = createDatabaseManager({
   dbName: DB_NAME,
