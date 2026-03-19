@@ -37,6 +37,8 @@ const RELEASE_DATA = [
       { hash: "------", text: "Fix +2A/+3 missing display catch-up on port 0x1FFD paging writes" },
       { hash: "------", text: "Fix +2A/+3 screen write catch-up not triggering for shadow screen bank 7 via slot 3" },
       { hash: "------", text: "Fix UDG screen patching causing false-positive corruption on +2A/+3 machines" },
+      { hash: "------", text: "Fix Speedlock CRC sector data: fill with filler byte to match real hardware formatting" },
+      { hash: "------", text: "Fix Speedlock CRC data variation to cover all bytes (real hardware returns fully random data)" },
     ],
     improvements: [
       { hash: "70cfaaf", text: "Improved spacing between Surface and Details buttons in disk drive window" },

@@ -485,6 +485,8 @@ void UPD765A::cmdReadData()
     dataIndex_ = 0;
     executionRead_ = true;
 
+
+
     // Initialize status flags
     xferWeakSector_ = sector->isWeak();
     xferST1_ = 0;

@@ -229,6 +229,7 @@ static void test_load_and_parse()
         "Coin-Op Hits - Side A.dsk",
         "Dixons Premiere Collection - Side A.dsk",
         "Dixons Premiere Collection - Side B.dsk",
+        "Dragon Ninja.dsk",
     };
 
     for (const auto& name : disks) {
@@ -294,6 +295,7 @@ static void test_protection_detection()
     testDisk("Chartbusters - Side B.dsk", zxspec::ProtectionScheme::Speedlock, true);
     testDisk("Dixons Premiere Collection - Side A.dsk", zxspec::ProtectionScheme::Speedlock, false);
     testDisk("Dixons Premiere Collection - Side B.dsk", zxspec::ProtectionScheme::Speedlock, false);
+    testDisk("Dragon Ninja.dsk", zxspec::ProtectionScheme::Speedlock, false);
 
     // CM-only disks: custom loaders using Read Deleted Data directly.
     // CM flags are preserved — these loaders don't use +3DOS for data.
@@ -361,6 +363,7 @@ static void test_fdc_boot()
         "Coin-Op Hits - Side A.dsk",
         "Dixons Premiere Collection - Side A.dsk",
         "Dixons Premiere Collection - Side B.dsk",
+        "Dragon Ninja.dsk",
     };
 
     for (const auto& name : all_disks) {
@@ -619,6 +622,87 @@ static void test_speedlock_weak_variation()
 }
 
 // ---------------------------------------------------------------------------
+// Dragon Ninja: simulate the Speedlock Read Deleted Data on track 0
+// ---------------------------------------------------------------------------
+
+static void test_dragon_ninja_read_deleted()
+{
+    std::printf("\n=== Dragon Ninja Read Deleted Data ===\n");
+
+    if (!hasDisk("Dragon Ninja.dsk")) return;
+
+    TEST_BEGIN("ReadDeletedData: track 0 sectors R=3-R=8");
+    auto data = loadDisk("Dragon Ninja.dsk");
+    zxspec::DiskImage disk;
+    disk.load(data.data(), static_cast<uint32_t>(data.size()));
+
+    zxspec::UPD765A fdc;
+    fdc.insertDisk(0, &disk);
+    fdc.setMotor(true);
+
+    // Recalibrate + Sense Interrupt Status (as Speedlock boot does)
+    fdc.writeData(0x07); fdc.writeData(0x00); // Recalibrate
+    fdc.writeData(0x08); fdc.readData(); fdc.readData(); // SIS
+
+    // Seek to track 0
+    fdc.writeData(0x0F); fdc.writeData(0x00); fdc.writeData(0x00);
+    fdc.writeData(0x08); fdc.readData(); fdc.readData(); // SIS
+
+    // Read Deleted Data: 0x4C (MFM + Read Deleted), drive 0, C=0, H=0, R=3, N=2, EOT=8
+    fdc.writeData(0x4C); // Read Deleted Data + MFM
+    fdc.writeData(0x00); // US=0
+    fdc.writeData(0x00); // C=0
+    fdc.writeData(0x00); // H=0
+    fdc.writeData(0x03); // R=3
+    fdc.writeData(0x02); // N=2
+    fdc.writeData(0x08); // EOT=8
+    fdc.writeData(0x2A); // GPL
+    fdc.writeData(0xFF); // DTL
+
+    // Read all data bytes (6 sectors × 512 = 3072 bytes)
+    std::vector<uint8_t> buf;
+    for (int i = 0; i < 3072; i++) {
+        fdc.readMSR(); // simulate MSR polling
+        buf.push_back(fdc.readData());
+    }
+
+    // Read 7 result bytes
+    uint8_t st0 = fdc.readData();
+    uint8_t st1 = fdc.readData();
+    uint8_t st2 = fdc.readData();
+    fdc.readData(); // C
+    fdc.readData(); // H
+    fdc.readData(); // R
+    fdc.readData(); // N
+
+    // Check result: should be abnormal termination with EN (end of cylinder)
+    EXPECT_EQ(st0 & 0xC0, 0x40); // Abnormal termination
+    EXPECT_TRUE((st1 & 0x80) != 0); // EN flag set
+
+    EXPECT_EQ((int)buf.size(), 3072);
+
+    // Verify data matches the disk sectors R=3-R=8
+    bool dataOK = true;
+    for (int r = 3; r <= 8; r++) {
+        const auto* sec = disk.findSector(0, 0, r);
+        EXPECT_TRUE(sec != nullptr);
+        if (!sec) { dataOK = false; continue; }
+
+        int bufOffset = (r - 3) * 512;
+        for (int i = 0; i < 512 && i < (int)sec->data.size(); i++) {
+            if (buf[bufOffset + i] != sec->data[i]) {
+                std::printf("    MISMATCH: sector R=%d offset %d: got 0x%02X, expected 0x%02X\n",
+                            r, i, buf[bufOffset + i], sec->data[i]);
+                dataOK = false;
+                break;
+            }
+        }
+    }
+    EXPECT_TRUE(dataOK);
+    TEST_END();
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -658,6 +742,7 @@ int main(int argc, char** argv)
     test_all_sectors_readable();
     test_read_id_protection_tracks();
     test_speedlock_weak_variation();
+    test_dragon_ninja_read_deleted();
 
     std::printf("\n=== Results: %d/%d passed", g_passed, g_total);
     if (g_failed > 0) std::printf(", %d FAILED", g_failed);

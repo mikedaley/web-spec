@@ -186,19 +186,32 @@ void applyProtectionPatches(DiskImage& disk, ProtectionScheme scheme)
             // Clear CM from data tracks so +3DOS Read Data can access them.
             clearCMFromDataTracks(disk);
 
-            // Fix CRC sectors on track 0: the Speedlock boot code reads
-            // them with Read Deleted Data. If the EDSK didn't capture the
-            // CM (deleted data mark) flag, add it so there's no CM mismatch.
-            // Only for disks with the Speedlock boot code signature.
-            if (hasSpeedlockBootSignature(disk)) {
-                DiskTrack* t0 = disk.getTrack(0, 0);
-                if (t0) {
-                    for (auto& sec : t0->sectors) {
-                        if (sec.hasCRCError() && !(sec.fdcStatus2 & 0x40)) {
-                            sec.fdcStatus2 |= 0x40;  // Add CM flag
-                            printf("[DSK] Speedlock: added CM to CRC sector R=%d on track 0\n",
-                                   sec.sectorId);
-                        }
+            DiskTrack* t0 = disk.getTrack(0, 0);
+            if (t0) {
+                for (auto& sec : t0->sectors) {
+                    if (!sec.hasCRCError()) continue;
+
+                    // Fix CRC sectors on track 0: the Speedlock boot code reads
+                    // them with Read Deleted Data. If the EDSK didn't capture the
+                    // CM (deleted data mark) flag, add it so there's no CM mismatch.
+                    // Only for disks with the Speedlock boot code signature.
+                    if (hasSpeedlockBootSignature(disk) && !(sec.fdcStatus2 & 0x40)) {
+                        sec.fdcStatus2 |= 0x40;  // Add CM flag
+                        printf("[DSK] Speedlock: added CM to CRC sector R=%d on track 0\n",
+                               sec.sectorId);
+                    }
+
+                    // Fill CRC sector data with filler byte. On real hardware,
+                    // Speedlock protection sectors are formatted with a single
+                    // filler byte (e.g. 0xA7 or 0xE5). EDSK dumps may capture
+                    // directory remnants in the sector tail. The Speedlock code
+                    // checks that every byte matches the filler, so we must
+                    // fill the entire sector with the first byte's value.
+                    if (!sec.data.empty()) {
+                        uint8_t filler = sec.data[0];
+                        std::fill(sec.data.begin(), sec.data.end(), filler);
+                        printf("[DSK] Speedlock: filled CRC sector R=%d with 0x%02X (%zu bytes)\n",
+                               sec.sectorId, filler, sec.data.size());
                     }
                 }
             }
@@ -251,15 +264,16 @@ bool applySpeedlockVariation(std::vector<uint8_t>& dataBuffer,
     // at offsets ~105+ for differences. If data is identical, the check fails.
     if (readCount <= 1) return false;
 
+    // On real hardware, CRC error sectors return genuinely different data on
+    // every read (the error correction fails non-deterministically). Vary all
+    // bytes to match this behaviour — different Speedlock variants check bytes
+    // at different offsets, so the entire sector must differ between reads.
     uint32_t seed = static_cast<uint32_t>(readCount) * 0x9E3779B1u;
-    for (size_t i = 105; i < dataBuffer.size(); i++) {
+    for (size_t i = 0; i < dataBuffer.size(); i++) {
         seed ^= seed << 13;
         seed ^= seed >> 17;
         seed ^= seed << 5;
-        // XOR at regular intervals and all bytes past 256
-        if ((i % 29) == 0 || i >= 256) {
-            dataBuffer[i] ^= static_cast<uint8_t>(seed & 0xFF);
-        }
+        dataBuffer[i] ^= static_cast<uint8_t>(seed & 0xFF);
     }
     return true;
 }
