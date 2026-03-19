@@ -36,7 +36,7 @@ import { RetroDebugger } from "./retro-debugger/retro-debugger.js";
 import { ReleaseNotesWindow } from "./debug/release-notes-window.js";
 import { NetworkManager } from "./spectranet/network-manager.js";
 import { saveFlashData, loadFlashData } from "./spectranet/spectranet-persistence.js";
-import { getRecentSnapshots, loadRecentSnapshot } from "./snapshot/snapshot-persistence.js";
+import { getRecentSnapshots, loadRecentSnapshot, removeRecentSnapshot } from "./snapshot/snapshot-persistence.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
@@ -944,6 +944,9 @@ class ZXSpectrumEmulator {
 
     sep.style.display = "";
     for (const entry of recents) {
+      const row = document.createElement("div");
+      row.className = "recent-item-row";
+
       const btn = document.createElement("button");
       btn.className = "header-menu-item recent-item";
       btn.innerHTML = `<span>${entry.filename}</span>`;
@@ -951,11 +954,23 @@ class ZXSpectrumEmulator {
         this.closeAllMenus();
         const snapshot = await loadRecentSnapshot(entry.id);
         if (!snapshot) return;
-        // Create a File-like object and load it through the snapshot loader
         const file = new File([snapshot.data], snapshot.filename);
         this.snapshotLoader.loadFile(file);
       });
-      list.appendChild(btn);
+
+      const removeBtn = document.createElement("button");
+      removeBtn.className = "recent-item-remove";
+      removeBtn.title = "Remove";
+      removeBtn.innerHTML = "&times;";
+      removeBtn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        await removeRecentSnapshot(entry.id);
+        this._populateRecentSnapshots();
+      });
+
+      row.appendChild(btn);
+      row.appendChild(removeBtn);
+      list.appendChild(row);
     }
   }
 

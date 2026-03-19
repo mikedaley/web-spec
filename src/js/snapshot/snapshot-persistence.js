@@ -132,3 +132,15 @@ export async function loadRecentSnapshot(id) {
     return null;
   }
 }
+
+/**
+ * Remove a recent snapshot by its ID.
+ * @param {number} id
+ */
+export async function removeRecentSnapshot(id) {
+  try {
+    await db.remove(RECENT_STORE, id);
+  } catch (error) {
+    console.error("Error removing recent snapshot:", error);
+  }
+}

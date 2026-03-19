@@ -734,6 +734,18 @@ header.auto-hide.header-visible {
   margin: 4px 8px;
 }
 
+.recent-item-row {
+  display: flex;
+  align-items: stretch;
+}
+
+.recent-item-row .recent-item {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .recent-item {
   font-size: 0.75rem;
   color: var(--text-secondary);
@@ -742,6 +754,28 @@ header.auto-hide.header-visible {
 
 .recent-item:hover {
   color: var(--text-primary);
+}
+
+.recent-item-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s, color 0.1s;
+}
+
+.recent-item-row:hover .recent-item-remove {
+  opacity: 1;
+}
+
+.recent-item-remove:hover {
+  color: var(--accent-red);
 }
 
 .header-menu-section-label {
