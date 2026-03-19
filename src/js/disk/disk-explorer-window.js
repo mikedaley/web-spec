@@ -62,6 +62,13 @@ export class DiskExplorerWindow extends BaseWindow {
     this._colors = {};
     this._mapCanvas = null;
     this._mapCtx = null;
+    // Zoom & pan state
+    this._zoom = 1;
+    this._panX = 0;
+    this._panY = 0;
+    this._isPanning = false;
+    this._panStartX = 0;
+    this._panStartY = 0;
   }
 
   getState() {
@@ -84,6 +91,8 @@ export class DiskExplorerWindow extends BaseWindow {
   }
 
   destroy() {
+    if (this._panMoveHandler) window.removeEventListener("mousemove", this._panMoveHandler);
+    if (this._panUpHandler) window.removeEventListener("mouseup", this._panUpHandler);
     if (this._tooltip) {
       this._tooltip.remove();
       this._tooltip = null;
@@ -123,6 +132,11 @@ export class DiskExplorerWindow extends BaseWindow {
           <div class="dex-left">
             <div class="dex-map-container" id="dex-map-container">
               <canvas class="dex-radial-map" id="dex-radial-canvas"></canvas>
+              <button class="dex-reset-zoom-btn" id="dex-reset-zoom" title="Reset zoom">
+                <svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor">
+                  <path d="M8 1.5A6.5 6.5 0 0 0 1.5 8H0l2.5 3L5 8H3a5 5 0 1 1 1.46 3.54l-1.06 1.06A6.5 6.5 0 1 0 8 1.5z"/>
+                </svg>
+              </button>
             </div>
             <div class="dex-legend">
               <span class="dex-legend-item"><span class="dex-legend-swatch" data-type="normal"></span>Normal</span>
@@ -226,6 +240,55 @@ export class DiskExplorerWindow extends BaseWindow {
       this._handleMapLeave(),
     );
     this._mapCanvas.addEventListener("click", (e) => this._handleMapClick(e));
+
+    // Zoom (wheel) — zoom towards cursor position
+    this._mapCanvas.addEventListener("wheel", (e) => {
+      e.preventDefault();
+      const rect = this._mapCanvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const oldZoom = this._zoom;
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      this._zoom = Math.max(1, Math.min(20, this._zoom * factor));
+      // Adjust pan so the point under the cursor stays fixed
+      const zr = this._zoom / oldZoom;
+      this._panX = mx - zr * (mx - this._panX);
+      this._panY = my - zr * (my - this._panY);
+      this._clampPan();
+      this._drawRadialMap();
+    }, { passive: false });
+
+    // Pan (middle-click drag or ctrl+drag)
+    this._mapCanvas.addEventListener("mousedown", (e) => {
+      if (e.button === 1 || (e.button === 0 && e.ctrlKey)) {
+        e.preventDefault();
+        this._isPanning = true;
+        this._panStartX = e.clientX - this._panX;
+        this._panStartY = e.clientY - this._panY;
+        this._mapCanvas.style.cursor = "grabbing";
+      }
+    });
+    window.addEventListener("mousemove", this._panMoveHandler = (e) => {
+      if (!this._isPanning) return;
+      this._panX = e.clientX - this._panStartX;
+      this._panY = e.clientY - this._panStartY;
+      this._clampPan();
+      this._drawRadialMap();
+    });
+    window.addEventListener("mouseup", this._panUpHandler = () => {
+      if (this._isPanning) {
+        this._isPanning = false;
+        this._mapCanvas.style.cursor = "";
+      }
+    });
+
+    // Reset zoom button
+    this.contentElement.querySelector("#dex-reset-zoom").addEventListener("click", () => {
+      this._zoom = 1;
+      this._panX = 0;
+      this._panY = 0;
+      this._drawRadialMap();
+    });
 
     // Theme observer
     this._themeObserver = new MutationObserver(() => {
@@ -725,6 +788,13 @@ export class DiskExplorerWindow extends BaseWindow {
     return html;
   }
 
+  _clampPan() {
+    const size = this._mapSize || 300;
+    const maxPan = size * (this._zoom - 1) / 2 + size * 0.1;
+    this._panX = Math.max(-maxPan, Math.min(maxPan, this._panX));
+    this._panY = Math.max(-maxPan, Math.min(maxPan, this._panY));
+  }
+
   // ─── Radial map ─────────────────────────────────
 
   _getTracksForSide(side) {
@@ -742,6 +812,10 @@ export class DiskExplorerWindow extends BaseWindow {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, w, w);
     ctx.scale(dpr, dpr);
+
+    // Apply zoom and pan
+    ctx.translate(this._panX, this._panY);
+    ctx.scale(this._zoom, this._zoom);
 
     const cx = size / 2;
     const cy = size / 2;
@@ -984,8 +1058,9 @@ export class DiskExplorerWindow extends BaseWindow {
   _hitTest(mouseX, mouseY) {
     if (!this._diskInfo) return null;
     const rect = this._mapCanvas.getBoundingClientRect();
-    const x = mouseX - rect.left;
-    const y = mouseY - rect.top;
+    // Transform screen coords back through zoom/pan
+    const x = (mouseX - rect.left - this._panX) / this._zoom;
+    const y = (mouseY - rect.top - this._panY) / this._zoom;
     const size = rect.width;
     const cx = size / 2;
     const cy = size / 2;

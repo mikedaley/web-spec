@@ -214,6 +214,33 @@
   aspect-ratio: 1;
   height: 100%;
   overflow: hidden;
+  cursor: default;
+}
+
+.dex-reset-zoom-btn {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--glass-bg);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+  padding: 0;
+}
+
+.dex-reset-zoom-btn:hover {
+  opacity: 1;
+  color: var(--text-primary);
 }
 
 .dex-radial-map {
