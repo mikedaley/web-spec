@@ -393,12 +393,16 @@ export class DiskExplorerWindow extends BaseWindow {
     // Update legend swatches to match theme colours
     if (this.contentElement) {
       const swatches = this.contentElement.querySelectorAll(".dex-legend-swatch");
+      const light = this._isLightTheme();
+      const a = light
+        ? { normal: 0.4, crc: 0.7, weak: 0.65, deleted: 0.6, size: 0.55 }
+        : { normal: 0.2, crc: 0.55, weak: 0.5, deleted: 0.45, size: 0.35 };
       const colorMap = {
-        normal: this._hexToRGBA(this._colors.normal, 0.2),
-        crc: this._hexToRGBA(this._colors.crc, 0.55),
-        deleted: this._hexToRGBA(this._colors.deleted, 0.45),
-        weak: this._hexToRGBA(this._colors.weak, 0.5),
-        size: this._hexToRGBA(this._colors.sizeVar, 0.35),
+        normal: this._hexToRGBA(this._colors.normal, a.normal),
+        crc: this._hexToRGBA(this._colors.crc, a.crc),
+        deleted: this._hexToRGBA(this._colors.deleted, a.deleted),
+        weak: this._hexToRGBA(this._colors.weak, a.weak),
+        size: this._hexToRGBA(this._colors.sizeVar, a.size),
       };
       for (const sw of swatches) {
         const type = sw.dataset.type;
@@ -875,13 +879,15 @@ export class DiskExplorerWindow extends BaseWindow {
 
         // Hover highlight
         if (isHovered) {
-          ctx.fillStyle = "rgba(255,255,255,0.2)";
+          ctx.fillStyle = this._isLightTheme()
+            ? "rgba(0,0,0,0.15)" : "rgba(255,255,255,0.2)";
           ctx.fill();
         }
 
         // Selected sector outline
         if (isSelected) {
-          ctx.strokeStyle = "rgba(255,255,255,0.9)";
+          ctx.strokeStyle = this._isLightTheme()
+            ? "rgba(0,0,0,0.7)" : "rgba(255,255,255,0.9)";
           ctx.lineWidth = 1.5;
           ctx.stroke();
         }
@@ -915,28 +921,38 @@ export class DiskExplorerWindow extends BaseWindow {
     ctx.fill();
   }
 
+  _isLightTheme() {
+    return document.documentElement.getAttribute("data-theme") === "light";
+  }
+
   _getSectorColor(sector, glow) {
     const f = sector.flags;
+    const light = this._isLightTheme();
+    // Higher alpha on light backgrounds so colours are visible
+    const a = light
+      ? { normal: 0.4, crc: 0.7, weak: 0.65, deleted: 0.6, size: 0.55 }
+      : { normal: 0.2, crc: 0.55, weak: 0.5, deleted: 0.45, size: 0.35 };
+
     // Priority: CRC > weak > deleted > sizeVariant > normal
     if (f.crcError) {
-      return glow ? this._colors.crc : this._hexToRGBA(this._colors.crc, 0.55);
+      return glow ? this._colors.crc : this._hexToRGBA(this._colors.crc, a.crc);
     }
     if (f.weak) {
-      return glow ? this._colors.weak : this._hexToRGBA(this._colors.weak, 0.5);
+      return glow ? this._colors.weak : this._hexToRGBA(this._colors.weak, a.weak);
     }
     if (f.deletedData) {
       return glow
         ? this._colors.deleted
-        : this._hexToRGBA(this._colors.deleted, 0.45);
+        : this._hexToRGBA(this._colors.deleted, a.deleted);
     }
     if (f.sizeVariant) {
       return glow
         ? this._colors.sizeVar
-        : this._hexToRGBA(this._colors.sizeVar, 0.35);
+        : this._hexToRGBA(this._colors.sizeVar, a.size);
     }
     return glow
       ? this._colors.normal
-      : this._hexToRGBA(this._colors.normal, 0.2);
+      : this._hexToRGBA(this._colors.normal, a.normal);
   }
 
   _hexToRGBA(hex, alpha) {
