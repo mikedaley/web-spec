@@ -268,8 +268,8 @@ static void test_protection_detection()
 {
     std::printf("\n=== Protection Detection & Patching ===\n");
 
-    // Helper: load disk + check scheme + verify CM cleared
-    auto testDisk = [](const char* name, zxspec::ProtectionScheme expectedScheme, bool expectCMCleared) {
+    // Helper: load disk + check scheme (no patching — CM preserved on all disks)
+    auto testDisk = [](const char* name, zxspec::ProtectionScheme expectedScheme) {
         if (!hasDisk(name)) return;
         std::string testName = std::string("Protection: ") + name;
         TEST_BEGIN(testName.c_str());
@@ -278,37 +278,29 @@ static void test_protection_detection()
         disk.load(data.data(), static_cast<uint32_t>(data.size()));
 
         EXPECT_EQ((int)disk.getProtection(), (int)expectedScheme);
-
-        if (expectCMCleared) {
-            auto stats = getDiskStats(disk);
-            EXPECT_EQ(stats.cmSectors, 0);
-        }
         TEST_END();
     };
 
-    // Speedlock +3 disks: CRC on track 0, CM cleared from data tracks (1+).
-    // Track 0 CM is preserved (protection sectors). expectCMCleared=false
-    // because getDiskStats counts ALL tracks including track 0.
-    testDisk("Beyond The Ice Palace.dsk", zxspec::ProtectionScheme::Speedlock, false);
-    testDisk("Batman The Caped Crusader.dsk", zxspec::ProtectionScheme::Speedlock, false);
-    testDisk("Chartbusters - Side A.dsk", zxspec::ProtectionScheme::Speedlock, true);
-    testDisk("Chartbusters - Side B.dsk", zxspec::ProtectionScheme::Speedlock, true);
-    testDisk("Dixons Premiere Collection - Side A.dsk", zxspec::ProtectionScheme::Speedlock, false);
-    testDisk("Dixons Premiere Collection - Side B.dsk", zxspec::ProtectionScheme::Speedlock, false);
-    testDisk("Dragon Ninja.dsk", zxspec::ProtectionScheme::Speedlock, false);
+    // Speedlock +3 disks
+    testDisk("Beyond The Ice Palace.dsk", zxspec::ProtectionScheme::Speedlock);
+    testDisk("Batman The Caped Crusader.dsk", zxspec::ProtectionScheme::Speedlock);
+    testDisk("Chartbusters - Side A.dsk", zxspec::ProtectionScheme::Speedlock);
+    testDisk("Chartbusters - Side B.dsk", zxspec::ProtectionScheme::Speedlock);
+    testDisk("Dixons Premiere Collection - Side A.dsk", zxspec::ProtectionScheme::Speedlock);
+    testDisk("Dixons Premiere Collection - Side B.dsk", zxspec::ProtectionScheme::Speedlock);
+    testDisk("Dragon Ninja.dsk", zxspec::ProtectionScheme::Speedlock);
 
-    // CM-only disks: custom loaders using Read Deleted Data directly.
-    // CM flags are preserved — these loaders don't use +3DOS for data.
-    testDisk("Batman - The Movie.dsk", zxspec::ProtectionScheme::CMOnly, false);
-    testDisk("Cabal.dsk", zxspec::ProtectionScheme::CMOnly, false);
-    testDisk("California Games - Side A.dsk", zxspec::ProtectionScheme::CMOnly, false);
-    testDisk("Chase HQ.dsk", zxspec::ProtectionScheme::CMOnly, false);
+    // CM-only disks
+    testDisk("Batman - The Movie.dsk", zxspec::ProtectionScheme::CMOnly);
+    testDisk("Cabal.dsk", zxspec::ProtectionScheme::CMOnly);
+    testDisk("California Games - Side A.dsk", zxspec::ProtectionScheme::CMOnly);
+    testDisk("Chase HQ.dsk", zxspec::ProtectionScheme::CMOnly);
 
-    // Paul Owens: no CM clearing, protection track with large N
-    testDisk("Captain Blood.dsk", zxspec::ProtectionScheme::PaulOwens, false);
+    // Paul Owens
+    testDisk("Captain Blood.dsk", zxspec::ProtectionScheme::PaulOwens);
 
-    // Weak sectors: explicit copies in EDSK, CM cleared
-    testDisk("Coin-Op Hits - Side A.dsk", zxspec::ProtectionScheme::WeakSectors, true);
+    // Weak sectors
+    testDisk("Coin-Op Hits - Side A.dsk", zxspec::ProtectionScheme::WeakSectors);
 
     // Captain Blood: verify protection track 40 has 16 sectors with N=0-15
     if (hasDisk("Captain Blood.dsk")) {

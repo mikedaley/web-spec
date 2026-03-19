@@ -20,10 +20,26 @@ std::vector<uint8_t> DiskSector::getReadData() const
         return weakCopies[idx];
     }
 
-    // Normal sector (and CRC error sectors without weak copies):
-    // return data unchanged. CRC error flags are reported in status
-    // registers. Synthetic variation for Speedlock-style protection
-    // is handled at the FDC level via repeated-read detection.
+    // CRC error sectors without explicit weak copies: simulate real hardware
+    // where the error correction fails non-deterministically on each read.
+    // First read returns uniform filler (the sector was formatted with a
+    // single filler byte). Subsequent reads return XOR-varied data.
+    if (hasCRCError() && !data.empty()) {
+        readCount++;
+        uint8_t filler = data[0];
+        std::vector<uint8_t> result(data.size(), filler);
+        if (readCount > 1) {
+            uint32_t seed = readCount * 0x9E3779B1u;
+            for (size_t i = 0; i < result.size(); i++) {
+                seed ^= seed << 13;
+                seed ^= seed >> 17;
+                seed ^= seed << 5;
+                result[i] ^= static_cast<uint8_t>(seed & 0xFF);
+            }
+        }
+        return result;
+    }
+
     readCount++;
     return data;
 }
@@ -238,12 +254,12 @@ bool DiskImage::loadExtendedDSK(const uint8_t* data, uint32_t size)
     modified_ = false;
     extended_ = true;
 
-    // Detect and apply protection-specific patches (copy_protection.cpp)
+    // Detect protection scheme (informational — no patching applied).
+    // Protection is handled at FDC runtime via correct uPD765A behaviour.
     protection_ = zxspec::detectProtection(*this);
     if (protection_ != ProtectionScheme::None) {
         printf("[DSK] Protection detected: %s\n", zxspec::protectionName(protection_));
     }
-    zxspec::applyProtectionPatches(*this, protection_);
 
     printf("[DSK] Loaded extended DSK: %d tracks, %d sides, %d total track entries\n",
            trackCount_, sideCount_, totalTracks);

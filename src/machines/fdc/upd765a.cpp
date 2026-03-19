@@ -6,7 +6,6 @@
  */
 
 #include "upd765a.hpp"
-#include "copy_protection.hpp"
 #include <cstring>
 #include <cstdio>
 
@@ -451,13 +450,12 @@ void UPD765A::cmdReadData()
     // Find the requested sector (no EOT guard — R can exceed EOT for single-sector reads)
     const DiskSector* sector = disk_[drive]->findSector(currentTrack_[drive], xferSide_, xferSector_);
 
-    // SK=1: skip sectors with data mark mismatch until we find a match or reach EOT
-    // Suppressed for Speedlock disks where CM was cleared but the original had matching marks
-    bool suppressCMInit = (disk_[drive]->getProtection() == ProtectionScheme::Speedlock
-                            && currentTrack_[drive] > 0);
-    while (sector && xferSkip_ && !suppressCMInit) {
+    // SK=1: skip sectors with data mark mismatch until we find a match or reach EOT.
+    // This is standard uPD765A behaviour — Read Data skips CM sectors, Read Deleted
+    // Data skips non-CM sectors. No special handling needed for protected disks.
+    while (sector && xferSkip_) {
         bool sectorHasCM = (sector->fdcStatus2 & ST2_CM) != 0;
-        if (xferDeletedData_ == sectorHasCM) break;  // Match found, use this sector
+        if (xferDeletedData_ == sectorHasCM) break;  // Match found
         xferSector_++;
         if (xferSector_ > xferEOT_) { sector = nullptr; break; }
         sector = disk_[drive]->findSector(currentTrack_[drive], xferSide_, xferSector_);
@@ -502,47 +500,19 @@ void UPD765A::cmdReadData()
                xferSector_, sector->weakCopies.size());
     }
 
-    // CRC error propagation: if the EDSK sector has CRC error flags set
-    // (without being a weak sector), propagate them. Speedlock +3 protection
-    // embeds deliberate CRC errors for verification.
-    // CRC error propagation: report CRC errors from EDSK sector flags
+    // CRC error propagation: report CRC errors from EDSK sector flags.
+    // Data variation for CRC sectors is handled in DiskSector::getReadData().
     if (!xferWeakSector_ && sector->hasCRCError()) {
         xferST1_ |= ST1_DE;
         xferST2_ |= ST2_DD;
-
-        // Speedlock +3 data variation: only on track 0 for disks with the
-        // Speedlock boot code signature (F3 01 FD 7F...). These disks
-        // read the CRC sector multiple times and expect data to differ.
-        // Disks without the signature (Chartbusters DISK autoboot) only
-        // check status flags, not data — variation would break them.
-        if (currentTrack_[drive] == 0 && hasSpeedlockBootSignature(*disk_[drive])) {
-            uint32_t sectorKey = (static_cast<uint32_t>(currentTrack_[drive]) << 16)
-                               | (static_cast<uint32_t>(xferSide_) << 8)
-                               | xferSector_;
-            if (sectorKey == speedlockLastSector_) {
-                speedlockReadCount_++;
-            } else {
-                speedlockLastSector_ = sectorKey;
-                speedlockReadCount_ = 1;
-            }
-            applySpeedlockVariation(dataBuffer_, xferSector_, speedlockReadCount_);
-        }
     }
 
     // Data Address Mark mismatch (CM flag): Read Data hitting a Deleted
     // sector, or Read Deleted Data hitting a Normal sector. With SK=0,
-    // the data is still transferred but ST2_CM is set and the command
-    // terminates after this sector.
-    //
-    // For Speedlock-patched disks: we cleared CM from data tracks so
-    // +3DOS Read Data works. But the Speedlock boot code uses Read Deleted
-    // Data on those same tracks. Suppress CM mismatch for Speedlock disks
-    // so both Read Data and Read Deleted Data work correctly — the original
-    // sectors had matching CM flags, we just removed them.
+    // data is still transferred but ST2_CM is set and the command
+    // terminates after this sector. Standard uPD765A behaviour.
     bool sectorHasCM = (sector->fdcStatus2 & ST2_CM) != 0;
-    bool suppressCM = (disk_[drive]->getProtection() == ProtectionScheme::Speedlock
-                        && currentTrack_[drive] > 0);
-    bool cmMismatch = !suppressCM && (xferDeletedData_ != sectorHasCM);
+    bool cmMismatch = (xferDeletedData_ != sectorHasCM);
     if (cmMismatch) {
         xferST2_ |= ST2_CM;
         xferCMTerminate_ = true;
@@ -928,11 +898,9 @@ bool UPD765A::advanceToNextSector()
         sector = disk_[drive]->findSector(currentTrack_[drive], xferSide_, xferSector_);
         if (!sector) return false;
 
-        // Check CM mismatch (suppressed for Speedlock-patched disks)
+        // Check CM mismatch — standard uPD765A behaviour
         bool sectorHasCM = (sector->fdcStatus2 & ST2_CM) != 0;
-        bool suppressCM = (disk_[drive]->getProtection() == ProtectionScheme::Speedlock
-                        && currentTrack_[drive] > 0);
-        bool cmMismatch = !suppressCM && (xferDeletedData_ != sectorHasCM);
+        bool cmMismatch = (xferDeletedData_ != sectorHasCM);
 
         if (cmMismatch && xferSkip_) {
             // SK=1: skip this sector

@@ -47,7 +47,6 @@
  */
 
 #include "copy_protection.hpp"
-#include <cstdio>
 #include <cstring>
 
 namespace zxspec {
@@ -147,105 +146,7 @@ ProtectionScheme detectProtection(const DiskImage& disk)
 }
 
 // ============================================================================
-// Patches applied at disk load time
-// ============================================================================
-
-// Clear CM (deleted data mark) flags from all sectors on tracks 1+.
-// This allows +3DOS Read Data commands to access the sectors.
-// Safe for all protection types because:
-//   - Speedlock boot code reads one sector at a time (EOT=R) with SK=0,
-//     so CM mismatch still transfers data (just sets ST2_CM).
-//   - +3DOS uses Read Data + SK=1, which skips CM sectors — clearing
-//     CM prevents the skip and allows normal data transfer.
-//   - CM on track 0 is preserved (protection check sectors).
-static void clearCMFromDataTracks(DiskImage& disk)
-{
-    int cleared = 0;
-    for (int t = 1; t < disk.getTrackCount(); t++) {
-        for (int s = 0; s < disk.getSideCount(); s++) {
-            DiskTrack* track = disk.getTrack(t, s);
-            if (!track) continue;
-            for (auto& sec : track->sectors) {
-                if (sec.fdcStatus2 & 0x40) {
-                    sec.fdcStatus2 &= ~0x40;
-                    cleared++;
-                }
-            }
-        }
-    }
-    if (cleared > 0) {
-        printf("[DSK] Cleared CM flags from %d data sectors\n", cleared);
-    }
-}
-
-void applyProtectionPatches(DiskImage& disk, ProtectionScheme scheme)
-{
-    switch (scheme) {
-
-        case ProtectionScheme::Speedlock: {
-            // Clear CM from data tracks so +3DOS Read Data can access them.
-            clearCMFromDataTracks(disk);
-
-            DiskTrack* t0 = disk.getTrack(0, 0);
-            if (t0) {
-                for (auto& sec : t0->sectors) {
-                    if (!sec.hasCRCError()) continue;
-
-                    // Fix CRC sectors on track 0: the Speedlock boot code reads
-                    // them with Read Deleted Data. If the EDSK didn't capture the
-                    // CM (deleted data mark) flag, add it so there's no CM mismatch.
-                    // Only for disks with the Speedlock boot code signature.
-                    if (hasSpeedlockBootSignature(disk) && !(sec.fdcStatus2 & 0x40)) {
-                        sec.fdcStatus2 |= 0x40;  // Add CM flag
-                        printf("[DSK] Speedlock: added CM to CRC sector R=%d on track 0\n",
-                               sec.sectorId);
-                    }
-
-                    // Fill CRC sector data with filler byte. On real hardware,
-                    // Speedlock protection sectors are formatted with a single
-                    // filler byte (e.g. 0xA7 or 0xE5). EDSK dumps may capture
-                    // directory remnants in the sector tail. The Speedlock code
-                    // checks that every byte matches the filler, so we must
-                    // fill the entire sector with the first byte's value.
-                    if (!sec.data.empty()) {
-                        uint8_t filler = sec.data[0];
-                        std::fill(sec.data.begin(), sec.data.end(), filler);
-                        printf("[DSK] Speedlock: filled CRC sector R=%d with 0x%02X (%zu bytes)\n",
-                               sec.sectorId, filler, sec.data.size());
-                    }
-                }
-            }
-            break;
-        }
-
-        case ProtectionScheme::CMOnly:
-            // These disks have custom boot loaders that use Read Deleted
-            // Data directly for all data loading. They do NOT go through
-            // +3DOS for file operations, so CM flags must be preserved.
-            // The boot code (loaded from track 0 R=1, which has no CM)
-            // takes over and handles everything via direct FDC I/O.
-            // Clearing CM would break Read Deleted Data commands.
-            break;
-
-        case ProtectionScheme::WeakSectors:
-            // Disks with explicit weak copies may also have CM flags.
-            // Clear them for +3DOS compatibility.
-            clearCMFromDataTracks(disk);
-            break;
-
-        case ProtectionScheme::PaulOwens:
-            // No data patching needed. The protection track has sectors
-            // with large N values for Read ID verification — the FDC
-            // handles this naturally.
-            break;
-
-        case ProtectionScheme::None:
-            break;
-    }
-}
-
-// ============================================================================
-// Speedlock +3 FDC data variation
+// Utility (kept for potential future use / disk explorer)
 // ============================================================================
 
 bool hasSpeedlockBootSignature(const DiskImage& disk)
@@ -254,28 +155,6 @@ bool hasSpeedlockBootSignature(const DiskImage& disk)
     if (!boot || boot->data.size() < 0x18) return false;
     static const uint8_t sig[] = { 0xF3, 0x01, 0xFD, 0x7F, 0x3E, 0x13, 0xED, 0x79 };
     return std::memcmp(boot->data.data() + 0x10, sig, sizeof(sig)) == 0;
-}
-
-bool applySpeedlockVariation(std::vector<uint8_t>& dataBuffer,
-                             uint8_t /*sectorR*/, int readCount)
-{
-    // Only vary on 2nd+ reads of the same sector.
-    // Speedlock reads the CRC error sector 2-3 times and compares bytes
-    // at offsets ~105+ for differences. If data is identical, the check fails.
-    if (readCount <= 1) return false;
-
-    // On real hardware, CRC error sectors return genuinely different data on
-    // every read (the error correction fails non-deterministically). Vary all
-    // bytes to match this behaviour — different Speedlock variants check bytes
-    // at different offsets, so the entire sector must differ between reads.
-    uint32_t seed = static_cast<uint32_t>(readCount) * 0x9E3779B1u;
-    for (size_t i = 0; i < dataBuffer.size(); i++) {
-        seed ^= seed << 13;
-        seed ^= seed >> 17;
-        seed ^= seed << 5;
-        dataBuffer[i] ^= static_cast<uint8_t>(seed & 0xFF);
-    }
-    return true;
 }
 
 } // namespace zxspec
