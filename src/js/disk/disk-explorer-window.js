@@ -78,6 +78,19 @@ export class DiskExplorerWindow extends BaseWindow {
     super.restoreState(state);
   }
 
+  hide() {
+    if (this._tooltip) this._tooltip.classList.remove("visible");
+    super.hide();
+  }
+
+  destroy() {
+    if (this._tooltip) {
+      this._tooltip.remove();
+      this._tooltip = null;
+    }
+    super.destroy();
+  }
+
   renderContent() {
     return `
       <div class="dex-content">
@@ -110,7 +123,6 @@ export class DiskExplorerWindow extends BaseWindow {
           <div class="dex-left">
             <div class="dex-map-container" id="dex-map-container">
               <canvas class="dex-radial-map" id="dex-radial-canvas"></canvas>
-              <div class="dex-map-tooltip" id="dex-tooltip"></div>
             </div>
           </div>
           <div class="dex-right">
@@ -150,7 +162,10 @@ export class DiskExplorerWindow extends BaseWindow {
     // Canvas setup
     this._mapCanvas = this.contentElement.querySelector("#dex-radial-canvas");
     this._mapCtx = this._mapCanvas.getContext("2d");
-    this._tooltip = this.contentElement.querySelector("#dex-tooltip");
+    // Tooltip lives on document.body to avoid clipping by overflow:hidden containers
+    this._tooltip = document.createElement("div");
+    this._tooltip.className = "dex-map-tooltip";
+    document.body.appendChild(this._tooltip);
 
     // Drive tabs
     this.contentElement
@@ -953,11 +968,8 @@ export class DiskExplorerWindow extends BaseWindow {
         if (sector.flags.sizeVariant) flags.push("SIZE");
         const flagStr = flags.length > 0 ? ` [${flags.join(",")}]` : "";
         this._tooltip.textContent = `T:${hit.track} R:${sector.r} ${sector.declaredSize}B${flagStr}`;
-        const rect = this._mapCanvas.getBoundingClientRect();
-        const tx = e.clientX - rect.left + 12;
-        const ty = e.clientY - rect.top - 24;
-        this._tooltip.style.left = `${tx}px`;
-        this._tooltip.style.top = `${ty}px`;
+        this._tooltip.style.left = `${e.clientX + 12}px`;
+        this._tooltip.style.top = `${e.clientY - 24}px`;
         this._tooltip.classList.add("visible");
       }
     } else {

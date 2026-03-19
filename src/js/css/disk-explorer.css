@@ -197,7 +197,7 @@
 }
 
 .dex-map-tooltip {
-  position: absolute;
+  position: fixed;
   padding: 3px 8px;
   font-family: var(--font-mono);
   font-size: 0.625rem;
