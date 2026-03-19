@@ -792,9 +792,12 @@ export class DiskExplorerWindow extends BaseWindow {
 
   _clampPan() {
     const size = this._mapSize || 300;
-    const maxPan = size * (this._zoom - 1) / 2 + size * 0.1;
-    this._panX = Math.max(-maxPan, Math.min(maxPan, this._panX));
-    this._panY = Math.max(-maxPan, Math.min(maxPan, this._panY));
+    // At zoom Z, the content spans size*Z pixels but the viewport is size.
+    // Allow panning from 0 (top-left of content visible) to size*(Z-1)
+    // (bottom-right of content visible).
+    const maxPan = size * (this._zoom - 1);
+    this._panX = Math.max(-maxPan, Math.min(0, this._panX));
+    this._panY = Math.max(-maxPan, Math.min(0, this._panY));
   }
 
   // ─── Radial map ─────────────────────────────────
