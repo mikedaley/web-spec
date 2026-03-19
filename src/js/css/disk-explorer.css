@@ -36,8 +36,35 @@
 .dex-left {
   flex-shrink: 0;
   display: flex;
+  flex-direction: column;
   align-items: stretch;
   padding: 8px;
+}
+
+.dex-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
+  padding: 4px 2px 0;
+  justify-content: center;
+}
+
+.dex-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dex-legend-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  border: 1px solid rgba(255,255,255,0.15);
 }
 
 .dex-right {

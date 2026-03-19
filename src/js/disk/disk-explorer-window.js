@@ -124,6 +124,14 @@ export class DiskExplorerWindow extends BaseWindow {
             <div class="dex-map-container" id="dex-map-container">
               <canvas class="dex-radial-map" id="dex-radial-canvas"></canvas>
             </div>
+            <div class="dex-legend">
+              <span class="dex-legend-item"><span class="dex-legend-swatch" data-type="normal"></span>Normal</span>
+              <span class="dex-legend-item"><span class="dex-legend-swatch" data-type="data"></span>Has data</span>
+              <span class="dex-legend-item"><span class="dex-legend-swatch" data-type="crc"></span>CRC error</span>
+              <span class="dex-legend-item"><span class="dex-legend-swatch" data-type="deleted"></span>Deleted</span>
+              <span class="dex-legend-item"><span class="dex-legend-swatch" data-type="weak"></span>Weak</span>
+              <span class="dex-legend-item"><span class="dex-legend-swatch" data-type="size"></span>Non-std size</span>
+            </div>
           </div>
           <div class="dex-right">
             <div class="dex-sector-strip-container" id="dex-sector-strip"></div>
@@ -319,6 +327,23 @@ export class DiskExplorerWindow extends BaseWindow {
       textMuted: v("--text-muted", "#666"),
       ghost: v("--disk-ghost-outline", "rgba(255,255,255,0.06)"),
     };
+
+    // Update legend swatches to match theme colours
+    if (this.contentElement) {
+      const swatches = this.contentElement.querySelectorAll(".dex-legend-swatch");
+      const colorMap = {
+        normal: this._hexToRGBA(this._colors.normal, 0.2),
+        data: this._hexToRGBA(this._colors.normal, 0.35),
+        crc: this._hexToRGBA(this._colors.crc, 0.55),
+        deleted: this._hexToRGBA(this._colors.deleted, 0.45),
+        weak: this._hexToRGBA(this._colors.weak, 0.5),
+        size: this._hexToRGBA(this._colors.sizeVar, 0.35),
+      };
+      for (const sw of swatches) {
+        const type = sw.dataset.type;
+        if (colorMap[type]) sw.style.background = colorMap[type];
+      }
+    }
   }
 
   async _refresh() {
