@@ -216,13 +216,28 @@ uint8_t UPD765A::readData()
             if (dataIndex_ >= static_cast<int>(dataBuffer_.size())) {
                 // Try to advance to next sector
                 if (!advanceToNextSector()) {
-                    // End of cylinder: µPD765A reports abnormal termination with EN flag.
-                    // Result C/H/R/N contain the ID of the last sector read.
-                    // Preserve weak sector CRC error flags — Speedlock checks
-                    // status after reading the weak sector data.
-                    uint8_t st0 = ST0_IC_ABNORMAL | (xferSide_ << 2) | xferDrive_;
-                    uint8_t st1 = ST1_EN | xferST1_;
+                    // Matching FUSE: result status depends on WHY we stopped.
+                    uint8_t st0 = (xferSide_ << 2) | xferDrive_;
+                    uint8_t st1 = xferST1_;
                     uint8_t st2 = xferST2_;
+
+                    if (xferCMTerminate_) {
+                        // CM mismatch termination: only set abnormal if there
+                        // were more sectors to read (EOT > R). For single-sector
+                        // reads (EOT=R) this is a normal termination with ST2_CM.
+                        if (xferEOT_ > xferSector_)
+                            st0 |= ST0_IC_ABNORMAL;
+                    } else if (st0 == ((xferSide_ << 2) | xferDrive_) && st1 == 0) {
+                        // Normal end-of-cylinder: set abnormal + EN only
+                        // if no other errors (CRC, overrun, etc.) were set.
+                        st0 |= ST0_IC_ABNORMAL;
+                        st1 |= ST1_EN;
+                    } else {
+                        // Other error already set (CRC etc.) — preserve it,
+                        // add abnormal termination.
+                        st0 |= ST0_IC_ABNORMAL;
+                    }
+
                     setResult7(st0, st1, st2, lastSectorC_, lastSectorH_,
                                lastSectorR_, lastSectorN_);
                     phase_ = Phase::Result;
