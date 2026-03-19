@@ -7,6 +7,7 @@
 
 import { addToRecentTapes } from "../tape/tape-persistence.js";
 import { addToRecentDisks } from "../disk/disk-persistence.js";
+import { addToRecentSnapshots } from "./snapshot-persistence.js";
 import { showToast } from "../ui/toast.js";
 
 const SNA_48K_SIZE = 49179;
@@ -63,6 +64,7 @@ export class SnapshotLoader {
         }
         if (this.onBeforeLoad) this.onBeforeLoad();
         this._pendingFileName = file.name;
+        addToRecentSnapshots(file.name, data);
         this.proxy.loadSnapshot("sna", data.buffer);
       } else if (ext === "z80") {
         if (data.length < 30) {
@@ -71,6 +73,7 @@ export class SnapshotLoader {
         }
         if (this.onBeforeLoad) this.onBeforeLoad();
         this._pendingFileName = file.name;
+        addToRecentSnapshots(file.name, data);
         this.proxy.loadSnapshot("z80", data.buffer);
       } else if (ext === "tzx") {
         if (data.length < 10) {
@@ -78,6 +81,7 @@ export class SnapshotLoader {
           return;
         }
         this._pendingFileName = file.name;
+        addToRecentSnapshots(file.name, data);
         addToRecentTapes(file.name, data);
         this.proxy.loadTZXTape(data.buffer);
       } else if (ext === "tap") {
@@ -86,6 +90,7 @@ export class SnapshotLoader {
           return;
         }
         this._pendingFileName = file.name;
+        addToRecentSnapshots(file.name, data);
         addToRecentTapes(file.name, data);
         this.proxy.loadTAP(data.buffer);
       } else if (ext === "p") {
@@ -95,6 +100,7 @@ export class SnapshotLoader {
         }
         if (this.onBeforeLoad) this.onBeforeLoad();
         this._pendingFileName = file.name;
+        addToRecentSnapshots(file.name, data);
         this.proxy.loadP(data.buffer);
       } else if (ext === "dsk") {
         if (data.length < 256) {
@@ -102,6 +108,7 @@ export class SnapshotLoader {
           return;
         }
         this._pendingFileName = file.name;
+        addToRecentSnapshots(file.name, data);
         addToRecentDisks(file.name, data);
         this.proxy.diskInsert(0, data.buffer);
         if (this.onDiskLoaded) this.onDiskLoaded(file.name);

@@ -36,6 +36,7 @@ import { RetroDebugger } from "./retro-debugger/retro-debugger.js";
 import { ReleaseNotesWindow } from "./debug/release-notes-window.js";
 import { NetworkManager } from "./spectranet/network-manager.js";
 import { saveFlashData, loadFlashData } from "./spectranet/spectranet-persistence.js";
+import { getRecentSnapshots, loadRecentSnapshot } from "./snapshot/snapshot-persistence.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
 import { ThemeManager } from "./ui/theme-manager.js";
@@ -922,6 +923,39 @@ class ZXSpectrumEmulator {
     const autosaveBtn = document.getElementById("btn-autosave-toggle");
     if (autosaveBtn && this.stateManager) {
       autosaveBtn.classList.toggle("active", this.stateManager.isAutoSaveEnabled());
+    }
+
+    // Populate recent snapshots in the File menu
+    this._populateRecentSnapshots();
+  }
+
+  async _populateRecentSnapshots() {
+    const list = document.getElementById("recents-list");
+    const sep = document.getElementById("recents-separator");
+    if (!list) return;
+
+    const recents = await getRecentSnapshots();
+    list.innerHTML = "";
+
+    if (recents.length === 0) {
+      sep.style.display = "none";
+      return;
+    }
+
+    sep.style.display = "";
+    for (const entry of recents) {
+      const btn = document.createElement("button");
+      btn.className = "header-menu-item recent-item";
+      btn.innerHTML = `<span>${entry.filename}</span>`;
+      btn.addEventListener("click", async () => {
+        this.closeAllMenus();
+        const snapshot = await loadRecentSnapshot(entry.id);
+        if (!snapshot) return;
+        // Create a File-like object and load it through the snapshot loader
+        const file = new File([snapshot.data], snapshot.filename);
+        this.snapshotLoader.loadFile(file);
+      });
+      list.appendChild(btn);
     }
   }
 

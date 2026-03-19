@@ -734,6 +734,16 @@ header.auto-hide.header-visible {
   margin: 4px 8px;
 }
 
+.recent-item {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  padding: 5px 12px;
+}
+
+.recent-item:hover {
+  color: var(--text-primary);
+}
+
 .header-menu-section-label {
   padding: 6px 12px 2px;
   font-size: 0.6875rem;
