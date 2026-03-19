@@ -37,10 +37,11 @@ const RELEASE_DATA = [
       { hash: "------", text: "Fix +2A/+3 missing display catch-up on port 0x1FFD paging writes" },
       { hash: "------", text: "Fix +2A/+3 screen write catch-up not triggering for shadow screen bank 7 via slot 3" },
       { hash: "------", text: "Fix UDG screen patching causing false-positive corruption on +2A/+3 machines" },
-      { hash: "------", text: "Fix Speedlock CRC sector data: fill with filler byte to match real hardware formatting" },
-      { hash: "------", text: "Fix Speedlock CRC data variation to cover all bytes (real hardware returns fully random data)" },
+      { hash: "e31034e", text: "Fix FDC result status for CM mismatch single-sector reads (ST0 was incorrectly set to Abnormal)" },
     ],
     improvements: [
+      { hash: "22b4d72", text: "Refactored disk copy protection from pre-patching to runtime FDC detection" },
+      { hash: "e2ea895", text: "Speedlock weak sector simulation via repeated-read detection on CRC protection sector" },
       { hash: "70cfaaf", text: "Improved spacing between Surface and Details buttons in disk drive window" },
       { hash: "e187ca0", text: "FDC internals panel in disk drive debug window" },
       { hash: "69d2197", text: "FDC Deleted Data Address Mark (CM) and CRC error handling" },
