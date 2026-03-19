@@ -200,7 +200,7 @@ uint8_t UPD765A::readData()
             // 0xE5 (triggers more aggressive corruption across the sector).
             if (speedlock_ > 0) {
                 int drv = xferDrive_;
-                if (!hasDisk(drv) || !disk_[drv]->hasWeakSectors()) {
+                if (hasDisk(drv) && !disk_[drv]->hasWeakSectors()) {
                     if (dataIndex_ < 64 && data != 0xE5)
                         speedlock_ = 2;  // W.E.C Le Mans type
                     if ((speedlock_ > 1 || dataIndex_ < 64) &&
@@ -220,6 +220,7 @@ uint8_t UPD765A::readData()
                     uint8_t st0 = (xferSide_ << 2) | xferDrive_;
                     uint8_t st1 = xferST1_;
                     uint8_t st2 = xferST2_;
+                    bool hasErrors = (xferST1_ != 0);
 
                     if (xferCMTerminate_) {
                         // CM mismatch termination: only set abnormal if there
@@ -227,14 +228,14 @@ uint8_t UPD765A::readData()
                         // reads (EOT=R) this is a normal termination with ST2_CM.
                         if (xferEOT_ > xferSector_)
                             st0 |= ST0_IC_ABNORMAL;
-                    } else if (st0 == ((xferSide_ << 2) | xferDrive_) && st1 == 0) {
-                        // Normal end-of-cylinder: set abnormal + EN only
-                        // if no other errors (CRC, overrun, etc.) were set.
+                    } else if (!hasErrors) {
+                        // Normal end-of-cylinder with no prior errors:
+                        // set abnormal + EN.
                         st0 |= ST0_IC_ABNORMAL;
                         st1 |= ST1_EN;
                     } else {
-                        // Other error already set (CRC etc.) — preserve it,
-                        // add abnormal termination.
+                        // CRC error or other ST1 error already set —
+                        // add abnormal termination, preserve existing flags.
                         st0 |= ST0_IC_ABNORMAL;
                     }
 
@@ -468,10 +469,17 @@ void UPD765A::cmdReadData()
 
     int drive = xferDrive_;
 
+    if (!hasDisk(drive)) {
+        uint8_t st0 = ST0_IC_ABNORMAL | ST0_NR | (xferSide_ << 2) | drive;
+        setResult7(st0, 0, 0, xferTrack_, xferSide_, xferSector_, xferSizeCode_);
+        phase_ = Phase::Result;
+        return;
+    }
+
     // Speedlock weak sector simulation: detect repeated single-sector reads
     // of the CRC protection sector (R=2, track 0, head 0). Only activates
     // when the disk has no explicit weak sector data in the EDSK image.
-    if (hasDisk(drive) && !disk_[drive]->hasWeakSectors()) {
+    if (!disk_[drive]->hasWeakSectors()) {
         // Encode sector identity: (H & 1) + (C << 1) + (R << 8)
         uint32_t u = (xferSide_ & 0x01) + (xferTrack_ << 1) + (xferSector_ << 8);
         bool singleSector = (xferSector_ == xferEOT_);
@@ -488,14 +496,6 @@ void UPD765A::cmdReadData()
         }
     }
 
-    if (!hasDisk(drive)) {
-        uint8_t st0 = ST0_IC_ABNORMAL | ST0_NR | (xferSide_ << 2) | drive;
-        setResult7(st0, 0, 0, xferTrack_, xferSide_, xferSector_, xferSizeCode_);
-        phase_ = Phase::Result;
-        return;
-    }
-
-    // Find the requested sector
     printf("[FDC] ReadData: cmd=%02X phys=%d C=%d H=%d R=%d N=%d EOT=%d del=%d SK=%d\n",
            commandBuffer_[0], currentTrack_[drive], xferTrack_, xferSide_, xferSector_,
            xferSizeCode_, xferEOT_, xferDeletedData_ ? 1 : 0, xferSkip_ ? 1 : 0);

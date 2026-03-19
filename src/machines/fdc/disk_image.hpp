@@ -54,9 +54,7 @@ struct DiskSector {
 
     // Get the data to return for the current read.
     // - Sectors with explicit weak copies: cycles through them.
-    // - Sectors with CRC error flags but no copies: generates synthetic
-    //   random variation to simulate weak/fuzzy bits (Speedlock protection).
-    // - Normal sectors: returns data unchanged.
+    // - All other sectors (including CRC error): returns data unchanged.
     std::vector<uint8_t> getReadData() const;
 };
 

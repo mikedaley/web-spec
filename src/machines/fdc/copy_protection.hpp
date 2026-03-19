@@ -24,7 +24,6 @@
 #pragma once
 
 #include "disk_image.hpp"
-#include <cstdint>
 
 namespace zxspec {
 

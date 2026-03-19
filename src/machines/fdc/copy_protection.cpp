@@ -61,20 +61,8 @@ ProtectionScheme detectProtection(const DiskImage& disk)
     if (!track0) return ProtectionScheme::None;
 
     bool hasCRCOnTrack0 = false;
-    bool hasWeakOnTrack0 = false;
     for (const auto& sec : track0->sectors) {
         if (sec.hasCRCError()) hasCRCOnTrack0 = true;
-        if (sec.isWeak()) hasWeakOnTrack0 = true;
-    }
-
-    // Check for Speedlock +3 boot code signature at offset 0x10 in boot sector.
-    // Speedlock +3 starts with: F3 01 FD 7F 3E 13 ED 79 (DI; LD BC,0x7FFD; LD A,0x13; OUT (C),A)
-    bool hasSpeedlockBootCode = false;
-    const DiskSector* bootSector = disk.findSector(0, 0, 1);
-    if (bootSector && bootSector->data.size() >= 0x18) {
-        static const uint8_t speedlockSig[] = { 0xF3, 0x01, 0xFD, 0x7F, 0x3E, 0x13, 0xED, 0x79 };
-        hasSpeedlockBootCode = (std::memcmp(bootSector->data.data() + 0x10,
-                                            speedlockSig, sizeof(speedlockSig)) == 0);
     }
 
     // Gather statistics from data tracks (1+)
@@ -87,14 +75,14 @@ ProtectionScheme detectProtection(const DiskImage& disk)
             const DiskTrack* track = disk.getTrack(t, s);
             if (!track) continue;
             for (const auto& sec : track->sectors) {
-                if (t > 0 && (sec.fdcStatus2 & 0x40)) cmCount++;
+                if (t > 0 && (sec.fdcStatus2 & 0x40)) cmCount++;  // ST2_CM
                 if (sec.isWeak()) weakCount++;
                 if (sec.sizeCode >= 7) hasLargeN = true;
             }
         }
     }
 
-    bool hasCM = cmCount > 5;
+    bool hasCM = cmCount > 5;  // threshold avoids false positives from stray CM flags
 
     // Classify — most specific first
 
