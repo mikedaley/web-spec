@@ -5,7 +5,7 @@
  * Protection is handled at FDC runtime via correct uPD765A behaviour:
  *
  *   Speedlock +3   CRC error on track 0 + CM (deleted marks) on data tracks.
- *                  CRC sectors return varied data via DiskSector::getReadData().
+ *                  CRC sectors varied by FDC on repeated reads.
  *                  CM sectors handled by standard SK/CM mismatch logic.
  *
  *   PaulOwens      Protection track with non-standard sector sizes (N >= 7).

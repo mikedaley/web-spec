@@ -194,10 +194,10 @@ uint8_t UPD765A::readData()
         if (dataIndex_ < static_cast<int>(dataBuffer_.size())) {
             uint8_t data = dataBuffer_[dataIndex_];
 
-            // Speedlock hack (matching FUSE): corrupt data at every 29th
-            // byte when repeated reads of the same sector are detected.
-            // Also handles the "W.E.C Le Mans" variant where the first
-            // 64 bytes are not all 0xE5 (triggers more aggressive corruption).
+            // Speedlock weak sector simulation: corrupt data at every 29th
+            // byte when repeated reads of the protection sector are detected.
+            // Also handles the variant where the first 64 bytes are not all
+            // 0xE5 (triggers more aggressive corruption across the sector).
             if (speedlock_ > 0) {
                 int drv = xferDrive_;
                 if (!hasDisk(drv) || !disk_[drv]->hasWeakSectors()) {
@@ -216,7 +216,7 @@ uint8_t UPD765A::readData()
             if (dataIndex_ >= static_cast<int>(dataBuffer_.size())) {
                 // Try to advance to next sector
                 if (!advanceToNextSector()) {
-                    // Matching FUSE: result status depends on WHY we stopped.
+                    // Result status depends on the termination reason.
                     uint8_t st0 = (xferSide_ << 2) | xferDrive_;
                     uint8_t st1 = xferST1_;
                     uint8_t st2 = xferST2_;
@@ -468,9 +468,9 @@ void UPD765A::cmdReadData()
 
     int drive = xferDrive_;
 
-    // Speedlock hack (matching FUSE): detect repeated single-sector reads
-    // of the CRC protection sector (R=2 on track 0, head 0 = u==0x200).
-    // Only when the disk has no explicit weak sector data.
+    // Speedlock weak sector simulation: detect repeated single-sector reads
+    // of the CRC protection sector (R=2, track 0, head 0). Only activates
+    // when the disk has no explicit weak sector data in the EDSK image.
     if (hasDisk(drive) && !disk_[drive]->hasWeakSectors()) {
         // Encode sector identity: (H & 1) + (C << 1) + (R << 8)
         uint32_t u = (xferSide_ & 0x01) + (xferTrack_ << 1) + (xferSector_ << 8);

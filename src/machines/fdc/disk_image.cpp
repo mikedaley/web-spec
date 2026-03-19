@@ -13,8 +13,7 @@ namespace zxspec {
 
 std::vector<uint8_t> DiskSector::getReadData() const
 {
-    // Explicit weak copies: cycle through them and randomize weak bytes
-    // (matching FUSE: bytes that differ between copies are randomized)
+    // Explicit weak copies: cycle through them on each read
     if (!weakCopies.empty()) {
         uint32_t idx = readCount % static_cast<uint32_t>(weakCopies.size());
         readCount++;
@@ -22,8 +21,8 @@ std::vector<uint8_t> DiskSector::getReadData() const
     }
 
     // All other sectors (including CRC error sectors): return data as-is.
-    // Speedlock data variation for CRC sectors is handled by the FDC's
-    // Speedlock hack (detecting repeated reads of the same sector).
+    // Speedlock data variation for CRC sectors is handled by the FDC
+    // (detecting repeated reads of the protection sector).
     readCount++;
     return data;
 }

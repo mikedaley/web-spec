@@ -1,11 +1,12 @@
 /*
- * copy_protection.cpp - Disk copy protection detection and handling
+ * copy_protection.cpp - Disk copy protection detection
  *
- * Detection and patching for ZX Spectrum +3 disk copy protection schemes.
- * Separated from disk_image.cpp and upd765a.cpp to keep protection-specific
- * logic isolated and prevent scheme-specific fixes from breaking each other.
+ * Identifies copy protection schemes on ZX Spectrum +3 disk images.
+ * Disk data is never modified — protection is handled at FDC runtime
+ * via correct µPD765A behaviour (CM/SK mismatch logic, CRC error
+ * reporting, weak sector cycling, and Speedlock data variation).
  *
- * Disk image analysis (from protected-disk-images/):
+ * Supported schemes (from protected-disk-images/):
  *
  * SPEEDLOCK +3 (boot sig: F3 01 FD 7F 3E 13 ED 79)
  *   Beyond The Ice Palace   CRC(2) CM(53)  tracks 0-10
@@ -14,33 +15,17 @@
  *   Dixons Premiere B        CRC(2) CM(171) tracks 0-33
  *   Chartbusters A/B         CRC(1) CM(325) tracks 3-39, non-std R on track 0
  *
- *   Detection: CRC error sector on track 0 + CM on data tracks
- *   Patch: Clear CM from all data tracks (tracks 1+)
- *   FDC: Vary CRC sector data on repeated reads (Speedlock check)
- *
- * CM-ONLY (boot sig: F3 31 00 FD or similar, no Speedlock ID)
+ * CM-ONLY (custom loaders using Read Deleted Data)
  *   Batman The Movie         CM(55)  tracks 3-39
  *   Cabal                    CM(83)  tracks 3-39
  *   Chase HQ                 CM(249) tracks 3-39
  *   California Games A       CM(28)  tracks 34-37
  *
- *   Detection: CM on data tracks, no CRC on track 0
- *   Patch: Clear CM from all data tracks (tracks 1+)
- *   FDC: Standard — no special handling
- *
  * PAUL OWENS
  *   Captain Blood            BigN on track 40 (N=0-15, 16 sectors)
  *
- *   Detection: Sectors with N >= 7 (non-standard sizes)
- *   Patch: None — Read ID returns correct C/H/R/N naturally
- *   FDC: Standard — no special handling
- *
  * WEAK SECTORS (EDSK with multiple copies)
  *   Coin-Op Hits A           Weak(40) CM(40) tracks 1-40
- *
- *   Detection: EDSK sectors with actualSize > declaredSize (multiple copies)
- *   Patch: Clear CM from data tracks
- *   FDC: Cycle through weak copies on each read (handled in getReadData)
  *
  * Written by
  *  Mike Daley <michael_daley@icloud.com>
@@ -84,9 +69,6 @@ ProtectionScheme detectProtection(const DiskImage& disk)
 
     // Check for Speedlock +3 boot code signature at offset 0x10 in boot sector.
     // Speedlock +3 starts with: F3 01 FD 7F 3E 13 ED 79 (DI; LD BC,0x7FFD; LD A,0x13; OUT (C),A)
-    // Disks with this signature patch +3DOS for Read Deleted Data, so CM must be cleared.
-    // Disks WITHOUT this signature (e.g. DISK autoboot) use their own loader that
-    // issues Read Deleted Data directly, so CM must be preserved.
     bool hasSpeedlockBootCode = false;
     const DiskSector* bootSector = disk.findSector(0, 0, 1);
     if (bootSector && bootSector->data.size() >= 0x18) {
@@ -121,13 +103,10 @@ ProtectionScheme detectProtection(const DiskImage& disk)
         return ProtectionScheme::WeakSectors;
     }
 
-    // Speedlock +3: CRC on track 0 + CM on data tracks.
-    // All variants (Speedlock boot code, DISK autoboot, etc.) need CM
-    // cleared because game loading ultimately goes through +3DOS or a
-    // loader that uses Read Data. The CRC sector on track 0 is the
-    // Speedlock protection check — its presence distinguishes these
-    // from CMOnly disks (like Chase HQ) that have no CRC on track 0
-    // and use Read Deleted Data directly for all loading.
+    // Speedlock +3: CRC error sector on track 0 + CM on data tracks.
+    // The CRC sector is the Speedlock protection check — its presence
+    // distinguishes these from CMOnly disks (like Chase HQ) that have
+    // no CRC on track 0.
     if (hasCRCOnTrack0 && hasCM) {
         return ProtectionScheme::Speedlock;
     }
@@ -146,7 +125,7 @@ ProtectionScheme detectProtection(const DiskImage& disk)
 }
 
 // ============================================================================
-// Utility (kept for potential future use / disk explorer)
+// Utility
 // ============================================================================
 
 bool hasSpeedlockBootSignature(const DiskImage& disk)

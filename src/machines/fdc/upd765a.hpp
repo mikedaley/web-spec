@@ -190,10 +190,10 @@ private:
     int msrPollCount_ = 0;
     static constexpr int OVERRUN_THRESHOLD = 8;
 
-    // Speedlock hack (matching FUSE): detect repeated reads of the same
-    // sector on track 0 and corrupt data at 29-byte intervals to simulate
-    // weak/fuzzy sector behaviour. Only activates when the disk has no
-    // explicit weak sector data in the EDSK image.
+    // Speedlock weak sector simulation: detect repeated reads of the CRC
+    // protection sector on track 0 and corrupt data at 29-byte intervals
+    // to simulate non-deterministic reads. Only activates when the disk
+    // has no explicit weak sector data in the EDSK image.
     int speedlock_ = 0;              // 0=idle, >0=repeated read count
     uint32_t lastSectorRead_ = 0;    // encoded sector identifier
 
