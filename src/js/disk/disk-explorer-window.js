@@ -848,6 +848,46 @@ export class DiskExplorerWindow extends BaseWindow {
           ctx.stroke();
         }
       }
+
+      // Track-edge protection marker: thin coloured arc on the outer edge of
+      // tracks containing any protected sectors (CRC, CM, weak, non-std size).
+      // Uses the highest-priority protection colour found on the track.
+      if (track && track.sectors) {
+        let edgeColor = null;
+        let hasNonStdR = false;
+        for (const s of track.sectors) {
+          if (s.flags.crcError && !edgeColor) edgeColor = this._colors.crc;
+          else if (s.flags.weak && !edgeColor) edgeColor = this._colors.weak;
+          else if (s.flags.deletedData && !edgeColor) edgeColor = this._colors.deleted;
+          else if (s.flags.sizeVariant && !edgeColor) edgeColor = this._colors.sizeVar;
+          if (s.r < 1 || s.r > 9) hasNonStdR = true;
+        }
+        if (edgeColor) {
+          ctx.beginPath();
+          ctx.arc(cx, cy, tOuterR, 0, Math.PI * 2);
+          ctx.strokeStyle = edgeColor;
+          ctx.lineWidth = 1.2;
+          ctx.globalAlpha = 0.7;
+          ctx.stroke();
+          ctx.globalAlpha = 1.0;
+        }
+        // Non-standard sector ID: small dot on the outer edge at each
+        // sector's midpoint for sectors with R outside the normal 1-9 range.
+        if (hasNonStdR) {
+          const sa = (Math.PI * 2) / track.sectors.length;
+          for (let si = 0; si < track.sectors.length; si++) {
+            const s = track.sectors[si];
+            if (s.r >= 1 && s.r <= 9) continue;
+            const midAngle = (si + 0.5) * sa;
+            const dx = cx + Math.cos(midAngle) * (tOuterR + 2);
+            const dy = cy + Math.sin(midAngle) * (tOuterR + 2);
+            ctx.beginPath();
+            ctx.arc(dx, dy, 1.5, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(255,255,255,0.8)";
+            ctx.fill();
+          }
+        }
+      }
     }
     ctx.restore();
 
