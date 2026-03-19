@@ -454,13 +454,13 @@ void UPD765A::cmdReadData()
     int drive = xferDrive_;
 
     // Speedlock hack (matching FUSE): detect repeated single-sector reads
-    // of the same sector on track 0. Only when the disk has no explicit
-    // weak sector data (do_read_weak equivalent).
+    // of the CRC protection sector (R=2 on track 0, head 0 = u==0x200).
+    // Only when the disk has no explicit weak sector data.
     if (hasDisk(drive) && !disk_[drive]->hasWeakSectors()) {
-        // Encode sector identity: side + track*2 + sector*256
+        // Encode sector identity: (H & 1) + (C << 1) + (R << 8)
         uint32_t u = (xferSide_ & 0x01) + (xferTrack_ << 1) + (xferSector_ << 8);
         bool singleSector = (xferSector_ == xferEOT_);
-        if (singleSector && currentTrack_[drive] == 0) {
+        if (singleSector && u == 0x0200) {
             if (u == lastSectorRead_) {
                 speedlock_++;
             } else {
