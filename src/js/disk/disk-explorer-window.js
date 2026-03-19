@@ -815,6 +815,12 @@ export class DiskExplorerWindow extends BaseWindow {
         ctx.fillStyle = sectorColor;
         ctx.fill();
 
+        // Brighten sectors that contain data (any non-zero byte)
+        if (sector.data && sector.data.some(b => b !== 0)) {
+          ctx.fillStyle = "rgba(255,255,255,0.12)";
+          ctx.fill();
+        }
+
         // Glow for protected sectors
         if (sector.flags.protected && !sector.flags.sizeVariant) {
           ctx.save();
