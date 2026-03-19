@@ -247,7 +247,7 @@ export class DiskExplorerWindow extends BaseWindow {
       const mx = e.clientX - rect.left;
       const my = e.clientY - rect.top;
       const oldZoom = this._zoom;
-      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      const factor = e.deltaY < 0 ? 1.05 : 1 / 1.05;
       this._zoom = Math.max(1, Math.min(20, this._zoom * factor));
       // Adjust pan so the point under the cursor stays fixed
       const zr = this._zoom / oldZoom;
