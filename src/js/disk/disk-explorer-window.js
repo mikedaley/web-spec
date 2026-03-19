@@ -260,7 +260,7 @@ export class DiskExplorerWindow extends BaseWindow {
 
     // Pan (middle-click drag or ctrl+drag)
     this._mapCanvas.addEventListener("mousedown", (e) => {
-      if (e.button === 1 || (e.button === 0 && e.ctrlKey)) {
+      if (e.button === 1 || (e.button === 0 && e.metaKey)) {
         e.preventDefault();
         this._isPanning = true;
         this._panStartX = e.clientX - this._panX;
