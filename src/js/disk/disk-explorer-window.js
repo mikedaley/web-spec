@@ -140,7 +140,6 @@ export class DiskExplorerWindow extends BaseWindow {
             </div>
             <div class="dex-legend">
               <span class="dex-legend-item"><span class="dex-legend-swatch" data-type="normal"></span>Normal</span>
-              <span class="dex-legend-item"><span class="dex-legend-swatch" data-type="data"></span>Has data</span>
               <span class="dex-legend-item"><span class="dex-legend-swatch" data-type="crc"></span>CRC error</span>
               <span class="dex-legend-item"><span class="dex-legend-swatch" data-type="deleted"></span>Deleted</span>
               <span class="dex-legend-item"><span class="dex-legend-swatch" data-type="weak"></span>Weak</span>
@@ -396,7 +395,6 @@ export class DiskExplorerWindow extends BaseWindow {
       const swatches = this.contentElement.querySelectorAll(".dex-legend-swatch");
       const colorMap = {
         normal: this._hexToRGBA(this._colors.normal, 0.2),
-        data: this._hexToRGBA(this._colors.normal, 0.35),
         crc: this._hexToRGBA(this._colors.crc, 0.55),
         deleted: this._hexToRGBA(this._colors.deleted, 0.45),
         weak: this._hexToRGBA(this._colors.weak, 0.5),
@@ -823,29 +821,6 @@ export class DiskExplorerWindow extends BaseWindow {
     const innerR = size * MAP_INNER_R;
     const hubR = size * MAP_HUB_R;
 
-    // Background
-    ctx.fillStyle = this._colors.bg;
-    ctx.fillRect(0, 0, size, size);
-
-    // Disk shadow
-    ctx.beginPath();
-    ctx.arc(cx, cy, outerR + 3, 0, Math.PI * 2);
-    ctx.fillStyle = "rgba(0,0,0,0.4)";
-    ctx.fill();
-
-    // Disk base
-    ctx.beginPath();
-    ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
-    ctx.fillStyle = this._colors.diskBase;
-    ctx.fill();
-
-    // Edge ring
-    ctx.beginPath();
-    ctx.arc(cx, cy, outerR, 0, Math.PI * 2);
-    ctx.strokeStyle = this._colors.diskEdge;
-    ctx.lineWidth = 1;
-    ctx.stroke();
-
     if (!this._diskInfo) {
       // Ghost disk — concentric rings
       for (let i = 0; i < 8; i++) {
@@ -857,8 +832,6 @@ export class DiskExplorerWindow extends BaseWindow {
         ctx.stroke();
       }
       this._drawHub(ctx, cx, cy, hubR);
-
-      // "No disk" text
       ctx.fillStyle = this._colors.textMuted;
       ctx.font = `500 ${size * 0.035}px system-ui, sans-serif`;
       ctx.textAlign = "center";
@@ -871,21 +844,12 @@ export class DiskExplorerWindow extends BaseWindow {
     const numTracks = this._diskInfo.trackCount;
     const trackRange = outerR - innerR;
 
-    ctx.save();
     for (let ti = 0; ti < numTracks; ti++) {
       const track = tracks[ti];
       const tOuterR = outerR - (ti * trackRange) / numTracks;
       const tInnerR = outerR - ((ti + 1) * trackRange) / numTracks;
 
-      if (!track || track.unformatted || track.sectorCount === 0) {
-        // Unformatted ring
-        ctx.beginPath();
-        ctx.arc(cx, cy, tOuterR - 0.3, 0, Math.PI * 2);
-        ctx.arc(cx, cy, tInnerR + 0.3, Math.PI * 2, 0, true);
-        ctx.fillStyle = "rgba(20,18,15,0.6)";
-        ctx.fill();
-        continue;
-      }
+      if (!track || track.unformatted || track.sectorCount === 0) continue;
 
       const sectors = track.sectors;
       const sectorAngle = (Math.PI * 2) / sectors.length;
@@ -897,42 +861,21 @@ export class DiskExplorerWindow extends BaseWindow {
 
         const isSelected =
           ti === this._selectedTrack && si === this._selectedSector;
-        const isTrackSelected = ti === this._selectedTrack;
         const isHovered =
           ti === this._hoveredTrack && si === this._hoveredSector;
 
-        // Sector color
-        const sectorColor = this._getSectorColor(sector, false);
-        const glowColor = this._getSectorColor(sector, true);
-
-        // Draw sector arc
+        // Draw sector arc with colour from legend
         ctx.beginPath();
         ctx.arc(cx, cy, tOuterR - 0.5, startAngle, endAngle);
         ctx.arc(cx, cy, tInnerR + 0.5, endAngle, startAngle, true);
         ctx.closePath();
 
-        ctx.fillStyle = sectorColor;
+        ctx.fillStyle = this._getSectorColor(sector, false);
         ctx.fill();
-
-        // Brighten sectors that contain data (any non-zero byte)
-        if (sector.data && sector.data.some(b => b !== 0)) {
-          ctx.fillStyle = "rgba(255,255,255,0.12)";
-          ctx.fill();
-        }
-
-        // Glow for protected sectors
-        if (sector.flags.protected && !sector.flags.sizeVariant) {
-          ctx.save();
-          ctx.shadowColor = glowColor;
-          ctx.shadowBlur = 6;
-          ctx.globalAlpha = 0.25;
-          ctx.fill();
-          ctx.restore();
-        }
 
         // Hover highlight
         if (isHovered) {
-          ctx.fillStyle = "rgba(255,255,255,0.15)";
+          ctx.fillStyle = "rgba(255,255,255,0.2)";
           ctx.fill();
         }
 
@@ -941,54 +884,9 @@ export class DiskExplorerWindow extends BaseWindow {
           ctx.strokeStyle = "rgba(255,255,255,0.9)";
           ctx.lineWidth = 1.5;
           ctx.stroke();
-        } else if (isTrackSelected) {
-          ctx.strokeStyle = "rgba(255,255,255,0.15)";
-          ctx.lineWidth = 0.5;
-          ctx.stroke();
-        }
-      }
-
-      // Track-edge protection marker: thin coloured arc on the outer edge of
-      // tracks containing any protected sectors (CRC, CM, weak, non-std size).
-      // Uses the highest-priority protection colour found on the track.
-      if (track && track.sectors) {
-        let edgeColor = null;
-        let hasNonStdR = false;
-        for (const s of track.sectors) {
-          if (s.flags.crcError && !edgeColor) edgeColor = this._colors.crc;
-          else if (s.flags.weak && !edgeColor) edgeColor = this._colors.weak;
-          else if (s.flags.deletedData && !edgeColor) edgeColor = this._colors.deleted;
-          else if (s.flags.sizeVariant && !edgeColor) edgeColor = this._colors.sizeVar;
-          if (s.r < 1 || s.r > 9) hasNonStdR = true;
-        }
-        if (edgeColor) {
-          ctx.beginPath();
-          ctx.arc(cx, cy, tOuterR, 0, Math.PI * 2);
-          ctx.strokeStyle = edgeColor;
-          ctx.lineWidth = 1.2;
-          ctx.globalAlpha = 0.7;
-          ctx.stroke();
-          ctx.globalAlpha = 1.0;
-        }
-        // Non-standard sector ID: small dot on the outer edge at each
-        // sector's midpoint for sectors with R outside the normal 1-9 range.
-        if (hasNonStdR) {
-          const sa = (Math.PI * 2) / track.sectors.length;
-          for (let si = 0; si < track.sectors.length; si++) {
-            const s = track.sectors[si];
-            if (s.r >= 1 && s.r <= 9) continue;
-            const midAngle = (si + 0.5) * sa;
-            const dx = cx + Math.cos(midAngle) * (tOuterR + 2);
-            const dy = cy + Math.sin(midAngle) * (tOuterR + 2);
-            ctx.beginPath();
-            ctx.arc(dx, dy, 1.5, 0, Math.PI * 2);
-            ctx.fillStyle = "rgba(255,255,255,0.8)";
-            ctx.fill();
-          }
         }
       }
     }
-    ctx.restore();
 
     // Hub
     this._drawHub(ctx, cx, cy, hubR);
