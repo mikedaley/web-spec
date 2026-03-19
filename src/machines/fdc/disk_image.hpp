@@ -95,6 +95,7 @@ public:
     int getTrackCount() const { return trackCount_; }
     int getSideCount() const { return sideCount_; }
     ProtectionScheme getProtection() const { return protection_; }
+    bool hasWeakSectors() const { return hasWeakSectors_; }
 
     // Find a sector by physical track, side, and sector ID.
     // Returns nullptr if not found.
@@ -126,6 +127,7 @@ private:
     bool writeProtected_ = false;
     bool extended_ = false;
     ProtectionScheme protection_ = ProtectionScheme::None;
+    bool hasWeakSectors_ = false;
 };
 
 } // namespace zxspec

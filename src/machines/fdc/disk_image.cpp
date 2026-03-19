@@ -13,33 +13,17 @@ namespace zxspec {
 
 std::vector<uint8_t> DiskSector::getReadData() const
 {
-    // Explicit weak copies: cycle through them
+    // Explicit weak copies: cycle through them and randomize weak bytes
+    // (matching FUSE: bytes that differ between copies are randomized)
     if (!weakCopies.empty()) {
         uint32_t idx = readCount % static_cast<uint32_t>(weakCopies.size());
         readCount++;
         return weakCopies[idx];
     }
 
-    // CRC error sectors without explicit weak copies: simulate real hardware
-    // where the error correction fails non-deterministically on each read.
-    // First read returns uniform filler (the sector was formatted with a
-    // single filler byte). Subsequent reads return XOR-varied data.
-    if (hasCRCError() && !data.empty()) {
-        readCount++;
-        uint8_t filler = data[0];
-        std::vector<uint8_t> result(data.size(), filler);
-        if (readCount > 1) {
-            uint32_t seed = readCount * 0x9E3779B1u;
-            for (size_t i = 0; i < result.size(); i++) {
-                seed ^= seed << 13;
-                seed ^= seed >> 17;
-                seed ^= seed << 5;
-                result[i] ^= static_cast<uint8_t>(seed & 0xFF);
-            }
-        }
-        return result;
-    }
-
+    // All other sectors (including CRC error sectors): return data as-is.
+    // Speedlock data variation for CRC sectors is handled by the FDC's
+    // Speedlock hack (detecting repeated reads of the same sector).
     readCount++;
     return data;
 }
@@ -234,6 +218,7 @@ bool DiskImage::loadExtendedDSK(const uint8_t* data, uint32_t size)
                 uint32_t copyCount = actualSize / declaredSize;
                 sector.data.assign(data + dataOffset, data + dataOffset + declaredSize);
                 sector.weakCopies.resize(copyCount);
+                hasWeakSectors_ = true;
                 for (uint32_t c = 0; c < copyCount; c++) {
                     uint32_t copyOffset = dataOffset + c * declaredSize;
                     sector.weakCopies[c].assign(data + copyOffset, data + copyOffset + declaredSize);

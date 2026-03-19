@@ -192,7 +192,25 @@ uint8_t UPD765A::readData()
 
         // Reading sector data during execution phase
         if (dataIndex_ < static_cast<int>(dataBuffer_.size())) {
-            uint8_t data = dataBuffer_[dataIndex_++];
+            uint8_t data = dataBuffer_[dataIndex_];
+
+            // Speedlock hack (matching FUSE): corrupt data at every 29th
+            // byte when repeated reads of the same sector are detected.
+            // Also handles the "W.E.C Le Mans" variant where the first
+            // 64 bytes are not all 0xE5 (triggers more aggressive corruption).
+            if (speedlock_ > 0) {
+                int drv = xferDrive_;
+                if (!hasDisk(drv) || !disk_[drv]->hasWeakSectors()) {
+                    if (dataIndex_ < 64 && data != 0xE5)
+                        speedlock_ = 2;  // W.E.C Le Mans type
+                    if ((speedlock_ > 1 || dataIndex_ < 64) &&
+                        (dataIndex_ % 29) == 0) {
+                        data ^= static_cast<uint8_t>(dataIndex_);
+                    }
+                }
+            }
+
+            dataIndex_++;
 
             // Check if we've read the entire sector
             if (dataIndex_ >= static_cast<int>(dataBuffer_.size())) {
@@ -434,6 +452,26 @@ void UPD765A::cmdReadData()
     xferST2_ = 0;
 
     int drive = xferDrive_;
+
+    // Speedlock hack (matching FUSE): detect repeated single-sector reads
+    // of the same sector on track 0. Only when the disk has no explicit
+    // weak sector data (do_read_weak equivalent).
+    if (hasDisk(drive) && !disk_[drive]->hasWeakSectors()) {
+        // Encode sector identity: side + track*2 + sector*256
+        uint32_t u = (xferSide_ & 0x01) + (xferTrack_ << 1) + (xferSector_ << 8);
+        bool singleSector = (xferSector_ == xferEOT_);
+        if (singleSector && currentTrack_[drive] == 0) {
+            if (u == lastSectorRead_) {
+                speedlock_++;
+            } else {
+                speedlock_ = 0;
+                lastSectorRead_ = u;
+            }
+        } else {
+            lastSectorRead_ = 0;
+            speedlock_ = 0;
+        }
+    }
 
     if (!hasDisk(drive)) {
         uint8_t st0 = ST0_IC_ABNORMAL | ST0_NR | (xferSide_ << 2) | drive;
