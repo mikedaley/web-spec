@@ -5,3 +5,4 @@ Welcome to the SpectrEM Web wiki — a ZX Spectrum emulator running in the brows
 ## Pages
 
 - [[ZX Spectrum Timing]] — Complete guide to how timing is handled in the emulator, including CPU execution, ULA contention, display generation, audio synthesis, AY sound chip, and tape playback.
+- [[Disk Copy Protection]] — How the emulator handles Speedlock +3, CM-only, Paul Owens, and weak sector copy protection schemes at FDC runtime.
