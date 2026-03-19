@@ -17,6 +17,7 @@ const RELEASE_DATA = [
       { hash: "b380abe", text: "Save button in tape player for saving TAP to disk without ejecting" },
       { hash: "24bcdea", text: "Disk Explorer and Disk Analysis windows" },
       { hash: "eef8fc4", text: "Disk compatibility test suite for protected disk images" },
+      { hash: "a5e086d", text: "Recent snapshots in File menu with one-click reload and remove" },
     ],
     fixes: [
       { hash: "------", text: "Settings window not containing its content due to incorrect element reference in auto-fit sizing" },
