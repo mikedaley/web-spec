@@ -188,31 +188,15 @@ bool ZXSpectrumPlus2A::isRamBankContended(uint8_t bank) const
 
 uint8_t* ZXSpectrumPlus2A::getScreenMemory()
 {
-    uint8_t screenBank;
-    if (specialPaging_)
-    {
-        uint8_t config = (pagingRegister1FFD_ >> 1) & 0x03;
-        screenBank = specialConfigs[config][1];  // Slot 1 = screen area (0x4000)
-    }
-    else
-    {
-        screenBank = (pagingRegister_ & 0x08) ? 7 : 5;
-    }
+    // The ULA always reads from bank 5 or 7 regardless of special paging mode.
+    // Special paging only affects the CPU's memory map, not the ULA's screen fetch.
+    uint8_t screenBank = (pagingRegister_ & 0x08) ? 7 : 5;
     return &memoryRam_[screenBank * MEM_PAGE_SIZE];
 }
 
 const uint8_t* ZXSpectrumPlus2A::getScreenMemory() const
 {
-    uint8_t screenBank;
-    if (specialPaging_)
-    {
-        uint8_t config = (pagingRegister1FFD_ >> 1) & 0x03;
-        screenBank = specialConfigs[config][1];  // Slot 1 = screen area (0x4000)
-    }
-    else
-    {
-        screenBank = (pagingRegister_ & 0x08) ? 7 : 5;
-    }
+    uint8_t screenBank = (pagingRegister_ & 0x08) ? 7 : 5;
     return &memoryRam_[screenBank * MEM_PAGE_SIZE];
 }
 
@@ -488,24 +472,8 @@ void ZXSpectrumPlus2A::coreIOWrite(uint16_t address, uint8_t data)
     // +2A additional paging: port 0x1FFD — (address & 0xF002) == 0x1000
     if ((address & 0xF002) == 0x1000 && !pagingDisabled_)
     {
-        // Catch up display before paging change if screen memory will change
-        bool newSpecialPaging = (data & 0x01) != 0;
-        bool screenMayChange = (newSpecialPaging != specialPaging_);
-        if (!screenMayChange && newSpecialPaging)
-        {
-            // Both old and new are special mode — check if config changed
-            uint8_t oldConfig = (pagingRegister1FFD_ >> 1) & 0x03;
-            uint8_t newConfig = (data >> 1) & 0x03;
-            screenMayChange = (specialConfigs[oldConfig][1] != specialConfigs[newConfig][1]);
-        }
-        if (screenMayChange && !tapeAccelerating_)
-        {
-            display_.updateWithTs(
-                static_cast<int32_t>((z80_->getTStates() - display_.getCurrentDisplayTs()) + machineInfo_.borderDrawingOffset),
-                getScreenMemory(), borderColor_, frameCounter_);
-        }
         pagingRegister1FFD_ = data;
-        specialPaging_ = newSpecialPaging;
+        specialPaging_ = (data & 0x01) != 0;
         updatePaging();
     }
 
