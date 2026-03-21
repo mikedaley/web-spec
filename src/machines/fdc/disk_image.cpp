@@ -20,10 +20,67 @@ std::vector<uint8_t> DiskSector::getReadData() const
         return weakCopies[idx];
     }
 
-    // All other sectors (including CRC error sectors): return data as-is.
-    // Speedlock data variation for CRC sectors is handled by the FDC
-    // (detecting repeated reads of the protection sector).
     readCount++;
+
+    // Synthetic weak sector data for Speedlock CRC error sectors.
+    // These are intentional weak sectors where the disk surface has
+    // ambiguous magnetic flux — each read returns different data.
+    //
+    // Detection: CRC error (ST1 bit 5) WITHOUT CM/deleted mark (ST2 bit 6),
+    // and sector >= 512 bytes. CRC+CM sectors (like BTIP's R=9) are data
+    // sectors read via Read Deleted Data — not weak, return original data.
+    //
+    // Two patterns based on sector content (obo / TheMartian):
+    //   Partial weak (first 255 bytes all same = filler pattern):
+    //     0x000-0x0FE: reliable (original data)
+    //     0x0FF:       random (at least 1 byte in first 256 must change)
+    //     0x100-0x11F: random (32 bytes weak)
+    //     0x120-0x14F: filler byte, same within run but varies between reads
+    //     0x150-0x1FF: random (176 bytes weak)
+    //   Full weak (first 255 bytes differ):
+    //     All bytes change on every read
+    bool isCRCOnly = hasCRCError() && (fdcStatus2 & 0x40) == 0;
+    if (isCRCOnly && data.size() >= 512) {
+        auto result = data;
+
+        // Simple LCG for deterministic per-read variation
+        uint32_t seed = readCount * 0x9E3779B9u + 0xDEADBEEFu;
+        auto rng = [&seed]() -> uint8_t {
+            seed = seed * 1103515245u + 12345u;
+            return static_cast<uint8_t>(seed >> 16);
+        };
+
+        // Detect filler pattern: first 255 bytes all the same value
+        uint8_t first = data[0];
+        bool isFiller = true;
+        for (int i = 1; i < 255; i++) {
+            if (data[i] != first) { isFiller = false; break; }
+        }
+
+        if (isFiller) {
+            // Partial weak: reliable region with specific weak zones
+            result[0xFF] = rng();
+
+            for (int i = 0x100; i < 0x120; i++)
+                result[i] = rng();
+
+            uint8_t filler = rng();
+            for (int i = 0x120; i < 0x150; i++)
+                result[i] = filler;
+
+            for (int i = 0x150; i < static_cast<int>(result.size()); i++)
+                result[i] = rng();
+        } else {
+            // Full weak: all bytes change on every read
+            for (size_t i = 0; i < result.size(); i++)
+                result[i] = rng();
+        }
+
+        return result;
+    }
+
+    // All other sectors (CRC+CM, small CRC, or no CRC): return original data.
+    // The FDC propagates CRC error flags from EDSK regardless.
     return data;
 }
 

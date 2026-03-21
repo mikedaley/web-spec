@@ -614,6 +614,89 @@ static void test_speedlock_weak_variation()
 }
 
 // ---------------------------------------------------------------------------
+// Chartbusters: simulate the exact Speedlock protection check
+//   1. Read sector R=130 (N=2, 512 bytes) — must succeed, all bytes 0xA7
+//   2. Read sector R=121 (N=0, 128 bytes) — must report CRC error (ST1_DE)
+// ---------------------------------------------------------------------------
+
+static void test_chartbusters_protection()
+{
+    std::printf("\n=== Chartbusters Protection Check ===\n");
+
+    if (!hasDisk("Chartbusters - Side A.dsk")) return;
+
+    auto data = loadDisk("Chartbusters - Side A.dsk");
+    zxspec::DiskImage disk;
+    disk.load(data.data(), static_cast<uint32_t>(data.size()));
+
+    zxspec::UPD765A fdc;
+    fdc.insertDisk(0, &disk);
+    fdc.setMotor(true);
+
+    // Recalibrate + Sense Interrupt
+    fdc.writeData(0x07); fdc.writeData(0x00);
+    fdc.writeData(0x08); fdc.readData(); fdc.readData();
+
+    // Helper: read a single sector, return {data, st0, st1, st2}
+    struct ReadResult {
+        std::vector<uint8_t> data;
+        uint8_t st0, st1, st2;
+    };
+    auto readSector = [&](uint8_t r, uint8_t n) -> ReadResult {
+        ReadResult res;
+        fdc.writeData(0x46); // Read Data + MFM
+        fdc.writeData(0x00); // Drive 0, side 0
+        fdc.writeData(0x00); // C=0
+        fdc.writeData(0x00); // H=0
+        fdc.writeData(r);    // R
+        fdc.writeData(n);    // N
+        fdc.writeData(r);    // EOT=R (single sector)
+        fdc.writeData(0x2A); // GPL
+        fdc.writeData(0xFF); // DTL
+
+        int size = 128 << std::min((int)n, 6);
+        for (int i = 0; i < size; i++) {
+            fdc.readMSR();
+            res.data.push_back(fdc.readData());
+        }
+        // Read 7-byte result
+        res.st0 = fdc.readData();
+        res.st1 = fdc.readData();
+        res.st2 = fdc.readData();
+        for (int i = 0; i < 4; i++) fdc.readData(); // C, H, R, N
+        return res;
+    };
+
+    // Step 1: Read sector R=130 (N=2, 512 bytes) — must succeed with all 0xA7
+    {
+        TEST_BEGIN("Chartbusters: sector R=130 reads clean, all 0xA7");
+        auto res = readSector(130, 2);
+        EXPECT_EQ((int)res.data.size(), 512);
+        // ST0 bits 6-7: 01 = abnormal (end of cylinder with EN), which is
+        // normal for single-sector reads. Key: ST1 must NOT have DE (0x20).
+        EXPECT_EQ(res.st1 & 0x20, 0);  // No CRC error
+        bool allA7 = true;
+        for (size_t i = 0; i < res.data.size(); i++) {
+            if (res.data[i] != 0xA7) { allA7 = false; break; }
+        }
+        EXPECT_TRUE(allA7);
+        TEST_END();
+    }
+
+    // Step 2: Read sector R=121 (N=0, 128 bytes) — must report CRC error
+    {
+        TEST_BEGIN("Chartbusters: sector R=121 reports CRC error");
+        auto res = readSector(121, 0);
+        EXPECT_EQ((int)res.data.size(), 128);
+        // ST1 must have DE (Data Error = CRC error)
+        EXPECT_EQ(res.st1 & 0x20, 0x20);
+        // ST2 must have DD (Data error in Data field)
+        EXPECT_EQ(res.st2 & 0x20, 0x20);
+        TEST_END();
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Dragon Ninja: simulate the Speedlock Read Deleted Data on track 0
 // ---------------------------------------------------------------------------
 
@@ -734,6 +817,7 @@ int main(int argc, char** argv)
     test_all_sectors_readable();
     test_read_id_protection_tracks();
     test_speedlock_weak_variation();
+    test_chartbusters_protection();
     test_dragon_ninja_read_deleted();
 
     std::printf("\n=== Results: %d/%d passed", g_passed, g_total);

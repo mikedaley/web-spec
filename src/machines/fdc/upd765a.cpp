@@ -194,22 +194,6 @@ uint8_t UPD765A::readData()
         if (dataIndex_ < static_cast<int>(dataBuffer_.size())) {
             uint8_t data = dataBuffer_[dataIndex_];
 
-            // Speedlock weak sector simulation: corrupt data at every 29th
-            // byte when repeated reads of the protection sector are detected.
-            // Also handles the variant where the first 64 bytes are not all
-            // 0xE5 (triggers more aggressive corruption across the sector).
-            if (speedlock_ > 0) {
-                int drv = xferDrive_;
-                if (hasDisk(drv) && !disk_[drv]->hasWeakSectors()) {
-                    if (dataIndex_ < 64 && data != 0xE5)
-                        speedlock_ = 2;  // W.E.C Le Mans type
-                    if ((speedlock_ > 1 || dataIndex_ < 64) &&
-                        (dataIndex_ % 29) == 0) {
-                        data ^= static_cast<uint8_t>(dataIndex_);
-                    }
-                }
-            }
-
             dataIndex_++;
 
             // Check if we've read the entire sector
@@ -474,26 +458,6 @@ void UPD765A::cmdReadData()
         setResult7(st0, 0, 0, xferTrack_, xferSide_, xferSector_, xferSizeCode_);
         phase_ = Phase::Result;
         return;
-    }
-
-    // Speedlock weak sector simulation: detect repeated single-sector reads
-    // of the CRC protection sector (R=2, track 0, head 0). Only activates
-    // when the disk has no explicit weak sector data in the EDSK image.
-    if (!disk_[drive]->hasWeakSectors()) {
-        // Encode sector identity: (H & 1) + (C << 1) + (R << 8)
-        uint32_t u = (xferSide_ & 0x01) + (xferTrack_ << 1) + (xferSector_ << 8);
-        bool singleSector = (xferSector_ == xferEOT_);
-        if (singleSector && u == 0x0200) {
-            if (u == lastSectorRead_) {
-                speedlock_++;
-            } else {
-                speedlock_ = 0;
-                lastSectorRead_ = u;
-            }
-        } else {
-            lastSectorRead_ = 0;
-            speedlock_ = 0;
-        }
     }
 
     printf("[FDC] ReadData: cmd=%02X phys=%d C=%d H=%d R=%d N=%d EOT=%d del=%d SK=%d\n",
