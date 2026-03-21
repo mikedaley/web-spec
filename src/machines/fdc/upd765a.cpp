@@ -207,10 +207,11 @@ uint8_t UPD765A::readData()
                     bool hasErrors = (xferST1_ != 0);
 
                     if (xferCMTerminate_) {
-                        // CM mismatch termination: only set abnormal if there
-                        // were more sectors to read (EOT > R). For single-sector
-                        // reads (EOT=R) this is a normal termination with ST2_CM.
-                        if (xferEOT_ > xferSector_)
+                        // CM mismatch termination: set abnormal if there were
+                        // more sectors to read (EOT > R), or if there are
+                        // errors (CRC etc.). A single-sector CM mismatch with
+                        // no other errors is normal termination with ST2_CM.
+                        if (xferEOT_ > xferSector_ || hasErrors)
                             st0 |= ST0_IC_ABNORMAL;
                     } else if (!hasErrors) {
                         // Normal end-of-cylinder with no prior errors:
@@ -500,7 +501,15 @@ void UPD765A::cmdReadData()
     dataIndex_ = 0;
     executionRead_ = true;
 
-
+    // Pad data buffer when the command's N exceeds the sector's actual size.
+    // On real hardware the FDC transfers command-N bytes regardless of the
+    // sector's N, reading gap data past the data field. This matters when
+    // protection code reads a small sector (N=0, 128B) with a larger N in
+    // the command (e.g., Chartbusters reads R=121 N=0 sector with N=2).
+    uint32_t expectedSize = 128u << std::min(static_cast<uint32_t>(xferSizeCode_), 6u);
+    if (dataBuffer_.size() < expectedSize) {
+        dataBuffer_.resize(expectedSize, 0x00);
+    }
 
     // Initialize status flags
     xferWeakSector_ = sector->isWeak();
@@ -940,6 +949,12 @@ bool UPD765A::advanceToNextSector()
         // Read: fill buffer with next sector's data (cycles copies for weak sectors)
         dataBuffer_ = sector->getReadData();
         dataIndex_ = 0;
+
+        // Pad to command's expected size (same as in cmdReadData)
+        uint32_t expectedSize = 128u << std::min(static_cast<uint32_t>(xferSizeCode_), 6u);
+        if (dataBuffer_.size() < expectedSize) {
+            dataBuffer_.resize(expectedSize, 0x00);
+        }
 
         // Update status flags for this sector
         xferWeakSector_ = sector->isWeak();
