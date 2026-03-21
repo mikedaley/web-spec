@@ -503,12 +503,13 @@ void UPD765A::cmdReadData()
 
     // Pad data buffer when the command's N exceeds the sector's actual size.
     // On real hardware the FDC transfers command-N bytes regardless of the
-    // sector's N, reading gap data past the data field. This matters when
-    // protection code reads a small sector (N=0, 128B) with a larger N in
-    // the command (e.g., Chartbusters reads R=121 N=0 sector with N=2).
+    // sector's N, reading gap data past the data field. Gap bytes on MFM
+    // disks are 0x4E. This matters when protection code reads a small
+    // sector (N=0, 128B) with a larger N in the command (e.g., Chartbusters
+    // reads R=121 N=0 sector with N=2).
     uint32_t expectedSize = 128u << std::min(static_cast<uint32_t>(xferSizeCode_), 6u);
     if (dataBuffer_.size() < expectedSize) {
-        dataBuffer_.resize(expectedSize, 0x00);
+        dataBuffer_.resize(expectedSize, 0x4E);
     }
 
     // Initialize status flags
@@ -953,7 +954,7 @@ bool UPD765A::advanceToNextSector()
         // Pad to command's expected size (same as in cmdReadData)
         uint32_t expectedSize = 128u << std::min(static_cast<uint32_t>(xferSizeCode_), 6u);
         if (dataBuffer_.size() < expectedSize) {
-            dataBuffer_.resize(expectedSize, 0x00);
+            dataBuffer_.resize(expectedSize, 0x4E);
         }
 
         // Update status flags for this sector
