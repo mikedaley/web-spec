@@ -20,6 +20,8 @@ const RELEASE_DATA = [
       { hash: "a5e086d", text: "Recent snapshots in File menu with one-click reload and remove" },
     ],
     fixes: [
+      { hash: "f1a2d59", text: "Fix +2A/+3 screen display in special paging mode (CP/M)" },
+      { hash: "5a9d9e2", text: "Fix FDC ST0 for CRC+CM mismatch and pad data for N-mismatch sectors" },
       { hash: "------", text: "Settings window not containing its content due to incorrect element reference in auto-fit sizing" },
       { hash: "3f7ebcc", text: "Memory map window now works correctly for all machines (128K, +2, +2A, +3)" },
       { hash: "------", text: "Sinclair 1 joystick left/right directions swapped" },
@@ -42,6 +44,8 @@ const RELEASE_DATA = [
       { hash: "fc9f0a0", text: "Fix disk explorer tooltip clipping by window overflow" },
     ],
     improvements: [
+      { hash: "a20ea36", text: "Proper weak sector simulation replacing Speedlock XOR hack" },
+      { hash: "673fec3", text: "Use 0x4E gap fill for N-mismatch padding in FDC reads" },
       { hash: "22b4d72", text: "Refactored disk copy protection from pre-patching to runtime FDC detection" },
       { hash: "e2ea895", text: "Speedlock weak sector simulation via repeated-read detection on CRC protection sector" },
       { hash: "77d4585", text: "Disk explorer zoom (scroll wheel) and pan (Cmd+drag) with reset button" },
