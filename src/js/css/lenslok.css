@@ -1,0 +1,127 @@
+.lenslok-solver {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 100%;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.lenslok-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.lenslok-control-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lenslok-control-row label {
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-family: var(--font-sans);
+  white-space: nowrap;
+  min-width: 28px;
+}
+
+.lenslok-game-select {
+  flex: 1;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 11px;
+  font-family: var(--font-sans);
+  outline: none;
+}
+
+.lenslok-game-select:focus {
+  border-color: var(--accent-blue-border);
+}
+
+.lenslok-game-select option {
+  background: var(--input-bg);
+  color: var(--text-primary);
+}
+
+.lenslok-btn {
+  background: var(--control-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.lenslok-btn:hover {
+  background: var(--control-hover);
+}
+
+.lenslok-btn:active {
+  background: var(--control-active);
+}
+
+.lenslok-number-input {
+  width: 52px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  padding: 3px 4px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  text-align: right;
+  outline: none;
+}
+
+.lenslok-number-input:focus {
+  border-color: var(--accent-blue-border);
+}
+
+.lenslok-preview-area,
+.lenslok-result-area {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lenslok-preview-label,
+.lenslok-result-label {
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-family: var(--font-sans);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.lenslok-preview-canvas {
+  width: 100%;
+  height: 60px;
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  background: var(--canvas-bg);
+  image-rendering: pixelated;
+}
+
+.lenslok-result-canvas {
+  width: 100%;
+  border: 1px solid var(--accent-blue-border);
+  border-radius: 4px;
+  background: var(--canvas-bg);
+}
+
+.lenslok-status {
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-family: var(--font-sans);
+  min-height: 14px;
+  flex-shrink: 0;
+}
