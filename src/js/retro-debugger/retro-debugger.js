@@ -1171,7 +1171,7 @@ export class RetroDebugger {
     // PC instruction is at index this._disasmRowsBefore.
     const instructions = [];
     let offset = 0;
-    while (offset + 40 <= data.length) {
+    while (offset + 42 <= data.length) {
       const addr = data[offset] | (data[offset + 1] << 8);
       const len = data[offset + 2];
       const bytes = [];
@@ -1180,7 +1180,7 @@ export class RetroDebugger {
       let mnemonic = "";
       for (let j = 0; j < mnLen; j++) mnemonic += String.fromCharCode(data[offset + 8 + j]);
       instructions.push({ addr, bytes, mnemonic });
-      offset += 40;
+      offset += 42;
     }
 
     for (let i = 0; i < contentRows; i++) {

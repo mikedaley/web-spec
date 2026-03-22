@@ -22,6 +22,7 @@ const RELEASE_DATA = [
     fixes: [
       { hash: "f1a2d59", text: "Fix +2A/+3 screen display in special paging mode (CP/M)" },
       { hash: "5a9d9e2", text: "Fix FDC ST0 for CRC+CM mismatch and pad data for N-mismatch sectors" },
+      { hash: "------", text: "Fix retro debugger disassembly showing junk (record stride was 40 instead of 42 bytes)" },
       { hash: "------", text: "Settings window not containing its content due to incorrect element reference in auto-fit sizing" },
       { hash: "3f7ebcc", text: "Memory map window now works correctly for all machines (128K, +2, +2A, +3)" },
       { hash: "------", text: "Sinclair 1 joystick left/right directions swapped" },
