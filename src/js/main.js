@@ -34,7 +34,6 @@ import { CPUTraceWindow } from "./debug/cpu-trace-window.js";
 import { MemoryHeatmapWindow } from "./debug/memory-heatmap-window.js";
 import { RetroDebugger } from "./retro-debugger/retro-debugger.js";
 import { ReleaseNotesWindow } from "./debug/release-notes-window.js";
-import { LenslokWindow } from "./tools/lenslok-window.js";
 import { NetworkManager } from "./spectranet/network-manager.js";
 import { saveFlashData, loadFlashData } from "./spectranet/spectranet-persistence.js";
 import { getRecentSnapshots, loadRecentSnapshot, removeRecentSnapshot } from "./snapshot/snapshot-persistence.js";
@@ -85,7 +84,6 @@ class ZXSpectrumEmulator {
     this.themeManager = null;
     this.stateManager = null;
     this.saveStatesWindow = null;
-    this.lenslokWindow = null;
 
     // Mobile support
     this.mobileDetector = null;
@@ -279,11 +277,6 @@ class ZXSpectrumEmulator {
       this.saveStatesWindow.create();
       this.windowManager.register(this.saveStatesWindow);
 
-      // Create Lenslok solver window
-      this.lenslokWindow = new LenslokWindow();
-      this.lenslokWindow.create();
-      this.windowManager.register(this.lenslokWindow);
-
       // Create release notes window
       this.releaseNotesWindow = new ReleaseNotesWindow();
       this.releaseNotesWindow.create();
@@ -325,7 +318,6 @@ class ZXSpectrumEmulator {
         { id: "disk-explorer", visible: false },
         { id: "disk-analysis", visible: false },
         { id: "release-notes", visible: false },
-        { id: "lenslok", visible: false },
       ]);
 
       // Load saved window state (overrides defaults if present)
@@ -620,14 +612,6 @@ class ZXSpectrumEmulator {
       });
     }
 
-    // View menu > Lenslok Solver
-    const lenslokBtn = document.getElementById("btn-lenslok");
-    if (lenslokBtn) {
-      lenslokBtn.addEventListener("click", () => {
-        this.windowManager.toggleWindow("lenslok");
-        this.closeAllMenus();
-        this.refocusCanvas();
-      });
     }
 
     // View menu > TNFS Browser
@@ -910,7 +894,6 @@ class ZXSpectrumEmulator {
       "btn-memory-map": "memory-map",
       "btn-keyboard": "keyboard",
       "btn-joystick": "joystick",
-      "btn-lenslok": "lenslok",
       "btn-tnfs-browser": "tnfs-browser",
       "btn-z80-debug": "cpu-debugger",
       "btn-stack-viewer": "stack-viewer",
@@ -1959,10 +1942,6 @@ class ZXSpectrumEmulator {
       // Pass framebuffer to retro debugger if active
       if (this.retroDebugger) {
         this.retroDebugger.updateFramebuffer(framebuffer);
-      }
-      // Pass framebuffer to Lenslok solver
-      if (this.lenslokWindow) {
-        this.lenslokWindow.updateFramebuffer(framebuffer);
       }
     }
     this.windowManager.updateAll(this.proxy);
