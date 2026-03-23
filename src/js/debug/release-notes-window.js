@@ -11,6 +11,19 @@ import { VERSION } from "../config/version.js";
 
 const RELEASE_DATA = [
   {
+    week: "Mar 23 – Mar 29, 2026",
+    features: [
+      { hash: "e107349", text: "TAP file editor window" },
+      { hash: "a9aa0c5", text: "128K BASIC tokens (SPECTRUM, PLAY) and correct BASIC window title for +2/+2A/+3" },
+    ],
+    fixes: [
+      { hash: "a9aa0c5", text: "Fix stray brace in main.js causing Vite build failure" },
+    ],
+    improvements: [
+      { hash: "8efb931", text: "Remove Lenslok solver window" },
+    ],
+  },
+  {
     week: "Mar 16 – Mar 22, 2026",
     features: [
       { hash: "81e7504", text: "Joystick configuration window with Gamepad API support" },
