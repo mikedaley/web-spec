@@ -623,8 +623,6 @@ class ZXSpectrumEmulator {
       });
     }
 
-    }
-
     // View menu > TNFS Browser
     const tnfsBrowserBtn = document.getElementById("btn-tnfs-browser");
     if (tnfsBrowserBtn) {

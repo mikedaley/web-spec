@@ -24,8 +24,11 @@ struct TokenEntry {
     const char* keyword;
 };
 
-// Token table (0xA5 - 0xFF)
+// Token table (0xA3 - 0xFF)
+// 0xA3-0xA4 are 128K BASIC only (SPECTRUM, PLAY)
+// 0xA5-0xFF are common to all models
 inline const TokenEntry TOKEN_TABLE[] = {
+    {0xA3, "SPECTRUM"},  {0xA4, "PLAY"},
     {0xA5, "RND"},      {0xA6, "INKEY$"},   {0xA7, "PI"},
     {0xA8, "FN"},       {0xA9, "POINT"},    {0xAA, "SCREEN$"},
     {0xAB, "ATTR"},     {0xAC, "AT"},       {0xAD, "TAB"},
@@ -63,8 +66,8 @@ constexpr size_t TOKEN_TABLE_SIZE = sizeof(TOKEN_TABLE) / sizeof(TOKEN_TABLE[0])
 
 // Token code to keyword string lookup
 inline const char* tokenToKeyword(uint8_t code) {
-    if (code < 0xA5) return nullptr;
-    size_t idx = code - 0xA5;
+    if (code < 0xA3) return nullptr;
+    size_t idx = code - 0xA3;
     if (idx < TOKEN_TABLE_SIZE) return TOKEN_TABLE[idx].keyword;
     return nullptr;
 }

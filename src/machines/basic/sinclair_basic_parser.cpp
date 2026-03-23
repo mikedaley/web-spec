@@ -114,8 +114,8 @@ std::string parseProgramFromMemory(const ZXSpectrum& machine) {
                 continue;
             }
 
-            // Token
-            if (byte >= 0xA5) {
+            // Token (0xA3-0xA4 = 128K only: SPECTRUM, PLAY; 0xA5-0xFF = all models)
+            if (byte >= 0xA3) {
                 const char* keyword = tokenToKeyword(byte);
                 if (keyword) {
                     if (!text.empty() && text.back() != ' ') {

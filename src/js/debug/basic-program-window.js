@@ -166,10 +166,40 @@ export class BasicProgramWindow extends BaseWindow {
     this._updateBasicTitle();
   }
 
+  /**
+   * Determine whether 128K BASIC is active based on machine ID and paging registers.
+   * - 48K (id=0): always 48K BASIC
+   * - 128K/+2 (id=1,2): bit 4 of 0x7FFD selects ROM — 0 = 128K BASIC, 1 = 48K BASIC
+   * - +2A/+3 (id=3,4): two paging registers select from 4 ROMs —
+   *     ROM 0 (128K editor): 7FFD bit4=0, 1FFD bit2=0
+   *     ROM 3 (48K BASIC):   7FFD bit4=1, 1FFD bit2=1
+   * - ZX81 (id=5): not Sinclair BASIC
+   */
+  _is128kBasic() {
+    const id = this._machineId;
+    if (id === 0 || id === 5) return false;
+    if (id === 1 || id === 2) {
+      return (this.proxy.getPagingRegister() & 0x10) === 0;
+    }
+    // +2A/+3: 128K BASIC when ROM 0 selected (both bits clear)
+    return (this.proxy.getPagingRegister() & 0x10) === 0 &&
+           (this.proxy.getPagingRegister1FFD() & 0x04) === 0;
+  }
+
   _updateBasicTitle() {
-    const is128k = this._machineId >= 1;
-    const is128kBasic = is128k && (this.proxy.getPagingRegister() & 0x10) === 0;
-    const newTitle = is128kBasic ? "Sinclair BASIC 128" : "Sinclair BASIC 48";
+    if (this._machineId === 5) {
+      if (this.title !== "ZX81 BASIC") this.setTitle("ZX81 BASIC");
+      return;
+    }
+
+    const machineNames = { 1: "128", 2: "+2", 3: "+2A", 4: "+3" };
+    let newTitle;
+    if (this._is128kBasic()) {
+      const suffix = machineNames[this._machineId] || "128";
+      newTitle = `Sinclair BASIC ${suffix}`;
+    } else {
+      newTitle = "Sinclair BASIC 48";
+    }
     if (this.title !== newTitle) {
       this.setTitle(newTitle);
     }
@@ -799,14 +829,8 @@ export class BasicProgramWindow extends BaseWindow {
 
     // Determine if we need to type the full word RUN or just R (keyword mode).
     // 48K BASIC uses keyword mode: pressing R alone produces RUN.
-    // 128K BASIC requires typing R, U, N individually.
-    // On a 128K machine, paging register bit 4 selects the ROM:
-    //   bit 4 = 0 → ROM 0 (128K BASIC, full typing required)
-    //   bit 4 = 1 → ROM 1 (48K BASIC, keyword mode)
-    const machineId = this.proxy.getMachineId();
-    const is128kBasic = machineId === 1 && (this.proxy.getPagingRegister() & 0x10) === 0;
-
-    const keys = is128kBasic
+    // 128K/+2/+2A/+3 BASIC requires typing R, U, N individually.
+    const keys = this._is128kBasic()
       ? [
           [2, 3], // R
           [5, 3], // U
@@ -1504,8 +1528,8 @@ export class BasicProgramWindow extends BaseWindow {
   update(proxy) {
     if (!this.isVisible) return;
 
-    // Update title when ROM page changes on 128K machines
-    if (this._machineId >= 1) {
+    // Update title when ROM page changes on 128K+ machines
+    if (this._machineId >= 1 && this._machineId <= 4) {
       this._updateBasicTitle();
     }
 

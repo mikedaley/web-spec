@@ -5,9 +5,13 @@
  *  Mike Daley <michael_daley@icloud.com>
  */
 
-// Sinclair BASIC tokens: byte 0xA5-0xFF -> keyword string
+// Sinclair BASIC tokens: byte 0xA3-0xFF -> keyword string
+// 0xA3-0xA4 are 128K BASIC only (SPECTRUM, PLAY)
+// 0xA5-0xFF are common to all models
 // Reference: ZX Spectrum ROM disassembly
 export const TOKENS = {
+  0xA3: "SPECTRUM",
+  0xA4: "PLAY",
   0xA5: "RND",
   0xA6: "INKEY$",
   0xA7: "PI",
@@ -122,7 +126,7 @@ export const KEYWORD_CATEGORIES = {
   io: [
     "PRINT", "LPRINT", "INPUT", "INKEY$", "LLIST",
     "LOAD", "SAVE", "VERIFY", "MERGE", "DATA", "READ", "RESTORE",
-    "OPEN #", "CLOSE #",
+    "OPEN #", "CLOSE #", "PLAY",
   ],
   graphics: [
     "PLOT", "DRAW", "CIRCLE", "POINT", "SCREEN$", "ATTR",
@@ -140,7 +144,7 @@ export const KEYWORD_CATEGORIES = {
     "VAL", "VAL$", "STR$", "CHR$", "CODE", "BIN",
     "NOT", "AND", "OR",
   ],
-  misc: ["REM", "LINE", "<=", ">=", "<>"],
+  misc: ["REM", "LINE", "<=", ">=", "<>", "SPECTRUM"],
 };
 
 // Build a reverse lookup: keyword -> category
