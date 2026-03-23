@@ -17,6 +17,7 @@ import { SnapshotLoader } from "./snapshot/snapshot-loader.js";
 import { CPUDebuggerWindow } from "./debug/cpu-debugger-window.js";
 import { StackViewerWindow } from "./debug/stack-viewer-window.js";
 import { TapeWindow } from "./tape/tape-window.js";
+import { TAPEditorWindow } from "./tape/tap-editor-window.js";
 import { DiskWindow } from "./disk/disk-window.js";
 import { DiskExplorerWindow, DiskAnalysisWindow } from "./disk/disk-explorer-window.js";
 import { SoundWindow } from "./audio/sound-window.js";
@@ -65,6 +66,7 @@ class ZXSpectrumEmulator {
     this.displaySettingsWindow = null;
     this.cpuDebuggerWindow = null;
     this.tapeWindow = null;
+    this.tapEditorWindow = null;
     this.soundWindow = null;
     this.basicProgramWindow = null;
     this.ruleBuilderWindow = null;
@@ -156,6 +158,11 @@ class ZXSpectrumEmulator {
       this.tapeWindow = new TapeWindow(this.proxy);
       this.tapeWindow.create();
       this.windowManager.register(this.tapeWindow);
+
+      // Create TAP editor window
+      this.tapEditorWindow = new TAPEditorWindow(this.proxy);
+      this.tapEditorWindow.create();
+      this.windowManager.register(this.tapEditorWindow);
 
       // Create disk drive window (+3 only, but always available)
       this.diskWindow = new DiskWindow(this.proxy);
@@ -314,6 +321,7 @@ class ZXSpectrumEmulator {
         { id: "spectranet", visible: false },
         { id: "tnfs-browser", visible: false },
         { id: "save-states", visible: false },
+        { id: "tap-editor", visible: false },
         { id: "disk-window", visible: false },
         { id: "disk-explorer", visible: false },
         { id: "disk-analysis", visible: false },
@@ -473,6 +481,9 @@ class ZXSpectrumEmulator {
 
     // Wire TNFS browser window to snapshot loader (window was created in init())
     this.tnfsBrowserWindow.snapshotLoader = this.snapshotLoader;
+
+    // Wire TAP editor cross-reference to tape window
+    this.tapEditorWindow.tapeWindow = this.tapeWindow;
 
     // TAP loaded callback - show tape window with block list
     this.proxy.onTapLoaded = (blocks, metadata) => {
@@ -639,6 +650,16 @@ class ZXSpectrumEmulator {
     if (tapePlayerBtn) {
       tapePlayerBtn.addEventListener("click", () => {
         this.windowManager.toggleWindow("tape-window");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
+    // View menu > TAP Editor
+    const tapEditorBtn = document.getElementById("btn-tap-editor");
+    if (tapEditorBtn) {
+      tapEditorBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("tap-editor");
         this.closeAllMenus();
         this.refocusCanvas();
       });
@@ -888,6 +909,7 @@ class ZXSpectrumEmulator {
     const windowMap = {
       "btn-display": "display-settings",
       "btn-tape-player": "tape-window",
+      "btn-tap-editor": "tap-editor",
       "btn-disk-drive": "disk-window",
       "btn-disk-explorer": "disk-explorer",
       "btn-sound-debug": "sound-debug",
@@ -2035,6 +2057,11 @@ class ZXSpectrumEmulator {
     if (this.tapeWindow) {
       this.tapeWindow.destroy();
       this.tapeWindow = null;
+    }
+
+    if (this.tapEditorWindow) {
+      this.tapEditorWindow.destroy();
+      this.tapEditorWindow = null;
     }
 
     if (this.soundWindow) {
