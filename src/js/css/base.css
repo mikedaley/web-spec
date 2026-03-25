@@ -438,6 +438,23 @@ header.auto-hide.header-visible {
   user-select: none;
 }
 
+.header-site-link {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-style: italic;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--accent-green);
+  text-decoration: none;
+  text-shadow: 0 0 6px var(--accent-green-bg-stronger), 0 0 12px var(--accent-green-bg-stronger);
+  user-select: none;
+  transition: text-shadow 0.2s ease;
+}
+
+.header-site-link:hover {
+  text-shadow: 0 0 8px var(--accent-green-border), 0 0 16px var(--accent-green-border);
+}
+
 .logo-text {
   font-size: 16px;
   font-weight: 600;
@@ -1885,7 +1902,9 @@ html[data-mobile="true"] .header-logo {
   height: var(--mobile-header-height);
 }
 
-html[data-mobile="true"] .version-chip {
+html[data-mobile="true"] .version-chip,
+html[data-mobile="true"] .header-site-link,
+html[data-mobile="true"] .header-left > .header-divider:last-of-type {
   display: none;
 }
 
