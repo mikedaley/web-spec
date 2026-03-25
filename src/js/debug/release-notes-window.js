@@ -20,6 +20,7 @@ const RELEASE_DATA = [
       { hash: "a9aa0c5", text: "Fix stray brace in main.js causing Vite build failure" },
     ],
     improvements: [
+      { hash: "587b928", text: "Add RetroTech71.co.uk website link to header" },
       { hash: "8efb931", text: "Remove Lenslok solver window" },
     ],
   },
