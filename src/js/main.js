@@ -50,6 +50,7 @@ import { JoystickWindow } from "./input/joystick-window.js";
 import { BottomSheet } from "./windows/bottom-sheet.js";
 import { StateManager } from "./state/state-manager.js";
 import { SaveStatesWindow } from "./state/save-states-window.js";
+import { TimeTravelWindow } from "./debug/time-travel-window.js";
 import { VERSION } from "./config/version.js";
 import { MessagePanel } from "./ui/message-panel.js";
 import { showToast } from "./ui/toast.js";
@@ -289,6 +290,11 @@ class ZXSpectrumEmulator {
       this.releaseNotesWindow.create();
       this.windowManager.register(this.releaseNotesWindow);
 
+      // Create time-travel window
+      this.timeTravelWindow = new TimeTravelWindow(this.proxy);
+      this.timeTravelWindow.create();
+      this.windowManager.register(this.timeTravelWindow);
+
       // Wire autosave callback to refresh the save states window
       this.stateManager.onAutosave = () => {
         if (this.saveStatesWindow && this.saveStatesWindow.isVisible) {
@@ -326,6 +332,7 @@ class ZXSpectrumEmulator {
         { id: "disk-explorer", visible: false },
         { id: "disk-analysis", visible: false },
         { id: "release-notes", visible: false },
+        { id: "time-travel", visible: false },
       ]);
 
       // Load saved window state (overrides defaults if present)
@@ -354,6 +361,16 @@ class ZXSpectrumEmulator {
       // Mute audio when emulator is paused/stepping
       this.proxy.onStateUpdate = () => {
         this.audioDriver.setDebugMute(this.proxy.isPaused());
+      };
+
+      // Wire time-travel callbacks
+      this.proxy.onTimeTravelStatus = (status) => {
+        if (this.timeTravelWindow) this.timeTravelWindow.updateStatus(status);
+      };
+      this.proxy.onTimeTravelFrame = (msg) => {
+        this.renderer.updateTexture(msg.framebuffer);
+        if (msg.signalBuffer) this.renderer.updateSignalTexture(msg.signalBuffer);
+        this.renderer.draw();
       };
 
       // Initialize input handler (created earlier, init needs DOM)
@@ -782,6 +799,16 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // View menu > Time Travel window
+    const timeTravelBtn = document.getElementById("btn-time-travel");
+    if (timeTravelBtn) {
+      timeTravelBtn.addEventListener("click", () => {
+        this.windowManager.toggleWindow("time-travel");
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
     // Help menu > Check for Updates
     const checkUpdatesBtn = document.getElementById("btn-check-updates");
     if (checkUpdatesBtn) {
@@ -924,6 +951,7 @@ class ZXSpectrumEmulator {
       "btn-assembler": "assembler",
       "btn-memory-heatmap": "memory-heatmap",
       "btn-spectranet": "spectranet",
+      "btn-time-travel": "time-travel",
     };
 
     for (const [btnId, windowId] of Object.entries(windowMap)) {

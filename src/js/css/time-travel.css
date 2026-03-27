@@ -1,0 +1,192 @@
+/* ==========================================
+   Time Travel Window
+   ========================================== */
+
+.time-travel-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 100%;
+    padding: 0 4px;
+    user-select: none;
+}
+
+/* Record toggle button */
+.tt-record-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--control-border);
+    background: var(--control-bg);
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.tt-record-btn:hover {
+    background: var(--control-bg-hover);
+    border-color: var(--control-border-hover);
+}
+
+.tt-record-btn.active {
+    background: var(--accent-red-bg);
+    border-color: var(--accent-red-border);
+    color: var(--accent-red);
+}
+
+.tt-record-btn .tt-record-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.tt-record-btn.active .tt-record-dot {
+    animation: tt-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes tt-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* Status text */
+.tt-status {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    width: 68px;
+    flex-shrink: 0;
+}
+
+/* Timeline track area */
+.tt-timeline {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 100px;
+}
+
+.tt-track-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tt-track {
+    flex: 1;
+    height: 16px;
+    background: var(--control-bg);
+    border: 1px solid var(--control-border);
+    border-radius: 8px;
+    position: relative;
+    cursor: pointer;
+}
+
+.tt-track.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.tt-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: var(--accent-green-bg);
+    border-radius: 8px;
+    transition: width 0.15s;
+    pointer-events: none;
+}
+
+.tt-track.scrubbing .tt-fill {
+    background: var(--accent-blue-bg);
+    transition: none;
+}
+
+/* Thumb: always visible when track has content, blue when scrubbing */
+.tt-thumb {
+    position: absolute;
+    top: 50%;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    border: 2px solid var(--bg-primary);
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+    box-shadow: 0 0 4px var(--accent-green-bg-stronger);
+    transition: left 0.15s;
+}
+
+.tt-track.disabled .tt-thumb {
+    display: none;
+}
+
+.tt-track.scrubbing .tt-thumb {
+    background: var(--accent-blue);
+    box-shadow: 0 0 6px var(--accent-blue-bg-stronger);
+    transition: none;
+}
+
+/* Time offset display */
+.tt-time {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+    width: 40px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+/* Depth selector */
+.tt-depth {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    padding: 2px 4px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--control-border);
+    background: var(--control-bg);
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+/* Back-to-Live button — invisible until scrubbing, always reserves space */
+.tt-live-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 8px;
+    border-radius: var(--radius-sm);
+    border: 1px solid transparent;
+    background: transparent;
+    color: transparent;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: default;
+    flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    pointer-events: none;
+}
+
+.tt-live-btn.visible {
+    border-color: var(--accent-green-border);
+    background: var(--accent-green-bg);
+    color: var(--accent-green);
+    cursor: pointer;
+    pointer-events: auto;
+}
+
+.tt-live-btn.visible:hover {
+    background: var(--accent-green-bg-strong);
+}

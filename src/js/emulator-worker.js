@@ -8,6 +8,78 @@
 let wasm = null;
 let speedMultiplier = 1;
 
+// ── Time-travel history ring buffer ──────────────────────────────────────────
+
+const timeTravel = {
+  enabled: false,
+  captureInterval: 5,   // capture every N frames (5 = ~10 snapshots/sec at 50fps)
+  maxEntries: 300,       // ring buffer capacity (300 @ 10/sec = 30 seconds)
+  entries: [],           // ring buffer of { frameNumber, stateData: Uint8Array }
+  head: 0,               // next write position
+  count: 0,              // number of valid entries
+  framesSinceCapture: 0,
+  totalFrames: 0,        // monotonic frame counter
+  isScrubbing: false,
+};
+
+function captureTimeTravelSnapshot() {
+  const sizePtr = wasm._malloc(4);
+  const statePtr = wasm._exportState(sizePtr);
+  const size = new DataView(wasm.HEAPU8.buffer, sizePtr, 4).getUint32(0, true);
+  wasm._free(sizePtr);
+  if (size === 0 || !statePtr) return;
+
+  const stateData = new Uint8Array(wasm.HEAPU8.buffer.slice(statePtr, statePtr + size));
+
+  timeTravel.entries[timeTravel.head] = {
+    frameNumber: timeTravel.totalFrames,
+    stateData,
+  };
+  timeTravel.head = (timeTravel.head + 1) % timeTravel.maxEntries;
+  if (timeTravel.count < timeTravel.maxEntries) {
+    timeTravel.count++;
+  }
+}
+
+function getTimeTravelEntry(index) {
+  if (index < 0 || index >= timeTravel.count) return null;
+  const start = (timeTravel.head - timeTravel.count + timeTravel.maxEntries) % timeTravel.maxEntries;
+  return timeTravel.entries[(start + index) % timeTravel.maxEntries];
+}
+
+function truncateTimeTravelAfter(index) {
+  if (index < 0 || index >= timeTravel.count) return;
+  const keepCount = index + 1;
+  const start = (timeTravel.head - timeTravel.count + timeTravel.maxEntries) % timeTravel.maxEntries;
+  timeTravel.head = (start + keepCount) % timeTravel.maxEntries;
+  timeTravel.count = keepCount;
+}
+
+function clearTimeTravelBuffer() {
+  timeTravel.entries = [];
+  timeTravel.head = 0;
+  timeTravel.count = 0;
+  timeTravel.framesSinceCapture = 0;
+  timeTravel.totalFrames = 0;
+}
+
+function getTimeTravelStatusObj() {
+  const oldest = timeTravel.count > 0 ? getTimeTravelEntry(0) : null;
+  const newest = timeTravel.count > 0 ? getTimeTravelEntry(timeTravel.count - 1) : null;
+  return {
+    enabled: timeTravel.enabled,
+    count: timeTravel.count,
+    maxEntries: timeTravel.maxEntries,
+    captureInterval: timeTravel.captureInterval,
+    oldestFrame: oldest ? oldest.frameNumber : 0,
+    newestFrame: newest ? newest.frameNumber : 0,
+  };
+}
+
+function sendTimeTravelStatus() {
+  self.postMessage({ type: "timeTravelStatus", ...getTimeTravelStatusObj() });
+}
+
 // ── Breakpoint preservation across machine switches ──────────────────────────
 
 function saveBreakpoints() {
@@ -291,6 +363,16 @@ function runFrames(count) {
     }
   }
 
+  // Time-travel: capture state snapshot at regular intervals
+  if (timeTravel.enabled && !timeTravel.isScrubbing) {
+    timeTravel.totalFrames += totalFrames;
+    timeTravel.framesSinceCapture += totalFrames;
+    if (timeTravel.framesSinceCapture >= timeTravel.captureInterval) {
+      timeTravel.framesSinceCapture = 0;
+      captureTimeTravelSnapshot();
+    }
+  }
+
   // Copy framebuffer
   const fbPtr = wasm._getFramebuffer();
   const fbSize = wasm._getFramebufferSize();
@@ -399,7 +481,10 @@ function runFrames(count) {
     for (const wf of ayWaveforms) transfer.push(wf.buffer);
   }
 
-  self.postMessage({ type: "frame", framebuffer, signalBuffer, audio, sampleCount: sampleCount, state, recordedBlocks, beeperWaveform, ayRegisters, ayMutes, ayWaveforms, ayInternals }, transfer);
+  // Attach time-travel status to every frame so the UI updates reliably
+  const ttStatus = timeTravel.enabled ? getTimeTravelStatusObj() : null;
+
+  self.postMessage({ type: "frame", framebuffer, signalBuffer, audio, sampleCount: sampleCount, state, recordedBlocks, beeperWaveform, ayRegisters, ayMutes, ayWaveforms, ayInternals, ttStatus }, transfer);
 
   // Flush any buffered RX data into W5100 before polling new commands
   flushRxOverflow();
@@ -432,8 +517,10 @@ self.onmessage = async function (e) {
 
     case "reset":
       if (wasm) {
+        clearTimeTravelBuffer();
         wasm._reset();
         self.postMessage({ type: "stateUpdate", state: getState() });
+        if (timeTravel.enabled) sendTimeTravelStatus();
       }
       break;
 
@@ -457,6 +544,7 @@ self.onmessage = async function (e) {
 
     case "loadSnapshot": {
       if (!wasm) break;
+      clearTimeTravelBuffer();
       const data = new Uint8Array(msg.data);
       const ptr = wasm._malloc(data.length);
       wasm.HEAPU8.set(data, ptr);
@@ -602,8 +690,10 @@ self.onmessage = async function (e) {
 
     case "switchMachine":
       if (wasm) {
+        clearTimeTravelBuffer();
         initMachinePreservingBreakpoints(msg.machineId);
         self.postMessage({ type: "ready" });
+        if (timeTravel.enabled) sendTimeTravelStatus();
       }
       break;
 
@@ -695,6 +785,7 @@ self.onmessage = async function (e) {
 
     case "loadP": {
       if (!wasm) break;
+      clearTimeTravelBuffer();
       // .P files require ZX81 (machine ID 5) — auto-switch if needed
       let pMachineSwitched = false;
       if (wasm._getMachineId() !== 5) {
@@ -1094,6 +1185,7 @@ self.onmessage = async function (e) {
 
     case "importState": {
       if (!wasm) break;
+      clearTimeTravelBuffer();
       const stateData = new Uint8Array(msg.data);
       const statePtr = wasm._malloc(stateData.length);
       wasm.HEAPU8.set(stateData, statePtr);
@@ -1409,6 +1501,84 @@ self.onmessage = async function (e) {
       }
       const transfer = data ? [data.buffer] : [];
       self.postMessage({ type: "traceDataResult", id: msg.id, data, entryCount, writeIndex, entrySize, maxEntries }, transfer);
+      break;
+    }
+
+    // ── Time-travel ────────────────────────────────────────────────────────
+
+    case "timeTravelEnable": {
+      timeTravel.enabled = !!msg.enabled;
+      if (msg.captureInterval) timeTravel.captureInterval = msg.captureInterval;
+      if (msg.maxEntries) timeTravel.maxEntries = msg.maxEntries;
+      if (!timeTravel.enabled) clearTimeTravelBuffer();
+      sendTimeTravelStatus();
+      break;
+    }
+
+    case "timeTravelScrubStart": {
+      if (!timeTravel.enabled || timeTravel.count === 0) break;
+      timeTravel.isScrubbing = true;
+      wasm._setPaused(true);
+      sendTimeTravelStatus();
+      break;
+    }
+
+    case "timeTravelScrubTo": {
+      if (!timeTravel.isScrubbing) break;
+      const entry = getTimeTravelEntry(msg.index);
+      if (!entry) break;
+
+      const statePtr = wasm._malloc(entry.stateData.length);
+      wasm.HEAPU8.set(entry.stateData, statePtr);
+      wasm._importState(statePtr, entry.stateData.length);
+      wasm._free(statePtr);
+
+      wasm._renderDisplay();
+      const fbPtr = wasm._getFramebuffer();
+      const fbSize = wasm._getFramebufferSize();
+      const framebuffer = new Uint8Array(wasm.HEAPU8.buffer, fbPtr, fbSize).slice();
+      const sigPtr = wasm._getSignalBuffer();
+      const sigSize = wasm._getSignalBufferSize();
+      const signalBuffer = new Uint8Array(wasm.HEAPU8.buffer, sigPtr, sigSize).slice();
+
+      self.postMessage({
+        type: "timeTravelFrame",
+        index: msg.index,
+        frameNumber: entry.frameNumber,
+        framebuffer,
+        signalBuffer,
+        state: getState(),
+      }, [framebuffer.buffer, signalBuffer.buffer]);
+      break;
+    }
+
+    case "timeTravelScrubEnd": {
+      if (!timeTravel.isScrubbing) break;
+      timeTravel.isScrubbing = false;
+
+      if (msg.resume && msg.index !== undefined) {
+        // Resume from scrubbed point — discard future history
+        truncateTimeTravelAfter(msg.index);
+      } else {
+        // Cancel — restore to latest state
+        const latest = getTimeTravelEntry(timeTravel.count - 1);
+        if (latest) {
+          const ptr = wasm._malloc(latest.stateData.length);
+          wasm.HEAPU8.set(latest.stateData, ptr);
+          wasm._importState(ptr, latest.stateData.length);
+          wasm._free(ptr);
+        }
+      }
+
+      wasm._clearBreakpointHit();
+      wasm._setPaused(false);
+      self.postMessage({ type: "stateUpdate", state: getState() });
+      sendTimeTravelStatus();
+      break;
+    }
+
+    case "timeTravelGetStatus": {
+      sendTimeTravelStatus();
       break;
     }
   }

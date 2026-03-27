@@ -15,6 +15,7 @@ const RELEASE_DATA = [
     features: [
       { hash: "e107349", text: "TAP file editor window" },
       { hash: "a9aa0c5", text: "128K BASIC tokens (SPECTRUM, PLAY) and correct BASIC window title for +2/+2A/+3" },
+      { hash: "------", text: "Time Travel window with drag-to-rewind scrubber and configurable history depth" },
     ],
     fixes: [
       { hash: "a9aa0c5", text: "Fix stray brace in main.js causing Vite build failure" },

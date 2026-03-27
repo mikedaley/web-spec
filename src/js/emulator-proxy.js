@@ -23,6 +23,8 @@ export class EmulatorProxy {
     this.onBasicBreakpointHit = null;
     this.onSpectranetCommand = null;
     this.onStateUpdate = null;
+    this.onTimeTravelStatus = null;
+    this.onTimeTravelFrame = null;
     this._nextId = 1;
     this._pendingRequests = new Map();
 
@@ -43,6 +45,7 @@ export class EmulatorProxy {
         if (msg.ayMutes) this._ayMutes = msg.ayMutes;
         if (msg.ayWaveforms) this._ayWaveforms = msg.ayWaveforms;
         if (msg.ayInternals) this._ayInternals = msg.ayInternals;
+        if (msg.ttStatus && this.onTimeTravelStatus) this.onTimeTravelStatus(msg.ttStatus);
         if (this.onFrame) this.onFrame(msg.framebuffer, msg.signalBuffer, msg.audio, msg.sampleCount);
         break;
 
@@ -355,6 +358,15 @@ export class EmulatorProxy {
         }
         break;
       }
+
+      case "timeTravelStatus":
+        if (this.onTimeTravelStatus) this.onTimeTravelStatus(msg);
+        break;
+
+      case "timeTravelFrame":
+        this.state = msg.state;
+        if (this.onTimeTravelFrame) this.onTimeTravelFrame(msg);
+        break;
     }
   }
 
@@ -956,6 +968,27 @@ export class EmulatorProxy {
       this._pendingRequests.set(id, resolve);
       this.worker.postMessage({ type: "traceGetData", id });
     });
+  }
+
+  // Time Travel
+  timeTravelEnable(enabled, captureInterval, maxEntries) {
+    this.worker.postMessage({ type: "timeTravelEnable", enabled, captureInterval, maxEntries });
+  }
+
+  timeTravelScrubStart() {
+    this.worker.postMessage({ type: "timeTravelScrubStart" });
+  }
+
+  timeTravelScrubTo(index) {
+    this.worker.postMessage({ type: "timeTravelScrubTo", index });
+  }
+
+  timeTravelScrubEnd(resume, index) {
+    this.worker.postMessage({ type: "timeTravelScrubEnd", resume, index });
+  }
+
+  timeTravelGetStatus() {
+    this.worker.postMessage({ type: "timeTravelGetStatus" });
   }
 
   destroy() {
