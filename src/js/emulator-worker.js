@@ -1533,6 +1533,9 @@ self.onmessage = async function (e) {
       wasm._importState(statePtr, entry.stateData.length);
       wasm._free(statePtr);
 
+      // Re-assert pause — importState restores machine state which clears it
+      wasm._setPaused(true);
+
       wasm._renderDisplay();
       const fbPtr = wasm._getFramebuffer();
       const fbSize = wasm._getFramebufferSize();

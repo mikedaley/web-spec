@@ -20,6 +20,7 @@ const RELEASE_DATA = [
     fixes: [
       { hash: "a9aa0c5", text: "Fix stray brace in main.js causing Vite build failure" },
       { hash: "------", text: "Fix instant load setting not reapplying after machine switch or snapshot load" },
+      { hash: "------", text: "Fix time-travel scrubber resuming playback while mouse is held down" },
     ],
     improvements: [
       { hash: "587b928", text: "Add RetroTech71.co.uk website link to header" },
