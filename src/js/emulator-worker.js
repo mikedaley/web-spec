@@ -363,16 +363,6 @@ function runFrames(count) {
     }
   }
 
-  // Time-travel: capture state snapshot at regular intervals
-  if (timeTravel.enabled && !timeTravel.isScrubbing) {
-    timeTravel.totalFrames += totalFrames;
-    timeTravel.framesSinceCapture += totalFrames;
-    if (timeTravel.framesSinceCapture >= timeTravel.captureInterval) {
-      timeTravel.framesSinceCapture = 0;
-      captureTimeTravelSnapshot();
-    }
-  }
-
   // Copy framebuffer
   const fbPtr = wasm._getFramebuffer();
   const fbSize = wasm._getFramebufferSize();
@@ -491,6 +481,16 @@ function runFrames(count) {
 
   // Poll for Spectranet network commands after each frame
   pollSpectranetCommands();
+
+  // Time-travel: capture state snapshot after frame is fully sent
+  if (timeTravel.enabled && !timeTravel.isScrubbing) {
+    timeTravel.totalFrames += totalFrames;
+    timeTravel.framesSinceCapture += totalFrames;
+    if (timeTravel.framesSinceCapture >= timeTravel.captureInterval) {
+      timeTravel.framesSinceCapture = 0;
+      captureTimeTravelSnapshot();
+    }
+  }
 }
 
 self.onmessage = async function (e) {

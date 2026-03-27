@@ -272,7 +272,7 @@ export class TimeTravelWindow extends BaseWindow {
 
     if (secondsBack > 0) {
       this._timeEl.textContent = `-${secondsBack.toFixed(1)}s`;
-      this._statusEl.textContent = "Rewinding";
+      this._statusEl.textContent = "Scrubbing";
     } else {
       this._timeEl.textContent = "LIVE";
       this._statusEl.textContent = `${((count * CAPTURE_INTERVAL) / 50).toFixed(1)}s`;
