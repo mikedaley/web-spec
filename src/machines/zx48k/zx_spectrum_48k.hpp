@@ -47,6 +47,9 @@ public:
     // Reload Opus Discovery ROM
     void reloadOpusROM() override;
 
+    // Direct RAM bank access (no contention side effects)
+    uint8_t readRamBank(uint8_t bank, uint16_t offset) const override;
+
     // Screen memory for display rendering
     uint8_t* getScreenMemory() override;
     const uint8_t* getScreenMemory() const override;

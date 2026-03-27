@@ -103,6 +103,16 @@ void ZXSpectrum48::setupPaging()
 // Screen memory
 // ============================================================================
 
+uint8_t ZXSpectrum48::readRamBank(uint8_t bank, uint16_t offset) const
+{
+    // 48K has 3 RAM banks (0-2) mapped linearly in memoryRam_
+    if (bank < 3 && offset < MEM_PAGE_SIZE)
+    {
+        return memoryRam_[bank * MEM_PAGE_SIZE + offset];
+    }
+    return 0xFF;
+}
+
 uint8_t* ZXSpectrum48::getScreenMemory()
 {
     return &memoryRam_[0];

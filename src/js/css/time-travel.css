@@ -159,6 +159,38 @@
     flex-shrink: 0;
 }
 
+/* Play button */
+.tt-play-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--control-border);
+    background: var(--control-bg);
+    color: var(--text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.tt-play-btn:hover:not(:disabled) {
+    background: var(--accent-green-bg);
+    border-color: var(--accent-green-border);
+    color: var(--accent-green);
+}
+
+.tt-play-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.tt-play-btn svg {
+    width: 12px;
+    height: 12px;
+}
+
 /* Back-to-Live button — invisible until scrubbing, always reserves space */
 .tt-live-btn {
     display: flex;

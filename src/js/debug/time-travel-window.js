@@ -45,6 +45,7 @@ export class TimeTravelWindow extends BaseWindow {
     this._onTrackMouseDown = this._onTrackMouseDown.bind(this);
     this._onTrackMouseMove = this._onTrackMouseMove.bind(this);
     this._onTrackMouseUp = this._onTrackMouseUp.bind(this);
+    this._onKeyDown = this._onKeyDown.bind(this);
   }
 
   renderContent() {
@@ -68,6 +69,9 @@ export class TimeTravelWindow extends BaseWindow {
         </div>
         <span class="tt-time"></span>
         <select class="tt-depth">${depthOptions}</select>
+        <button class="tt-action-btn tt-play-btn" title="Resume from Here" disabled>
+          <svg viewBox="0 0 12 12" fill="currentColor"><polygon points="2,1 11,6 2,11"/></svg>
+        </button>
         <button class="tt-live-btn" title="Return to Live">LIVE</button>
       </div>
     `;
@@ -82,12 +86,21 @@ export class TimeTravelWindow extends BaseWindow {
     this._thumb = el.querySelector(".tt-thumb");
     this._timeEl = el.querySelector(".tt-time");
     this._depthSelect = el.querySelector(".tt-depth");
+    this._playBtn = el.querySelector(".tt-play-btn");
     this._liveBtn = el.querySelector(".tt-live-btn");
 
     this._recordBtn.addEventListener("click", () => this._toggleRecord());
     this._track.addEventListener("mousedown", this._onTrackMouseDown);
     this._depthSelect.addEventListener("change", () => this._onDepthChange());
+    this._playBtn.addEventListener("click", () => this._onPlay());
     this._liveBtn.addEventListener("click", () => this._returnToLive());
+
+    document.addEventListener("keydown", this._onKeyDown);
+  }
+
+  destroy() {
+    document.removeEventListener("keydown", this._onKeyDown);
+    super.destroy();
   }
 
   _toggleRecord() {
@@ -98,7 +111,6 @@ export class TimeTravelWindow extends BaseWindow {
       const preset = DEPTH_PRESETS[this._depthIndex];
       this._proxy.timeTravelEnable(true, CAPTURE_INTERVAL, preset.maxEntries);
     } else {
-      // If we're mid-scrub, cancel it first
       if (this._scrubbing) this._endScrub(false);
       this._proxy.timeTravelEnable(false);
       this._status = null;
@@ -115,7 +127,41 @@ export class TimeTravelWindow extends BaseWindow {
     if (this.onStateChange) this.onStateChange();
   }
 
-  // ── Scrub interaction ──────────────────────────────────────────────────
+  // ── Keyboard scrubbing ─────────────────────────────────────────────────
+
+  _onKeyDown(e) {
+    if (!this._enabled || !this.isVisible) return;
+    if (!this._status || this._status.count === 0) return;
+
+    const count = this._status.count;
+
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      if (!this._scrubbing) {
+        // Enter scrub mode at the latest entry
+        this._scrubbing = true;
+        this._scrubIndex = count - 1;
+        this._proxy.timeTravelScrubStart();
+        this._track.classList.add("scrubbing");
+      }
+      // Step backward
+      if (this._scrubIndex > 0) {
+        this._scrubIndex--;
+        this._proxy.timeTravelScrubTo(this._scrubIndex);
+        this._updateScrubUI();
+      }
+    } else if (e.key === "ArrowRight" && this._scrubbing) {
+      e.preventDefault();
+      // Step forward
+      if (this._scrubIndex < count - 1) {
+        this._scrubIndex++;
+        this._proxy.timeTravelScrubTo(this._scrubIndex);
+        this._updateScrubUI();
+      }
+    }
+  }
+
+  // ── Mouse scrub interaction ────────────────────────────────────────────
 
   _onTrackMouseDown(e) {
     if (!this._enabled || !this._status || this._status.count === 0) return;
@@ -123,7 +169,6 @@ export class TimeTravelWindow extends BaseWindow {
 
     this._dragging = true;
 
-    // Enter scrub mode if not already scrubbing
     if (!this._scrubbing) {
       this._scrubbing = true;
       this._proxy.timeTravelScrubStart();
@@ -144,24 +189,8 @@ export class TimeTravelWindow extends BaseWindow {
   _onTrackMouseUp() {
     document.removeEventListener("mousemove", this._onTrackMouseMove);
     document.removeEventListener("mouseup", this._onTrackMouseUp);
-
-    if (!this._dragging || !this._scrubbing) {
-      this._dragging = false;
-      return;
-    }
     this._dragging = false;
-
-    // Auto-resume from the scrubbed position
-    const count = this._status ? this._status.count : 0;
-    const atEnd = count > 0 && this._scrubIndex >= count - 1;
-
-    if (atEnd) {
-      // Dragged to the end — return to live (cancel, no history loss)
-      this._endScrub(false);
-    } else {
-      // Resume from this point (truncates future history)
-      this._endScrub(true);
-    }
+    // Stay paused — user must press Play or LIVE to continue
   }
 
   _scrubToMousePosition(e) {
@@ -193,6 +222,19 @@ export class TimeTravelWindow extends BaseWindow {
     this._updateScrubUI();
   }
 
+  // ── Play / Live / End scrub ────────────────────────────────────────────
+
+  _onPlay() {
+    if (!this._scrubbing) return;
+    this._endScrub(true);
+  }
+
+  _returnToLive() {
+    if (this._scrubbing) {
+      this._endScrub(false);
+    }
+  }
+
   _endScrub(resume) {
     if (!this._scrubbing) return;
     this._scrubbing = false;
@@ -208,12 +250,6 @@ export class TimeTravelWindow extends BaseWindow {
     this._updateUI();
   }
 
-  _returnToLive() {
-    if (this._scrubbing) {
-      this._endScrub(false);
-    }
-  }
-
   // ── Status updates ─────────────────────────────────────────────────────
 
   updateStatus(status) {
@@ -221,7 +257,6 @@ export class TimeTravelWindow extends BaseWindow {
     this._enabled = status.enabled;
     this._recordBtn.classList.toggle("active", this._enabled);
 
-    // Don't overwrite scrub visuals with live status
     if (!this._scrubbing) {
       this._updateUI();
     }
@@ -232,6 +267,7 @@ export class TimeTravelWindow extends BaseWindow {
     const hasHistory = status && status.count > 0;
 
     this._track.classList.toggle("disabled", !this._enabled || !hasHistory);
+    this._playBtn.disabled = !this._scrubbing;
     this._liveBtn.classList.toggle("visible", this._scrubbing);
 
     if (!this._enabled) {
@@ -259,26 +295,42 @@ export class TimeTravelWindow extends BaseWindow {
     const count = status.count;
     const fillRatio = count / status.maxEntries;
 
-    // Fill bar stays at full recorded width
     this._fill.style.width = `${fillRatio * 100}%`;
 
-    // Thumb position within the filled region (matches clamped mouse area)
     const thumbRatio = count > 1 ? this._scrubIndex / (count - 1) : 0;
     this._thumb.style.left = `${thumbRatio * fillRatio * 100}%`;
 
-    // Show time offset from live
     const framesFromEnd = count - 1 - this._scrubIndex;
     const secondsBack = (framesFromEnd * CAPTURE_INTERVAL) / 50;
 
     if (secondsBack > 0) {
       this._timeEl.textContent = `-${secondsBack.toFixed(1)}s`;
-      this._statusEl.textContent = "Scrubbing";
+      this._statusEl.textContent = "Paused";
     } else {
       this._timeEl.textContent = "LIVE";
       this._statusEl.textContent = `${((count * CAPTURE_INTERVAL) / 50).toFixed(1)}s`;
     }
 
+    this._playBtn.disabled = false;
     this._liveBtn.classList.toggle("visible", this._scrubbing);
+  }
+
+  // ── Window visibility ───────────────────────────────────────────────────
+
+  hide() {
+    if (this._enabled) {
+      if (this._scrubbing) this._endScrub(false);
+      this._proxy.timeTravelEnable(false);
+    }
+    super.hide();
+  }
+
+  show() {
+    super.show();
+    if (this._enabled) {
+      const preset = DEPTH_PRESETS[this._depthIndex];
+      this._proxy.timeTravelEnable(true, CAPTURE_INTERVAL, preset.maxEntries);
+    }
   }
 
   // ── State persistence ──────────────────────────────────────────────────
@@ -300,8 +352,10 @@ export class TimeTravelWindow extends BaseWindow {
     if (state.enabled) {
       this._enabled = true;
       if (this._recordBtn) this._recordBtn.classList.add("active");
-      const preset = DEPTH_PRESETS[this._depthIndex];
-      this._proxy.timeTravelEnable(true, CAPTURE_INTERVAL, preset.maxEntries);
+      if (this.isVisible) {
+        const preset = DEPTH_PRESETS[this._depthIndex];
+        this._proxy.timeTravelEnable(true, CAPTURE_INTERVAL, preset.maxEntries);
+      }
     }
   }
 }

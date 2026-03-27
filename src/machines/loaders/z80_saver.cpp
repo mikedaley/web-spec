@@ -157,13 +157,15 @@ uint32_t Z80Saver::save(const ZXSpectrum& machine, uint8_t* buffer, uint32_t buf
     }
     else
     {
-        // 48K: 3 pages
-        // Page 8 = 0x4000-0x7FFF (RAM bank 5 equivalent)
-        struct PageDef { uint8_t pageId; uint16_t baseAddr; };
+        // 48K: 3 pages using direct RAM access (no contention side effects)
+        // Bank 0 in memoryRam_ = 0x4000-0x7FFF (Z80 page ID 8)
+        // Bank 1 in memoryRam_ = 0x8000-0xBFFF (Z80 page ID 4)
+        // Bank 2 in memoryRam_ = 0xC000-0xFFFF (Z80 page ID 5)
+        struct PageDef { uint8_t pageId; uint8_t ramBank; };
         const PageDef pages[] = {
-            { 8, 0x4000 },
-            { 4, 0x8000 },
-            { 5, 0xC000 },
+            { 8, 0 },
+            { 4, 1 },
+            { 5, 2 },
         };
 
         for (const auto& page : pages)
@@ -174,7 +176,7 @@ uint32_t Z80Saver::save(const ZXSpectrum& machine, uint8_t* buffer, uint32_t buf
 
             for (uint32_t i = 0; i < MEM_PAGE_SIZE; i++)
             {
-                buffer[offset + i] = machine.readMemory(page.baseAddr + i);
+                buffer[offset + i] = machine.readRamBank(page.ramBank, static_cast<uint16_t>(i));
             }
             offset += MEM_PAGE_SIZE;
         }

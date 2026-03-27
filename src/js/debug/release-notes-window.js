@@ -21,11 +21,13 @@ const RELEASE_DATA = [
       { hash: "a9aa0c5", text: "Fix stray brace in main.js causing Vite build failure" },
       { hash: "------", text: "Fix instant load setting not reapplying after machine switch or snapshot load" },
       { hash: "------", text: "Fix time-travel scrubber resuming playback while mouse is held down" },
-      { hash: "------", text: "Fix screen corruption caused by state capture interfering with display pipeline" },
+      { hash: "------", text: "Fix screen corruption caused by Z80 saver using contended readMemory on 48K" },
     ],
     improvements: [
       { hash: "587b928", text: "Add RetroTech71.co.uk website link to header" },
       { hash: "8efb931", text: "Remove Lenslok solver window" },
+      { hash: "------", text: "Time Travel keyboard scrubbing with left/right arrow keys and play button to resume" },
+      { hash: "------", text: "Time Travel recording stops when window is closed" },
     ],
   },
   {
