@@ -74,6 +74,11 @@ public:
     int getResultLength() const { return static_cast<int>(resultBuffer_.size()); }
     int getResultIndex() const { return resultIndex_; }
 
+    // State snapshot/restore for time-travel scrubber
+    static constexpr uint32_t SNAPSHOT_SIZE = 64;
+    void snapshotState(uint8_t* buffer) const;
+    void restoreState(const uint8_t* buffer);
+
 private:
     // FDC operating phases
     enum class Phase {

@@ -28,6 +28,7 @@ const RELEASE_DATA = [
       { hash: "8efb931", text: "Remove Lenslok solver window" },
       { hash: "------", text: "Time Travel keyboard scrubbing with left/right arrow keys and play button to resume" },
       { hash: "------", text: "Time Travel recording stops when window is closed" },
+      { hash: "------", text: "Time Travel saves and restores tape and FDC state so loading continues after scrub" },
     ],
   },
   {

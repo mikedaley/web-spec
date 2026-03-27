@@ -331,6 +331,12 @@ if(EMSCRIPTEN)
                 \"_evaluateCondition\", \
                 \"_evaluateExpression\", \
                 \"_getConditionError\", \
+                \"_tapeSnapshotState\", \
+                \"_tapeSnapshotSize\", \
+                \"_tapeRestoreState\", \
+                \"_fdcSnapshotState\", \
+                \"_fdcSnapshotSize\", \
+                \"_fdcRestoreState\", \
                 \"_exportState\", \
                 \"_importState\", \
                 \"_isSpectranetEnabled\", \

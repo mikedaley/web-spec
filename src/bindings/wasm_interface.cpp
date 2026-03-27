@@ -1510,6 +1510,82 @@ const char* getConditionError() {
 }
 
 // ============================================================================
+// Tape State Snapshot (for time-travel scrubber)
+// ============================================================================
+
+static uint8_t s_tapeStateBuf[32];
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* tapeSnapshotState() {
+    REQUIRE_MACHINE_OR(nullptr);
+    auto* spectrum = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    spectrum->tapeSnapshotState(s_tapeStateBuf);
+    return s_tapeStateBuf;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint32_t tapeSnapshotSize() {
+    return zxspec::ZXSpectrum::TAPE_SNAPSHOT_SIZE;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void tapeRestoreState(const uint8_t* buffer, uint32_t size) {
+    REQUIRE_MACHINE();
+    if (!buffer || size < zxspec::ZXSpectrum::TAPE_SNAPSHOT_SIZE) return;
+    auto* spectrum = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    spectrum->tapeRestoreState(buffer);
+}
+
+// ============================================================================
+// FDC State Snapshot (for time-travel scrubber)
+// ============================================================================
+
+static uint8_t s_fdcStateBuf[96]; // enough for UPD765A (64) + WD1770 (32)
+
+EMSCRIPTEN_KEEPALIVE
+const uint8_t* fdcSnapshotState() {
+    REQUIRE_MACHINE_OR(nullptr);
+    std::memset(s_fdcStateBuf, 0, sizeof(s_fdcStateBuf));
+    int id = g_machine->getId();
+
+    // +2A/+3: UPD765A FDC
+    if (id == 3 || id == 4) { // +2A or +3
+        auto* plus3 = static_cast<zxspec::zxplus3::ZXSpectrumPlus3*>(g_machine);
+        plus3->getFDC().snapshotState(s_fdcStateBuf);
+    }
+
+    // Opus Discovery: WD1770 (offset 64 in buffer)
+    auto* spectrum = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spectrum->isOpusEnabled()) {
+        spectrum->getOpus().getFDC().snapshotState(s_fdcStateBuf + 64);
+    }
+
+    return s_fdcStateBuf;
+}
+
+EMSCRIPTEN_KEEPALIVE
+uint32_t fdcSnapshotSize() {
+    return 96;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void fdcRestoreState(const uint8_t* buffer, uint32_t size) {
+    REQUIRE_MACHINE();
+    if (!buffer || size < 96) return;
+    int id = g_machine->getId();
+
+    if (id == 3 || id == 4) { // +2A or +3
+        auto* plus3 = static_cast<zxspec::zxplus3::ZXSpectrumPlus3*>(g_machine);
+        plus3->getFDC().restoreState(buffer);
+    }
+
+    auto* spectrum = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spectrum->isOpusEnabled()) {
+        spectrum->getOpus().getFDC().restoreState(buffer + 64);
+    }
+}
+
+// ============================================================================
 // Save State (Z80 v3 format)
 // ============================================================================
 

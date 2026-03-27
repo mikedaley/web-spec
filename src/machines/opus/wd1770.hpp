@@ -66,6 +66,11 @@ public:
     }
     bool isBusy() const { return (statusRegister_ & STATUS_BUSY) != 0; }
 
+    // State snapshot/restore for time-travel scrubber
+    static constexpr uint32_t SNAPSHOT_SIZE = 32;
+    void snapshotState(uint8_t* buffer) const;
+    void restoreState(const uint8_t* buffer);
+
 private:
     // Status register bits
     static constexpr uint8_t STATUS_BUSY         = 0x01;

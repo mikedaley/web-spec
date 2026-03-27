@@ -31,9 +31,20 @@ function captureTimeTravelSnapshot() {
 
   const stateData = new Uint8Array(wasm.HEAPU8.buffer.slice(statePtr, statePtr + size));
 
+  // Capture tape + FDC state so scrubbing during loading works correctly
+  const tapePtr = wasm._tapeSnapshotState();
+  const tapeSize = wasm._tapeSnapshotSize();
+  const tapeState = tapePtr ? new Uint8Array(wasm.HEAPU8.buffer, tapePtr, tapeSize).slice() : null;
+
+  const fdcPtr = wasm._fdcSnapshotState();
+  const fdcSize = wasm._fdcSnapshotSize();
+  const fdcState = fdcPtr ? new Uint8Array(wasm.HEAPU8.buffer, fdcPtr, fdcSize).slice() : null;
+
   timeTravel.entries[timeTravel.head] = {
     frameNumber: timeTravel.totalFrames,
     stateData,
+    tapeState,
+    fdcState,
   };
   timeTravel.head = (timeTravel.head + 1) % timeTravel.maxEntries;
   if (timeTravel.count < timeTravel.maxEntries) {
@@ -1533,6 +1544,20 @@ self.onmessage = async function (e) {
       wasm._importState(statePtr, entry.stateData.length);
       wasm._free(statePtr);
 
+      // Restore tape + FDC state so loading can resume correctly
+      if (entry.tapeState) {
+        const tapePtr = wasm._malloc(entry.tapeState.length);
+        wasm.HEAPU8.set(entry.tapeState, tapePtr);
+        wasm._tapeRestoreState(tapePtr, entry.tapeState.length);
+        wasm._free(tapePtr);
+      }
+      if (entry.fdcState) {
+        const fdcPtr = wasm._malloc(entry.fdcState.length);
+        wasm.HEAPU8.set(entry.fdcState, fdcPtr);
+        wasm._fdcRestoreState(fdcPtr, entry.fdcState.length);
+        wasm._free(fdcPtr);
+      }
+
       // Re-assert pause — importState restores machine state which clears it
       wasm._setPaused(true);
 
@@ -1560,16 +1585,28 @@ self.onmessage = async function (e) {
       timeTravel.isScrubbing = false;
 
       if (msg.resume && msg.index !== undefined) {
-        // Resume from scrubbed point — discard future history
+        // Resume from scrubbed point — state + tape already restored by last scrubTo
         truncateTimeTravelAfter(msg.index);
       } else {
-        // Cancel — restore to latest state
+        // Cancel — restore to latest state (machine + tape)
         const latest = getTimeTravelEntry(timeTravel.count - 1);
         if (latest) {
           const ptr = wasm._malloc(latest.stateData.length);
           wasm.HEAPU8.set(latest.stateData, ptr);
           wasm._importState(ptr, latest.stateData.length);
           wasm._free(ptr);
+          if (latest.tapeState) {
+            const tapePtr = wasm._malloc(latest.tapeState.length);
+            wasm.HEAPU8.set(latest.tapeState, tapePtr);
+            wasm._tapeRestoreState(tapePtr, latest.tapeState.length);
+            wasm._free(tapePtr);
+          }
+          if (latest.fdcState) {
+            const fdcPtr = wasm._malloc(latest.fdcState.length);
+            wasm.HEAPU8.set(latest.fdcState, fdcPtr);
+            wasm._fdcRestoreState(fdcPtr, latest.fdcState.length);
+            wasm._free(fdcPtr);
+          }
         }
       }
 

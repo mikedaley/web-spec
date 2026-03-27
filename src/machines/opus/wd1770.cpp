@@ -587,4 +587,63 @@ void WD1770::updateMotorTimeout()
     }
 }
 
+// ============================================================================
+// State snapshot/restore for time-travel scrubber
+// ============================================================================
+
+void WD1770::snapshotState(uint8_t* buf) const
+{
+    std::memset(buf, 0, SNAPSHOT_SIZE);
+    buf[0] = statusRegister_;
+    buf[1] = trackRegister_;
+    buf[2] = sectorRegister_;
+    buf[3] = dataRegister_;
+    buf[4] = static_cast<uint8_t>(selectedDrive_);
+    buf[5] = static_cast<uint8_t>(selectedSide_);
+    buf[6] = static_cast<uint8_t>(stepDirection_ < 0 ? 0xFF : 0x01);
+    buf[7] = motorOn_ ? 1 : 0;
+    buf[8] = static_cast<uint8_t>(motorTimeoutFrames_ & 0xFF);
+    buf[9] = static_cast<uint8_t>((motorTimeoutFrames_ >> 8) & 0xFF);
+    buf[10] = static_cast<uint8_t>(lastCommandType_);
+    buf[11] = (dataReading_ ? 1 : 0) | (dataWriting_ ? 2 : 0)
+            | (multiSector_ ? 4 : 0) | (drqNmiPending_ ? 8 : 0)
+            | (pendingComplete_ ? 16 : 0) | (nextBytePending_ ? 32 : 0);
+    buf[12] = physicalTrack_[0];
+    buf[13] = physicalTrack_[1];
+    buf[14] = static_cast<uint8_t>(dataIndex_ & 0xFF);
+    buf[15] = static_cast<uint8_t>((dataIndex_ >> 8) & 0xFF);
+}
+
+void WD1770::restoreState(const uint8_t* buf)
+{
+    statusRegister_ = buf[0];
+    trackRegister_ = buf[1];
+    sectorRegister_ = buf[2];
+    dataRegister_ = buf[3];
+    selectedDrive_ = buf[4];
+    selectedSide_ = buf[5];
+    stepDirection_ = (buf[6] == 0xFF) ? -1 : 1;
+    motorOn_ = buf[7] != 0;
+    motorTimeoutFrames_ = buf[8] | (buf[9] << 8);
+    lastCommandType_ = static_cast<CommandType>(buf[10]);
+    uint8_t flags = buf[11];
+    dataReading_ = (flags & 1) != 0;
+    dataWriting_ = (flags & 2) != 0;
+    multiSector_ = (flags & 4) != 0;
+    drqNmiPending_ = (flags & 8) != 0;
+    pendingComplete_ = (flags & 16) != 0;
+    nextBytePending_ = (flags & 32) != 0;
+    physicalTrack_[0] = buf[12];
+    physicalTrack_[1] = buf[13];
+    dataIndex_ = buf[14] | (buf[15] << 8);
+    // Clear any mid-transfer data — CPU will retry the operation
+    if (dataReading_ || dataWriting_) {
+        statusRegister_ &= ~(STATUS_BUSY | STATUS_DRQ);
+        dataReading_ = false;
+        dataWriting_ = false;
+        dataBuffer_.clear();
+        dataIndex_ = 0;
+    }
+}
+
 } // namespace zxspec

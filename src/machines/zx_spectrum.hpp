@@ -221,6 +221,12 @@ public:
     bool tapeGetInstantLoad() const { return tapeInstantLoad_; }
     void tapeSetBlockPause(size_t blockIndex, uint16_t pauseMs);
 
+    // Tape state snapshot/restore (for time-travel scrubber)
+    // Format: 24 bytes — blockIndex(8), pulseIndex(8), pulseRemaining(4), lastReadTs(4), flags(1)
+    static constexpr uint32_t TAPE_SNAPSHOT_SIZE = 25;
+    void tapeSnapshotState(uint8_t* buffer) const;
+    void tapeRestoreState(const uint8_t* buffer);
+
     // Tape recording
     void tapeRecordStart() override;
     void tapeRecordStop() override;

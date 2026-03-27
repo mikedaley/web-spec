@@ -987,4 +987,106 @@ bool UPD765A::advanceToNextSector()
     return true;
 }
 
+// ============================================================================
+// State snapshot/restore for time-travel scrubber
+// ============================================================================
+
+void UPD765A::snapshotState(uint8_t* buf) const
+{
+    std::memset(buf, 0, SNAPSHOT_SIZE);
+    // Phase + motor + command
+    buf[0] = static_cast<uint8_t>(phase_);
+    buf[1] = motorOn_ ? 1 : 0;
+    buf[2] = currentCommand_;
+    buf[3] = commandParamCount_;
+    // Result state
+    buf[4] = static_cast<uint8_t>(resultIndex_);
+    buf[5] = static_cast<uint8_t>(resultBuffer_.size());
+    // Execution state
+    buf[6] = static_cast<uint8_t>(dataIndex_ & 0xFF);
+    buf[7] = static_cast<uint8_t>((dataIndex_ >> 8) & 0xFF);
+    buf[8] = static_cast<uint8_t>(dataBuffer_.size() & 0xFF);
+    buf[9] = static_cast<uint8_t>((dataBuffer_.size() >> 8) & 0xFF);
+    buf[10] = executionRead_ ? 1 : 0;
+    // Transfer state
+    buf[11] = xferDrive_;
+    buf[12] = xferTrack_;
+    buf[13] = xferSide_;
+    buf[14] = xferSector_;
+    buf[15] = xferSizeCode_;
+    buf[16] = xferEOT_;
+    buf[17] = (xferMultiTrack_ ? 1 : 0) | (xferDeletedData_ ? 2 : 0)
+            | (xferSkip_ ? 4 : 0) | (xferWeakSector_ ? 8 : 0)
+            | (xferCMTerminate_ ? 16 : 0);
+    buf[18] = xferST1_;
+    buf[19] = xferST2_;
+    // Last sector ID
+    buf[20] = lastSectorC_;
+    buf[21] = lastSectorH_;
+    buf[22] = lastSectorR_;
+    buf[23] = lastSectorN_;
+    // Drive state
+    buf[24] = currentTrack_[0];
+    buf[25] = currentTrack_[1];
+    // Seek state
+    buf[26] = (seekCompleted_[0] ? 1 : 0) | (seekCompleted_[1] ? 2 : 0);
+    buf[27] = seekResultST0_[0];
+    buf[28] = seekResultST0_[1];
+    buf[29] = static_cast<uint8_t>(readIdIndex_);
+    buf[30] = static_cast<uint8_t>(msrPollCount_);
+}
+
+void UPD765A::restoreState(const uint8_t* buf)
+{
+    phase_ = static_cast<Phase>(buf[0]);
+    motorOn_ = buf[1] != 0;
+    currentCommand_ = buf[2];
+    commandParamCount_ = buf[3];
+    resultIndex_ = buf[4];
+    // We can't restore the full result/data buffers from 64 bytes,
+    // but we can reset the FDC to a clean state matching the phase.
+    // If we were in Command phase, clear buffers.
+    // If we were in Result or Execution, the transfer will likely need
+    // to restart — set phase to Command to let the CPU retry.
+    if (phase_ == Phase::Execution) {
+        // Can't perfectly restore mid-transfer — reset to command phase
+        phase_ = Phase::Command;
+        dataBuffer_.clear();
+        dataIndex_ = 0;
+    }
+    if (phase_ == Phase::Result) {
+        resultBuffer_.clear();
+        resultIndex_ = 0;
+        phase_ = Phase::Command;
+    }
+    executionRead_ = buf[10] != 0;
+    xferDrive_ = buf[11];
+    xferTrack_ = buf[12];
+    xferSide_ = buf[13];
+    xferSector_ = buf[14];
+    xferSizeCode_ = buf[15];
+    xferEOT_ = buf[16];
+    uint8_t flags = buf[17];
+    xferMultiTrack_ = (flags & 1) != 0;
+    xferDeletedData_ = (flags & 2) != 0;
+    xferSkip_ = (flags & 4) != 0;
+    xferWeakSector_ = (flags & 8) != 0;
+    xferCMTerminate_ = (flags & 16) != 0;
+    xferST1_ = buf[18];
+    xferST2_ = buf[19];
+    lastSectorC_ = buf[20];
+    lastSectorH_ = buf[21];
+    lastSectorR_ = buf[22];
+    lastSectorN_ = buf[23];
+    currentTrack_[0] = buf[24];
+    currentTrack_[1] = buf[25];
+    seekCompleted_[0] = (buf[26] & 1) != 0;
+    seekCompleted_[1] = (buf[26] & 2) != 0;
+    seekResultST0_[0] = buf[27];
+    seekResultST0_[1] = buf[28];
+    readIdIndex_ = buf[29];
+    msrPollCount_ = buf[30];
+    commandBuffer_.clear();
+}
+
 } // namespace zxspec

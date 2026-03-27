@@ -1235,6 +1235,50 @@ void ZXSpectrum::tapeForwardBlock()
     lastTapeReadTs_ = 0;
 }
 
+void ZXSpectrum::tapeSnapshotState(uint8_t* buffer) const
+{
+    // 25 bytes: blockIndex(8) + pulseIndex(8) + pulseRemaining(4) + lastReadTs(4) + flags(1)
+    auto write64 = [&](uint64_t v, int off) {
+        for (int i = 0; i < 8; i++) buffer[off + i] = (v >> (i * 8)) & 0xFF;
+    };
+    auto write32 = [&](uint32_t v, int off) {
+        for (int i = 0; i < 4; i++) buffer[off + i] = (v >> (i * 8)) & 0xFF;
+    };
+
+    write64(static_cast<uint64_t>(tapeBlockIndex_), 0);
+    write64(static_cast<uint64_t>(tapePulseIndex_), 8);
+    write32(tapePulseRemaining_, 16);
+    write32(lastTapeReadTs_, 20);
+    buffer[24] = (tapePulseActive_ ? 1 : 0)
+               | (tapeEarLevel_ ? 2 : 0)
+               | (tapeInstantLoad_ ? 4 : 0)
+               | (tapeAccelerating_ ? 8 : 0);
+}
+
+void ZXSpectrum::tapeRestoreState(const uint8_t* buffer)
+{
+    auto read64 = [&](int off) -> uint64_t {
+        uint64_t v = 0;
+        for (int i = 0; i < 8; i++) v |= static_cast<uint64_t>(buffer[off + i]) << (i * 8);
+        return v;
+    };
+    auto read32 = [&](int off) -> uint32_t {
+        uint32_t v = 0;
+        for (int i = 0; i < 4; i++) v |= static_cast<uint32_t>(buffer[off + i]) << (i * 8);
+        return v;
+    };
+
+    tapeBlockIndex_ = static_cast<size_t>(read64(0));
+    tapePulseIndex_ = static_cast<size_t>(read64(8));
+    tapePulseRemaining_ = read32(16);
+    lastTapeReadTs_ = read32(20);
+    uint8_t flags = buffer[24];
+    tapePulseActive_ = (flags & 1) != 0;
+    tapeEarLevel_ = (flags & 2) != 0;
+    tapeInstantLoad_ = (flags & 4) != 0;
+    tapeAccelerating_ = (flags & 8) != 0;
+}
+
 void ZXSpectrum::tapeSetBlockPause(size_t blockIndex, uint16_t pauseMs)
 {
     if (blockIndex < tapeBlocks_.size())
