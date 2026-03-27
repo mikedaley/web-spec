@@ -1299,6 +1299,13 @@ export class TapeWindow extends BaseWindow {
     }
   }
 
+  reapplyInstantLoad() {
+    const checkbox = this.contentElement?.querySelector("#tape-speed-checkbox");
+    if (checkbox?.checked) {
+      this._proxy.tapeSetInstantLoad(true);
+    }
+  }
+
   _updateSpeedSwitch(isInstant) {
     const switchContainer =
       this.contentElement.querySelector("#tape-speed-switch");
