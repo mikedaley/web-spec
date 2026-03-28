@@ -50,6 +50,9 @@ void ZXSpectrum48::init()
     // Load Opus Discovery ROM if available
     reloadOpusROM();
 
+    // Load Currah uSpeech ROMs if available
+    reloadCurrahSpeechROM();
+
     setupPaging();
 }
 
@@ -78,6 +81,18 @@ void ZXSpectrum48::reloadOpusROM()
     } else if (roms::ROM_OPUS_SIZE > 0) {
         printf("Loading Opus 2.22 ROM (%zu bytes)\n", roms::ROM_OPUS_SIZE);
         opus_.loadROM(roms::ROM_OPUS, static_cast<uint32_t>(roms::ROM_OPUS_SIZE));
+    }
+}
+
+void ZXSpectrum48::reloadCurrahSpeechROM()
+{
+    if (roms::ROM_CURRAH_SPEECH_SIZE > 0) {
+        currahSpeech_.loadROM(roms::ROM_CURRAH_SPEECH,
+            static_cast<uint32_t>(roms::ROM_CURRAH_SPEECH_SIZE));
+    }
+    if (roms::ROM_SP0256_AL2_SIZE > 0) {
+        currahSpeech_.loadAllophoneROM(roms::ROM_SP0256_AL2,
+            static_cast<uint32_t>(roms::ROM_SP0256_AL2_SIZE));
     }
 }
 
@@ -131,6 +146,11 @@ uint8_t ZXSpectrum48::coreMemoryRead(uint16_t address)
 {
     int slot = address >> 14;
 
+    // Currah uSpeech ROM overlay (0x0000-0x1FFF when paged in)
+    if (slot == 0 && currahSpeechEnabled_ && currahSpeech_.isPagedIn() && address < 0x2000) {
+        return currahSpeech_.memoryRead(address);
+    }
+
     // Opus intercepts full 0x0000-0x3FFF when paged in (check before Spectranet)
     if (slot == 0 && opusEnabled_ && opus_.isPagedIn()) {
         return opus_.memoryRead(address);
@@ -147,6 +167,15 @@ uint8_t ZXSpectrum48::coreMemoryRead(uint16_t address)
 void ZXSpectrum48::coreMemoryWrite(uint16_t address, uint8_t data)
 {
     int slot = address >> 14;
+
+    // Currah uSpeech port writes (0x1XXX allophone, 0x3XXX intonation)
+    if (slot == 0 && currahSpeechEnabled_ && currahSpeech_.isPagedIn()) {
+        if ((address >= 0x1000 && address < 0x2000) ||
+            (address >= 0x3000 && address < 0x4000)) {
+            currahSpeech_.memoryWrite(address, data);
+            return;
+        }
+    }
 
     // Opus intercepts full 0x0000-0x3FFF when paged in (check before Spectranet)
     if (slot == 0 && opusEnabled_ && opus_.isPagedIn()) {

@@ -928,6 +928,10 @@ export class EmulatorProxy {
     this.worker.postMessage({ type: "setOpusEnabled", enabled });
   }
 
+  setCurrahEnabled(enabled) {
+    this.worker.postMessage({ type: "setCurrahEnabled", enabled });
+  }
+
   setOpusRomType(romType) {
     this.worker.postMessage({ type: "setOpusRomType", romType });
   }

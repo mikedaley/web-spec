@@ -1510,6 +1510,38 @@ const char* getConditionError() {
 }
 
 // ============================================================================
+// Currah µSpeech
+// ============================================================================
+
+EMSCRIPTEN_KEEPALIVE
+int currahIsEnabled() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spectrum = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return (spectrum && spectrum->isCurrahSpeechEnabled()) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+void currahSetEnabled(int enabled) {
+    REQUIRE_MACHINE();
+    auto* spectrum = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spectrum) spectrum->setCurrahSpeechEnabled(enabled != 0);
+}
+
+EMSCRIPTEN_KEEPALIVE
+int currahIsPagedIn() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spectrum = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return (spectrum && spectrum->getCurrahSpeech().isPagedIn()) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
+int currahIsBusy() {
+    REQUIRE_MACHINE_OR(0);
+    auto* spectrum = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    return (spectrum && spectrum->getCurrahSpeech().getSP0256().isBusy()) ? 1 : 0;
+}
+
+// ============================================================================
 // Tape State Snapshot (for time-travel scrubber)
 // ============================================================================
 

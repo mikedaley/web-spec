@@ -697,6 +697,10 @@ header.auto-hide.header-visible {
 .menu-check-item.active .menu-check {
   visibility: visible;
 }
+.menu-check-item.disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
 
 /* Menu toggle row */
 .header-menu .toggle-row {

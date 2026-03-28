@@ -63,6 +63,7 @@ public:
     // No Spectranet or Opus on ZX81
     void reloadSpectranetROM() override {}
     void reloadOpusROM() override {}
+    void reloadCurrahSpeechROM() override {}
 
     // Screen memory (returns start of RAM for compatibility)
     uint8_t* getScreenMemory() override;

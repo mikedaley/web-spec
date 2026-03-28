@@ -86,6 +86,8 @@ set(SPECTRANET_SOURCES
 set(OPUS_SOURCES
     src/machines/opus/opus_discovery.cpp
     src/machines/opus/wd1770.cpp
+    src/machines/currah/sp0256.cpp
+    src/machines/currah/currah_speech.cpp
 )
 
 set(DEBUG_SOURCES
@@ -124,6 +126,8 @@ add_custom_command(
             ${CMAKE_SOURCE_DIR}/roms/zx81.rom
             ${CMAKE_SOURCE_DIR}/roms/Opus-222.rom
             ${CMAKE_SOURCE_DIR}/roms/quickdos.rom
+            "${CMAKE_SOURCE_DIR}/roms/Currah µSpeech.rom"
+            ${CMAKE_SOURCE_DIR}/roms/sp0256-al2.rom
     COMMENT "Generating ROM data arrays"
 )
 
@@ -331,6 +335,10 @@ if(EMSCRIPTEN)
                 \"_evaluateCondition\", \
                 \"_evaluateExpression\", \
                 \"_getConditionError\", \
+                \"_currahIsEnabled\", \
+                \"_currahSetEnabled\", \
+                \"_currahIsPagedIn\", \
+                \"_currahIsBusy\", \
                 \"_tapeSnapshotState\", \
                 \"_tapeSnapshotSize\", \
                 \"_tapeRestoreState\", \

@@ -1478,6 +1478,7 @@ class ZXSpectrumEmulator {
         this.udgEditorWindow.setMachine(machineId);
         await this.reapplySpectranetState();
         this.reapplyOpusState();
+        this.reapplyCurrahState(machineId);
         if (this.tapeWindow) this.tapeWindow.reapplyInstantLoad();
         const machineNames = { 0: "ZX Spectrum 48K", 1: "ZX Spectrum 128K", 2: "ZX Spectrum 128K +2", 3: "ZX Spectrum 128K +2A", 4: "ZX Spectrum +3", 5: "ZX81" };
         showToast(`Switched to ${machineNames[machineId] || "Unknown"}`);
@@ -1512,6 +1513,7 @@ class ZXSpectrumEmulator {
       // Do NOT call reapplySpectranetState() here — it sends setSpectranetEnabled
       // to the worker which calls _reset(), wiping the just-loaded snapshot state.
       if (this.tapeWindow) this.tapeWindow.reapplyInstantLoad();
+      this.reapplyCurrahState(machineId);
     };
 
     // Restore Issue number from localStorage
@@ -1622,6 +1624,37 @@ class ZXSpectrumEmulator {
       });
     }
 
+    // Peripherals menu > Currah µSpeech toggle (48K only)
+    const currahToggleBtn = document.getElementById("btn-currah-toggle");
+    if (currahToggleBtn) {
+      const savedMachineId = parseInt(localStorage.getItem("zxspec-machine-id") || "0", 10);
+      const is48k = savedMachineId === 0;
+      const savedCurrah = localStorage.getItem("zxspec-currah-enabled") === "true";
+
+      // Only enable on 48K
+      this.proxy.setCurrahEnabled(savedCurrah && is48k);
+      currahToggleBtn.classList.toggle("active", savedCurrah && is48k);
+      currahToggleBtn.classList.toggle("disabled", !is48k);
+      if (!is48k) currahToggleBtn.title = "Currah µSpeech (48K only)";
+
+      currahToggleBtn.addEventListener("click", () => {
+        const currentMachineId = parseInt(localStorage.getItem("zxspec-machine-id") || "0", 10);
+        if (currentMachineId !== 0) {
+          showToast("Currah µSpeech is only available on the 48K Spectrum");
+          this.closeAllMenus();
+          return;
+        }
+        const isEnabled = currahToggleBtn.classList.contains("active");
+        const newEnabled = !isEnabled;
+        this.proxy.setCurrahEnabled(newEnabled);
+        currahToggleBtn.classList.toggle("active", newEnabled);
+        localStorage.setItem("zxspec-currah-enabled", String(newEnabled));
+        showToast(`Currah µSpeech ${newEnabled ? "enabled" : "disabled"}`);
+        this.closeAllMenus();
+        this.refocusCanvas();
+      });
+    }
+
   }
 
   async reapplySpectranetState() {
@@ -1638,6 +1671,25 @@ class ZXSpectrumEmulator {
   reapplyOpusState() {
     const enabled = localStorage.getItem("zxspec-opus-enabled") === "true";
     this.proxy.setOpusEnabled(enabled);
+  }
+
+  reapplyCurrahState(machineId) {
+    const currahBtn = document.getElementById("btn-currah-toggle");
+    const is48k = machineId === 0;
+    const savedCurrah = localStorage.getItem("zxspec-currah-enabled") === "true";
+
+    // Currah µSpeech only works on the 48K — disable on other machines
+    if (is48k && savedCurrah) {
+      this.proxy.setCurrahEnabled(true);
+    } else {
+      this.proxy.setCurrahEnabled(false);
+    }
+
+    if (currahBtn) {
+      currahBtn.classList.toggle("active", is48k && savedCurrah);
+      currahBtn.classList.toggle("disabled", !is48k);
+      currahBtn.title = is48k ? "Currah µSpeech" : "Currah µSpeech (48K only)";
+    }
   }
 
   async saveSpectranetFlash() {

@@ -60,6 +60,8 @@ generate_array "$ROM_DIR/spectranet.rom" "ROM_SPECTRANET"
 generate_array "$ROM_DIR/zx81.rom" "ROM_ZX81"
 generate_array "$ROM_DIR/Opus-222.rom" "ROM_OPUS"
 generate_array "$ROM_DIR/quickdos.rom" "ROM_QUICKDOS"
+generate_array "$ROM_DIR/Currah µSpeech.rom" "ROM_CURRAH_SPEECH"
+generate_array "$ROM_DIR/sp0256-al2.rom" "ROM_SP0256_AL2"
 
 # Close namespace
 echo "} // namespace roms" >> "$OUTPUT_FILE"

@@ -19,6 +19,7 @@ public:
     void init() override;
     void reloadSpectranetROM() override;
     void reloadOpusROM() override {}
+    void reloadCurrahSpeechROM() override {}
 };
 
 } // namespace zxspec::zxplus2

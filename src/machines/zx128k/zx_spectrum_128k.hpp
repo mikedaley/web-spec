@@ -47,6 +47,7 @@ public:
 
     // Reload Opus Discovery ROM (no-op on 128K)
     void reloadOpusROM() override {}
+    void reloadCurrahSpeechROM() override {}
 
     // Screen memory for display rendering
     uint8_t* getScreenMemory() override;

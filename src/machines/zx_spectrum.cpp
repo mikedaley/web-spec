@@ -109,6 +109,7 @@ void ZXSpectrum::baseInit()
 
     audio_.setup(AUDIO_SAMPLE_RATE, fps, machineInfo_.tsPerFrame);
     ay_.setup(AUDIO_SAMPLE_RATE, fps, machineInfo_.tsPerFrame);
+    currahSpeech_.getSP0256().setup(AUDIO_SAMPLE_RATE, fps, machineInfo_.tsPerFrame);
     contention_.init(machineInfo_);
     display_.init(machineInfo_);
 
@@ -175,6 +176,8 @@ void ZXSpectrum::reset()
     ayMixOffset_ = 0;
     spectranet_.reset();
     opus_.reset();
+    currahSpeech_.reset();
+    currahMixOffset_ = 0;
     keyboardMatrix_.fill(0xBF);
     display_.frameReset();
     display_.clearFramebuffer();
@@ -294,6 +297,7 @@ void ZXSpectrum::runFrame()
         // Feed the instruction's T-states into the audio accumulator
         audio_.update(delta);
         if (ayEnabled_) ay_.update(delta);
+        if (currahSpeechEnabled_) currahSpeech_.getSP0256().update(delta);
     }
 
     if (paused_)
@@ -344,11 +348,27 @@ void ZXSpectrum::runFrame()
         ayMixOffset_ = beeperSamples;
     }
 
+    // Mix Currah uSpeech output into beeper buffer
+    if (currahSpeechEnabled_) {
+        currahSpeech_.getSP0256().frameEnd();
+        int spSamples = currahSpeech_.getSP0256().getSampleCount();
+        int beeperSamples = audio_.getSampleCount();
+        int mixEnd = (spSamples < beeperSamples) ? spSamples : beeperSamples;
+        float* beeperBuf = audio_.getMutableBuffer();
+        const float* spBuf = currahSpeech_.getSP0256().getBuffer();
+        for (int i = currahMixOffset_; i < mixEnd; i++) {
+            beeperBuf[i] += spBuf[i];
+        }
+        currahMixOffset_ = beeperSamples;
+    }
+
     if (muteFrames_ > 0)
     {
         audio_.resetBuffer();
         ay_.resetBuffer();
+        currahSpeech_.getSP0256().resetBuffer();
         ayMixOffset_ = 0;
+        currahMixOffset_ = 0;
         muteFrames_--;
     }
 
@@ -463,7 +483,9 @@ void ZXSpectrum::resetAudioBuffer()
 {
     audio_.resetBuffer();
     ay_.resetBuffer();
+    currahSpeech_.getSP0256().resetBuffer();
     ayMixOffset_ = 0;
+    currahMixOffset_ = 0;
 }
 
 // ============================================================================
@@ -576,7 +598,7 @@ void ZXSpectrum::removeBreakpoint(uint16_t addr)
     breakpoints_.erase(addr);
     disabledBreakpoints_.erase(addr);
 
-    if (breakpoints_.empty() && beamBreakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !opusEnabled_ && !traceEnabled_) {
+    if (breakpoints_.empty() && beamBreakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !opusEnabled_ && !currahSpeechEnabled_ && !traceEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     } else {
         installOpcodeCallback();
@@ -672,7 +694,7 @@ void ZXSpectrum::removeBeamBreakpoint(int32_t id)
             break;
         }
     }
-    if (beamBreakpoints_.empty() && breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !opusEnabled_ && !traceEnabled_) {
+    if (beamBreakpoints_.empty() && breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !opusEnabled_ && !currahSpeechEnabled_ && !traceEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     }
 }
@@ -692,7 +714,7 @@ void ZXSpectrum::clearAllBeamBreakpoints()
     beamBreakpoints_.clear();
     beamBreakHit_ = false;
     beamBreakHitId_ = -1;
-    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !opusEnabled_ && !traceEnabled_) {
+    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !opusEnabled_ && !currahSpeechEnabled_ && !traceEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     }
 }
@@ -830,7 +852,7 @@ void ZXSpectrum::clearBasicBreakpointMode()
     basicBreakpointLines_.clear();
 
     // If no other reasons to keep the callback, remove it
-    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && !spectranetEnabled_ && !opusEnabled_ && !traceEnabled_) {
+    if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && !spectranetEnabled_ && !opusEnabled_ && !currahSpeechEnabled_ && !traceEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     }
 }
@@ -943,6 +965,14 @@ void ZXSpectrum::installOpcodeCallback()
                         opus_.pageIn();
                     }
                 }
+            }
+
+            // Currah uSpeech: toggle ROM paging on every access to 0x0038
+            // (the maskable interrupt entry point). POST-FETCH: the opcode at
+            // 0x0038 was already fetched from whichever ROM is current; the
+            // toggle affects subsequent fetches.
+            if (currahSpeechEnabled_ && address == 0x0038) {
+                currahSpeech_.togglePaging();
             }
 
             // Tape ROM trap
@@ -1072,7 +1102,7 @@ void ZXSpectrum::setTraceEnabled(bool enabled)
     if (enabled) {
         installOpcodeCallback();
     } else if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_
-               && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !opusEnabled_) {
+               && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !opusEnabled_ && !currahSpeechEnabled_) {
         z80_->registerOpcodeCallback(nullptr);
     }
 }

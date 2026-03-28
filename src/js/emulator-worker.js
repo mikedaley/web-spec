@@ -1433,6 +1433,14 @@ self.onmessage = async function (e) {
       }
       break;
 
+    case "setCurrahEnabled":
+      if (wasm) {
+        wasm._currahSetEnabled(msg.enabled ? 1 : 0);
+        wasm._reset();
+        self.postMessage({ type: "stateUpdate", state: getState() });
+      }
+      break;
+
     case "setOpusRomType":
       if (wasm) {
         wasm._opusSetRomType(msg.romType);

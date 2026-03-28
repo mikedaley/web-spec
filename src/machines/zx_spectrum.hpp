@@ -17,6 +17,7 @@
 #include "ay.hpp"
 #include "spectranet/spectranet.hpp"
 #include "opus/opus_discovery.hpp"
+#include "currah/currah_speech.hpp"
 #include "display.hpp"
 #include "contention.hpp"
 #include "tape_block.hpp"
@@ -200,6 +201,13 @@ public:
     void setOpusRomType(OpusRomType type) { opusRomType_ = type; reloadOpusROM(); }
     virtual void reloadOpusROM() = 0;
 
+    // Currah uSpeech speech synthesiser
+    CurrahSpeech& getCurrahSpeech() { return currahSpeech_; }
+    const CurrahSpeech& getCurrahSpeech() const { return currahSpeech_; }
+    bool isCurrahSpeechEnabled() const { return currahSpeechEnabled_; }
+    void setCurrahSpeechEnabled(bool enabled) { currahSpeechEnabled_ = enabled; if (enabled) installOpcodeCallback(); }
+    virtual void reloadCurrahSpeechROM() = 0;
+
     // Issue number (2 or 3) — affects EAR/MIC feedback in IO reads
     uint8_t getIssueNumber() const { return issueNumber_; }
     void setIssueNumber(uint8_t issue) { issueNumber_ = issue; }
@@ -329,6 +337,11 @@ protected:
     OpusDiscovery opus_;
     bool opusEnabled_ = false;
     OpusRomType opusRomType_ = OpusRomType::OPUS_ORIGINAL;
+
+    // Currah uSpeech speech synthesiser
+    CurrahSpeech currahSpeech_;
+    bool currahSpeechEnabled_ = false;
+    int currahMixOffset_ = 0;
 
     // Memory (allocated by base, managed by variant)
     std::vector<uint8_t> memoryRom_;

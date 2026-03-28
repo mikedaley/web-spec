@@ -46,6 +46,7 @@ public:
 
     // Reload Opus Discovery ROM
     void reloadOpusROM() override;
+    void reloadCurrahSpeechROM() override;
 
     // Direct RAM bank access (no contention side effects)
     uint8_t readRamBank(uint8_t bank, uint16_t offset) const override;
