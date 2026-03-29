@@ -12,10 +12,12 @@ import {
   getAllSlotInfo,
   clearSlot,
   loadStateFromSlot,
+  saveStateToSlot,
   updateSlotName,
 } from "./state-persistence.js";
 
 import { showToast } from "../ui/toast.js";
+import { createZip, extractZip } from "../utils/zip.js";
 import "../css/save-states.css";
 
 const SLOT_COUNT = 10;
@@ -82,8 +84,11 @@ export class SaveStatesWindow extends BaseWindow {
           ${slotsHtml}
         </div>
         <div class="save-states-toolbar">
-          <input type="file" accept=".z80" style="display:none" />
+          <input type="file" accept=".z80" style="display:none" class="load-file-input" />
+          <input type="file" accept=".zip" style="display:none" class="import-zip-input" />
           <button class="slot-btn load-file-btn">Load from File...</button>
+          <button class="slot-btn export-all-btn">Export All Slots</button>
+          <button class="slot-btn import-all-btn">Import Slots</button>
         </div>
       </div>`;
   }
@@ -159,7 +164,7 @@ export class SaveStatesWindow extends BaseWindow {
       }
     });
 
-    const fileInput = this.contentElement.querySelector('input[type="file"]');
+    const fileInput = this.contentElement.querySelector(".load-file-input");
     const loadFileBtn = this.contentElement.querySelector(".load-file-btn");
 
     if (loadFileBtn && fileInput) {
@@ -168,6 +173,22 @@ export class SaveStatesWindow extends BaseWindow {
         const file = e.target.files[0];
         if (file) this.handleLoadFromFile(file);
         fileInput.value = "";
+      });
+    }
+
+    const exportBtn = this.contentElement.querySelector(".export-all-btn");
+    if (exportBtn) {
+      exportBtn.addEventListener("click", () => this.handleExportAll());
+    }
+
+    const importBtn = this.contentElement.querySelector(".import-all-btn");
+    const importInput = this.contentElement.querySelector(".import-zip-input");
+    if (importBtn && importInput) {
+      importBtn.addEventListener("click", () => importInput.click());
+      importInput.addEventListener("change", (e) => {
+        const file = e.target.files[0];
+        if (file) this.handleImportAll(file);
+        importInput.value = "";
       });
     }
   }
@@ -309,14 +330,14 @@ export class SaveStatesWindow extends BaseWindow {
     this.downloadBlob(data, "zxspectrum-autosave.z80");
   }
 
-  async downloadBlob(data, filename) {
+  async downloadBlob(data, filename, ext = ".z80", desc = "Z80 Snapshot") {
     const blob = new Blob([data], { type: "application/octet-stream" });
 
     if (window.showSaveFilePicker) {
       try {
         const handle = await window.showSaveFilePicker({
           suggestedName: filename,
-          types: [{ description: "Z80 Snapshot", accept: { "application/octet-stream": [".z80"] } }],
+          types: [{ description: desc, accept: { "application/octet-stream": [ext] } }],
         });
         const writable = await handle.createWritable();
         await writable.write(blob);
@@ -361,10 +382,153 @@ export class SaveStatesWindow extends BaseWindow {
     reader.readAsArrayBuffer(file);
   }
 
+  // ── Export all slots to a single ZIP file ────────────────────────────────
+
+  async handleExportAll() {
+    try {
+      const slotInfo = await getAllSlotInfo();
+      const filledSlots = slotInfo.filter(s => s !== null);
+
+      if (filledSlots.length === 0) {
+        showToast("No save states to export");
+        return;
+      }
+
+      // Build ZIP entries: manifest.json + per-slot .z80 and thumbnails
+      const manifest = [];
+      const zipEntries = [];
+
+      for (const info of filledSlots) {
+        const slotNum = info.slotNumber;
+
+        // Load the full slot data (getAllSlotInfo only returns metadata)
+        const fullSlot = await loadStateFromSlot(slotNum);
+        if (!fullSlot || !fullSlot.data) continue;
+
+        manifest.push({
+          slot: slotNum,
+          name: info.name || `Slot ${slotNum}`,
+          savedAt: info.savedAt || Date.now(),
+        });
+
+        // State data (.z80 binary)
+        zipEntries.push({
+          name: `slot-${slotNum}.z80`,
+          data: new Uint8Array(fullSlot.data),
+        });
+
+        // Thumbnail (convert data URL to binary JPEG)
+        if (info.thumbnail) {
+          const thumbData = dataUrlToBytes(info.thumbnail);
+          if (thumbData) {
+            zipEntries.push({ name: `slot-${slotNum}-thumb.jpg`, data: thumbData });
+          }
+        }
+
+        // Preview
+        if (info.preview) {
+          const previewData = dataUrlToBytes(info.preview);
+          if (previewData) {
+            zipEntries.push({ name: `slot-${slotNum}-preview.jpg`, data: previewData });
+          }
+        }
+      }
+
+      // Add manifest
+      const manifestJson = JSON.stringify(manifest, null, 2);
+      zipEntries.unshift({
+        name: "manifest.json",
+        data: new TextEncoder().encode(manifestJson),
+      });
+
+      const zipData = createZip(zipEntries);
+      const filename = `spectrEm-saves-${new Date().toISOString().slice(0, 10)}.zip`;
+      await this.downloadBlob(zipData, filename, ".zip", "ZIP Archive");
+
+      showToast(`Exported ${filledSlots.length} save state${filledSlots.length > 1 ? "s" : ""}`);
+    } catch (err) {
+      console.error("Export failed:", err);
+      showToast("Export failed");
+    }
+  }
+
+  // ── Import slots from a ZIP file ───────────────────────────────────────
+
+  async handleImportAll(file) {
+    try {
+      const buffer = await file.arrayBuffer();
+      const zipData = new Uint8Array(buffer);
+      const entries = extractZip(zipData);
+
+      // Find manifest
+      const manifestEntry = entries.find(e => e.name === "manifest.json");
+      if (!manifestEntry) {
+        showToast("Invalid save states archive (no manifest)");
+        return;
+      }
+
+      const manifest = JSON.parse(new TextDecoder().decode(manifestEntry.data));
+      let imported = 0;
+
+      for (const slotInfo of manifest) {
+        const slotNum = slotInfo.slot;
+        if (slotNum < 1 || slotNum > SLOT_COUNT) continue;
+
+        // Find the .z80 data
+        const stateEntry = entries.find(e => e.name === `slot-${slotNum}.z80`);
+        if (!stateEntry || stateEntry.data.length < 30) continue;
+
+        // Find thumbnail and preview (optional)
+        const thumbEntry = entries.find(e => e.name === `slot-${slotNum}-thumb.jpg`);
+        const previewEntry = entries.find(e => e.name === `slot-${slotNum}-preview.jpg`);
+
+        const thumbnail = thumbEntry ? bytesToDataUrl(thumbEntry.data, "image/jpeg") : null;
+        const preview = previewEntry ? bytesToDataUrl(previewEntry.data, "image/jpeg") : null;
+
+        await saveStateToSlot(
+          slotNum,
+          stateEntry.data,
+          thumbnail,
+          preview,
+          slotInfo.name || `Slot ${slotNum}`
+        );
+        imported++;
+      }
+
+      if (imported > 0) {
+        showToast(`Imported ${imported} save state${imported > 1 ? "s" : ""}`);
+        this.refreshSlots();
+      } else {
+        showToast("No valid save states found in archive");
+      }
+    } catch (err) {
+      console.error("Import failed:", err);
+      showToast("Import failed — not a valid save states archive");
+    }
+  }
+
   destroy() {
     if (this.hoverPreview && this.hoverPreview.parentNode) {
       this.hoverPreview.parentNode.removeChild(this.hoverPreview);
     }
     super.destroy();
   }
+}
+
+// ── Data URL ↔ binary helpers ─────────────────────────────────────────────
+
+function dataUrlToBytes(dataUrl) {
+  try {
+    const base64 = dataUrl.split(",")[1];
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes;
+  } catch { return null; }
+}
+
+function bytesToDataUrl(bytes, mime) {
+  let binary = "";
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+  return `data:${mime};base64,${btoa(binary)}`;
 }

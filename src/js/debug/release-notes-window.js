@@ -17,6 +17,7 @@ const RELEASE_DATA = [
       { hash: "a9aa0c5", text: "128K BASIC tokens (SPECTRUM, PLAY) and correct BASIC window title for +2/+2A/+3" },
       { hash: "------", text: "Time Travel window with drag-to-rewind scrubber and configurable history depth" },
       { hash: "------", text: "Currah µSpeech peripheral with full SP0256-AL2 micro-sequencer and LPC-12 filter emulation" },
+      { hash: "------", text: "Export and import all save state slots as a single ZIP file" },
     ],
     fixes: [
       { hash: "a9aa0c5", text: "Fix stray brace in main.js causing Vite build failure" },
