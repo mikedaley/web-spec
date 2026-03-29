@@ -96,4 +96,18 @@ void Audio::getWaveform(float* buf, int count) const
     }
 }
 
+void Audio::mixIntoWaveform(const float* buf, int count, int offset)
+{
+    // Mix external audio into the waveform ring buffer, matching the same
+    // positions that were written to sampleBuffer_ during this frame.
+    // The waveformWritePos_ points to the next write position, so the
+    // most recent 'sampleIndex_' entries end at (waveformWritePos_ - 1).
+    int startPos = (waveformWritePos_ - sampleIndex_ + offset + WAVEFORM_BUFFER_SIZE) % WAVEFORM_BUFFER_SIZE;
+    int mixCount = (count < sampleIndex_ - offset) ? count : sampleIndex_ - offset;
+    for (int i = 0; i < mixCount; i++) {
+        int idx = (startPos + i) % WAVEFORM_BUFFER_SIZE;
+        waveformBuffer_[idx] += buf[offset + i];
+    }
+}
+
 } // namespace zxspec

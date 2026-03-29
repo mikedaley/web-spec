@@ -41,6 +41,11 @@ public:
     // Waveform ring buffer for debug display
     void getWaveform(float* buf, int count) const;
 
+    // Mix external audio (e.g. SP0256 speech) into the waveform ring buffer
+    // so it shows up in the sound window visualisation. Call after mixing
+    // external audio into sampleBuffer_ at frame end.
+    void mixIntoWaveform(const float* buf, int count, int offset);
+
 private:
     static constexpr int MAX_SAMPLES_PER_FRAME = 2048;
     static constexpr int WAVEFORM_BUFFER_SIZE = 2048;

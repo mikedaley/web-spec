@@ -758,10 +758,16 @@ export class SoundWindow extends BaseWindow {
     const sampleCount = samples.length;
     const xScale = width / (sampleCount - 1);
 
-    // Fixed scale: map [-maxAmplitude, +maxAmplitude] to full canvas height
-    // Beeper is 0-to-positive so center it by subtracting half the max
-    const mid = maxAmplitude / 2;
-    const scale = 1 / maxAmplitude;
+    // Check if signal has negative values (speech mixed in = bipolar).
+    // Pure beeper is unipolar (0 to +0.6) and needs centering.
+    // Mixed beeper+speech is bipolar and should center at zero.
+    let hasNegative = false;
+    for (let i = 0; i < sampleCount; i++) {
+      if (samples[i] < -0.01) { hasNegative = true; break; }
+    }
+
+    const mid = hasNegative ? 0 : maxAmplitude / 2;
+    const scale = hasNegative ? 0.5 / maxAmplitude : 1 / maxAmplitude;
 
     for (let i = 0; i < sampleCount; i++) {
       const x = i * xScale;
@@ -1069,12 +1075,21 @@ export class SoundWindow extends BaseWindow {
       const beeperSamples = proxy.getBeeperWaveform
         ? proxy.getBeeperWaveform()
         : null;
+      // Auto-scale the Y axis to the peak amplitude in the waveform.
+      // When speech is mixed in, the amplitude can exceed BEEPER_VOLUME.
+      let maxAmp = BEEPER_VOLUME;
+      if (beeperSamples) {
+        for (let i = 0; i < beeperSamples.length; i++) {
+          const a = Math.abs(beeperSamples[i]);
+          if (a > maxAmp) maxAmp = a;
+        }
+      }
       this.drawFixedWaveform(
         this.beeperCtx,
         this.beeperCanvas,
         beeperSamples,
         this.beeperColor || BEEPER_COLOR,
-        BEEPER_VOLUME,
+        maxAmp,
       );
     }
 

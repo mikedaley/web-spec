@@ -348,7 +348,7 @@ void ZXSpectrum::runFrame()
         ayMixOffset_ = beeperSamples;
     }
 
-    // Mix Currah uSpeech output into beeper buffer
+    // Mix Currah uSpeech output into beeper buffer and waveform display
     if (currahSpeechEnabled_) {
         currahSpeech_.getSP0256().frameEnd();
         int spSamples = currahSpeech_.getSP0256().getSampleCount();
@@ -359,6 +359,9 @@ void ZXSpectrum::runFrame()
         for (int i = currahMixOffset_; i < mixEnd; i++) {
             beeperBuf[i] += spBuf[i];
         }
+        // Also mix into the waveform ring buffer so the speech shows up
+        // in the sound window visualisation alongside the beeper
+        audio_.mixIntoWaveform(spBuf, mixEnd, currahMixOffset_);
         currahMixOffset_ = beeperSamples;
     }
 

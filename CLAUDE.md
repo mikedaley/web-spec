@@ -39,6 +39,15 @@ ctest --verbose
 - `src/machines/` - Machine-level emulation (audio, display, ULA contention, tape, loaders)
 - `src/machines/zx_spectrum.cpp` - Core coordinator
 - `src/machines/zx48k/` - ZX Spectrum 48K-specific configuration
+- `src/machines/zx128k/` - 128K configuration
+- `src/machines/zxplus2/` - +2 configuration
+- `src/machines/zxplus2a/` - +2A configuration
+- `src/machines/zxplus3/` - +3 configuration with µPD765A FDC
+- `src/machines/zx81/` - ZX81 configuration
+- `src/machines/fdc/` - µPD765A FDC and disk image handling
+- `src/machines/opus/` - Opus Discovery (WD1770 FDC, 6821 PIA)
+- `src/machines/spectranet/` - Spectranet Ethernet (W5100, flash)
+- `src/machines/currah/` - Currah µSpeech (SP0256-AL2 speech synthesis)
 
 **JavaScript should only contain UI/presentation logic.** All core emulation logic (tokenization, parsing, number encoding, memory layout) belongs in C++.
 
@@ -49,11 +58,13 @@ ctest --verbose
 - `audio/` - Web Audio API driver and AudioWorklet
 - `display/` - WebGL renderer
 - `input/` - Keyboard input
-- `tape/` - Tape deck UI and IndexedDB persistence
+- `tape/` - Tape deck UI, TAP editor, and IndexedDB persistence
+- `disk/` - Disk drive UI, disk explorer, DSK parser
 - `snapshot/` - Snapshot load/save UI
-- `debug/` - Debug windows (CPU state, sound waveform, etc.)
+- `state/` - Save states manager, persistence, and ZIP export/import
+- `debug/` - Debug windows (CPU state, sound waveform, time travel, etc.)
 - `windows/` - Windowing system for debug panels
-- `utils/` - Shared utilities
+- `utils/` - Shared utilities (ZIP, IndexedDB helper)
 
 ### Key Constants (src/core/types.hpp)
 
@@ -79,6 +90,13 @@ Single global `Emulator` instance in C++ (`wasm_interface.cpp`). JS allocates WA
 - `48.rom` (16KB ZX Spectrum 48K ROM)
 - `128-0.rom` (16KB ZX Spectrum 128K ROM 0)
 - `128-1.rom` (16KB ZX Spectrum 128K ROM 1)
+- `plus2-0.ROM` / `plus2-1.ROM` (16KB each, +2 ROMs)
+- `plus2a.rom` / `plus3.rom` (64KB each, +2A/+3 ROMs)
+- `zx81.rom` (8KB ZX81 ROM)
+- `spectranet.rom` (Spectranet firmware)
+- `Opus-222.rom` / `quickdos.rom` (Opus Discovery ROMs)
+- `Currah µSpeech.rom` (2KB Currah interface ROM)
+- `sp0256-al2.rom` (2KB SP0256 allophone ROM)
 
 ## Code Organization
 
@@ -92,9 +110,18 @@ src/
 │   ├── audio.cpp       # Beeper audio generation
 │   ├── display.cpp     # ULA display / framebuffer generation
 │   ├── contention.cpp  # ULA contention timing
-│   ├── loaders/        # Snapshot loaders (SNA, Z80)
+│   ├── loaders/        # Snapshot loaders (SNA, Z80, TAP, TZX) and Z80 saver
 │   ├── basic/          # Sinclair BASIC support (tokenizer, parser, variables, float codec)
-│   └── zx48k/          # 48K-specific config
+│   ├── fdc/            # µPD765A FDC and disk image handling
+│   ├── opus/           # Opus Discovery (WD1770 FDC, 6821 PIA)
+│   ├── spectranet/     # Spectranet Ethernet (W5100, flash)
+│   ├── currah/         # Currah µSpeech (SP0256-AL2 speech chip)
+│   ├── zx48k/          # 48K-specific config
+│   ├── zx128k/         # 128K-specific config
+│   ├── zxplus2/        # +2-specific config
+│   ├── zxplus2a/       # +2A-specific config
+│   ├── zxplus3/        # +3-specific config
+│   └── zx81/           # ZX81-specific config
 ├── bindings/           # wasm_interface.cpp - WASM export glue
 └── js/                 # ES6 modules, no framework
     ├── main.js         # Entry point, ZXSpectrumEmulator class
@@ -103,11 +130,13 @@ src/
     ├── audio/          # Web Audio API driver and worklet
     ├── display/        # WebGL renderer
     ├── input/          # Keyboard input
-    ├── tape/           # Tape deck UI and persistence
+    ├── tape/           # Tape deck UI, TAP editor, persistence
+    ├── disk/           # Disk drive UI, explorer, persistence
     ├── snapshot/       # Snapshot load/save UI
-    ├── debug/          # Debug windows
+    ├── state/          # Save states manager, persistence, ZIP export/import
+    ├── debug/          # Debug windows (CPU, BASIC, memory, time travel, etc.)
     ├── windows/        # Windowing system for panels
-    ├── utils/          # Shared utilities
+    ├── utils/          # Shared utilities (ZIP, IndexedDB helper)
     ├── ui/             # Theme manager and UI utilities
     └── css/            # Stylesheets
 public/                 # Static assets, built WASM files
@@ -177,6 +206,10 @@ All windows extend `BaseWindow` (`src/js/windows/base-window.js`) and are manage
 - **All user-facing settings must persist across sessions.** Any toggle, slider, checkbox, or preference that a user can change must be saved (via window state or `localStorage`) and restored on page load. Never add a setting that resets to its default on refresh.
 - **All windows must be registered with the window manager before `loadState()` is called** in `main.js`. If a window is registered after `loadState()`, its saved state will not be restored on page load.
 - Include new windows in the `applyDefaultLayout` array in `main.js` so they have sensible defaults for first-time users.
+
+## Answering Questions
+
+When answering technical questions — especially about hardware behaviour, chip internals, or emulation accuracy — **only provide answers backed by real, verifiable references** (datasheets, source code you've read, documentation in the `docs/` folder, or web sources you've fetched). If you don't have enough information to give a confident answer, say so clearly rather than guessing. **Not answering is 3x better than making something up.** Incorrect information about hardware behaviour leads to bugs that are extremely hard to track down.
 
 ## Git Commits
 
