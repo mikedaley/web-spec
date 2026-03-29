@@ -106,28 +106,10 @@ export class EmulatorProxy {
         if (this.onSpectranetCommand) this.onSpectranetCommand(msg.command);
         break;
 
-      case "spectranetSRAMData": {
-        const resolve = this._pendingRequests.get("spectranetSRAM");
-        if (resolve) {
-          this._pendingRequests.delete("spectranetSRAM");
-          resolve(msg.data ? new Uint8Array(msg.data) : null);
-        }
-        break;
-      }
-
       case "spectranetFlashData": {
         const resolve = this._pendingRequests.get("spectranetFlash");
         if (resolve) {
           this._pendingRequests.delete("spectranetFlash");
-          resolve(msg.data ? new Uint8Array(msg.data) : null);
-        }
-        break;
-      }
-
-      case "spectranetFlashConfigData": {
-        const resolve = this._pendingRequests.get("spectranetFlashConfig");
-        if (resolve) {
-          this._pendingRequests.delete("spectranetFlashConfig");
           resolve(msg.data ? new Uint8Array(msg.data) : null);
         }
         break;
@@ -308,8 +290,7 @@ export class EmulatorProxy {
         break;
       }
 
-      case "evaluateConditionResult":
-      case "evaluateExpressionResult": {
+      case "evaluateConditionResult": {
         const resolve = this._pendingRequests.get(msg.id);
         if (resolve) {
           this._pendingRequests.delete(msg.id);
@@ -537,10 +518,6 @@ export class EmulatorProxy {
     this.worker.postMessage({ type: "setSpeed", speed });
   }
 
-  requestState() {
-    this.worker.postMessage({ type: "getState" });
-  }
-
   // State getters (synchronous, return latest cached snapshot)
   getPC() { return this.state.pc ?? 0; }
   getSP() { return this.state.sp ?? 0; }
@@ -577,10 +554,8 @@ export class EmulatorProxy {
   tapeIsLoaded() { return this.state.tapeIsLoaded ?? false; }
   tapeGetBlockCount() { return this.state.tapeBlockCount ?? 0; }
   tapeGetCurrentBlock() { return this.state.tapeCurrentBlock ?? 0; }
-  tapeGetInstantLoad() { return this.state.tapeInstantLoad ?? false; }
   tapeGetBlockProgress() { return this.state.tapeBlockProgress ?? 0; }
   tapeIsRecording() { return this.state.tapeIsRecording ?? false; }
-  tapeRecordGetBlockCount() { return this.state.tapeRecordBlockCount ?? 0; }
   tapeRecordGetBlocks() { return this._recordedBlocks || []; }
 
   // AY-3-8912 accessors (from cached frame data)
@@ -617,16 +592,8 @@ export class EmulatorProxy {
     this.worker.postMessage({ type: "setAYEnabled", enabled });
   }
 
-  isSpecdrumEnabled() {
-    return this.state.specdrumEnabled ?? false;
-  }
-
   setSpecdrumEnabled(enabled) {
     this.worker.postMessage({ type: "setSpecdrumEnabled", enabled });
-  }
-
-  getIssueNumber() {
-    return this.state.issueNumber ?? 3;
   }
 
   getPagingRegister() {
@@ -742,10 +709,6 @@ export class EmulatorProxy {
     this.worker.postMessage({ type: "enableBeamBreakpoint", bpId, enabled });
   }
 
-  clearAllBeamBreakpoints() {
-    this.worker.postMessage({ type: "clearAllBeamBreakpoints" });
-  }
-
   isBeamBreakpointHit() {
     const id = this._nextId++;
     return new Promise((resolve) => {
@@ -795,14 +758,6 @@ export class EmulatorProxy {
     });
   }
 
-  evaluateExpression(expr) {
-    const id = this._nextId++;
-    return new Promise((resolve) => {
-      this._pendingRequests.set(id, resolve);
-      this.worker.postMessage({ type: "evaluateExpression", expr, id });
-    });
-  }
-
   exportState() {
     const id = this._nextId++;
     return new Promise((resolve) => {
@@ -821,10 +776,6 @@ export class EmulatorProxy {
   }
 
   // Spectranet Ethernet interface
-  isSpectranetEnabled() {
-    return this.state.spectranetEnabled ?? false;
-  }
-
   setSpectranetEnabled(enabled) {
     this.worker.postMessage({ type: "setSpectranetEnabled", enabled });
   }
@@ -852,18 +803,6 @@ export class EmulatorProxy {
     this.worker.postMessage({ type: "spectranetSetStaticIP", useStatic });
   }
 
-  spectranetGetSRAM() {
-    return new Promise((resolve) => {
-      this._pendingRequests.set("spectranetSRAM", resolve);
-      this.worker.postMessage({ type: "spectranetGetSRAM" });
-    });
-  }
-
-  spectranetSetSRAM(data) {
-    const buffer = new Uint8Array(data).buffer;
-    this.worker.postMessage({ type: "spectranetSetSRAM", data: buffer }, [buffer]);
-  }
-
   spectranetGetFlashData() {
     return new Promise((resolve) => {
       this._pendingRequests.set("spectranetFlash", resolve);
@@ -878,18 +817,6 @@ export class EmulatorProxy {
   spectranetSetFlashData(data) {
     const buffer = new Uint8Array(data).buffer;
     this.worker.postMessage({ type: "spectranetSetFlashData", data: buffer }, [buffer]);
-  }
-
-  spectranetGetFlashConfig() {
-    return new Promise((resolve) => {
-      this._pendingRequests.set("spectranetFlashConfig", resolve);
-      this.worker.postMessage({ type: "spectranetGetFlashConfig" });
-    });
-  }
-
-  spectranetSetFlashConfig(data) {
-    const buffer = new Uint8Array(data).buffer;
-    this.worker.postMessage({ type: "spectranetSetFlashConfig", data: buffer }, [buffer]);
   }
 
   // Disk drive (FDC) - +3 only
@@ -920,10 +847,6 @@ export class EmulatorProxy {
   }
 
   // Opus Discovery disk interface
-  isOpusEnabled() {
-    return this.state.opusEnabled ?? false;
-  }
-
   setOpusEnabled(enabled) {
     this.worker.postMessage({ type: "setOpusEnabled", enabled });
   }
@@ -989,10 +912,6 @@ export class EmulatorProxy {
 
   timeTravelScrubEnd(resume, index) {
     this.worker.postMessage({ type: "timeTravelScrubEnd", resume, index });
-  }
-
-  timeTravelGetStatus() {
-    this.worker.postMessage({ type: "timeTravelGetStatus" });
   }
 
   destroy() {
