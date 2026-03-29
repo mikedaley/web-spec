@@ -23,8 +23,10 @@ bool SNALoader::load(ZXSpectrum& machine, const uint8_t* data, uint32_t size)
     return false;
 }
 
-bool SNALoader::load48K(ZXSpectrum& machine, const uint8_t* data, uint32_t /*size*/)
+bool SNALoader::load48K(ZXSpectrum& machine, const uint8_t* data, uint32_t size)
 {
+    if (size < HEADER_SIZE + RAM_SIZE) return false;
+
     loadRegisters(machine, data);
 
     // Write 48KB RAM via writeMemory (routes through variant's virtual method)
@@ -44,8 +46,10 @@ bool SNALoader::load48K(ZXSpectrum& machine, const uint8_t* data, uint32_t /*siz
     return true;
 }
 
-bool SNALoader::load128K(ZXSpectrum& machine, const uint8_t* data, uint32_t /*size*/)
+bool SNALoader::load128K(ZXSpectrum& machine, const uint8_t* data, uint32_t size)
 {
+    if (size < SNA_128K_SIZE) return false;
+
     loadRegisters(machine, data);
 
     // The 128K SNA format stores the 48KB visible RAM (banks 5, 2, and the

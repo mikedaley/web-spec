@@ -8,6 +8,20 @@
 let wasm = null;
 let speedMultiplier = 1;
 
+/**
+ * Copy data into a WASM heap buffer, call fn(ptr, length), then free.
+ * Returns whatever fn returns.
+ */
+function withWasmBuffer(data, fn) {
+  const ptr = wasm._malloc(data.length);
+  wasm.HEAPU8.set(data, ptr);
+  try {
+    return fn(ptr, data.length);
+  } finally {
+    wasm._free(ptr);
+  }
+}
+
 // ── Time-travel history ring buffer ──────────────────────────────────────────
 
 const timeTravel = {
@@ -130,10 +144,8 @@ function flushRxOverflow() {
   for (let s = 0; s < 4; s++) {
     while (rxOverflow[s].length > 0) {
       const chunk = rxOverflow[s][0];
-      const rxPtr = wasm._malloc(chunk.length);
-      wasm.HEAPU8.set(chunk, rxPtr);
-      const written = wasm._spectranetPushReceivedData(s, rxPtr, chunk.length);
-      wasm._free(rxPtr);
+      const written = withWasmBuffer(chunk, (rxPtr, len) =>
+        wasm._spectranetPushReceivedData(s, rxPtr, len));
       if (written === chunk.length) {
         rxOverflow[s].shift();
       } else if (written > 0) {
@@ -557,8 +569,6 @@ self.onmessage = async function (e) {
       if (!wasm) break;
       clearTimeTravelBuffer();
       const data = new Uint8Array(msg.data);
-      const ptr = wasm._malloc(data.length);
-      wasm.HEAPU8.set(data, ptr);
 
       // Detect required machine and switch if needed
       const fmtPtr = wasm._malloc(msg.format.length + 1);
@@ -567,24 +577,25 @@ self.onmessage = async function (e) {
       }
       wasm.HEAPU8[fmtPtr + msg.format.length] = 0;
 
-      const requiredMachine = wasm._detectSnapshotMachine(ptr, data.length, fmtPtr);
-      wasm._free(fmtPtr);
-
       let machineSwitched = false;
-      if (requiredMachine >= 0) {
-        const currentMachine = wasm._getMachineId();
-        if (requiredMachine !== currentMachine) {
-          initMachinePreservingBreakpoints(requiredMachine);
-          machineSwitched = true;
-        }
-      }
+      withWasmBuffer(data, (ptr, len) => {
+        const requiredMachine = wasm._detectSnapshotMachine(ptr, len, fmtPtr);
+        wasm._free(fmtPtr);
 
-      switch (msg.format) {
-        case "sna": wasm._loadSNA(ptr, data.length); break;
-        case "z80": wasm._loadZ80(ptr, data.length); break;
-        case "tzx": wasm._loadTZX(ptr, data.length); break;
-      }
-      wasm._free(ptr);
+        if (requiredMachine >= 0) {
+          const currentMachine = wasm._getMachineId();
+          if (requiredMachine !== currentMachine) {
+            initMachinePreservingBreakpoints(requiredMachine);
+            machineSwitched = true;
+          }
+        }
+
+        switch (msg.format) {
+          case "sna": wasm._loadSNA(ptr, len); break;
+          case "z80": wasm._loadZ80(ptr, len); break;
+          case "tzx": wasm._loadTZX(ptr, len); break;
+        }
+      });
 
       if (machineSwitched) {
         self.postMessage({ type: "machineSwitched", machineId: requiredMachine });
@@ -711,10 +722,7 @@ self.onmessage = async function (e) {
     case "loadTAP": {
       if (!wasm) break;
       const tapData = new Uint8Array(msg.data);
-      const tapPtr = wasm._malloc(tapData.length);
-      wasm.HEAPU8.set(tapData, tapPtr);
-      wasm._loadTAP(tapPtr, tapData.length);
-      wasm._free(tapPtr);
+      withWasmBuffer(tapData, (tapPtr, len) => wasm._loadTAP(tapPtr, len));
 
       // Check if load succeeded (blocks were parsed)
       const blockCount = wasm._tapeGetBlockCount();
@@ -754,10 +762,7 @@ self.onmessage = async function (e) {
     case "loadTZXTape": {
       if (!wasm) break;
       const tzxData = new Uint8Array(msg.data);
-      const tzxPtr = wasm._malloc(tzxData.length);
-      wasm.HEAPU8.set(tzxData, tzxPtr);
-      wasm._loadTZXTape(tzxPtr, tzxData.length);
-      wasm._free(tzxPtr);
+      withWasmBuffer(tzxData, (tzxPtr, len) => wasm._loadTZXTape(tzxPtr, len));
 
       // Check if load succeeded
       const tzxBlockCount = wasm._tapeGetBlockCount();
@@ -804,10 +809,7 @@ self.onmessage = async function (e) {
         pMachineSwitched = true;
       }
       const pData = new Uint8Array(msg.data);
-      const pPtr = wasm._malloc(pData.length);
-      wasm.HEAPU8.set(pData, pPtr);
-      wasm._loadP(pPtr, pData.length);
-      wasm._free(pPtr);
+      withWasmBuffer(pData, (pPtr, len) => wasm._loadP(pPtr, len));
       if (pMachineSwitched) {
         self.postMessage({ type: "machineSwitched", machineId: 5 });
       }
@@ -996,10 +998,7 @@ self.onmessage = async function (e) {
     case "basicWriteProgram": {
       if (!wasm) break;
       const progData = new Uint8Array(msg.data);
-      const progPtr = wasm._malloc(progData.length);
-      wasm.HEAPU8.set(progData, progPtr);
-      wasm._basicWriteProgram(progPtr, progData.length);
-      wasm._free(progPtr);
+      withWasmBuffer(progData, (progPtr, len) => wasm._basicWriteProgram(progPtr, len));
       self.postMessage({ type: "basicWriteProgramResult", id: msg.id });
       break;
     }
@@ -1198,10 +1197,8 @@ self.onmessage = async function (e) {
       if (!wasm) break;
       clearTimeTravelBuffer();
       const stateData = new Uint8Array(msg.data);
-      const statePtr = wasm._malloc(stateData.length);
-      wasm.HEAPU8.set(stateData, statePtr);
-      const success = wasm._importState(statePtr, stateData.length);
-      wasm._free(statePtr);
+      const success = withWasmBuffer(stateData, (statePtr, len) =>
+        wasm._importState(statePtr, len));
       const newMachineId = wasm._getMachineId();
       self.postMessage({ type: "importStateResult", id: msg.id, success: !!success, machineId: newMachineId, state: getState() });
       break;
@@ -1224,10 +1221,8 @@ self.onmessage = async function (e) {
     case "spectranetPushData": {
       if (!wasm) break;
       const rxData = new Uint8Array(msg.data);
-      const rxPtr = wasm._malloc(rxData.length);
-      wasm.HEAPU8.set(rxData, rxPtr);
-      const written = wasm._spectranetPushReceivedData(msg.socket, rxPtr, rxData.length);
-      wasm._free(rxPtr);
+      const written = withWasmBuffer(rxData, (rxPtr, len) =>
+        wasm._spectranetPushReceivedData(msg.socket, rxPtr, len));
       // Buffer any data that didn't fit in the W5100's 2KB RX buffer
       if (written < rxData.length) {
         rxOverflow[msg.socket].push(rxData.slice(written));
@@ -1318,10 +1313,8 @@ self.onmessage = async function (e) {
     case "spectranetSetFlashData": {
       if (!wasm || !msg.data) break;
       const flashData = new Uint8Array(msg.data);
-      const flashBufPtr = wasm._malloc(flashData.length);
-      wasm.HEAPU8.set(flashData, flashBufPtr);
-      wasm._spectranetSetFlashData(flashBufPtr, flashData.length);
-      wasm._free(flashBufPtr);
+      withWasmBuffer(flashData, (flashBufPtr, len) =>
+        wasm._spectranetSetFlashData(flashBufPtr, len));
       break;
     }
 
@@ -1344,10 +1337,8 @@ self.onmessage = async function (e) {
     case "spectranetSetFlashConfig": {
       if (!wasm || !msg.data) break;
       const cfgData = new Uint8Array(msg.data);
-      const cfgBufPtr = wasm._malloc(cfgData.length);
-      wasm.HEAPU8.set(cfgData, cfgBufPtr);
-      wasm._spectranetSetFlashConfig(cfgBufPtr, cfgData.length);
-      wasm._free(cfgBufPtr);
+      withWasmBuffer(cfgData, (cfgBufPtr, len) =>
+        wasm._spectranetSetFlashConfig(cfgBufPtr, len));
       break;
     }
 
@@ -1364,10 +1355,8 @@ self.onmessage = async function (e) {
         diskMachineSwitched = true;
       }
       const diskData = new Uint8Array(msg.data);
-      const diskPtr = wasm._malloc(diskData.length);
-      wasm.HEAPU8.set(diskData, diskPtr);
-      wasm._diskInsert(msg.drive || 0, diskPtr, diskData.length);
-      wasm._free(diskPtr);
+      withWasmBuffer(diskData, (diskPtr, len) =>
+        wasm._diskInsert(msg.drive || 0, diskPtr, len));
       if (diskMachineSwitched) {
         self.postMessage({ type: "machineSwitched", machineId: 4 });
       }
@@ -1452,10 +1441,8 @@ self.onmessage = async function (e) {
     case "opusDiskInsert": {
       if (!wasm || !msg.data) break;
       const opusDiskData = new Uint8Array(msg.data);
-      const opusDiskPtr = wasm._malloc(opusDiskData.length);
-      wasm.HEAPU8.set(opusDiskData, opusDiskPtr);
-      wasm._opusDiskInsert(msg.drive || 0, opusDiskPtr, opusDiskData.length);
-      wasm._free(opusDiskPtr);
+      withWasmBuffer(opusDiskData, (opusDiskPtr, len) =>
+        wasm._opusDiskInsert(msg.drive || 0, opusDiskPtr, len));
       self.postMessage({ type: "opusDiskInserted", drive: msg.drive || 0, state: getState() });
       break;
     }
@@ -1547,23 +1534,17 @@ self.onmessage = async function (e) {
       const entry = getTimeTravelEntry(msg.index);
       if (!entry) break;
 
-      const statePtr = wasm._malloc(entry.stateData.length);
-      wasm.HEAPU8.set(entry.stateData, statePtr);
-      wasm._importState(statePtr, entry.stateData.length);
-      wasm._free(statePtr);
+      withWasmBuffer(entry.stateData, (statePtr, len) =>
+        wasm._importState(statePtr, len));
 
       // Restore tape + FDC state so loading can resume correctly
       if (entry.tapeState) {
-        const tapePtr = wasm._malloc(entry.tapeState.length);
-        wasm.HEAPU8.set(entry.tapeState, tapePtr);
-        wasm._tapeRestoreState(tapePtr, entry.tapeState.length);
-        wasm._free(tapePtr);
+        withWasmBuffer(entry.tapeState, (tapePtr, len) =>
+          wasm._tapeRestoreState(tapePtr, len));
       }
       if (entry.fdcState) {
-        const fdcPtr = wasm._malloc(entry.fdcState.length);
-        wasm.HEAPU8.set(entry.fdcState, fdcPtr);
-        wasm._fdcRestoreState(fdcPtr, entry.fdcState.length);
-        wasm._free(fdcPtr);
+        withWasmBuffer(entry.fdcState, (fdcPtr, len) =>
+          wasm._fdcRestoreState(fdcPtr, len));
       }
 
       // Re-assert pause — importState restores machine state which clears it
@@ -1599,21 +1580,15 @@ self.onmessage = async function (e) {
         // Cancel — restore to latest state (machine + tape)
         const latest = getTimeTravelEntry(timeTravel.count - 1);
         if (latest) {
-          const ptr = wasm._malloc(latest.stateData.length);
-          wasm.HEAPU8.set(latest.stateData, ptr);
-          wasm._importState(ptr, latest.stateData.length);
-          wasm._free(ptr);
+          withWasmBuffer(latest.stateData, (ptr, len) =>
+            wasm._importState(ptr, len));
           if (latest.tapeState) {
-            const tapePtr = wasm._malloc(latest.tapeState.length);
-            wasm.HEAPU8.set(latest.tapeState, tapePtr);
-            wasm._tapeRestoreState(tapePtr, latest.tapeState.length);
-            wasm._free(tapePtr);
+            withWasmBuffer(latest.tapeState, (tapePtr, len) =>
+              wasm._tapeRestoreState(tapePtr, len));
           }
           if (latest.fdcState) {
-            const fdcPtr = wasm._malloc(latest.fdcState.length);
-            wasm.HEAPU8.set(latest.fdcState, fdcPtr);
-            wasm._fdcRestoreState(fdcPtr, latest.fdcState.length);
-            wasm._free(fdcPtr);
+            withWasmBuffer(latest.fdcState, (fdcPtr, len) =>
+              wasm._fdcRestoreState(fdcPtr, len));
           }
         }
       }
