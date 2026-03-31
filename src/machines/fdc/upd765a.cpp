@@ -7,7 +7,13 @@
 
 #include "upd765a.hpp"
 #include <cstring>
+
+#ifdef DEBUG_FDC
 #include <cstdio>
+#define FDC_LOG(...) printf(__VA_ARGS__)
+#else
+#define FDC_LOG(...) ((void)0)
+#endif
 
 namespace zxspec {
 
@@ -146,8 +152,6 @@ uint8_t UPD765A::readMSR()
                 // polling MSR until execution ends.
                 msrPollCount_++;
                 if (msrPollCount_ > OVERRUN_THRESHOLD) {
-                    // printf("[FDC] Overrun: %d polls, sector R=%d, %d/%d bytes read\n",
-                    //        msrPollCount_, xferSector_, dataIndex_, (int)dataBuffer_.size());
                     // Overrun: abort execution, enter result phase.
                     // Preserve weak sector CRC error flags alongside overrun —
                     // Speedlock reads fewer bytes than the sector contains, then
@@ -461,7 +465,7 @@ void UPD765A::cmdReadData()
         return;
     }
 
-    printf("[FDC] ReadData: cmd=%02X phys=%d C=%d H=%d R=%d N=%d EOT=%d del=%d SK=%d\n",
+    FDC_LOG("[FDC] ReadData: cmd=%02X phys=%d C=%d H=%d R=%d N=%d EOT=%d del=%d SK=%d\n",
            commandBuffer_[0], currentTrack_[drive], xferTrack_, xferSide_, xferSector_,
            xferSizeCode_, xferEOT_, xferDeletedData_ ? 1 : 0, xferSkip_ ? 1 : 0);
 
@@ -480,7 +484,7 @@ void UPD765A::cmdReadData()
     }
 
     if (!sector) {
-        printf("[FDC] ReadData: SECTOR NOT FOUND phys=%d side=%d R=%d\n",
+        FDC_LOG("[FDC] ReadData: SECTOR NOT FOUND phys=%d side=%d R=%d\n",
                currentTrack_[drive], xferSide_, xferSector_);
         uint8_t st0 = ST0_IC_ABNORMAL | (xferSide_ << 2) | drive;
         setResult7(st0, ST1_ND | ST1_MA, 0, xferTrack_, xferSide_, xferSector_, xferSizeCode_);
@@ -523,7 +527,7 @@ void UPD765A::cmdReadData()
     if (xferWeakSector_) {
         xferST1_ = ST1_DE;   // Data Error (CRC error in ID or data)
         xferST2_ = ST2_DD;   // Data Error in Data Field
-        printf("[FDC] ReadData: weak sector detected (R=%d, %zu copies) - will report CRC error\n",
+        FDC_LOG("[FDC] ReadData: weak sector detected (R=%d, %zu copies) - will report CRC error\n",
                xferSector_, sector->weakCopies.size());
     }
 
@@ -571,7 +575,7 @@ void UPD765A::cmdReadTrack()
     xferST1_ = 0;
     xferST2_ = 0;
 
-    printf("[FDC] ReadTrack: drive=%d phys=%d side=%d C=%d R=%d N=%d EOT=%d\n",
+    FDC_LOG("[FDC] ReadTrack: drive=%d phys=%d side=%d C=%d R=%d N=%d EOT=%d\n",
            drive, currentTrack_[drive], side, xferTrack_, xferSector_,
            xferSizeCode_, xferEOT_);
 
@@ -682,7 +686,7 @@ void UPD765A::cmdReadID()
 {
     int drive = commandBuffer_[1] & 0x03;
     int side = (commandBuffer_[1] >> 2) & 0x01;
-    printf("[FDC] ReadID: drive=%d phys=%d side=%d\n", drive, currentTrack_[drive], side);
+    FDC_LOG("[FDC] ReadID: drive=%d phys=%d side=%d\n", drive, currentTrack_[drive], side);
 
     if (!hasDisk(drive)) {
         uint8_t st0 = ST0_IC_ABNORMAL | ST0_NR | (side << 2) | drive;
@@ -750,7 +754,7 @@ void UPD765A::cmdFormatTrack()
 void UPD765A::cmdRecalibrate()
 {
     int drive = commandBuffer_[1] & 0x03;
-    printf("[FDC] Recalibrate: drive=%d\n", drive);
+    FDC_LOG("[FDC] Recalibrate: drive=%d\n", drive);
     currentTrack_[drive] = 0;
     readIdIndex_ = 0;
 
@@ -777,7 +781,7 @@ void UPD765A::cmdSenseInterruptStatus()
     for (int d = 0; d < 2; d++) {
         if (seekCompleted_[d]) {
             seekCompleted_[d] = false;
-            printf("[FDC] SenseInt: drive=%d ST0=%02X PCN=%d\n",
+            FDC_LOG("[FDC] SenseInt: drive=%d ST0=%02X PCN=%d\n",
                    d, seekResultST0_[d], currentTrack_[d]);
             resultBuffer_.clear();
             resultBuffer_.push_back(seekResultST0_[d]);
@@ -789,7 +793,6 @@ void UPD765A::cmdSenseInterruptStatus()
     }
 
     // No pending interrupt - return invalid command
-    // printf("[FDC] SenseInt: no pending interrupt\n");
     resultBuffer_.clear();
     resultBuffer_.push_back(ST0_IC_INVALID);
     resultIndex_ = 0;
@@ -848,7 +851,7 @@ void UPD765A::cmdSeek()
     int drive = commandBuffer_[1] & 0x03;
     uint8_t newTrack = commandBuffer_[2];
 
-    printf("[FDC] Seek: drive=%d track=%d\n", drive, newTrack);
+    FDC_LOG("[FDC] Seek: drive=%d track=%d\n", drive, newTrack);
     currentTrack_[drive] = newTrack;
     readIdIndex_ = 0;
 
@@ -883,7 +886,7 @@ void UPD765A::cmdInvalid()
 void UPD765A::setResult7(uint8_t st0, uint8_t st1, uint8_t st2,
                           uint8_t c, uint8_t h, uint8_t r, uint8_t n)
 {
-    printf("[FDC] Result: ST0=%02X ST1=%02X ST2=%02X C=%d H=%d R=%d N=%d\n",
+    FDC_LOG("[FDC] Result: ST0=%02X ST1=%02X ST2=%02X C=%d H=%d R=%d N=%d\n",
            st0, st1, st2, c, h, r, n);
     resultBuffer_.clear();
     resultBuffer_.reserve(7);

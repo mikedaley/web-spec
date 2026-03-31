@@ -67,22 +67,9 @@ bool SNALoader::load128K(ZXSpectrum& machine, const uint8_t* data, uint32_t size
 
     // Write banks 5, 2, and current bank from the initial 48KB
     const uint8_t* ramData = data + HEADER_SIZE;
-
-    // Bank 5 (slot 1, 0x4000-0x7FFF)
-    for (uint32_t i = 0; i < MEM_PAGE_SIZE; i++)
-    {
-        machine.writeRamBank(5, i, ramData[i]);
-    }
-    // Bank 2 (slot 2, 0x8000-0xBFFF)
-    for (uint32_t i = 0; i < MEM_PAGE_SIZE; i++)
-    {
-        machine.writeRamBank(2, i, ramData[MEM_PAGE_SIZE + i]);
-    }
-    // Current bank (slot 3, 0xC000-0xFFFF)
-    for (uint32_t i = 0; i < MEM_PAGE_SIZE; i++)
-    {
-        machine.writeRamBank(currentBank, i, ramData[2 * MEM_PAGE_SIZE + i]);
-    }
+    loadRamBank(machine, 5, ramData);
+    loadRamBank(machine, 2, ramData + MEM_PAGE_SIZE);
+    loadRamBank(machine, currentBank, ramData + 2 * MEM_PAGE_SIZE);
 
     // Now load the remaining 5 banks from offset extraOffset + 4
     // Banks are stored in ascending order 0-7, skipping 5, 2, and currentBank
@@ -90,11 +77,7 @@ bool SNALoader::load128K(ZXSpectrum& machine, const uint8_t* data, uint32_t size
     for (uint8_t bank = 0; bank < 8; bank++)
     {
         if (bank == 5 || bank == 2 || bank == currentBank) continue;
-
-        for (uint32_t i = 0; i < MEM_PAGE_SIZE; i++)
-        {
-            machine.writeRamBank(bank, i, data[bankOffset + i]);
-        }
+        loadRamBank(machine, bank, data + bankOffset);
         bankOffset += MEM_PAGE_SIZE;
     }
 
@@ -137,6 +120,14 @@ void SNALoader::loadRegisters(ZXSpectrum& machine, const uint8_t* data)
     z80->setIMMode(data[25]);
 
     machine.setBorderColor(data[26]);
+}
+
+void SNALoader::loadRamBank(ZXSpectrum& machine, uint8_t bank, const uint8_t* src)
+{
+    for (uint32_t i = 0; i < MEM_PAGE_SIZE; i++)
+    {
+        machine.writeRamBank(bank, i, src[i]);
+    }
 }
 
 } // namespace zxspec

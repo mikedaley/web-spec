@@ -8,6 +8,7 @@
 #pragma once
 
 #include <cstdint>
+#include "../machine_info.hpp"
 
 namespace zxspec {
 
@@ -16,6 +17,7 @@ class ZXSpectrum;
 class SNALoader {
 public:
     static bool load(ZXSpectrum& machine, const uint8_t* data, uint32_t size);
+    static void loadRamBank(ZXSpectrum& machine, uint8_t bank, const uint8_t* src);
 
 private:
     static bool load48K(ZXSpectrum& machine, const uint8_t* data, uint32_t size);

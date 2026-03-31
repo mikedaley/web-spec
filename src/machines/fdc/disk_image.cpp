@@ -9,6 +9,13 @@
 #include "copy_protection.hpp"
 #include <cstring>
 
+#ifdef DEBUG_FDC
+#include <cstdio>
+#define FDC_LOG(...) printf(__VA_ARGS__)
+#else
+#define FDC_LOG(...) ((void)0)
+#endif
+
 namespace zxspec {
 
 std::vector<uint8_t> DiskSector::getReadData() const
@@ -189,7 +196,7 @@ bool DiskImage::loadStandardDSK(const uint8_t* data, uint32_t size)
     loaded_ = true;
     modified_ = false;
     extended_ = false;
-    printf("[DSK] Loaded standard DSK: %d tracks, %d sides\n", trackCount_, sideCount_);
+    FDC_LOG("[DSK] Loaded standard DSK: %d tracks, %d sides\n", trackCount_, sideCount_);
     return true;
 }
 
@@ -299,10 +306,10 @@ bool DiskImage::loadExtendedDSK(const uint8_t* data, uint32_t size)
     // Protection is handled at FDC runtime via correct uPD765A behaviour.
     protection_ = zxspec::detectProtection(*this);
     if (protection_ != ProtectionScheme::None) {
-        printf("[DSK] Protection detected: %s\n", zxspec::protectionName(protection_));
+        FDC_LOG("[DSK] Protection detected: %s\n", zxspec::protectionName(protection_));
     }
 
-    printf("[DSK] Loaded extended DSK: %d tracks, %d sides, %d total track entries\n",
+    FDC_LOG("[DSK] Loaded extended DSK: %d tracks, %d sides, %d total track entries\n",
            trackCount_, sideCount_, totalTracks);
     return true;
 }

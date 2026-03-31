@@ -8,9 +8,11 @@
  */
 
 #include "z80_loader.hpp"
+#include "sna_loader.hpp"
 #include "../zx_spectrum.hpp"
 #include "../ay.hpp"
 #include <cstring>
+#include <vector>
 
 namespace zxspec {
 
@@ -91,8 +93,8 @@ bool Z80Loader::load(ZXSpectrum& machine, const uint8_t* data, uint32_t size)
     case 1:
     {
         // Decompress to temp buffer, then write via writeMemory
-        uint8_t tempBuf[0xC000];
-        extractMemoryBlock(data, size, tempBuf, 30, v1Compressed, RAM_48K);
+        std::vector<uint8_t> tempBuf(RAM_48K);
+        extractMemoryBlock(data, size, tempBuf.data(), 30, v1Compressed, RAM_48K);
         for (uint32_t i = 0; i < RAM_48K; i++)
         {
             machine.writeMemory(0x4000 + i, tempBuf[i]);
@@ -184,9 +186,7 @@ bool Z80Loader::load(ZXSpectrum& machine, const uint8_t* data, uint32_t size)
                     uint8_t pageBuf[MEM_PAGE_SIZE];
                     extractMemoryBlock(data, size, pageBuf, offset + 3, isCompressed, MEM_PAGE_SIZE);
                     for (uint32_t i = 0; i < MEM_PAGE_SIZE; i++)
-                    {
                         machine.writeMemory(baseAddr + i, pageBuf[i]);
-                    }
                 }
             }
             else
@@ -197,10 +197,7 @@ bool Z80Loader::load(ZXSpectrum& machine, const uint8_t* data, uint32_t size)
                     uint8_t bank = pageId - 3;
                     uint8_t pageBuf[MEM_PAGE_SIZE];
                     extractMemoryBlock(data, size, pageBuf, offset + 3, isCompressed, MEM_PAGE_SIZE);
-                    for (uint32_t i = 0; i < MEM_PAGE_SIZE; i++)
-                    {
-                        machine.writeRamBank(bank, static_cast<uint16_t>(i), pageBuf[i]);
-                    }
+                    SNALoader::loadRamBank(machine, bank, pageBuf);
                 }
             }
 
