@@ -20,6 +20,9 @@ const RELEASE_DATA = [
       { hash: "18d54e1", text: "Remove unused proxy methods from emulator-proxy" },
       { hash: "659c4b3", text: "Extract withWasmBuffer helper to reduce WASM marshaling duplication" },
       { hash: "659c4b3", text: "Add bounds checking to SNA snapshot loader" },
+      { hash: "7bea197", text: "Extract shared loadRamBank helper for snapshot loaders" },
+      { hash: "7bea197", text: "Guard FDC debug output behind DEBUG_FDC compile flag" },
+      { hash: "7bea197", text: "Replace 48KB stack allocation with heap buffer in Z80 loader" },
     ],
   },
   {
