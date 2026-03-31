@@ -11,6 +11,18 @@ import { VERSION } from "../config/version.js";
 
 const RELEASE_DATA = [
   {
+    week: "Mar 30 – Apr 5, 2026",
+    features: [],
+    fixes: [],
+    improvements: [
+      { hash: "07014d0", text: "Add speech waveform to audio display window" },
+      { hash: "18d54e1", text: "Consolidate duplicated persistence modules into shared recent-items-store" },
+      { hash: "18d54e1", text: "Remove unused proxy methods from emulator-proxy" },
+      { hash: "659c4b3", text: "Extract withWasmBuffer helper to reduce WASM marshaling duplication" },
+      { hash: "659c4b3", text: "Add bounds checking to SNA snapshot loader" },
+    ],
+  },
+  {
     week: "Mar 23 – Mar 29, 2026",
     features: [
       { hash: "e107349", text: "TAP file editor window" },
