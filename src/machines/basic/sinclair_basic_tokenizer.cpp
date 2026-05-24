@@ -15,6 +15,27 @@
 namespace zxspec {
 namespace basic {
 
+// Block-graphics "drawings" indexed by code - 128 (matches zmakebas/bas2tap).
+// Two characters drawn from space / apostrophe / period / colon.
+static const char* const BLOCK_GRAPHICS[16] = {
+    "  ", " '", "' ", "''", " .", " :", "'.", "':",
+    ". ", ".'", ": ", ":'", "..", ".:", ":.", "::",
+};
+
+// Decode a block-graphics escape: text[pos] and text[pos+1] are the two
+// drawing characters following the backslash.  Returns the character code
+// (128-143) or -1 if the pair is not a valid drawing.
+static int decodeBlockGraphic(const std::string& text, size_t pos) {
+    if (pos + 1 >= text.length()) return -1;
+    for (int idx = 0; idx < 16; idx++) {
+        if (text[pos] == BLOCK_GRAPHICS[idx][0] &&
+            text[pos + 1] == BLOCK_GRAPHICS[idx][1]) {
+            return 128 + idx;
+        }
+    }
+    return -1;
+}
+
 // Tokenize the body of a single BASIC line (after the line number)
 static void tokenizeLine(const std::string& text, std::vector<uint8_t>& bytes) {
     const auto& lookup = TokenLookup::instance();
@@ -67,11 +88,53 @@ static void tokenizeLine(const std::string& text, std::vector<uint8_t>& bytes) {
             continue;
         }
 
-        // String literal - pass through verbatim
+        // String literal - interpret backslash escapes for UDGs, block
+        // graphics and literal codes (zmakebas/bas2tap convention), e.g.
+        // "\a" -> CHR$ 144 (UDG A), "\::" -> CHR$ 143 (solid block).
         if (text[i] == '"') {
             bytes.push_back(0x22);
             i++;
             while (i < len && text[i] != '"') {
+                if (text[i] == '\\' && i + 1 < len) {
+                    char e = text[i + 1];
+                    char lower = static_cast<char>(std::tolower(static_cast<unsigned char>(e)));
+
+                    // UDG: \a..\u -> 144..164
+                    if (lower >= 'a' && lower <= 'u') {
+                        bytes.push_back(static_cast<uint8_t>(144 + (lower - 'a')));
+                        i += 2;
+                        continue;
+                    }
+                    // Block graphics: backslash + two drawing characters
+                    if (e == ' ' || e == '\'' || e == '.' || e == ':') {
+                        int blk = decodeBlockGraphic(text, i + 1);
+                        if (blk >= 0) {
+                            bytes.push_back(static_cast<uint8_t>(blk));
+                            i += 3;
+                            continue;
+                        }
+                    }
+                    // Literal code: \{nnn} (decimal) or \{0xNN} (hex)
+                    if (e == '{') {
+                        size_t close = text.find('}', i + 2);
+                        if (close != std::string::npos) {
+                            long code = std::strtol(text.substr(i + 2, close - (i + 2)).c_str(), nullptr, 0);
+                            if (code >= 0 && code <= 255) {
+                                bytes.push_back(static_cast<uint8_t>(code));
+                                i = close + 1;
+                                continue;
+                            }
+                        }
+                    }
+                    // Simple escapes
+                    if (e == '\\') { bytes.push_back('\\'); i += 2; continue; }
+                    if (e == '@')  { bytes.push_back('@');  i += 2; continue; }
+                    if (e == '*')  { bytes.push_back(127);  i += 2; continue; } // (c)
+                    // Unrecognised escape: keep the backslash literally
+                    bytes.push_back('\\');
+                    i++;
+                    continue;
+                }
                 bytes.push_back(static_cast<uint8_t>(text[i]));
                 i++;
             }
