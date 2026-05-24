@@ -14,6 +14,7 @@ const RELEASE_DATA = [
     week: "May 18 – May 24, 2026",
     features: [],
     fixes: [
+      { hash: "721ccfc", text: "Keep the BASIC variables panel scroll position when a value changes instead of jumping to the top" },
       { hash: "889ba6a", text: "Fix Sinclair BASIC highlighting matching a keyword inside a longer identifier (e.g. \"TO\" within \"goto\")" },
       { hash: "e7b36b1", text: "Fix BASIC auto-uppercase capitalising a keyword inside an identifier (e.g. \"color\" became \"colOR\")" },
       { hash: "cf69adc", text: "Fix BASIC tokenizer treating a keyword inside a variable name as a token (e.g. \"OR\" in \"color\"), which caused a spurious \"Nonsense in BASIC\" error when running" },
