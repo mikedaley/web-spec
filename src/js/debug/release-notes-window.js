@@ -16,6 +16,7 @@ const RELEASE_DATA = [
       { hash: "43298ba", text: "BASIC editor now understands UDG and block-graphics escapes in string literals (e.g. \"\\a\" for UDG A, \"\\::\" for a solid block), matching the zmakebas/bas2tap source convention" },
     ],
     fixes: [
+      { hash: "9444aef", text: "Cache-bust the WASM build by version so deploys always load the latest emulator core instead of a stale cached copy" },
       { hash: "721ccfc", text: "Keep the BASIC variables panel scroll position when a value changes instead of jumping to the top" },
       { hash: "889ba6a", text: "Fix Sinclair BASIC highlighting matching a keyword inside a longer identifier (e.g. \"TO\" within \"goto\")" },
       { hash: "e7b36b1", text: "Fix BASIC auto-uppercase capitalising a keyword inside an identifier (e.g. \"color\" became \"colOR\")" },
