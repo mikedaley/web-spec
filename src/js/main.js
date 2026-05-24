@@ -482,6 +482,7 @@ class ZXSpectrumEmulator {
         this.renderer.setNoSignal(false);
         this.audioDriver.start();
         if (this.keyboardWindow) this.keyboardWindow.setRunning(true);
+        if (this.basicProgramWindow) this.basicProgramWindow.setRunning(true);
         this.updatePowerButton();
       } else {
         // AudioContext may have been suspended during file picker dialog;
@@ -1492,6 +1493,7 @@ class ZXSpectrumEmulator {
           this.renderer.setNoSignal(false);
           this.audioDriver.start();
           if (this.keyboardWindow) this.keyboardWindow.setRunning(true);
+          if (this.basicProgramWindow) this.basicProgramWindow.setRunning(true);
           this.updatePowerButton();
         }
 
@@ -2014,6 +2016,7 @@ class ZXSpectrumEmulator {
     this.renderer.setNoSignal(false);
     this.audioDriver.start();
     if (this.keyboardWindow) this.keyboardWindow.setRunning(true);
+    if (this.basicProgramWindow) this.basicProgramWindow.setRunning(true);
     console.log("Emulator powered on");
   }
 
@@ -2024,6 +2027,7 @@ class ZXSpectrumEmulator {
     this.audioDriver.stop();
     this.renderer.setNoSignal(true);
     if (this.keyboardWindow) this.keyboardWindow.setRunning(false);
+    if (this.basicProgramWindow) this.basicProgramWindow.setRunning(false);
     console.log("Emulator powered off");
   }
 

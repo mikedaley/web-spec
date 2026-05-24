@@ -122,6 +122,7 @@ export class BasicProgramWindow extends BaseWindow {
     this._variableUpdateInterval = 100; // ms between variable refreshes
     this._pendingHighlight = false;
     this._romReady = false; // true once ROM has finished startup (RAM test etc.)
+    this._emulatorRunning = false; // true when the emulator is powered on
     this._programRunning = false; // true when a BASIC program is executing
     this._traceEnabled = true; // highlight current line while running (no pause)
     this._traceLastLine = null; // last line highlighted by trace (avoid redundant DOM updates)
@@ -164,6 +165,15 @@ export class BasicProgramWindow extends BaseWindow {
   setMachine(machineId) {
     this._machineId = machineId;
     this._updateBasicTitle();
+  }
+
+  /**
+   * Track whether the emulator is powered on.  Run/Step require a running
+   * emulator so the typed keystrokes are actually processed.
+   */
+  setRunning(running) {
+    this._emulatorRunning = running;
+    this._updateToolbarState();
   }
 
   /**
@@ -222,7 +232,6 @@ export class BasicProgramWindow extends BaseWindow {
         <div class="bas-toolbar-separator"></div>
         <div class="bas-toolbar-group">
           <button class="bas-toolbar-btn" data-action="read" title="Read program from Spectrum memory">Read</button>
-          <button class="bas-toolbar-btn" data-action="write" title="Write program to Spectrum memory">Write</button>
           <button class="bas-toolbar-btn" data-action="format" title="Auto-format: sort and indent lines">Format</button>
           <button class="bas-toolbar-btn" data-action="renum" title="Renumber lines by 10s">Renum</button>
         </div>
@@ -376,6 +385,9 @@ export class BasicProgramWindow extends BaseWindow {
     this._updateGutter();
     this._updateStatus();
     this._saveEditorContent();
+    // Run is gated on editor content (it writes to memory automatically),
+    // so refresh the toolbar whenever the editor changes.
+    this._updateToolbarState();
   }
 
   _onKeyDown(e) {
@@ -610,16 +622,21 @@ export class BasicProgramWindow extends BaseWindow {
     const active = running || paused;       // program in progress (running or paused)
     const ready = this._romReady;
 
-    // Read/Write: ROM must be ready and program not in progress
+    // Read: ROM must be ready and program not in progress
     this._setButtonEnabled("read", ready && !active);
-    this._setButtonEnabled("write", ready && !active);
 
-    // Run: program must exist in memory and not be in progress
-    const hasProgram = this.proxy?.hasBasicProgram() ?? false;
-    this._setButtonEnabled("run", ready && !active && hasProgram);
+    // Run: the editor must have content, the emulator must be running, and a
+    // program must not already be in progress.  Run writes the editor contents
+    // to memory automatically before executing, so we gate on the editor
+    // rather than on what's currently in memory.
+    const hasProgram = !!this._textarea?.value.trim();
+    this._setButtonEnabled("run", ready && !active && hasProgram && this._emulatorRunning);
 
-    // Step: only when paused at a BASIC breakpoint
-    this._setButtonEnabled("step", ready && paused);
+    // Step: while a program is in progress (running or paused).  Pressing Step
+    // on a freely-running program drops it into single-step mode at the next
+    // statement; from there each press advances one statement until the user
+    // presses Continue or Stop.
+    this._setButtonEnabled("step", ready && active && this._emulatorRunning);
 
     // Stop: any time a program is in progress (running or paused)
     this._setButtonEnabled("stop-debug", ready && active);
@@ -639,9 +656,6 @@ export class BasicProgramWindow extends BaseWindow {
     switch (action) {
       case "read":
         await this._readFromMemory();
-        break;
-      case "write":
-        await this._writeToMemory();
         break;
       case "format":
         this._formatProgram();
@@ -798,6 +812,10 @@ export class BasicProgramWindow extends BaseWindow {
       await this._stopDebugging();
       await this._delay(300);
     }
+
+    // Write the latest editor contents to the emulator before running so
+    // the program in memory always matches what's on screen.
+    await this._writeToMemory();
 
     // Clear any previous error highlighting
     this._clearError();

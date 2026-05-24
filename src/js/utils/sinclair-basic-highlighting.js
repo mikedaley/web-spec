@@ -69,12 +69,21 @@ export function highlightLine(text) {
     const remaining = text.slice(i).toUpperCase();
     for (const kw of KEYWORDS_BY_LENGTH) {
       if (remaining.startsWith(kw)) {
-        // Verify it's not part of a longer identifier
+        // Verify it's not part of a longer identifier at the end
         const afterKw = i + kw.length;
         if (afterKw < len) {
           const nextChar = text[afterKw];
           // If keyword ends with letter and next char is letter/digit, skip
           if (/[A-Za-z]/.test(kw[kw.length - 1]) && /[A-Za-z0-9]/.test(nextChar)) {
+            // Not a keyword boundary - skip this match
+            continue;
+          }
+        }
+        // Verify it's not part of a longer identifier at the start
+        // (e.g. don't match "TO" inside "goto")
+        if (i > 0) {
+          const prevChar = text[i - 1];
+          if (/[A-Za-z]/.test(kw[0]) && /[A-Za-z0-9]/.test(prevChar)) {
             // Not a keyword boundary - skip this match
             continue;
           }
