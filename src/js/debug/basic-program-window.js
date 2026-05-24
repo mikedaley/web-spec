@@ -487,10 +487,19 @@ export class BasicProgramWindow extends BaseWindow {
       const remaining = text.slice(i).toUpperCase();
       for (const kw of KEYWORDS_BY_LENGTH) {
         if (remaining.startsWith(kw)) {
+          // Not a keyword boundary at the end — part of a longer identifier.
           const afterKw = i + kw.length;
           if (afterKw < len) {
             const nextChar = text[afterKw];
             if (/[A-Za-z]/.test(kw[kw.length - 1]) && /[A-Za-z0-9]/.test(nextChar)) {
+              continue;
+            }
+          }
+          // Not a keyword boundary at the start — part of a longer identifier
+          // (e.g. don't match "OR" inside "color").
+          if (i > 0) {
+            const prevChar = text[i - 1];
+            if (/[A-Za-z]/.test(kw[0]) && /[A-Za-z0-9]/.test(prevChar)) {
               continue;
             }
           }
