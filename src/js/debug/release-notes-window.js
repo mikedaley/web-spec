@@ -11,6 +11,18 @@ import { VERSION } from "../config/version.js";
 
 const RELEASE_DATA = [
   {
+    week: "May 18 – May 24, 2026",
+    features: [],
+    fixes: [
+      { hash: "889ba6a", text: "Fix Sinclair BASIC highlighting matching a keyword inside a longer identifier (e.g. \"TO\" within \"goto\")" },
+    ],
+    improvements: [
+      { hash: "889ba6a", text: "BASIC editor Run now writes the editor contents to memory automatically; the Write button has been removed" },
+      { hash: "889ba6a", text: "BASIC editor Run is enabled from the editor contents and only when the emulator is running" },
+      { hash: "889ba6a", text: "BASIC editor Step is active while a program runs, dropping it into single-step mode at the next statement (Continue or Stop to exit)" },
+    ],
+  },
+  {
     week: "Mar 30 – Apr 5, 2026",
     features: [],
     fixes: [],
