@@ -1655,7 +1655,12 @@ export class BasicProgramWindow extends BaseWindow {
     if (!this._sidebarVisible || !this._sidebarContent) return;
     try {
       const vars = await this.variableInspector.readVariables(this.proxy);
+      // Preserve the scroll position across the render.  A full rebuild
+      // (when the variable set changes structurally) replaces innerHTML and
+      // would otherwise reset the panel to the top whenever a value changes.
+      const scrollTop = this._sidebarContent.scrollTop;
       this.variableInspector.render(vars, this._sidebarContent);
+      this._sidebarContent.scrollTop = scrollTop;
     } catch (e) {
       // Ignore errors during variable read
     }
