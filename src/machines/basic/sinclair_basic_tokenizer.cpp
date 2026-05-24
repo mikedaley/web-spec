@@ -98,13 +98,25 @@ static void tokenizeLine(const std::string& text, std::vector<uint8_t>& bytes) {
             }
             if (!match) continue;
 
-            // Verify word boundary
+            // Verify word boundary at the end — don't match a keyword that is
+            // the prefix of a longer identifier (e.g. "INT" in "INTEGER").
             size_t afterKw = i + kw.length();
             if (afterKw < len) {
                 char lastKwChar = kw[kw.length() - 1];
                 char nextChar = text[afterKw];
                 if (std::isalpha(static_cast<unsigned char>(lastKwChar)) &&
                     std::isalnum(static_cast<unsigned char>(nextChar))) {
+                    continue;
+                }
+            }
+
+            // Verify word boundary at the start — don't match a keyword
+            // embedded in a longer identifier (e.g. "OR" inside "color").
+            if (i > 0) {
+                char firstKwChar = kw[0];
+                char prevChar = text[i - 1];
+                if (std::isalpha(static_cast<unsigned char>(firstKwChar)) &&
+                    std::isalnum(static_cast<unsigned char>(prevChar))) {
                     continue;
                 }
             }
