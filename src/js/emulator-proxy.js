@@ -5,6 +5,8 @@
  *  Mike Daley <michael_daley@icloud.com>
  */
 
+import { VERSION } from "./config/version.js";
+
 export class EmulatorProxy {
   constructor() {
     this.worker = new Worker("/src/js/emulator-worker.js");
@@ -354,7 +356,10 @@ export class EmulatorProxy {
   init(machineId) {
     return new Promise((resolve) => {
       this.onReady = resolve;
-      this.worker.postMessage({ type: "init", machineId });
+      // Pass the app version so the worker can cache-bust the WASM glue and
+      // binary, which use fixed filenames (otherwise the browser serves a
+      // stale zxspec.wasm after a deploy and C++ fixes never take effect).
+      this.worker.postMessage({ type: "init", machineId, cacheBust: VERSION });
     });
   }
 

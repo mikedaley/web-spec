@@ -521,9 +521,12 @@ self.onmessage = async function (e) {
 
   switch (msg.type) {
     case "init": {
-      importScripts("/zxspec.js");
+      // Cache-bust the fixed-name WASM glue/binary by app version so a deploy
+      // doesn't leave the browser running a stale zxspec.wasm.
+      const v = msg.cacheBust ? `?v=${msg.cacheBust}` : "";
+      importScripts("/zxspec.js" + v);
       wasm = await createZXSpecModule({
-        locateFile: (path) => "/" + path,
+        locateFile: (path) => "/" + path + (path.endsWith(".wasm") ? v : ""),
       });
       if (msg.machineId !== undefined) {
         wasm._initMachine(msg.machineId);
