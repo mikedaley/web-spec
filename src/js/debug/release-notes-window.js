@@ -19,7 +19,9 @@ const RELEASE_DATA = [
       { hash: "------", text: "Assembler editor syntax highlighting for mnemonics, registers, directives, numbers, strings, labels and comments" },
       { hash: "------", text: "Assembler auto-formats on Enter (label at column 0, mnemonic at column 8, inline comments aligned to column 32) and ships a Format button that realigns the whole source" },
     ],
-    fixes: [],
+    fixes: [
+      { hash: "------", text: "BASIC Format no longer leaves every line after a long FOR loop indented when the matching NEXT sits after a colon mid-line" },
+    ],
     improvements: [
       { hash: "------", text: "BASIC editor Find now draws a visible highlight box over the current match and scrolls both vertically and horizontally to keep it on screen" },
     ],

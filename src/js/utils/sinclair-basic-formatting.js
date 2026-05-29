@@ -44,12 +44,22 @@ export function formatBasicText(text) {
   for (const line of lines) {
     const body = line.body.replace(/^\s+/, "");
     const upper = body.toUpperCase();
-    if (!/^REM\b/.test(upper) && /^NEXT\b/.test(upper)) {
-      indent = Math.max(0, indent - 1);
+
+    // REM swallows the whole BASIC line as a comment — ignore any FOR/NEXT
+    // that appear inside it.
+    const isRem = /^REM\b/.test(upper);
+    const forCount = isRem ? 0 : (upper.match(/\bFOR\b/g) || []).length;
+    const nextCount = isRem ? 0 : (upper.match(/\bNEXT\b/g) || []).length;
+
+    // If the line closes more loops than it opens, drop the indent first so
+    // the line itself sits at the outer level (matters when NEXT appears
+    // after a colon, e.g. "LET d(i)=...: NEXT i").
+    if (nextCount > forCount) {
+      indent = Math.max(0, indent - (nextCount - forCount));
     }
     formatted.push(`${line.lineNumber} ${"  ".repeat(indent)}${body}`);
-    if (!/^REM\b/.test(upper) && /\bFOR\b/.test(upper) && !/\bNEXT\b/.test(upper)) {
-      indent++;
+    if (forCount > nextCount) {
+      indent += forCount - nextCount;
     }
   }
 
