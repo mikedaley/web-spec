@@ -11,6 +11,17 @@ import { VERSION } from "../config/version.js";
 
 const RELEASE_DATA = [
   {
+    week: "May 25 – May 31, 2026",
+    features: [
+      { hash: "87722f8", text: "Tape auto-records when BASIC issues SAVE — if no TAP is mounted, an empty one is created on the fly (with a toast) and finalised automatically once the SAVE completes" },
+      { hash: "87722f8", text: "Instant SAVE: when the tape window's speed switch is on, SAVE writes the TAP block straight from CPU registers and memory and skips the ROM's pulse loop, completing in a single frame" },
+      { hash: "f211da9", text: "Spectranet tab-to-tab networking — a tab can LISTEN on a virtual ip:port and another tab's TCP connection is bridged to it through the proxy without touching the real network" },
+      { hash: "f211da9", text: "BASIC program editor Find bar (Ctrl+F) with match count and prev/next navigation" },
+    ],
+    fixes: [],
+    improvements: [],
+  },
+  {
     week: "May 18 – May 24, 2026",
     features: [
       { hash: "43298ba", text: "BASIC editor now understands UDG and block-graphics escapes in string literals (e.g. \"\\a\" for UDG A, \"\\::\" for a solid block), matching the zmakebas/bas2tap source convention" },
