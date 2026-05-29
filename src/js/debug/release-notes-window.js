@@ -15,7 +15,6 @@ const RELEASE_DATA = [
     features: [
       { hash: "87722f8", text: "Tape auto-records when BASIC issues SAVE — if no TAP is mounted, an empty one is created on the fly (with a toast) and finalised automatically once the SAVE completes" },
       { hash: "87722f8", text: "Instant SAVE: when the tape window's speed switch is on, SAVE writes the TAP block straight from CPU registers and memory and skips the ROM's pulse loop, completing in a single frame" },
-      { hash: "f211da9", text: "Spectranet tab-to-tab networking — a tab can LISTEN on a virtual ip:port and another tab's TCP connection is bridged to it through the proxy without touching the real network" },
       { hash: "f211da9", text: "BASIC program editor Find bar (Ctrl+F) with match count and prev/next navigation" },
     ],
     fixes: [],
