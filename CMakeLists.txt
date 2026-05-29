@@ -249,6 +249,7 @@ if(EMSCRIPTEN)
                 \"_tapeRecordGetSize\", \
                 \"_tapeRecordGetBlockCount\", \
                 \"_tapeRecordGetBlockInfo\", \
+                \"_consumeSaveStartTrap\", \
                 \"_getAltAF\", \
                 \"_getAltBC\", \
                 \"_getAltDE\", \
@@ -360,6 +361,8 @@ if(EMSCRIPTEN)
                 \"_spectranetPushReceivedData\", \
                 \"_spectranetGetRxAvailable\", \
                 \"_spectranetSetSocketStatus\", \
+                \"_spectranetSetMAC\", \
+                \"_spectranetAcceptConnection\", \
                 \"_spectranetGetTxBuffer\", \
                 \"_spectranetGetTxBufferSize\", \
                 \"_spectranetW5100Read\", \

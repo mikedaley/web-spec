@@ -18,6 +18,7 @@ export class EmulatorProxy {
     this.onTapLoaded = null;
     this.onTapLoadError = null;
     this.onTapeRecordComplete = null;
+    this.onSaveDetected = null;
     this.onDiskInserted = null;
     this.onDiskEjected = null;
     this.onOpusDiskInserted = null;
@@ -83,6 +84,10 @@ export class EmulatorProxy {
       case "tapLoadError":
         this.state = msg.state;
         if (this.onTapLoadError) this.onTapLoadError(msg.error);
+        break;
+
+      case "saveDetected":
+        if (this.onSaveDetected) this.onSaveDetected();
         break;
 
       case "tapeRecordComplete":
@@ -792,6 +797,19 @@ export class EmulatorProxy {
 
   spectranetSetSocketStatus(socket, status) {
     this.worker.postMessage({ type: "spectranetSetSocketStatus", socket, status });
+  }
+
+  spectranetSetMAC(mac) {
+    this.worker.postMessage({ type: "spectranetSetMAC", mac: Array.from(mac) });
+  }
+
+  spectranetAcceptConnection(socket, peerIP, peerPort) {
+    this.worker.postMessage({
+      type: "spectranetAcceptConnection",
+      socket,
+      peerIP: Array.from(peerIP),
+      peerPort,
+    });
   }
 
   spectranetSetNetworkConfig(ip, gateway, subnet, dns) {

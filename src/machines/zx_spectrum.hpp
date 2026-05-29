@@ -244,6 +244,16 @@ public:
     size_t tapeRecordGetBlockCount() const { return recordedBlocks_.size(); }
     const std::vector<TapeBlockInfo>& tapeRecordGetBlockInfo() const { return recordedBlockInfo_; }
 
+    // One-shot flag: returns true once when the ROM SAVE routine (SA-BYTES at
+    // 0x04C2) is entered, then clears. Lets the front-end auto-start recording
+    // when the user issues SAVE from BASIC.
+    bool consumeSaveStartTrap()
+    {
+        if (!saveStartTrapPending_) return false;
+        saveStartTrapPending_ = false;
+        return true;
+    }
+
     int tapeGetBlockProgress() const
     {
         if (tapePulseBlockStarts_.empty() || tapeBlockIndex_ >= tapePulseBlockStarts_.size())
@@ -307,6 +317,7 @@ protected:
     // Opcode callback support
     virtual void installOpcodeCallback();
     virtual bool handleTapeTrap(uint16_t address);
+    bool handleSaveTrap();
     void advanceTape(uint32_t tstates);
 
     // Machine configuration
@@ -420,6 +431,9 @@ protected:
 
     // Instant load mode (ROM trap) vs normal speed (EAR bit pulses)
     bool tapeInstantLoad_ = false;
+
+    // SAVE-routine entry detector (one-shot, polled by JS to auto-start tape recording)
+    bool saveStartTrapPending_ = false;
 
     // Tape recording state
     bool tapeRecording_ = false;

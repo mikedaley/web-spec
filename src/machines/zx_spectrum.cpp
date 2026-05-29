@@ -70,6 +70,7 @@ void ZXSpectrum::noMreqContentionCallback(uint16_t addr, uint32_t ts, void* para
 ZXSpectrum::ZXSpectrum()
 {
     z80_ = std::make_unique<Z80>();
+    installOpcodeCallback();
 }
 
 ZXSpectrum::~ZXSpectrum() = default;
@@ -602,7 +603,7 @@ void ZXSpectrum::removeBreakpoint(uint16_t addr)
     disabledBreakpoints_.erase(addr);
 
     if (breakpoints_.empty() && beamBreakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !opusEnabled_ && !currahSpeechEnabled_ && !traceEnabled_) {
-        z80_->registerOpcodeCallback(nullptr);
+        installOpcodeCallback();  // keep SAVE-trap detector live
     } else {
         installOpcodeCallback();
     }
@@ -698,7 +699,7 @@ void ZXSpectrum::removeBeamBreakpoint(int32_t id)
         }
     }
     if (beamBreakpoints_.empty() && breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !opusEnabled_ && !currahSpeechEnabled_ && !traceEnabled_) {
-        z80_->registerOpcodeCallback(nullptr);
+        installOpcodeCallback();  // keep SAVE-trap detector live
     }
 }
 
@@ -718,7 +719,7 @@ void ZXSpectrum::clearAllBeamBreakpoints()
     beamBreakHit_ = false;
     beamBreakHitId_ = -1;
     if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !opusEnabled_ && !currahSpeechEnabled_ && !traceEnabled_) {
-        z80_->registerOpcodeCallback(nullptr);
+        installOpcodeCallback();  // keep SAVE-trap detector live
     }
 }
 
@@ -856,7 +857,7 @@ void ZXSpectrum::clearBasicBreakpointMode()
 
     // If no other reasons to keep the callback, remove it
     if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_ && !spectranetEnabled_ && !opusEnabled_ && !currahSpeechEnabled_ && !traceEnabled_) {
-        z80_->registerOpcodeCallback(nullptr);
+        installOpcodeCallback();  // keep SAVE-trap detector live
     }
 }
 
@@ -984,6 +985,15 @@ void ZXSpectrum::installOpcodeCallback()
                 return true;
             }
 
+            // SAVE detection: 48K/128K BASIC SA-BYTES entry point. JS polls
+            // consumeSaveStartTrap() each frame to auto-arm tape recording.
+            if (address == 0x04C2) {
+                saveStartTrapPending_ = true;
+                if (tapeInstantLoad_ && handleSaveTrap()) {
+                    return true;
+                }
+            }
+
             // Detect BASIC program end: check PC against current ROM's
             // report handler address (0x1303 for 48K ROM, 0x0321 for 128K ROM 0).
             if (basicProgramActive_ && address == getMainReportAddr()) {
@@ -1106,7 +1116,7 @@ void ZXSpectrum::setTraceEnabled(bool enabled)
         installOpcodeCallback();
     } else if (breakpoints_.empty() && !tapeActive_ && !basicProgramActive_
                && basicBpMode_ == BasicBpMode::OFF && !spectranetEnabled_ && !opusEnabled_ && !currahSpeechEnabled_) {
-        z80_->registerOpcodeCallback(nullptr);
+        installOpcodeCallback();  // keep SAVE-trap detector live
     }
 }
 
@@ -1344,7 +1354,7 @@ void ZXSpectrum::tapeEject()
 
     // Remove opcode callback if no breakpoints remain
     if (breakpoints_.empty() && !spectranetEnabled_ && !traceEnabled_) {
-        z80_->registerOpcodeCallback(nullptr);
+        installOpcodeCallback();  // keep SAVE-trap detector live
     }
 }
 
@@ -1444,12 +1454,47 @@ bool ZXSpectrum::handleTapeTrap(uint16_t address)
     return true;
 }
 
+// Instant SAVE: when tapeInstantLoad_ is on and PC reaches SA-BYTES (0x04C2),
+// build the TAP block straight from CPU registers and memory instead of letting
+// the ROM emit MIC pulses. Auto-arms recording so the user doesn't need to
+// click Record. Skips SA-BYTES by jumping to its declared return target,
+// SA/LD-RET (0x053F), which handles the border restore and returns to BASIC.
+bool ZXSpectrum::handleSaveTrap()
+{
+    tapeRecordStart();  // idempotent
+
+    // At SA-BYTES entry (0x04C2): A = flag byte, IX = start, DE = length.
+    // EX AF,AF' / DEC IX / INC DE happen later inside SA-FLAG (0x04D0).
+    const uint8_t flagByte = z80_->getRegister(Z80::ByteReg::A);
+    const uint16_t start = z80_->getRegister(Z80::WordReg::IX);
+    const uint16_t length = z80_->getRegister(Z80::WordReg::DE);
+
+    recordCurrentBlockData_.clear();
+    recordCurrentBlockData_.reserve(static_cast<size_t>(length) + 2);
+    recordCurrentBlockData_.push_back(flagByte);
+
+    uint8_t checksum = flagByte;
+    for (uint32_t i = 0; i < length; i++)
+    {
+        uint8_t b = coreDebugRead(static_cast<uint16_t>(start + i));
+        recordCurrentBlockData_.push_back(b);
+        checksum ^= b;
+    }
+    recordCurrentBlockData_.push_back(checksum);
+
+    recordFinishCurrentBlock();
+
+    z80_->setRegister(Z80::WordReg::PC, 0x053F);
+    return true;
+}
+
 // ============================================================================
 // Tape recording
 // ============================================================================
 
 void ZXSpectrum::tapeRecordStart()
 {
+    if (tapeRecording_) return;
     tapeRecording_ = true;
     recordPulses_.clear();
     recordedTapData_.clear();

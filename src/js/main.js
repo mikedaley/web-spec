@@ -511,6 +511,13 @@ class ZXSpectrumEmulator {
       showToast("Tape loaded");
     };
 
+    // SAVE detected — auto-arm tape recording so BASIC's SAVE has somewhere
+    // to write. If no tape is loaded, an empty TAP is created on the fly.
+    this.proxy.onSaveDetected = () => {
+      this.windowManager.showWindow("tape-window");
+      this.tapeWindow.handleAutoSaveDetected();
+    };
+
     // TAP load error callback
     this.proxy.onTapLoadError = (error) => {
       this.tapeWindow.showError(error);

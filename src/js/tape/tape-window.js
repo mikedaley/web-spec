@@ -14,7 +14,14 @@ import {
   clearRecentTapes,
   getLibraryTapeData,
 } from "./tape-persistence.js";
+import { showToast } from "../ui/toast.js";
 import "../css/tape-window.css";
+
+// Auto-stop: when recording was started by a BASIC SAVE trap, finalise the
+// tape once the recorder has been idle (no new block) for this long.
+// Headers and data blocks are separated by ~1s of pulse silence, so this
+// must comfortably exceed that to avoid stopping mid-SAVE.
+const AUTO_SAVE_IDLE_STOP_MS = 2500;
 
 export class TapeWindow extends BaseWindow {
   constructor(proxy) {
@@ -45,6 +52,8 @@ export class TapeWindow extends BaseWindow {
     this._lastRecordedBlockCount = 0;
     this._lastRecordedTapData = null;
     this._filenameRenamed = false;
+    this._autoSaveRecording = false;
+    this._autoSaveLastBlockChangeMs = 0;
 
     // Callback for when a TAP is loaded via the window's own controls
     this.onTapeLoaded = null;
@@ -277,14 +286,10 @@ export class TapeWindow extends BaseWindow {
     const recordBtn = this.contentElement.querySelector("#tape-btn-record");
     recordBtn.addEventListener("click", () => {
       if (this._proxy.tapeIsRecording()) {
+        this._autoSaveRecording = false;
         this._proxy.tapeRecordStop();
       } else {
-        if (this._proxy.tapeIsPlaying()) {
-          this._proxy.tapeStop();
-        }
-        this._lastRecordedBlockCount = 0;
-        this._originalBlockCount = this._blocks.length;
-        this._proxy.tapeRecordStart();
+        this._startRecording();
       }
     });
 
@@ -1466,6 +1471,37 @@ export class TapeWindow extends BaseWindow {
     }
   }
 
+  _startRecording() {
+    if (this._proxy.tapeIsPlaying()) {
+      this._proxy.tapeStop();
+    }
+    this._lastRecordedBlockCount = 0;
+    this._originalBlockCount = this._blocks.length;
+    this._proxy.tapeRecordStart();
+  }
+
+  // Called when the C++ side traps a ROM SAVE entry. Auto-arm recording so
+  // the user doesn't have to click Record first. If no TAP file is loaded
+  // we create an empty one on the fly and surface a toast.
+  handleAutoSaveDetected() {
+    if (this._proxy.tapeIsRecording()) return;
+
+    const hasTape = this._proxy.tapeIsLoaded() || this._blocks.length > 0;
+    if (!hasTape) {
+      this._blocks = [];
+      this._metadata = null;
+      this._currentFilename = null;
+      this._filenameRenamed = false;
+      this._rawTapeData = null;
+      this._isTZX = false;
+      showToast("Empty TAP file loaded for SAVE");
+    }
+
+    this._autoSaveRecording = true;
+    this._autoSaveLastBlockChangeMs = performance.now();
+    this._startRecording();
+  }
+
   update(proxy) {
     // Update record button state
     const isRecording = proxy.tapeIsRecording();
@@ -1495,7 +1531,18 @@ export class TapeWindow extends BaseWindow {
       const recBlocks = proxy.tapeRecordGetBlocks();
       if (recBlocks.length !== this._lastRecordedBlockCount) {
         this._lastRecordedBlockCount = recBlocks.length;
+        this._autoSaveLastBlockChangeMs = performance.now();
         this._renderRecordedBlocks(recBlocks);
+      }
+      // Auto-stop when SAVE-armed recording has been idle long enough
+      // (the ROM SAVE routine has emitted all its blocks and gone quiet).
+      if (
+        this._autoSaveRecording &&
+        recBlocks.length > 0 &&
+        performance.now() - this._autoSaveLastBlockChangeMs > AUTO_SAVE_IDLE_STOP_MS
+      ) {
+        this._autoSaveRecording = false;
+        proxy.tapeRecordStop();
       }
       return;
     }

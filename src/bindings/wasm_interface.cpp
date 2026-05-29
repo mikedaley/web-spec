@@ -873,6 +873,13 @@ void tapeRecordStop() {
 }
 
 EMSCRIPTEN_KEEPALIVE
+int consumeSaveStartTrap() {
+  REQUIRE_MACHINE_OR(0);
+  auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+  return (spec && spec->consumeSaveStartTrap()) ? 1 : 0;
+}
+
+EMSCRIPTEN_KEEPALIVE
 int tapeIsRecording() {
   REQUIRE_MACHINE_OR(0);
   return g_machine->tapeIsRecording() ? 1 : 0;
@@ -1789,6 +1796,21 @@ void spectranetSetSocketStatus(int socket, int status) {
     auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
     if (spec) spec->getSpectranet().getW5100().setSocketStatus(
         static_cast<uint8_t>(socket), static_cast<uint8_t>(status));
+}
+
+EMSCRIPTEN_KEEPALIVE
+void spectranetSetMAC(const uint8_t* mac) {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec && mac) spec->getSpectranet().getW5100().setMAC(mac);
+}
+
+EMSCRIPTEN_KEEPALIVE
+void spectranetAcceptConnection(int socket, const uint8_t* peerIP, int peerPort) {
+    REQUIRE_MACHINE();
+    auto* spec = static_cast<zxspec::ZXSpectrum*>(g_machine);
+    if (spec && peerIP) spec->getSpectranet().getW5100().acceptConnection(
+        static_cast<uint8_t>(socket), peerIP, static_cast<uint16_t>(peerPort));
 }
 
 EMSCRIPTEN_KEEPALIVE

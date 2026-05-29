@@ -424,6 +424,12 @@ function runFrames(count) {
 
   const state = getState();
 
+  // SAVE detection: ROM SA-BYTES entry — let the main thread auto-arm
+  // tape recording (and load an empty TAP if needed).
+  if (wasm._consumeSaveStartTrap && wasm._consumeSaveStartTrap()) {
+    self.postMessage({ type: "saveDetected" });
+  }
+
   // If recording, read detected block info for the UI
   let recordedBlocks = null;
   if (state.tapeIsRecording && state.tapeRecordBlockCount > 0) {
@@ -1229,6 +1235,21 @@ self.onmessage = async function (e) {
       // Buffer any data that didn't fit in the W5100's 2KB RX buffer
       if (written < rxData.length) {
         rxOverflow[msg.socket].push(rxData.slice(written));
+      }
+      break;
+    }
+
+    case "spectranetSetMAC": {
+      if (wasm && msg.mac) {
+        withWasmBuffer(new Uint8Array(msg.mac), (ptr) => wasm._spectranetSetMAC(ptr));
+      }
+      break;
+    }
+
+    case "spectranetAcceptConnection": {
+      if (wasm && msg.peerIP) {
+        withWasmBuffer(new Uint8Array(msg.peerIP), (ptr) =>
+          wasm._spectranetAcceptConnection(msg.socket, ptr, msg.peerPort));
       }
       break;
     }
