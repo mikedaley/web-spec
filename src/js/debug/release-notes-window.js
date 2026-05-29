@@ -18,7 +18,9 @@ const RELEASE_DATA = [
       { hash: "f211da9", text: "BASIC program editor Find bar (Ctrl+F) with match count and prev/next navigation" },
     ],
     fixes: [],
-    improvements: [],
+    improvements: [
+      { hash: "------", text: "BASIC editor Find now draws a visible highlight box over the current match and scrolls both vertically and horizontally to keep it on screen" },
+    ],
   },
   {
     week: "May 18 – May 24, 2026",

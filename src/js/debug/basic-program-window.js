@@ -248,6 +248,7 @@ export class BasicProgramWindow extends BaseWindow {
           <div class="bas-gutter"></div>
           <div class="bas-editor-container">
             <pre class="bas-highlight" aria-hidden="true"></pre>
+            <div class="bas-search-match-overlay hidden" aria-hidden="true"></div>
             <textarea class="bas-textarea" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
             <div class="bas-search hidden">
               <input type="text" class="bas-search-input" placeholder="Find" spellcheck="false" autocomplete="off" />
@@ -303,8 +304,10 @@ export class BasicProgramWindow extends BaseWindow {
     this._search = this.contentElement.querySelector(".bas-search");
     this._searchInput = this.contentElement.querySelector(".bas-search-input");
     this._searchCount = this.contentElement.querySelector(".bas-search-count");
+    this._searchMatchOverlay = this.contentElement.querySelector(".bas-search-match-overlay");
     this._searchMatches = [];
     this._searchIndex = -1;
+    this._searchCharWidth = 0;
 
     // Apply saved breakpoint panel state
     if (!this._bpPanelVisible) {
@@ -482,6 +485,7 @@ export class BasicProgramWindow extends BaseWindow {
     this._search.classList.add("hidden");
     this._searchMatches = [];
     this._searchIndex = -1;
+    this._searchMatchOverlay?.classList.add("hidden");
     this._textarea.focus();
   }
 
@@ -522,11 +526,13 @@ export class BasicProgramWindow extends BaseWindow {
     }
     if (this._searchMatches.length === 0) {
       this._searchIndex = -1;
+      this._searchMatchOverlay?.classList.add("hidden");
       this._updateSearchCount();
       return;
     }
     if (opts.keepPosition && this._searchIndex >= 0) {
       this._searchIndex = Math.min(this._searchIndex, this._searchMatches.length - 1);
+      this._positionSearchOverlay();
       this._updateSearchCount();
       return;
     }
@@ -551,16 +557,75 @@ export class BasicProgramWindow extends BaseWindow {
     this._searchIndex = index;
     const m = this._searchMatches[index];
     this._textarea.setSelectionRange(m.start, m.end);
+
     // Scroll the match into view — the textarea is the scroll master.
-    const line = this._textarea.value.substring(0, m.start).split("\n").length - 1;
     const lineHeight = 18;
+    const before = this._textarea.value.substring(0, m.start);
+    const line = before.split("\n").length - 1;
     const top = line * lineHeight;
     const view = this._textarea.clientHeight;
     if (top < this._textarea.scrollTop || top > this._textarea.scrollTop + view - lineHeight * 2) {
       this._textarea.scrollTop = Math.max(0, top - view / 2);
     }
+
+    // Horizontal scroll: nudge the match into the viewport too.
+    const col = m.start - (before.lastIndexOf("\n") + 1);
+    const charW = this._getCharWidth();
+    const matchLeft = col * charW;
+    const matchRight = matchLeft + (m.end - m.start) * charW;
+    const hView = this._textarea.clientWidth;
+    if (matchLeft < this._textarea.scrollLeft) {
+      this._textarea.scrollLeft = Math.max(0, matchLeft - hView / 4);
+    } else if (matchRight > this._textarea.scrollLeft + hView - charW) {
+      this._textarea.scrollLeft = Math.max(0, matchRight - hView + charW * 4);
+    }
+
     this._syncScroll();
+    this._positionSearchOverlay();
     this._updateSearchCount();
+  }
+
+  // Cached monospace character width (measured lazily once the textarea is
+  // laid out). Falls back to a reasonable default if measurement fails.
+  _getCharWidth() {
+    if (this._searchCharWidth > 0) return this._searchCharWidth;
+    const probe = document.createElement("span");
+    probe.textContent = "M".repeat(40);
+    probe.style.position = "absolute";
+    probe.style.visibility = "hidden";
+    probe.style.whiteSpace = "pre";
+    probe.style.fontFamily = getComputedStyle(this._textarea).fontFamily;
+    probe.style.fontSize = getComputedStyle(this._textarea).fontSize;
+    this.contentElement.appendChild(probe);
+    const w = probe.getBoundingClientRect().width / 40;
+    probe.remove();
+    this._searchCharWidth = w || 7.2;
+    return this._searchCharWidth;
+  }
+
+  _positionSearchOverlay() {
+    if (!this._searchMatchOverlay) return;
+    if (this._searchIndex < 0 || this._searchMatches.length === 0) {
+      this._searchMatchOverlay.classList.add("hidden");
+      return;
+    }
+    const m = this._searchMatches[this._searchIndex];
+    const before = this._textarea.value.substring(0, m.start);
+    const line = before.split("\n").length - 1;
+    const col = m.start - (before.lastIndexOf("\n") + 1);
+    const lineHeight = 18;
+    const padding = 8;
+    const charW = this._getCharWidth();
+    const len = m.end - m.start;
+
+    const left = padding + col * charW - this._textarea.scrollLeft;
+    const top = padding + line * lineHeight - this._textarea.scrollTop;
+
+    this._searchMatchOverlay.style.left = `${left}px`;
+    this._searchMatchOverlay.style.top = `${top}px`;
+    this._searchMatchOverlay.style.width = `${len * charW}px`;
+    this._searchMatchOverlay.style.height = `${lineHeight}px`;
+    this._searchMatchOverlay.classList.remove("hidden");
   }
 
   _updateSearchCount() {
@@ -703,6 +768,7 @@ export class BasicProgramWindow extends BaseWindow {
     this._highlight.scrollTop = this._textarea.scrollTop;
     this._highlight.scrollLeft = this._textarea.scrollLeft;
     this._gutter.scrollTop = this._textarea.scrollTop;
+    this._positionSearchOverlay();
   }
 
   _updateHighlight() {

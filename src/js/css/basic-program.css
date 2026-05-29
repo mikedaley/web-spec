@@ -305,6 +305,22 @@
   background: var(--accent-blue-bg-stronger);
 }
 
+/* Highlight rectangle drawn over the current search match. Sits above the
+   syntax-highlight pre but below the textarea caret/selection (z-index 1
+   would be 'level with' the textarea, so it stays clickable). */
+.bas-search-match-overlay {
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--accent-orange-bg-stronger, rgba(255, 255, 0, 0.45));
+  outline: 1px solid var(--accent-orange-border, rgba(255, 255, 0, 0.9));
+  border-radius: 2px;
+}
+
+.bas-search-match-overlay.hidden {
+  display: none;
+}
+
 /* ============================================
    FIND / SEARCH BAR
    ============================================ */
