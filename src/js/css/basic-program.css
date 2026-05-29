@@ -306,6 +306,78 @@
 }
 
 /* ============================================
+   FIND / SEARCH BAR
+   ============================================ */
+
+.bas-search {
+  position: absolute;
+  top: 6px;
+  right: 14px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px;
+  background: var(--glass-bg-header);
+  border: 1px solid var(--glass-border-subtle);
+  border-radius: 6px;
+  box-shadow: 0 2px 8px var(--shadow-md);
+  backdrop-filter: blur(8px);
+}
+
+.bas-search.hidden {
+  display: none;
+}
+
+.bas-search-input {
+  width: 160px;
+  padding: 3px 6px;
+  border: 1px solid var(--control-border);
+  border-radius: 4px;
+  background: var(--input-bg);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  outline: none;
+}
+
+.bas-search-input:focus {
+  border-color: var(--accent-blue-border);
+}
+
+.bas-search-count {
+  min-width: 56px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.bas-search-count.no-results {
+  color: var(--accent-red);
+}
+
+.bas-search-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.bas-search-btn:hover {
+  background: var(--overlay-hover);
+  color: var(--text-primary);
+}
+
+/* ============================================
    SYNTAX HIGHLIGHTING CLASSES
    ============================================ */
 

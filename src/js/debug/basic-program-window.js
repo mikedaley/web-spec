@@ -231,6 +231,7 @@ export class BasicProgramWindow extends BaseWindow {
         </label>
         <div class="bas-toolbar-separator"></div>
         <div class="bas-toolbar-group">
+          <button class="bas-toolbar-btn" data-action="find" title="Find text (Ctrl+F)">Find</button>
           <button class="bas-toolbar-btn" data-action="read" title="Read program from Spectrum memory">Read</button>
           <button class="bas-toolbar-btn" data-action="format" title="Auto-format: sort and indent lines">Format</button>
           <button class="bas-toolbar-btn" data-action="renum" title="Renumber lines by 10s">Renum</button>
@@ -248,6 +249,13 @@ export class BasicProgramWindow extends BaseWindow {
           <div class="bas-editor-container">
             <pre class="bas-highlight" aria-hidden="true"></pre>
             <textarea class="bas-textarea" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+            <div class="bas-search hidden">
+              <input type="text" class="bas-search-input" placeholder="Find" spellcheck="false" autocomplete="off" />
+              <span class="bas-search-count"></span>
+              <button class="bas-search-btn" data-search="prev" title="Previous match (Shift+Enter)">&#8593;</button>
+              <button class="bas-search-btn" data-search="next" title="Next match (Enter)">&#8595;</button>
+              <button class="bas-search-btn" data-search="close" title="Close (Esc)">&#10005;</button>
+            </div>
           </div>
         </div>
         <div class="bas-sidebar-resize"></div>
@@ -291,6 +299,13 @@ export class BasicProgramWindow extends BaseWindow {
     this._bpPanel = this.contentElement.querySelector(".bas-bp-panel");
     this._bpPanelList = this.contentElement.querySelector(".bas-bp-panel-list");
 
+    // Search bar
+    this._search = this.contentElement.querySelector(".bas-search");
+    this._searchInput = this.contentElement.querySelector(".bas-search-input");
+    this._searchCount = this.contentElement.querySelector(".bas-search-count");
+    this._searchMatches = [];
+    this._searchIndex = -1;
+
     // Apply saved breakpoint panel state
     if (!this._bpPanelVisible) {
       this._bpPanel.classList.add("hidden");
@@ -322,6 +337,19 @@ export class BasicProgramWindow extends BaseWindow {
       });
     });
     this._updateToolbarState();
+
+    // Search bar wiring
+    this._searchInput.addEventListener("input", () => this._runSearch());
+    this._searchInput.addEventListener("keydown", (e) => this._onSearchKeyDown(e));
+    this._search.querySelectorAll("[data-search]").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const which = btn.dataset.search;
+        if (which === "next") this._searchNext();
+        else if (which === "prev") this._searchPrev();
+        else if (which === "close") this._closeSearch();
+      });
+    });
 
     // Sidebar resize
     this._sidebarResize.addEventListener("mousedown", (e) => {
@@ -388,9 +416,19 @@ export class BasicProgramWindow extends BaseWindow {
     // Run is gated on editor content (it writes to memory automatically),
     // so refresh the toolbar whenever the editor changes.
     this._updateToolbarState();
+    // Keep search results in sync with edits (without moving the cursor)
+    if (this._search && !this._search.classList.contains("hidden")) {
+      this._runSearch({ keepPosition: true });
+    }
   }
 
   _onKeyDown(e) {
+    // Ctrl/Cmd+F opens the find bar
+    if ((e.ctrlKey || e.metaKey) && (e.key === "f" || e.key === "F")) {
+      e.preventDefault();
+      this._openSearch();
+      return;
+    }
     // Tab inserts spaces
     if (e.key === "Tab") {
       e.preventDefault();
@@ -421,6 +459,123 @@ export class BasicProgramWindow extends BaseWindow {
     this._lastCursorLine = currentLine;
 
     this._updateCursorStatus();
+  }
+
+  // ============================================================
+  // Find / search
+  // ============================================================
+
+  _openSearch() {
+    this._search.classList.remove("hidden");
+    // Prefill with the current selection (single line only)
+    const sel = this._textarea.value.substring(
+      this._textarea.selectionStart, this._textarea.selectionEnd);
+    if (sel && !sel.includes("\n")) {
+      this._searchInput.value = sel;
+    }
+    this._searchInput.focus();
+    this._searchInput.select();
+    this._runSearch();
+  }
+
+  _closeSearch() {
+    this._search.classList.add("hidden");
+    this._searchMatches = [];
+    this._searchIndex = -1;
+    this._textarea.focus();
+  }
+
+  _onSearchKeyDown(e) {
+    if ((e.ctrlKey || e.metaKey) && (e.key === "f" || e.key === "F")) {
+      e.preventDefault();
+      this._searchInput.select();
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (e.shiftKey) this._searchPrev();
+      else this._searchNext();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      this._closeSearch();
+    }
+  }
+
+  /**
+   * Recompute all matches for the current query (case-insensitive).
+   * Jumps to the first match at/after the cursor unless keepPosition is set
+   * (used when the editor text changes while the bar is open).
+   */
+  _runSearch(opts = {}) {
+    const query = this._searchInput.value;
+    const text = this._textarea.value;
+    this._searchMatches = [];
+    if (query) {
+      const hay = text.toLowerCase();
+      const needle = query.toLowerCase();
+      let from = 0;
+      let idx;
+      while ((idx = hay.indexOf(needle, from)) !== -1) {
+        this._searchMatches.push({ start: idx, end: idx + needle.length });
+        from = idx + needle.length;
+      }
+    }
+    if (this._searchMatches.length === 0) {
+      this._searchIndex = -1;
+      this._updateSearchCount();
+      return;
+    }
+    if (opts.keepPosition && this._searchIndex >= 0) {
+      this._searchIndex = Math.min(this._searchIndex, this._searchMatches.length - 1);
+      this._updateSearchCount();
+      return;
+    }
+    const cursor = this._textarea.selectionStart;
+    let target = this._searchMatches.findIndex((m) => m.start >= cursor);
+    if (target === -1) target = 0;
+    this._gotoMatch(target);
+  }
+
+  _searchNext() {
+    if (this._searchMatches.length === 0) return;
+    this._gotoMatch((this._searchIndex + 1) % this._searchMatches.length);
+  }
+
+  _searchPrev() {
+    if (this._searchMatches.length === 0) return;
+    const n = this._searchMatches.length;
+    this._gotoMatch((this._searchIndex - 1 + n) % n);
+  }
+
+  _gotoMatch(index) {
+    this._searchIndex = index;
+    const m = this._searchMatches[index];
+    this._textarea.setSelectionRange(m.start, m.end);
+    // Scroll the match into view — the textarea is the scroll master.
+    const line = this._textarea.value.substring(0, m.start).split("\n").length - 1;
+    const lineHeight = 18;
+    const top = line * lineHeight;
+    const view = this._textarea.clientHeight;
+    if (top < this._textarea.scrollTop || top > this._textarea.scrollTop + view - lineHeight * 2) {
+      this._textarea.scrollTop = Math.max(0, top - view / 2);
+    }
+    this._syncScroll();
+    this._updateSearchCount();
+  }
+
+  _updateSearchCount() {
+    if (!this._searchCount) return;
+    const total = this._searchMatches.length;
+    if (!this._searchInput.value) {
+      this._searchCount.textContent = "";
+      this._searchCount.classList.remove("no-results");
+    } else if (total === 0) {
+      this._searchCount.textContent = "No results";
+      this._searchCount.classList.add("no-results");
+    } else {
+      this._searchCount.textContent = `${this._searchIndex + 1} of ${total}`;
+      this._searchCount.classList.remove("no-results");
+    }
   }
 
   /**
@@ -663,6 +818,9 @@ export class BasicProgramWindow extends BaseWindow {
 
   async _handleAction(action) {
     switch (action) {
+      case "find":
+        this._openSearch();
+        break;
       case "read":
         await this._readFromMemory();
         break;

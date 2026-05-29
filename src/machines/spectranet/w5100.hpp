@@ -129,6 +129,14 @@ public:
     uint16_t pushReceivedData(uint8_t socket, const uint8_t* data, uint16_t length);
     uint16_t getRxAvailable(uint8_t socket) const;
 
+    // Per-instance MAC address (SHAR) — lets each tab present a distinct identity.
+    void setMAC(const uint8_t* mac);
+
+    // Inbound connection accept: a LISTENing socket receives a connection from
+    // peerIP:peerPort.  Sets the destination registers and moves the socket to
+    // ESTABLISHED so the BASIC/ROM server side proceeds.
+    void acceptConnection(uint8_t socket, const uint8_t* peerIP, uint16_t peerPort);
+
     // TX buffer access for JS to read outgoing data
     const uint8_t* getTxBuffer() const { return txBuffer_.data(); }
     uint16_t getTxBufferSize() const { return TX_BUFFER_SIZE; }

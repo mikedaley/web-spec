@@ -577,4 +577,27 @@ uint16_t W5100::getSocketBase(uint8_t socket) const
     return 0x0400 + socket * 0x100;
 }
 
+void W5100::setMAC(const uint8_t* mac)
+{
+    if (!mac) return;
+    for (int i = 0; i < 6; i++) {
+        commonRegs_[W5100_SHAR + i] = mac[i];
+    }
+}
+
+void W5100::acceptConnection(uint8_t socket, const uint8_t* peerIP, uint16_t peerPort)
+{
+    if (socket >= 4 || !peerIP) return;
+    uint16_t base = socket * 0x100;
+    // Record the peer in the socket's destination registers
+    socketRegs_[base + Sn_DIPR + 0] = peerIP[0];
+    socketRegs_[base + Sn_DIPR + 1] = peerIP[1];
+    socketRegs_[base + Sn_DIPR + 2] = peerIP[2];
+    socketRegs_[base + Sn_DIPR + 3] = peerIP[3];
+    socketRegs_[base + Sn_DPORT + 0] = (peerPort >> 8) & 0xFF;
+    socketRegs_[base + Sn_DPORT + 1] = peerPort & 0xFF;
+    // LISTEN -> ESTABLISHED (also raises the CON interrupt via setSocketStatus)
+    setSocketStatus(socket, SOCK_ESTABLISHED);
+}
+
 } // namespace zxspec

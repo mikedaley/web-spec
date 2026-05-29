@@ -49,6 +49,18 @@ export class NetworkManager {
     this.onTx = null;  // Callback fired on transmit activity
     this.onRx = null;  // Callback fired on receive activity
 
+    // Per-tab identity. sessionStorage is scoped to this tab and survives
+    // reloads, so each tab gets a stable but distinct MAC + virtual IP.
+    // The MAC keeps the Spectranet OUI (00:08:DC) with random low bytes; the
+    // virtual IP is a private address used only for proxy-side tab-to-tab
+    // bridging (LISTEN / inbound connections).
+    this.mac = this._loadOrCreateIdentity('zxspec-snet-mac',
+      () => [0x00, 0x08, 0xDC, this._rand(0, 255), this._rand(0, 255), this._rand(0, 255)]);
+    this.virtualIP = this._loadOrCreateIdentity('zxspec-snet-vip',
+      () => [10, 42, this._rand(0, 255), this._rand(1, 254)]);
+    this._identityApplied = false;
+    console.log(`[spectranet] tab identity — MAC ${this._fmtMAC(this.mac)}, virtual IP ${this.virtualIP.join('.')}`);
+
     // Wire up the command handler
     this.proxy.onSpectranetCommand = (cmd) => this.handleCommand(cmd);
   }
@@ -57,10 +69,43 @@ export class NetworkManager {
     this.corsProxyUrl = url;
   }
 
+  _rand(min, max) {
+    return min + Math.floor(Math.random() * (max - min + 1));
+  }
+
+  _fmtMAC(mac) {
+    return mac.map((b) => b.toString(16).padStart(2, '0')).join(':');
+  }
+
+  _loadOrCreateIdentity(key, factory) {
+    try {
+      const stored = sessionStorage.getItem(key);
+      if (stored) return JSON.parse(stored);
+    } catch { /* sessionStorage unavailable */ }
+    const value = factory();
+    try { sessionStorage.setItem(key, JSON.stringify(value)); } catch { /* ignore */ }
+    return value;
+  }
+
+  /** Returns this tab's network identity for display. */
+  getIdentity() {
+    return { mac: this._fmtMAC(this.mac), virtualIP: this.virtualIP.join('.') };
+  }
+
+  /** Apply the per-tab MAC to the W5100 once (after the ROM has booted). */
+  _ensureIdentity() {
+    if (this._identityApplied) return;
+    this._identityApplied = true;
+    this.proxy.spectranetSetMAC(this.mac);
+  }
+
   handleCommand(cmd) {
     switch (cmd.type) {
       case CMD_OPEN:
         this.handleOpen(cmd);
+        break;
+      case CMD_LISTEN:
+        this.handleListen(cmd);
         break;
       case CMD_CONNECT:
         this.handleConnect(cmd);
@@ -81,6 +126,7 @@ export class NetworkManager {
   }
 
   handleOpen(cmd) {
+    this._ensureIdentity();
     // Clean up any existing state on this socket index before reopening
     const existing = this.sockets[cmd.socket];
     if (existing) {
@@ -119,7 +165,11 @@ export class NetworkManager {
 
     if (sock.protocol === PROTO_TCP) {
       if (this.corsProxyUrl) {
-        const wsUrl = `${this.corsProxyUrl}/tcp/${ipStr}/${cmd.destPort}`;
+        // Pass our virtual address so that, if the destination is another
+        // listening tab, the proxy can populate its peer registers. Harmless
+        // for real outbound connections (the proxy ignores ?from there).
+        const from = `${this.virtualIP.join('.')}:${cmd.srcPort}`;
+        const wsUrl = `${this.corsProxyUrl}/tcp/${ipStr}/${cmd.destPort}?from=${from}`;
         this.connectWebSocket(cmd.socket, wsUrl);
       } else {
         this.proxy.spectranetSetSocketStatus(cmd.socket, SOCK_CLOSED);
@@ -128,6 +178,83 @@ export class NetworkManager {
       sock.destIP = cmd.destIP;
       sock.destPort = cmd.destPort;
       this.proxy.spectranetSetSocketStatus(cmd.socket, SOCK_UDP);
+    }
+  }
+
+  /**
+   * Handle a Spectranet LISTEN: register this tab as a virtual server with the
+   * proxy so another tab can connect to it. When the proxy signals an inbound
+   * connection (text control frame), move the W5100 socket to ESTABLISHED and
+   * relay data over the same WebSocket.
+   */
+  handleListen(cmd) {
+    this._ensureIdentity();
+    const sock = this.sockets[cmd.socket];
+    if (!sock) return;  // must be OPENed first
+    if (!this.corsProxyUrl) {
+      this.proxy.spectranetSetSocketStatus(cmd.socket, SOCK_CLOSED);
+      return;
+    }
+
+    const port = cmd.srcPort;
+    const vip = this.virtualIP.join('.');
+    const wsUrl = `${this.corsProxyUrl}/listen/${vip}/${port}`;
+
+    try {
+      const ws = new WebSocket(wsUrl);
+      ws.binaryType = 'arraybuffer';
+      sock.ws = ws;
+      sock.isListener = true;
+
+      ws.onopen = () => {
+        // Keepalive so the proxy doesn't time the idle listener out while it
+        // waits for a connection. Stopped once a peer connects (see below) so
+        // we don't inject stray bytes into the established stream.
+        sock.keepaliveTimer = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) ws.send(new Uint8Array([0]));
+        }, UDP_KEEPALIVE_INTERVAL);
+      };
+
+      ws.onmessage = (event) => {
+        if (typeof event.data === 'string') {
+          // Control frame from the proxy: a peer has connected.
+          let msg;
+          try { msg = JSON.parse(event.data); } catch { return; }
+          if (msg.type === 'connect') {
+            if (sock.keepaliveTimer) {
+              clearInterval(sock.keepaliveTimer);
+              sock.keepaliveTimer = null;
+            }
+            const peerIP = Array.isArray(msg.peerIP) ? msg.peerIP : [0, 0, 0, 0];
+            const peerPort = msg.peerPort || 0;
+            this.proxy.spectranetAcceptConnection(cmd.socket, peerIP, peerPort);
+          }
+          return;
+        }
+        // Binary frame: inbound data from the connected peer.
+        this.proxy.spectranetPushData(cmd.socket, new Uint8Array(event.data));
+        if (this.onRx) this.onRx();
+      };
+
+      ws.onclose = () => {
+        if (sock.keepaliveTimer) {
+          clearInterval(sock.keepaliveTimer);
+          sock.keepaliveTimer = null;
+        }
+        this.proxy.spectranetSetSocketStatus(cmd.socket, SOCK_CLOSE_WAIT);
+        if (sock.ws === ws) sock.ws = null;
+      };
+
+      ws.onerror = () => {
+        if (sock.keepaliveTimer) {
+          clearInterval(sock.keepaliveTimer);
+          sock.keepaliveTimer = null;
+        }
+        this.proxy.spectranetSetSocketStatus(cmd.socket, SOCK_CLOSED);
+        if (sock.ws === ws) sock.ws = null;
+      };
+    } catch (err) {
+      this.proxy.spectranetSetSocketStatus(cmd.socket, SOCK_CLOSED);
     }
   }
 

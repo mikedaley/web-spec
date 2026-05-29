@@ -2,8 +2,14 @@
  * udp-proxy.js - WebSocket-to-UDP/TCP proxy for Spectranet
  *
  * Routes:
- *   /udp/{dest_ip}/{dest_port} - Relay binary WebSocket frames as UDP datagrams
- *   /tcp/{dest_ip}/{dest_port} - Relay binary WebSocket frames over TCP
+ *   /udp/{dest_ip}/{dest_port}    - Relay binary WebSocket frames as UDP datagrams
+ *   /tcp/{dest_ip}/{dest_port}    - Relay binary WebSocket frames over TCP. If the
+ *                                   destination matches a registered virtual listener
+ *                                   (another tab), the two are bridged instead.
+ *   /listen/{ip}/{port}           - Register this tab as a virtual server so other
+ *                                   tabs can connect to it (tab-to-tab / inbound).
+ *                                   Optional ?from=ip:port on the connecting side
+ *                                   sets the server socket's peer address.
  *
  * Security:
  *   - Origin allowlist: only accepts WebSocket upgrades from your domain
@@ -56,6 +62,12 @@ const ALLOWED_PORTS = ALLOWED_PORTS_ENV === '*'
 
 // Per-IP connection tracking
 const connections = new Map();
+
+// Virtual listeners for tab-to-tab / inbound connections.
+// Key "ip:port" -> the listening tab's WebSocket. A tab that issues a
+// Spectranet LISTEN registers here; another tab connecting to that ip:port is
+// bridged to it instead of going out to the real network.
+const listeners = new Map();
 
 // ============================================================================
 // Security checks
@@ -179,7 +191,22 @@ wss.on('connection', (ws, req) => {
     return;
   }
 
-  // --- Destination security checks ---
+  const key = `${destIP}:${destPort}`;
+
+  // --- Virtual listen registration (a tab acting as a server) ---
+  // No SSRF/port checks: the "destination" is the tab's own virtual address.
+  if (proto === 'listen') {
+    registerListener(ws, destIP, destPort);
+    return;
+  }
+
+  // --- Virtual bridge: connecting to a tab that is currently listening ---
+  if (proto === 'tcp' && listeners.has(key)) {
+    bridgeToListener(ws, req, destIP, destPort);
+    return;
+  }
+
+  // --- Destination security checks (real network only) ---
   if (!ALLOW_PRIVATE && isPrivateIP(destIP)) {
     console.warn(`[proxy] Rejected: private IP ${destIP} from ${clientIP}`);
     ws.close(1008, 'Private destinations not allowed');
@@ -202,6 +229,102 @@ wss.on('connection', (ws, req) => {
     ws.close(1008, 'Unknown protocol: ' + proto);
   }
 });
+
+// ============================================================================
+// Virtual listen / bridge (tab-to-tab inbound connections)
+// ============================================================================
+
+function registerListener(ws, ip, port) {
+  const key = `${ip}:${port}`;
+  // Replace any stale listener on the same address
+  const stale = listeners.get(key);
+  if (stale && stale !== ws) {
+    try { stale.close(1000, 'Replaced by new listener'); } catch { /* ignore */ }
+  }
+  listeners.set(key, ws);
+  console.log(`[proxy] LISTEN registered ${key}`);
+
+  const idle = createIdleTimer(ws, `LISTEN ${key}`);
+  // While waiting, incoming frames are only keepalives — reset the idle timer.
+  const onMessage = () => idle.reset();
+  const onClose = () => {
+    idle.clear();
+    if (listeners.get(key) === ws) listeners.delete(key);
+    console.log(`[proxy] LISTEN closed ${key}`);
+  };
+  const onError = () => {
+    idle.clear();
+    if (listeners.get(key) === ws) listeners.delete(key);
+  };
+  ws.on('message', onMessage);
+  ws.on('close', onClose);
+  ws.on('error', onError);
+  // Remembered so bridgeToListener can detach exactly these (and not the
+  // per-IP connection-count decrement registered by trackConnection).
+  ws._listenHandlers = { onMessage, onClose, onError, idle };
+}
+
+function bridgeToListener(clientWs, req, ip, port) {
+  const key = `${ip}:${port}`;
+  const serverWs = listeners.get(key);
+  // Single-connection accept: the listening W5100 socket becomes this
+  // connection, so the server must re-LISTEN to accept another.
+  listeners.delete(key);
+
+  // Optional source identity passed by the connecting tab (?from=ip:port),
+  // used to populate the server socket's peer registers.
+  let srcIP = [0, 0, 0, 0];
+  let srcPort = 0;
+  const q = url.parse(req.url, true).query;
+  if (q.from) {
+    const [fip, fport] = String(q.from).split(':');
+    const octets = (fip || '').split('.').map(Number);
+    if (octets.length === 4 && octets.every(n => Number.isInteger(n) && n >= 0 && n <= 255)) {
+      srcIP = octets;
+    }
+    srcPort = parseInt(fport, 10) || 0;
+  }
+
+  // Drop only the listen-phase handlers (keep trackConnection's close handler
+  // so the per-IP connection count still decrements correctly).
+  const lh = serverWs._listenHandlers;
+  if (lh) {
+    serverWs.off('message', lh.onMessage);
+    serverWs.off('close', lh.onClose);
+    serverWs.off('error', lh.onError);
+    lh.idle.clear();
+    delete serverWs._listenHandlers;
+  }
+
+  console.log(`[proxy] BRIDGE ${key} <- ${srcIP.join('.')}:${srcPort}`);
+
+  // Tell the server tab a connection arrived (text control frame). Binary
+  // frames after this are relayed as data in both directions.
+  if (serverWs.readyState === serverWs.OPEN) {
+    serverWs.send(JSON.stringify({ type: 'connect', peerIP: srcIP, peerPort: srcPort }));
+  }
+
+  const idle = createIdleTimer(clientWs, `BRIDGE ${key}`);
+
+  clientWs.on('message', (data) => {
+    idle.reset();
+    if (serverWs.readyState === serverWs.OPEN) serverWs.send(data);
+  });
+  serverWs.on('message', (data) => {
+    idle.reset();
+    if (clientWs.readyState === clientWs.OPEN) clientWs.send(data);
+  });
+
+  const closeBoth = () => {
+    idle.clear();
+    try { clientWs.close(1000, 'Bridge closed'); } catch { /* ignore */ }
+    try { serverWs.close(1000, 'Bridge closed'); } catch { /* ignore */ }
+  };
+  clientWs.on('close', closeBoth);
+  clientWs.on('error', closeBoth);
+  serverWs.on('close', closeBoth);
+  serverWs.on('error', closeBoth);
+}
 
 // ============================================================================
 // Protocol handlers
