@@ -108,15 +108,48 @@
   min-width: 30px;
 }
 
-.asm-source-editor {
+.asm-editor-stack {
+  position: relative;
   flex: 1;
-  resize: none;
+  min-width: 0;
+  background: var(--bg-primary);
+}
+
+.asm-highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
   padding: 4px 8px;
   font-family: "Menlo", "Consolas", "Courier New", monospace;
   font-size: 12px;
   line-height: 16px;
-  background: var(--bg-primary);
   color: var(--text-primary);
+  white-space: pre;
+  tab-size: 8;
+  -moz-tab-size: 8;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.asm-source-editor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  resize: none;
+  padding: 4px 8px;
+  margin: 0;
+  font-family: "Menlo", "Consolas", "Courier New", monospace;
+  font-size: 12px;
+  line-height: 16px;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--accent-blue);
   border: none;
   outline: none;
   overflow-y: auto;
@@ -124,7 +157,23 @@
   white-space: pre;
   tab-size: 8;
   -moz-tab-size: 8;
+  z-index: 1;
 }
+
+.asm-source-editor::selection {
+  background: var(--accent-blue-bg-stronger);
+  color: transparent;
+}
+
+/* Syntax-highlight token colours (Spectrum palette accents). */
+.asm-mnemonic { color: var(--accent-blue); font-weight: 600; }
+.asm-directive { color: var(--accent-purple); font-weight: 600; }
+.asm-register { color: var(--accent-orange); }
+.asm-condition { color: var(--accent-orange); }
+.asm-number { color: var(--accent-green); }
+.asm-string { color: var(--accent-green); }
+.asm-label { color: var(--accent-red); font-weight: 600; }
+.asm-comment { color: var(--text-tertiary); font-style: italic; }
 
 /* Horizontal splitter */
 .asm-splitter {

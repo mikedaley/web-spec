@@ -16,6 +16,8 @@ const RELEASE_DATA = [
       { hash: "87722f8", text: "Tape auto-records when BASIC issues SAVE — if no TAP is mounted, an empty one is created on the fly (with a toast) and finalised automatically once the SAVE completes" },
       { hash: "87722f8", text: "Instant SAVE: when the tape window's speed switch is on, SAVE writes the TAP block straight from CPU registers and memory and skips the ROM's pulse loop, completing in a single frame" },
       { hash: "f211da9", text: "BASIC program editor Find bar (Ctrl+F) with match count and prev/next navigation" },
+      { hash: "------", text: "Assembler editor syntax highlighting for mnemonics, registers, directives, numbers, strings, labels and comments" },
+      { hash: "------", text: "Assembler auto-formats on Enter (label at column 0, mnemonic at column 8, inline comments aligned to column 32) and ships a Format button that realigns the whole source" },
     ],
     fixes: [],
     improvements: [

@@ -9,6 +9,7 @@
  */
 
 import { BaseWindow } from "../windows/base-window.js";
+import { highlightAsm, formatAsmLine, ASM_INDENT } from "./asm-highlight.js";
 import "../css/assembler.css";
 
 const DEFAULT_ORG = 0x8000;
@@ -48,6 +49,7 @@ export class AssemblerWindow extends BaseWindow {
           <button class="asm-assemble-btn" data-action="assemble" title="Assemble (Ctrl+Enter)">Assemble</button>
           <button data-action="assemble-push" title="Assemble and push to RAM">Assemble &amp; Push</button>
           <button data-action="push" title="Push last assembled output to RAM">Push to RAM</button>
+          <button data-action="format" title="Format all source (label col 0, mnemonic col 8)">Format</button>
           <div class="asm-org-group">
             <span class="asm-org-label">ORG:</span>
             <input type="text" class="asm-org-input" value="${this._org.toString(16).toUpperCase()}" maxlength="4" spellcheck="false">
@@ -57,7 +59,10 @@ export class AssemblerWindow extends BaseWindow {
           <div class="asm-editor-pane">
             <div class="asm-editor-wrapper">
               <div class="asm-line-numbers">1</div>
-              <textarea class="asm-source-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" wrap="off" placeholder="; Enter Z80 assembly here&#10;; e.g.&#10;        ORG $8000&#10;start:  LD A,0&#10;        RET"></textarea>
+              <div class="asm-editor-stack">
+                <pre class="asm-highlight" aria-hidden="true"></pre>
+                <textarea class="asm-source-editor" spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off" wrap="off" placeholder="; Enter Z80 assembly here&#10;; e.g.&#10;        ORG $8000&#10;start:  LD A,0&#10;        RET"></textarea>
+              </div>
             </div>
           </div>
           <div class="asm-splitter"></div>
@@ -81,6 +86,7 @@ export class AssemblerWindow extends BaseWindow {
   onContentRendered() {
     const root = this.contentElement.querySelector(".assembler-window");
     this._editorEl = root.querySelector(".asm-source-editor");
+    this._highlightEl = root.querySelector(".asm-highlight");
     this._lineNumbersEl = root.querySelector(".asm-line-numbers");
     this._orgInput = root.querySelector(".asm-org-input");
     this._outputContent = root.querySelector(".asm-output-content");
@@ -95,10 +101,15 @@ export class AssemblerWindow extends BaseWindow {
     // Editor events
     this._editorEl.addEventListener("input", () => {
       this._updateLineNumbers();
+      this._updateHighlight();
       this._saveSource();
     });
     this._editorEl.addEventListener("scroll", () => {
       this._lineNumbersEl.scrollTop = this._editorEl.scrollTop;
+      if (this._highlightEl) {
+        this._highlightEl.scrollTop = this._editorEl.scrollTop;
+        this._highlightEl.scrollLeft = this._editorEl.scrollLeft;
+      }
     });
     this._editorEl.addEventListener("keydown", (e) => {
       // Tab key inserts a tab character
@@ -112,6 +123,7 @@ export class AssemblerWindow extends BaseWindow {
           this._editorEl.value.substring(end);
         this._editorEl.selectionStart = this._editorEl.selectionEnd = start + 1;
         this._updateLineNumbers();
+        this._updateHighlight();
         this._saveSource();
       }
       // Ctrl/Cmd+Enter to assemble
@@ -122,6 +134,14 @@ export class AssemblerWindow extends BaseWindow {
         } else {
           this._assemble();
         }
+        return;
+      }
+
+      // Plain Enter: format the line just finished and start the new one
+      // pre-indented to the mnemonic column.
+      if (e.key === "Enter" && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        this._formatCurrentLineAndNewline();
       }
     });
 
@@ -151,6 +171,7 @@ export class AssemblerWindow extends BaseWindow {
         if (action === "assemble") this._assemble();
         else if (action === "assemble-push") this._assembleAndPush();
         else if (action === "push") this._pushToRAM();
+        else if (action === "format") this._formatAllSource();
       });
     });
 
@@ -192,6 +213,79 @@ export class AssemblerWindow extends BaseWindow {
     this._outputPane.style.flex = "none";
 
     this._updateLineNumbers();
+    this._updateHighlight();
+  }
+
+  _updateHighlight() {
+    if (!this._highlightEl) return;
+    // Trailing newline keeps the pre's last line aligned with the textarea.
+    this._highlightEl.innerHTML = highlightAsm(this._editorEl.value) + "\n";
+  }
+
+  // Reformat every line in the source. Tries to preserve the caret position
+  // by tracking which line it was on and clamping its column to that line's
+  // new length.
+  _formatAllSource() {
+    const ta = this._editorEl;
+    const text = ta.value;
+    const caret = ta.selectionStart;
+
+    const before = text.substring(0, caret);
+    const caretLineIdx = before.split("\n").length - 1;
+    const caretCol = caret - (before.lastIndexOf("\n") + 1);
+
+    const formattedLines = text.split("\n").map(formatAsmLine);
+    const formatted = formattedLines.join("\n");
+    if (formatted === text) return;
+
+    ta.value = formatted;
+
+    // Restore caret to (roughly) where it was.
+    let newCaret = 0;
+    for (let i = 0; i < caretLineIdx && i < formattedLines.length; i++) {
+      newCaret += formattedLines[i].length + 1;
+    }
+    const targetLineLen = formattedLines[caretLineIdx]?.length ?? 0;
+    newCaret += Math.min(caretCol, targetLineLen);
+    ta.selectionStart = ta.selectionEnd = newCaret;
+
+    this._updateLineNumbers();
+    this._updateHighlight();
+    this._saveSource();
+  }
+
+  // Format the line containing the caret, then insert a newline pre-indented
+  // to the mnemonic column. If the caret is mid-line, the tail moves with it.
+  _formatCurrentLineAndNewline() {
+    const ta = this._editorEl;
+    const text = ta.value;
+    const caret = ta.selectionStart;
+
+    const lineStart = text.lastIndexOf("\n", caret - 1) + 1;
+    const nextNl = text.indexOf("\n", caret);
+    const lineEnd = nextNl === -1 ? text.length : nextNl;
+
+    const head = text.substring(lineStart, caret);
+    const tail = text.substring(caret, lineEnd);
+
+    const formattedHead = formatAsmLine(head);
+    const newLineStart = ASM_INDENT + tail.replace(/^\s+/, "");
+
+    const replacement = formattedHead + "\n" + newLineStart;
+    ta.value = text.substring(0, lineStart) + replacement + text.substring(lineEnd);
+
+    const newCaret = lineStart + formattedHead.length + 1 + ASM_INDENT.length;
+    ta.selectionStart = ta.selectionEnd = newCaret;
+
+    this._updateLineNumbers();
+    this._updateHighlight();
+    this._saveSource();
+    // Keep the new caret visible.
+    this._lineNumbersEl.scrollTop = ta.scrollTop;
+    if (this._highlightEl) {
+      this._highlightEl.scrollTop = ta.scrollTop;
+      this._highlightEl.scrollLeft = ta.scrollLeft;
+    }
   }
 
   _updateLineNumbers() {
