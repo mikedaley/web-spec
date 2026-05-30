@@ -30,6 +30,7 @@ export class AssemblerWindow extends BaseWindow {
     this._proxy = proxy;
     this._org = DEFAULT_ORG;
     this._lastResult = null;
+    this._currentFilename = "untitled.asm";
     this._activeTab = "listing";
     this._outputPaneHeight = 160;
     this._draggingSplitter = false;
@@ -50,6 +51,9 @@ export class AssemblerWindow extends BaseWindow {
           <button data-action="assemble-push" title="Assemble and push to RAM">Assemble &amp; Push</button>
           <button data-action="push" title="Push last assembled output to RAM">Push to RAM</button>
           <button data-action="format" title="Format all source (label col 0, mnemonic col 8)">Format</button>
+          <button data-action="load" title="Load assembly source from disk">Load</button>
+          <button data-action="save" title="Save assembly source to disk">Save</button>
+          <input type="file" class="asm-file-input" accept=".asm,.z80s,.s,.a80,.z80asm,.txt,text/plain" hidden>
           <div class="asm-org-group">
             <span class="asm-org-label">ORG:</span>
             <input type="text" class="asm-org-input" value="${this._org.toString(16).toUpperCase()}" maxlength="4" spellcheck="false">
@@ -94,6 +98,7 @@ export class AssemblerWindow extends BaseWindow {
     this._statusSizeEl = root.querySelector(".asm-status-size");
     this._outputPane = root.querySelector(".asm-output-pane");
     this._splitter = root.querySelector(".asm-splitter");
+    this._fileInput = root.querySelector(".asm-file-input");
 
     // Load saved source
     this._loadSource();
@@ -172,8 +177,13 @@ export class AssemblerWindow extends BaseWindow {
         else if (action === "assemble-push") this._assembleAndPush();
         else if (action === "push") this._pushToRAM();
         else if (action === "format") this._formatAllSource();
+        else if (action === "load") this._fileInput.click();
+        else if (action === "save") this._saveToFile();
       });
     });
+
+    // File input for loading assembly source from disk
+    this._fileInput.addEventListener("change", (e) => this._onFileSelected(e));
 
     // Output tabs
     root.querySelectorAll(".asm-output-tab").forEach((tab) => {
@@ -322,6 +332,71 @@ export class AssemblerWindow extends BaseWindow {
         this._updateLineNumbers();
       }
     } catch (e) { /* ignore */ }
+  }
+
+  _setStatus(text, kind) {
+    this._statusEl.textContent = text;
+    this._statusEl.className =
+      "asm-status-text" + (kind ? ` asm-status-${kind}` : "");
+  }
+
+  // Save the current editor source to a file on disk. Uses the File System
+  // Access API where available, falling back to an anchor download.
+  async _saveToFile() {
+    const text = this._editorEl.value;
+    const suggestedName = this._currentFilename || "untitled.asm";
+    const blob = new Blob([text], { type: "text/plain" });
+
+    try {
+      if (window.showSaveFilePicker) {
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{
+            description: "Z80 assembly source",
+            accept: { "text/plain": [".asm", ".z80s", ".s", ".a80", ".z80asm", ".txt"] },
+          }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        this._currentFilename = handle.name || suggestedName;
+        this._setStatus(`Saved ${this._currentFilename}`, "success");
+        return;
+      }
+    } catch (e) {
+      // User cancelled the picker: stay silent. Any other failure falls
+      // through to the anchor-download fallback below.
+      if (e && e.name === "AbortError") return;
+    }
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = suggestedName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    this._setStatus(`Saved ${suggestedName}`, "success");
+  }
+
+  _onFileSelected(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      this._editorEl.value = reader.result || "";
+      this._currentFilename = file.name;
+      this._updateLineNumbers();
+      this._updateHighlight();
+      this._lineNumbersEl.scrollTop = this._editorEl.scrollTop;
+      this._saveSource();
+      this._setStatus(`Loaded ${file.name}`, "success");
+    };
+    reader.onerror = () => this._setStatus(`Failed to read ${file.name}`, "error");
+    reader.readAsText(file);
+    // Reset so selecting the same file again re-fires the change event.
+    e.target.value = "";
   }
 
   async _assemble() {

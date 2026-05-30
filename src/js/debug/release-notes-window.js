@@ -18,6 +18,7 @@ const RELEASE_DATA = [
       { hash: "f211da9", text: "BASIC program editor Find bar (Ctrl+F) with match count and prev/next navigation" },
       { hash: "------", text: "Assembler editor syntax highlighting for mnemonics, registers, directives, numbers, strings, labels and comments" },
       { hash: "------", text: "Assembler auto-formats on Enter (label at column 0, mnemonic at column 8, inline comments aligned to column 32) and ships a Format button that realigns the whole source" },
+      { hash: "------", text: "Assembler editor can now Load and Save assembly source files to disk (.asm, .z80s, .s, .a80, .z80asm, .txt), using the native file picker where available" },
     ],
     fixes: [
       { hash: "------", text: "BASIC Format no longer leaves every line after a long FOR loop indented when the matching NEXT sits after a colon mid-line" },
