@@ -40,6 +40,7 @@ import { saveFlashData, loadFlashData } from "./spectranet/spectranet-persistenc
 import { getRecentSnapshots, loadRecentSnapshot, removeRecentSnapshot } from "./snapshot/snapshot-persistence.js";
 
 import { EmulatorProxy } from "./emulator-proxy.js";
+import { initNativeMenu } from "./platform/native-menu.js";
 import { ThemeManager } from "./ui/theme-manager.js";
 import { MobileDetector } from "./ui/mobile-detector.js";
 import { MobileMenu } from "./ui/mobile-menu.js";
@@ -421,6 +422,9 @@ class ZXSpectrumEmulator {
       if (versionChip) versionChip.textContent = `v${VERSION}`;
 
       this.showLoading(false);
+
+      // Build the native desktop menu bar (Tauri only; no-op in the browser).
+      initNativeMenu();
 
       console.log(`ZX Spectrum Emulator v${VERSION} initialized`);
     } catch (error) {

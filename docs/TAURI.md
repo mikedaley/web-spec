@@ -66,24 +66,48 @@ Then re-add `"icons/icon.ico"` to the `bundle.icon` array in `tauri.conf.json`.
 ## Native networking (the main win)
 
 In the browser, Spectranet/TNFS traffic is tunnelled through the WebSocket→UDP/TCP
-bridge in `proxy/`. Under Tauri the Rust backend exposes `udp_request` and
-`tcp_request` commands (`src-tauri/src/lib.rs`), so **the proxy is not needed**.
+bridge in `proxy/`. Under Tauri the Rust backend (`src-tauri/src/lib.rs`) exposes
+native UDP and TCP session bridges, so **the proxy is not needed**:
 
-The integration point is `src/js/platform/native-net.js`. The Spectranet clients
-(`src/js/spectranet/tnfs-client.js`, `network-manager.js`) are **not yet rewired**
-— wiring them is the next step:
+| Command | Purpose |
+|---|---|
+| `udp_open` / `udp_send` / `udp_close` | Connected UDP socket; inbound datagrams arrive as `udp-recv` events |
+| `tcp_connect` / `tcp_resume` / `tcp_send` / `tcp_close` | Outbound TCP; inbound bytes arrive as `tcp-recv` events |
+| `tcp_listen` + `tcp_resume` | Inbound TCP — binds a real host port, emits `tcp-accept` then `tcp-recv` |
+
+`src/js/platform/native-net.js` wraps each in a **WebSocket-shaped** class
+(`NativeUdpSocket`, `NativeTcpSocket`, `NativeTcpListener`) so the Spectranet
+clients use one code path that just swaps the constructor:
 
 ```js
-import { hasNativeSockets, nativeUdpRequest } from "../platform/native-net.js";
+import { hasNativeSockets, NativeUdpSocket } from "../platform/native-net.js";
 
-if (hasNativeSockets()) {
-  const reply = await nativeUdpRequest(ip, TNFS_PORT, datagram);
-} else {
-  /* existing WebSocket-to-proxy path */
-}
+const ws = hasNativeSockets()
+  ? new NativeUdpSocket(ip, port)   // native, no proxy
+  : new WebSocket(wsUrl);           // browser, via proxy/
 ```
 
-This keeps one client implementation that branches on host, with no duplication.
+Wired in both clients, with all protocol logic shared (no duplication):
+- **`tnfs-client.js`** — TNFS over native UDP.
+- **`network-manager.js`** (emulated W5100) — outbound TCP (`NativeTcpSocket`),
+  UDP (`NativeUdpSocket`), and Spectranet LISTEN (`NativeTcpListener`).
+
+### TCP resume / banner race
+
+`tcp_connect` establishes the connection but does **not** start reading until the
+frontend has attached its `tcp-recv` listener and calls `tcp_resume`. This stops a
+server that sends a banner immediately on connect (SMTP/FTP/IRC) from racing ahead
+of the listener and losing those first bytes. The same gate makes `tcp_listen`'s
+`tcp-accept` reliable.
+
+### LISTEN semantics differ by host
+
+Browser LISTEN registers a *virtual* listener with the proxy for tab-to-tab
+bridging (other browser tabs connect to it). Native LISTEN binds a **real** host
+TCP port and accepts a genuine inbound connection from the network — the correct
+desktop analog, and arguably more useful. `NativeTcpListener` emits the same
+`{type:'connect', peerIP, peerPort}` control frame the proxy did, so
+`network-manager.js` is unchanged downstream of the socket.
 
 ## Notes / things to verify on first run
 

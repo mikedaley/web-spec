@@ -9,6 +9,13 @@
  *  Mike Daley <michael_daley@icloud.com>
  */
 
+import {
+  hasNativeSockets,
+  NativeUdpSocket,
+  NativeTcpSocket,
+  NativeTcpListener,
+} from "../platform/native-net.js";
+
 // W5100 socket status constants (must match w5100.hpp)
 const SOCK_CLOSED      = 0x00;
 const SOCK_INIT        = 0x13;
@@ -164,10 +171,12 @@ export class NetworkManager {
     const ipStr = cmd.destIP.join('.');
 
     if (sock.protocol === PROTO_TCP) {
-      if (this.corsProxyUrl) {
+      // Native TCP (Tauri) connects directly; the browser path needs a proxy.
+      if (this.corsProxyUrl || hasNativeSockets()) {
         // Pass our virtual address so that, if the destination is another
         // listening tab, the proxy can populate its peer registers. Harmless
-        // for real outbound connections (the proxy ignores ?from there).
+        // for real outbound connections (the proxy ignores ?from there), and
+        // unused by the native path.
         const from = `${this.virtualIP.join('.')}:${cmd.srcPort}`;
         const wsUrl = `${this.corsProxyUrl}/tcp/${ipStr}/${cmd.destPort}?from=${from}`;
         this.connectWebSocket(cmd.socket, wsUrl);
@@ -191,7 +200,11 @@ export class NetworkManager {
     this._ensureIdentity();
     const sock = this.sockets[cmd.socket];
     if (!sock) return;  // must be OPENed first
-    if (!this.corsProxyUrl) {
+
+    const native = hasNativeSockets();
+    // The browser path needs a proxy to register the virtual listener; the
+    // native path binds a real host port and needs no proxy.
+    if (!native && !this.corsProxyUrl) {
       this.proxy.spectranetSetSocketStatus(cmd.socket, SOCK_CLOSED);
       return;
     }
@@ -201,7 +214,7 @@ export class NetworkManager {
     const wsUrl = `${this.corsProxyUrl}/listen/${vip}/${port}`;
 
     try {
-      const ws = new WebSocket(wsUrl);
+      const ws = native ? new NativeTcpListener(port) : new WebSocket(wsUrl);
       ws.binaryType = 'arraybuffer';
       sock.ws = ws;
       sock.isListener = true;
@@ -311,9 +324,10 @@ export class NetworkManager {
       }
     }
 
-    // Lazily open WebSocket on first send (or reconnect after close)
+    // Lazily open WebSocket on first send (or reconnect after close).
+    // Native UDP (Tauri) needs no proxy; the browser path requires one.
     if (!sock.ws) {
-      if (!this.corsProxyUrl) {
+      if (!hasNativeSockets() && !this.corsProxyUrl) {
         return;
       }
 
@@ -344,7 +358,10 @@ export class NetworkManager {
         }
       } else {
         try {
-          const ws = new WebSocket(wsUrl);
+          // Native UDP under Tauri (no proxy); WebSocket-to-proxy in the browser.
+          const ws = hasNativeSockets()
+            ? new NativeUdpSocket(ipStr, destPort)
+            : new WebSocket(wsUrl);
           ws.binaryType = 'arraybuffer';
           sock.ws = ws;
 
@@ -532,7 +549,10 @@ export class NetworkManager {
     if (!sock) return;
 
     try {
-      const ws = new WebSocket(wsUrl);
+      // Native TCP under Tauri (no proxy); WebSocket-to-proxy in the browser.
+      const ws = hasNativeSockets()
+        ? new NativeTcpSocket(sock.destIP.join('.'), sock.destPort)
+        : new WebSocket(wsUrl);
       ws.binaryType = 'arraybuffer';
       sock.ws = ws;
 

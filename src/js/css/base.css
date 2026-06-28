@@ -573,6 +573,35 @@ header.auto-hide.header-visible {
   position: relative;
 }
 
+/*
+ * Under the Tauri desktop build a native OS menu bar mirrors these menus
+ * (see platform/native-menu.js), so the in-window dropdown triggers are
+ * redundant and hidden. The web build is unaffected.
+ */
+html.tauri-host .header-menu-container {
+  display: none;
+}
+
+/* The browser fullscreen button is inert in the Tauri webview; native
+   fullscreen is available via the green traffic-light button and the
+   Window menu, so hide the in-window button. */
+html.tauri-host #btn-fullscreen {
+  display: none;
+}
+
+/* The menus are in the native bar, so their leading divider would double up
+   with the one before the panel triggers. Hide it, keeping a single divider. */
+html.tauri-host #header-menu-divider {
+  display: none;
+}
+
+/* The RetroTech71.co.uk link moves into the native app (About) menu under
+   Tauri, so hide the header title link and its divider. */
+html.tauri-host .header-site-link,
+html.tauri-host #header-site-divider {
+  display: none;
+}
+
 .header-menu-trigger {
   display: flex;
   align-items: center;
