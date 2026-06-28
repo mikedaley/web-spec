@@ -33,3 +33,6 @@ Thumbs.db
 *.log
 npm-debug.log*
 protected-disk-images/
+
+# CMake/CTest generated test artifacts
+Testing/Temporary/

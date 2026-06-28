@@ -228,6 +228,59 @@
   overflow-y: auto;
 }
 
+/* Keep a themed scrollbar always visible (rather than the OS overlay
+   scrollbar that auto-hides) so it is obvious the list scrolls when the
+   window is small. */
+.spectranet-flash-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+.spectranet-flash-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.spectranet-flash-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.spectranet-flash-list::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+.spectranet-flash-list::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-blue);
+}
+
+/* Fade hint at the bottom edge signalling more snapshots below the fold.
+   Shown only while the list is scrollable and not at the bottom (toggled
+   from spectranet-window.js). */
+.spectranet-flash-list-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.spectranet-flash-list-wrap::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 28px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  background: linear-gradient(to bottom, transparent, var(--bg-secondary));
+}
+
+.spectranet-flash-list-wrap.can-scroll-down::after {
+  opacity: 1;
+}
+
 .spectranet-flash-empty {
   color: var(--text-tertiary);
   font-size: 11px;

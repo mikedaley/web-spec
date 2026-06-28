@@ -267,7 +267,9 @@ export class SpectranetWindow extends BaseWindow {
                      placeholder="Snapshot name" />
               <button class="spectranet-apply-btn" id="snet-flash-save">Save</button>
             </div>
-            <div class="spectranet-flash-list" id="snet-flash-list"></div>
+            <div class="spectranet-flash-list-wrap">
+              <div class="spectranet-flash-list" id="snet-flash-list"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -335,6 +337,20 @@ export class SpectranetWindow extends BaseWindow {
 
     // Initial snapshot list load
     this.refreshSnapshotList();
+
+    // Keep the "more below" scroll hint in sync as the list is scrolled
+    const flashList = this.element.querySelector("#snet-flash-list");
+    flashList?.addEventListener("scroll", () => this._updateFlashScrollHint());
+  }
+
+  // Toggle the bottom fade hint depending on whether the flash snapshot list
+  // is scrollable and not yet scrolled to the bottom.
+  _updateFlashScrollHint() {
+    const listEl = this.element?.querySelector("#snet-flash-list");
+    const wrap = this.element?.querySelector(".spectranet-flash-list-wrap");
+    if (!listEl || !wrap) return;
+    const moreBelow = listEl.scrollHeight - listEl.clientHeight - listEl.scrollTop > 1;
+    wrap.classList.toggle("can-scroll-down", moreBelow);
   }
 
   async refreshSnapshotList() {
@@ -371,6 +387,7 @@ export class SpectranetWindow extends BaseWindow {
     `).join("");
 
     listEl.innerHTML = html;
+    this._updateFlashScrollHint();
 
     // Bind action buttons
     for (const item of listEl.querySelectorAll(".spectranet-flash-item")) {

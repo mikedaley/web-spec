@@ -481,7 +481,6 @@ static Operand classifyOperand(const std::string& rawOp, ExprContext& ctx) {
 struct AsmCtx {
     std::map<std::string, int32_t> symbols;
     std::vector<AsmError> errors;
-    std::vector<uint8_t> output;
     std::vector<AsmListingEntry> listing;
     uint16_t org = 0x8000;
     uint16_t pc = 0x8000;
@@ -489,8 +488,25 @@ struct AsmCtx {
     int currentLine = 0;
     std::string currentSource;
 
+    // Emitted bytes are stored by absolute address so that multiple ORG
+    // directives place code at the correct location. The final contiguous
+    // output image (with any inter-ORG gaps zero-filled) is built once both
+    // passes complete.
+    std::map<uint16_t, uint8_t> mem;
+    bool anyEmitted = false;
+    uint16_t minAddr = 0;
+    uint16_t maxAddr = 0;
+    std::vector<uint8_t> instrBytes;    // bytes emitted for the current line
+
     void emit(uint8_t b) {
-        output.push_back(b);
+        if (!anyEmitted) {
+            minAddr = maxAddr = pc;
+            anyEmitted = true;
+        }
+        if (pc < minAddr) minAddr = pc;
+        if (pc > maxAddr) maxAddr = pc;
+        mem[pc] = b;
+        instrBytes.push_back(b);
         pc++;
     }
     void emit16(uint16_t w) {
@@ -499,6 +515,14 @@ struct AsmCtx {
     }
     void error(const std::string& msg) {
         errors.push_back({currentLine, msg});
+    }
+
+    // Reset emission state between passes.
+    void resetEmission() {
+        mem.clear();
+        anyEmitted = false;
+        minAddr = maxAddr = 0;
+        instrBytes.clear();
     }
 
     ExprContext exprCtx() {
@@ -540,7 +564,7 @@ static ParsedLine parseLine(const std::string& rawLine, int lineNum) {
             std::string firstTok = toUpper(line.substr(0, tokEnd));
             // Check if it's a known directive/mnemonic — if so, don't treat as label
             static const char* DIRECTIVES[] = {
-                "ORG", "EQU", "DB", "DEFB", "DM", "DEFM", "DW", "DEFW", "DS", "DEFS",
+                "ORG", "END", "EQU", "DB", "DEFB", "DM", "DEFM", "DW", "DEFW", "DS", "DEFS",
                 "ALIGN", "INCBIN", "NOP", "HALT", "RET", "DI", "EI", "EXX", "NEG", "RETN",
                 "RETI", "RRD", "RLD", "DAA", "CPL", "SCF", "CCF", "RLCA", "RRCA", "RLA", "RRA",
                 "LDI", "CPI", "INI", "OUTI", "LDD", "CPD", "IND", "OUTD",
@@ -645,9 +669,6 @@ static void assembleInstruction(AsmCtx& ctx, const ParsedLine& pl) {
         int32_t addr = parseExpr(toUpper(ops[0]), exCtx);
         ctx.org = static_cast<uint16_t>(addr);
         ctx.pc = ctx.org;
-        if (ctx.output.empty()) {
-            // First ORG sets the base
-        }
         return;
     }
     if (mn == "EQU") {
@@ -1445,8 +1466,9 @@ AsmResult z80Assemble(const char* source, uint16_t defaultOrg) {
 
     // Pass 1: determine label addresses
     ctx.pass1 = true;
+    ctx.org = defaultOrg;
     ctx.pc = ctx.org;
-    ctx.output.clear();
+    ctx.resetEmission();
 
     for (auto& pl : parsed) {
         ctx.currentLine = pl.lineNum;
@@ -1457,17 +1479,20 @@ AsmResult z80Assemble(const char* source, uint16_t defaultOrg) {
             ctx.symbols[toUpper(pl.label)] = ctx.pc;
         }
 
+        // END terminates assembly; everything after it is ignored.
+        if (pl.mnemonic == "END") break;
+
         if (!pl.mnemonic.empty()) {
-            size_t before = ctx.output.size();
+            ctx.instrBytes.clear();
             assembleInstruction(ctx, pl);
-            (void)before;
         }
     }
 
     // Pass 2: generate final output with resolved labels
     ctx.pass1 = false;
+    ctx.org = defaultOrg;
     ctx.pc = ctx.org;
-    ctx.output.clear();
+    ctx.resetEmission();
     ctx.errors.clear();
     ctx.listing.clear();
 
@@ -1480,8 +1505,11 @@ AsmResult z80Assemble(const char* source, uint16_t defaultOrg) {
             ctx.symbols[toUpper(pl.label)] = ctx.pc;
         }
 
+        // END terminates assembly; everything after it is ignored.
+        if (pl.mnemonic == "END") break;
+
         uint16_t instrAddr = ctx.pc;
-        size_t before = ctx.output.size();
+        ctx.instrBytes.clear();
 
         if (!pl.mnemonic.empty()) {
             assembleInstruction(ctx, pl);
@@ -1492,16 +1520,27 @@ AsmResult z80Assemble(const char* source, uint16_t defaultOrg) {
         entry.line = pl.lineNum;
         entry.address = instrAddr;
         entry.source = pl.source;
-        for (size_t i = before; i < ctx.output.size(); i++) {
-            entry.bytes.push_back(ctx.output[i]);
-        }
+        entry.bytes = ctx.instrBytes;
         ctx.listing.push_back(entry);
     }
 
     AsmResult result;
     result.success = ctx.errors.empty();
-    result.origin = ctx.org;
-    result.output = std::move(ctx.output);
+
+    // Build the contiguous output image. The image spans from the lowest
+    // emitted address (the origin) to the highest, with any gaps left between
+    // ORG segments zero-filled. The image is loaded contiguously at `origin`.
+    if (ctx.anyEmitted) {
+        result.origin = ctx.minAddr;
+        size_t size = static_cast<size_t>(ctx.maxAddr - ctx.minAddr) + 1;
+        result.output.assign(size, 0);
+        for (const auto& kv : ctx.mem) {
+            result.output[kv.first - ctx.minAddr] = kv.second;
+        }
+    } else {
+        result.origin = ctx.org;
+    }
+
     result.errors = std::move(ctx.errors);
     result.listing = std::move(ctx.listing);
     return result;
