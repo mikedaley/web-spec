@@ -12,6 +12,8 @@
  *  Mike Daley <michael_daley@icloud.com>
  */
 
+import { hasNativeSockets, NativeUdpSocket } from "../platform/native-net.js";
+
 const TNFS_PORT = 16384;
 const TNFS_TIMEOUT = 3000;
 const TNFS_RETRIES = 2;
@@ -91,9 +93,10 @@ export class TNFSClient {
     // Resolve hostname to IP if needed
     const ip = await this._resolveHost(host);
 
-    // Open WebSocket to proxy targeting the TNFS server
+    // Open the transport to the TNFS server: native UDP under Tauri, otherwise
+    // a WebSocket to the UDP proxy. Both expose the same WebSocket interface.
     const wsUrl = `${proxyUrl}/udp/${ip}/${TNFS_PORT}`;
-    await this._connectWebSocket(wsUrl);
+    await this._connectWebSocket(wsUrl, ip, TNFS_PORT);
 
     // Build MOUNT packet: version (2 bytes LE) + mount path (null-terminated) + user + password
     const pathBytes = new TextEncoder().encode(mountPath);
@@ -325,9 +328,11 @@ export class TNFSClient {
     throw new Error(`Cannot resolve hostname: ${host}`);
   }
 
-  _connectWebSocket(url) {
+  _connectWebSocket(url, ip, port) {
     return new Promise((resolve, reject) => {
-      const ws = new WebSocket(url);
+      const ws = hasNativeSockets()
+        ? new NativeUdpSocket(ip, port)
+        : new WebSocket(url);
       ws.binaryType = "arraybuffer";
 
       const timeout = setTimeout(() => {

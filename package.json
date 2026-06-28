@@ -9,9 +9,18 @@
     "build:wasm": "mkdir -p build && cd build && emcmake cmake .. && emmake make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)",
     "preview": "vite preview",
     "clean": "rm -rf build dist public/zxspec.js public/zxspec.wasm",
-    "deploy": "rsync -avz --delete dist/ vps-mike:web-spec/data/"
+    "deploy": "rsync -avz --delete dist/ vps-mike:web-spec/data/",
+    "tauri": "PATH=\"$HOME/.cargo/bin:$PATH\" tauri",
+    "tauri:dev": "PATH=\"$HOME/.cargo/bin:$PATH\" tauri dev",
+    "tauri:build": "PATH=\"$HOME/.cargo/bin:$PATH\" tauri build"
+  },
+  "dependencies": {
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2",
+    "@tauri-apps/plugin-fs": "^2"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2",
     "vite": "^5.0.0"
   }
 }
