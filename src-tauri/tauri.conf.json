@@ -34,6 +34,9 @@
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns"
-    ]
+    ],
+    "macOS": {
+      "signingIdentity": "Developer ID Application: Michael Daley (PJNBHRUE79)"
+    }
   }
 }
